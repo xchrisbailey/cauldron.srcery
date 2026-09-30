@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vp test --passWithNoTests",
+    "test": "vp test",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
