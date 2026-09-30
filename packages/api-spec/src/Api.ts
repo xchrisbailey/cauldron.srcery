@@ -1,20 +1,31 @@
+import { User } from "@cauldron/shared";
 import { Schema } from "effect";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
-import { User } from "@cauldron/shared";
 import { Authorization } from "./Authorization.ts";
+import { UnavailableError } from "./errors.ts";
 
 export class Health extends Schema.Class<Health>("Health")({
   status: Schema.Literal("ok"),
+  database: Schema.Literal("ok"),
 }) {}
 
-export class SystemApi extends HttpApiGroup.make("system", { topLevel: true }).add(
-  HttpApiEndpoint.get("health", "/health", { success: Health }),
-) {}
+export class Version extends Schema.Class<Version>("Version")({
+  version: Schema.String,
+  commit: Schema.NullOr(Schema.String),
+}) {}
+
+export class SystemApi extends HttpApiGroup.make("system", { topLevel: true })
+  .add(
+    HttpApiEndpoint.get("health", "/health", { success: Health, error: UnavailableError }),
+    HttpApiEndpoint.get("version", "/version", { success: Version }),
+  )
+  .annotateMerge(OpenApi.annotations({ title: "System" })) {}
 
 export class AccountApi extends HttpApiGroup.make("account")
   .add(HttpApiEndpoint.get("me", "/me", { success: User }))
   .middleware(Authorization)
-  .prefix("/account") {}
+  .prefix("/account")
+  .annotateMerge(OpenApi.annotations({ title: "Account" })) {}
 
 export class Api extends HttpApi.make("cauldron")
   .add(SystemApi)

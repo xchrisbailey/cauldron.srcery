@@ -1,17 +1,49 @@
-import { Api, CurrentUser, Health } from "@cauldron/api-spec";
+import { Api, CurrentUser, Health, Version } from "@cauldron/api-spec";
+import { copy, Unavailable } from "@cauldron/shared";
 import { Effect, Layer } from "effect";
-import { HttpApiBuilder } from "effect/http-api";
+import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
+import { AppConfig } from "../AppConfig.ts";
+import { Db, redactDbError } from "../Db.ts";
 import { AuthorizationLive } from "./Authorization.ts";
 
-const SystemHandlers = HttpApiBuilder.group(Api, "system", (handlers) =>
-  Effect.succeed(handlers.handle("health", () => Effect.succeed(new Health({ status: "ok" })))),
+const SystemHandlers = HttpApiBuilder.group(
+  Api,
+  "system",
+  Effect.fn(function* (handlers) {
+    const db = yield* Db;
+    const config = yield* AppConfig;
+    return handlers
+      .handle("health", () =>
+        db.ping.pipe(
+          Effect.as(new Health({ status: "ok", database: "ok" })),
+          Effect.catchTag("DbError", (error) =>
+            Effect.logWarning("Health check failed", redactDbError(error)).pipe(
+              Effect.andThen(new Unavailable({ message: copy.errors.unavailable.text })),
+            ),
+          ),
+        ),
+      )
+      .handle("version", () =>
+        Effect.succeed(new Version({ version: config.version, commit: config.commit ?? null })),
+      );
+  }),
 );
 
 const AccountHandlers = HttpApiBuilder.group(Api, "account", (handlers) =>
   Effect.succeed(handlers.handle("me", () => CurrentUser)),
 );
 
-export const ApiRoutes = HttpApiBuilder.layer(Api, { openapiPath: "/v1/openapi.json" }).pipe(
-  Layer.provide([SystemHandlers, AccountHandlers]),
-  Layer.provide(AuthorizationLive),
+const Docs = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* AppConfig;
+    return config.docs ? HttpApiScalar.layer(Api, { path: "/v1/docs" }) : Layer.empty;
+  }),
+);
+
+export const ApiRoutes = Layer.mergeAll(
+  HttpApiBuilder.layer(Api, { openapiPath: "/v1/openapi.json" }).pipe(
+    Layer.provide([SystemHandlers, AccountHandlers]),
+    Layer.provide(AuthorizationLive),
+  ),
+  Docs,
 );

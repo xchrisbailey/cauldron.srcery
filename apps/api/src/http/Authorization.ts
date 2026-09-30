@@ -1,5 +1,5 @@
 import { Authorization, CurrentUser } from "@cauldron/api-spec";
-import { Unauthorized, User, UserId } from "@cauldron/shared";
+import { copy, Unauthorized, User, UserId } from "@cauldron/shared";
 import { Effect, Layer } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { Auth } from "../Auth.ts";
@@ -15,7 +15,7 @@ export const AuthorizationLive = Layer.effect(
         // getSession resolves null when signed out; a rejection is an outage, not a 401.
         const session = yield* Effect.promise(() => auth.api.getSession({ headers }));
         if (!session) {
-          return yield* new Unauthorized({ message: "Sign in to continue." });
+          return yield* new Unauthorized({ message: copy.errors.unauthorized.text });
         }
         const user = new User({
           id: UserId.make(session.user.id),
