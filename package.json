@@ -24,10 +24,15 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vp run --parallel api#dev web#dev",
-    "ready": "vp check && vp run -r test && vp run -r build"
+    "dev": "vp run --parallel --log labeled -F api -F web dev",
+    "typecheck": "vp run -r typecheck",
+    "test": "vp run -r test",
+    "build": "vp run -r build",
+    "ready": "vp check && vp run -r typecheck && vp run -r test && vp run -r build",
+    "prepare": "effect-tsgo patch --typescript"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.47.1",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
@@ -38,5 +43,5 @@
   "engines": {
     "node": ">=22.18.0"
   },
-  "packageManager": "bun@1.4.3"
+  "packageManager": "bun@1.4.2"
 }

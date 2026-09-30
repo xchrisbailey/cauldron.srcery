@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { migrationsFolder, schema } from "@cauldron/db";
 import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
@@ -20,6 +21,7 @@ export class Db extends Context.Service<
 >()("cauldron/api/Db") {
   static readonly make = Effect.gen(function* () {
     const { pgliteDataDir } = yield* AppConfig;
+    if (pgliteDataDir) yield* Effect.sync(() => mkdirSync(pgliteDataDir, { recursive: true }));
     const client = yield* Effect.acquireRelease(
       Effect.promise(() => PGlite.create(pgliteDataDir)),
       (c) => Effect.promise(() => c.close()),

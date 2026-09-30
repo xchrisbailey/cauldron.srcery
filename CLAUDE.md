@@ -13,6 +13,14 @@ A personal recipe box and weekly meal planner, by srcery. The web app comes firs
 - **Auth**: Better Auth, mounted on `/v1/auth/*` through `HttpEffect.fromWebHandler`. Sessions reach handlers through an `HttpApiMiddleware` that provides `CurrentUser`.
 - **AI**: TanStack AI, called from the API and wrapped as an Effect service (`RecipeExtractor`).
 
+## Commands
+
+- `bun run dev`: API on :3001 and web on :3000 (which proxies `/v1` to the API). Copy `apps/api/.env.example` to `apps/api/.env` first.
+- `vp check` (`--fix` to fix): format, lint and typecheck across the workspace. `vp` alone runs Vite+ built-ins; `vpr <script>` runs a package script.
+- `bun run test`, `bun run build`, `bun run ready` (what CI runs).
+- Locally the API uses PGlite (in-process Postgres); there is no Docker on the main dev machine.
+- The Effect language service is `@effect/tsgo`, patched into TypeScript 7 by the root `prepare` script, so `tsc -p <pkg>` also reports Effect diagnostics.
+
 ## Build order
 
 Follow the "Depends on" line at the top of each ticket. The critical path:
