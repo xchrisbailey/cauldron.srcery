@@ -1,10 +1,11 @@
 import { OAuth2Server } from "oauth2-mock-server";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
-import { makeTestApi, sessionCookie, url, WEB_ORIGIN } from "./helpers.ts";
+import { makeAuthApi } from "./auth-helpers.ts";
+import { sessionCookie, url, WEB_ORIGIN } from "./helpers.ts";
 
 describe("Better Auth bridge", () => {
   const oidc = new OAuth2Server();
-  let api: ReturnType<typeof makeTestApi>;
+  let api: ReturnType<typeof makeAuthApi>;
 
   beforeAll(async () => {
     await oidc.issuer.keys.generate("RS256");
@@ -22,7 +23,7 @@ describe("Better Auth bridge", () => {
       token.payload.name = "OAuth User";
       token.payload.email_verified = true;
     });
-    api = makeTestApi({
+    api = makeAuthApi({
       devOAuth: {
         providerId: "dev",
         clientId: "cauldron-dev",
@@ -48,7 +49,7 @@ describe("Better Auth bridge", () => {
     expect(res.status).toBe(401);
   });
 
-  it("signs up with email and reads /me with the session cookie and with a bearer token", async () => {
+  it("signs up, verifies by email link, then reads /me with the session cookie and a bearer token", async () => {
     const signUp = await api.handler(
       new Request(url("/v1/auth/sign-up/email"), {
         method: "POST",
@@ -57,18 +58,33 @@ describe("Better Auth bridge", () => {
           email: "ada@example.com",
           password: "correct-horse-1",
           name: "Ada",
+          callbackURL: "/",
         }),
       }),
     );
     expect(signUp.status).toBe(200);
+    // Email verification is required, so sign-up alone doesn't start a session.
+    expect(signUp.headers.getSetCookie()).toEqual([]);
+    expect(signUp.headers.get("set-auth-token")).toBeNull();
+
+    const [email] = await api.outbox();
+    const verify = await api.handler(new Request(url(api.linkIn(email!)), { redirect: "manual" }));
+    expect(verify.status).toBe(302);
 
     const viaCookie = await api.handler(
-      new Request(url("/v1/account/me"), { headers: { cookie: sessionCookie(signUp) } }),
+      new Request(url("/v1/account/me"), { headers: { cookie: sessionCookie(verify) } }),
     );
     expect(viaCookie.status).toBe(200);
     expect(await viaCookie.json()).toMatchObject({ email: "ada@example.com", name: "Ada" });
 
-    const token = signUp.headers.get("set-auth-token");
+    const signIn = await api.handler(
+      new Request(url("/v1/auth/sign-in/email"), {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: WEB_ORIGIN },
+        body: JSON.stringify({ email: "ada@example.com", password: "correct-horse-1" }),
+      }),
+    );
+    const token = signIn.headers.get("set-auth-token");
     expect(token).toBeTruthy();
     const viaBearer = await api.handler(
       new Request(url("/v1/account/me"), { headers: { authorization: `Bearer ${token}` } }),

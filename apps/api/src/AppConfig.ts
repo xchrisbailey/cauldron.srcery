@@ -26,6 +26,15 @@ const ProductionSecret = Config.schema(
   "BETTER_AUTH_SECRET",
 );
 
+export interface SocialProviders {
+  readonly google?: { readonly clientId: string; readonly clientSecret: Redacted.Redacted<string> };
+  readonly apple?: {
+    readonly clientId: string;
+    readonly clientSecret: Redacted.Redacted<string>;
+    readonly appBundleIdentifier: string | undefined;
+  };
+}
+
 export class AppConfig extends Context.Service<
   AppConfig,
   {
@@ -42,7 +51,9 @@ export class AppConfig extends Context.Service<
     readonly docs: boolean;
     readonly version: string;
     readonly commit: string | undefined;
-    /** Optional generic OIDC provider, used in dev and tests in place of Google/Apple. */
+    /** Google and Apple, each enabled when its credentials are set. */
+    readonly social: SocialProviders;
+    /** Optional generic OIDC provider, used in dev and tests in place of Google/Apple. Never in production. */
     readonly devOAuth: OAuthProviderConfig | undefined;
   }
 >()("cauldron/api/AppConfig") {
@@ -65,6 +76,22 @@ export class AppConfig extends Context.Service<
       const docs = yield* Config.Boolean("API_DOCS").pipe(Config.withDefault(env !== "production"));
       const commit = yield* Config.option(Config.String("GIT_SHA"));
       const devIssuer = yield* Config.option(Config.String("DEV_OAUTH_DISCOVERY_URL"));
+      if (env === "production" && Option.isSome(devIssuer)) {
+        return yield* Effect.die("DEV_OAUTH_DISCOVERY_URL must not be set in production.");
+      }
+      const google = yield* Config.option(
+        Config.all({
+          clientId: Config.String("GOOGLE_CLIENT_ID"),
+          clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
+        }),
+      );
+      const apple = yield* Config.option(
+        Config.all({
+          clientId: Config.String("APPLE_CLIENT_ID"),
+          clientSecret: Config.Redacted("APPLE_CLIENT_SECRET"),
+        }),
+      );
+      const appleBundle = yield* Config.option(Config.String("APPLE_APP_BUNDLE_IDENTIFIER"));
       return AppConfig.of({
         port,
         publicUrl,
@@ -73,6 +100,12 @@ export class AppConfig extends Context.Service<
         docs,
         version: pkg.version,
         commit: Option.getOrUndefined(commit),
+        social: {
+          ...(Option.isSome(google) ? { google: google.value } : {}),
+          ...(Option.isSome(apple)
+            ? { apple: { ...apple.value, appBundleIdentifier: Option.getOrUndefined(appleBundle) } }
+            : {}),
+        },
         devOAuth: Option.match(devIssuer, {
           onNone: () => undefined,
           onSome: (discoveryUrl) => ({
@@ -97,6 +130,7 @@ export class AppConfig extends Context.Service<
         docs: false,
         version: "0.0.0-test",
         commit: undefined,
+        social: {},
         devOAuth: undefined,
         ...overrides,
       }),

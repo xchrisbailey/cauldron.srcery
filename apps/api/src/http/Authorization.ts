@@ -1,16 +1,31 @@
 import { Authorization, CurrentUser } from "@cauldron/api-spec";
-import { copy, Unauthorized, User, UserId } from "@cauldron/shared";
+import { copy, Forbidden, Unauthorized, User, UserId } from "@cauldron/shared";
 import { Effect, Layer } from "effect";
 import { HttpServerRequest } from "effect/http";
+import { AppConfig } from "../AppConfig.ts";
 import { Auth } from "../Auth.ts";
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export const AuthorizationLive = Layer.effect(
   Authorization,
   Effect.gen(function* () {
     const auth = yield* Auth;
+    const { publicUrl } = yield* AppConfig;
+    const webOrigin = new URL(publicUrl).origin;
     return Authorization.of(
       Effect.fn("Authorization")(function* (httpEffect) {
         const request = yield* HttpServerRequest.HttpServerRequest;
+        const bearer = request.headers["authorization"]?.toLowerCase().startsWith("bearer ");
+        // Cookies ride along on cross-site requests; bearer tokens don't, so only
+        // cookie-authenticated writes need the Origin check.
+        if (
+          !bearer &&
+          !SAFE_METHODS.has(request.method) &&
+          request.headers["origin"] !== webOrigin
+        ) {
+          return yield* new Forbidden({ message: copy.errors.crossSite.text });
+        }
         const headers = new Headers(request.headers as Record<string, string>);
         // getSession resolves null when signed out; a rejection is an outage, not a 401.
         const session = yield* Effect.promise(() => auth.api.getSession({ headers }));
