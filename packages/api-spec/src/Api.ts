@@ -14,10 +14,18 @@ export class Version extends Schema.Class<Version>("Version")({
   commit: Schema.NullOr(Schema.String),
 }) {}
 
+export class SignInOptions extends Schema.Class<SignInOptions>("SignInOptions")({
+  google: Schema.Boolean,
+  apple: Schema.Boolean,
+  /** A local OIDC provider standing in for Google and Apple in development. */
+  dev: Schema.Boolean,
+}) {}
+
 export class SystemApi extends HttpApiGroup.make("system", { topLevel: true })
   .add(
     HttpApiEndpoint.get("health", "/health", { success: Health, error: UnavailableError }),
     HttpApiEndpoint.get("version", "/version", { success: Version }),
+    HttpApiEndpoint.get("signInOptions", "/sign-in-options", { success: SignInOptions }),
   )
   .annotateMerge(OpenApi.annotations({ title: "System" })) {}
 

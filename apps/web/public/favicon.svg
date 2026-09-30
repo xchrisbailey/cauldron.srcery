@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 66 66">
+  <style>.o{stroke:#cdd6f4}.b{fill:#1e1e2e}.l{fill:#cba6f7}.c{fill:#fab387}.y{fill:#f9e2af}.p{stroke:#f5c2e7}.v{fill:#b4befe}.bd{fill:#1e1e2e}@media (prefers-color-scheme: light){.o{stroke:#4c4f69}.b{fill:#eff1f5}.l{fill:#8839ef}.c{fill:#fe640b}.y{fill:#df8e1d}.p{stroke:#ea76cb}.v{fill:#7287fd}.bd{fill:#eff1f5}}</style>
+  <defs><clipPath id="pot"><path d="M14.5 28.5H49.5V33A17.5 17.5 0 0 1 14.5 33Z"/></clipPath></defs>
+  <path class="c" d="M32 51Q39.5 57 37.8 60.6Q36.3 63.6 32 63.6Q27.7 63.6 26.2 60.6Q24.5 57 32 51Z"/>
+  <path class="o" d="M19.5 49L16.5 58M44.5 49L47.5 58" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path class="b o" d="M13 27H51V33A19 19 0 0 1 13 33Z" stroke-width="3" stroke-linejoin="round"/>
+  <path class="l" clip-path="url(#pot)" d="M8 36Q14 31.5 20 36T32 36T44 36T56 36V60H8Z"/>
+  <circle class="bd" fill-opacity=".55" cx="25" cy="43" r="2.6"/><circle class="bd" fill-opacity=".55" cx="36" cy="47" r="1.8"/>
+  <rect class="b o" x="9" y="21" width="46" height="7" rx="3.5" stroke-width="3"/>
+  <circle class="l" cx="27" cy="15" r="2.6"/>
+  <circle class="p" cx="38" cy="11" r="3" stroke-width="2" fill="none"/>
+  <circle class="v" cx="45" cy="3.5" r="2.2"/>
+  <path class="y" d="M12 3Q12 8.5 17.5 8.5Q12 8.5 12 14Q12 8.5 6.5 8.5Q12 8.5 12 3Z"/>
+</svg>

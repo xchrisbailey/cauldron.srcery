@@ -1,4 +1,4 @@
-import { Api, CurrentUser, Health, Version } from "@cauldron/api-spec";
+import { Api, CurrentUser, Health, SignInOptions, Version } from "@cauldron/api-spec";
 import { copy, Unavailable } from "@cauldron/shared";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
@@ -25,6 +25,15 @@ const SystemHandlers = HttpApiBuilder.group(
       )
       .handle("version", () =>
         Effect.succeed(new Version({ version: config.version, commit: config.commit ?? null })),
+      )
+      .handle("signInOptions", () =>
+        Effect.succeed(
+          new SignInOptions({
+            google: config.social.google !== undefined,
+            apple: config.social.apple !== undefined,
+            dev: config.devOAuth !== undefined,
+          }),
+        ),
       );
   }),
 );

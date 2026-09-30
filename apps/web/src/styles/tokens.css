@@ -1,0 +1,76 @@
+/*
+ * Cauldron color tokens: Catppuccin Mocha (default) and Latte, the exact values
+ * srcery.computer uses. This is the only file with raw hex; everything else
+ * reads these variables through src/styles/tokens.stylex.ts.
+ *
+ * Mocha is the default. Latte follows the system's light mode unless the theme
+ * toggle has pinned one (data-theme on <html>, set before paint by the inline
+ * script in __root.tsx).
+ */
+:root {
+  --ctp-base: #1e1e2e;
+  --ctp-mantle: #181825;
+  --ctp-crust: #11111b;
+  --ctp-surface0: #313244;
+  --ctp-surface1: #45475a;
+  --ctp-overlay0: #6c7086;
+  --ctp-overlay1: #7f849c;
+  --ctp-subtext: #a6adc8;
+  --ctp-text: #cdd6f4;
+  --ctp-mauve: #cba6f7;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-pink: #f5c2e7;
+  --ctp-lavender: #b4befe;
+  --ctp-blue: #89b4fa;
+  --ctp-teal: #94e2d5;
+  --ctp-red: #f38ba8;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ctp-base: #eff1f5;
+    --ctp-mantle: #e6e9ef;
+    --ctp-crust: #dce0e8;
+    --ctp-surface0: #ccd0da;
+    --ctp-surface1: #bcc0cc;
+    --ctp-overlay0: #9ca0b0;
+    --ctp-overlay1: #8c8fa1;
+    --ctp-subtext: #6c6f85;
+    --ctp-text: #4c4f69;
+    --ctp-mauve: #8839ef;
+    --ctp-peach: #fe640b;
+    --ctp-yellow: #df8e1d;
+    --ctp-green: #40a02b;
+    --ctp-pink: #ea76cb;
+    --ctp-lavender: #7287fd;
+    --ctp-blue: #1e66f5;
+    --ctp-teal: #179299;
+    --ctp-red: #d20f39;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+  --ctp-surface0: #ccd0da;
+  --ctp-surface1: #bcc0cc;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-subtext: #6c6f85;
+  --ctp-text: #4c4f69;
+  --ctp-mauve: #8839ef;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-pink: #ea76cb;
+  --ctp-lavender: #7287fd;
+  --ctp-blue: #1e66f5;
+  --ctp-teal: #179299;
+  --ctp-red: #d20f39;
+  color-scheme: light;
+}

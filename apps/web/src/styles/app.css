@@ -1,4 +1,8 @@
 /* Global CSS entry. StyleX appends its compiled rules to this asset in production builds. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "./tokens.css";
+
 *,
 *::before,
 *::after {
