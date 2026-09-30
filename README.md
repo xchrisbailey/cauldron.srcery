@@ -48,22 +48,24 @@ API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 
 Web (production server only):
 
-| Variable     | Default                 | Notes                     |
-| ------------ | ----------------------- | ------------------------- |
-| `PORT`       | `3000`                  |                           |
-| `API_ORIGIN` | `http://localhost:3001` | Where `/v1` is proxied to |
+| Variable      | Default                 | Notes                                                                                  |
+| ------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| `PORT`        | `3000`                  |                                                                                        |
+| `API_ORIGIN`  | `http://localhost:3001` | Where `/v1` is proxied to                                                              |
+| `TRUST_PROXY` | `false`                 | Keep a load balancer's `X-Forwarded-For` instead of replacing it with the peer address |
 
 ## Scripts
 
-| Command                        | What                                                       |
-| ------------------------------ | ---------------------------------------------------------- |
-| `bun run dev`                  | API and web together, with reload                          |
-| `vp check`                     | Format check, lint and typecheck (`vp check --fix` to fix) |
-| `bun run test`                 | Every package's tests                                      |
-| `bun run build`                | Production builds                                          |
-| `bun run ready`                | All of the above, as CI runs it                            |
-| `bun run --cwd apps/web start` | Serve the built web app (`server.ts`)                      |
-| `bunx drizzle-kit generate`    | New migration from the schema (run in `packages/db`)       |
+| Command                        | What                                                             |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `bun run dev`                  | API and web together, with reload                                |
+| `vp check`                     | Format check, lint and typecheck (`vp check --fix` to fix)       |
+| `bun run typecheck`            | `tsc` per package, including Effect language-service diagnostics |
+| `bun run test`                 | Every package's tests                                            |
+| `bun run build`                | Production builds                                                |
+| `bun run ready`                | All of the above, as CI runs it                                  |
+| `bun run --cwd apps/web start` | Serve the built web app (`server.ts`)                            |
+| `bunx drizzle-kit generate`    | New migration from the schema (run in `packages/db`)             |
 
 ## Containers
 
