@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Layer, Option, Redacted } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import pkg from "../package.json" with { type: "json" };
 
 export interface OAuthProviderConfig {
@@ -8,6 +8,24 @@ export interface OAuthProviderConfig {
   readonly discoveryUrl: string;
 }
 
+/** `NODE_ENV`; production turns on the strict configuration checks. */
+export const NodeEnv = Config.Literals(["development", "test", "production"], "NODE_ENV").pipe(
+  Config.withDefault("development"),
+);
+
+export const MIN_SECRET_LENGTH = 32;
+
+const ProductionSecret = Config.schema(
+  Schema.Redacted(
+    Schema.String.check(
+      Schema.isMinLength(MIN_SECRET_LENGTH, {
+        message: `BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters in production (try: openssl rand -base64 32)`,
+      }),
+    ),
+  ),
+  "BETTER_AUTH_SECRET",
+);
+
 export class AppConfig extends Context.Service<
   AppConfig,
   {
@@ -15,6 +33,11 @@ export class AppConfig extends Context.Service<
     /** Public origin the browser sees (the web app); auth cookies, redirects and CORS use it. */
     readonly publicUrl: string;
     readonly authSecret: Redacted.Redacted<string>;
+    /**
+     * Trust the `x-client-ip` header (set by our own web proxy) for the client's
+     * address. Only enable behind that proxy; otherwise the header is spoofable.
+     */
+    readonly trustProxy: boolean;
     /** Serves Scalar API docs at /v1/docs. */
     readonly docs: boolean;
     readonly version: string;
@@ -27,14 +50,18 @@ export class AppConfig extends Context.Service<
   static readonly layer = Layer.effect(
     AppConfig,
     Effect.gen(function* () {
+      const env = yield* NodeEnv;
+      const production = env === "production";
       const port = yield* Config.Port("PORT").pipe(Config.withDefault(3001));
-      const publicUrl = yield* Config.String("PUBLIC_URL").pipe(
-        Config.withDefault("http://localhost:3000"),
-      );
-      const authSecret = yield* Config.Redacted("BETTER_AUTH_SECRET");
-      const env = yield* Config.Literals(["development", "test", "production"], "NODE_ENV").pipe(
-        Config.withDefault("development"),
-      );
+      // Production has no defaults: a missing PUBLIC_URL would quietly point
+      // auth cookies and redirects at localhost.
+      const publicUrl = yield* production
+        ? Config.String("PUBLIC_URL")
+        : Config.String("PUBLIC_URL").pipe(Config.withDefault("http://localhost:3000"));
+      const authSecret = yield* production
+        ? ProductionSecret
+        : Config.Redacted("BETTER_AUTH_SECRET");
+      const trustProxy = yield* Config.Boolean("TRUST_PROXY").pipe(Config.withDefault(false));
       const docs = yield* Config.Boolean("API_DOCS").pipe(Config.withDefault(env !== "production"));
       const commit = yield* Config.option(Config.String("GIT_SHA"));
       const devIssuer = yield* Config.option(Config.String("DEV_OAUTH_DISCOVERY_URL"));
@@ -42,6 +69,7 @@ export class AppConfig extends Context.Service<
         port,
         publicUrl,
         authSecret,
+        trustProxy,
         docs,
         version: pkg.version,
         commit: Option.getOrUndefined(commit),
@@ -65,6 +93,7 @@ export class AppConfig extends Context.Service<
         port: 0,
         publicUrl: "http://localhost:3000",
         authSecret: Redacted.make("test-secret-test-secret-test-secret"),
+        trustProxy: false,
         docs: false,
         version: "0.0.0-test",
         commit: undefined,

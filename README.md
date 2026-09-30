@@ -40,26 +40,27 @@ DEV_OAUTH_DISCOVERY_URL=http://localhost:9400/.well-known/openid-configuration
 
 API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 
-| Variable                      | Default                 | Notes                                                                |
-| ----------------------------- | ----------------------- | -------------------------------------------------------------------- |
-| `PORT`                        | `3001`                  |                                                                      |
-| `PUBLIC_URL`                  | `http://localhost:3000` | The origin the browser sees. Auth cookies and OAuth redirects use it |
-| `BETTER_AUTH_SECRET`          | (required)              | 32+ random characters: `openssl rand -base64 32`                     |
-| `DATABASE_URL`                | unset                   | Postgres connection string. Unset means PGlite                       |
-| `PGLITE_DATA_DIR`             | in memory               | Where PGlite keeps data                                              |
-| `DEV_OAUTH_DISCOVERY_URL`     | unset                   | Enables the "dev" OIDC provider                                      |
-| `API_DOCS`                    | on unless production    | Serves Scalar docs at `/v1/docs`                                     |
-| `NODE_ENV`                    | `development`           | `production` turns docs off by default                               |
-| `GIT_SHA`                     | unset                   | Reported by `/v1/version`                                            |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset                   | Exports traces and logs over OTLP/HTTP                               |
+| Variable                      | Default                 | Notes                                                                                                                           |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                        | `3001`                  |                                                                                                                                 |
+| `PUBLIC_URL`                  | `http://localhost:3000` | The origin the browser sees. Auth cookies and OAuth redirects use it. Required in production                                    |
+| `BETTER_AUTH_SECRET`          | (required)              | 32+ random characters (enforced in production): `openssl rand -base64 32`                                                       |
+| `DATABASE_URL`                | unset                   | Postgres connection string. Unset means PGlite; required in production                                                          |
+| `TRUST_PROXY`                 | `false`                 | Trust the web proxy's `x-client-ip` for rate limits and auth. Set it only when the API is reachable through the web proxy alone |
+| `PGLITE_DATA_DIR`             | in memory               | Where PGlite keeps data                                                                                                         |
+| `DEV_OAUTH_DISCOVERY_URL`     | unset                   | Enables the "dev" OIDC provider                                                                                                 |
+| `API_DOCS`                    | on unless production    | Serves Scalar docs at `/v1/docs`                                                                                                |
+| `NODE_ENV`                    | `development`           | `production` turns docs off by default and requires `DATABASE_URL`, `PUBLIC_URL` and a 32+ character secret                     |
+| `GIT_SHA`                     | unset                   | Reported by `/v1/version`                                                                                                       |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset                   | Exports traces and logs over OTLP/HTTP                                                                                          |
 
 Web (production server only):
 
-| Variable      | Default                 | Notes                                                                                  |
-| ------------- | ----------------------- | -------------------------------------------------------------------------------------- |
-| `PORT`        | `3000`                  |                                                                                        |
-| `API_ORIGIN`  | `http://localhost:3001` | Where `/v1` is proxied to                                                              |
-| `TRUST_PROXY` | `false`                 | Keep a load balancer's `X-Forwarded-For` instead of replacing it with the peer address |
+| Variable      | Default                 | Notes                                                                                                                                                          |
+| ------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`        | `3000`                  |                                                                                                                                                                |
+| `API_ORIGIN`  | `http://localhost:3001` | Where `/v1` is proxied to                                                                                                                                      |
+| `TRUST_PROXY` | `false`                 | Take the client address from the rightmost `X-Forwarded-For` entry (added by your load balancer) instead of the peer address. Sent to the API as `x-client-ip` |
 
 ## Scripts
 

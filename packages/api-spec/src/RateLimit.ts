@@ -15,6 +15,9 @@ export const RateLimitPolicy = Context.Reference<RateLimitPolicyValue>(
 
 // Opt in with `.middleware(RateLimit)` on expensive endpoints (AI extraction,
 // URL import, search). The server implementation lives in apps/api.
+// Limits are keyed by user when Authorization has already run, otherwise by
+// client address. Middleware added later wraps earlier ones, so put
+// `.middleware(RateLimit)` before `.middleware(Authorization)` on an endpoint.
 export class RateLimit extends HttpApiMiddleware.Service<RateLimit>()(
   "cauldron/api-spec/RateLimit",
   { error: TooManyRequestsError },

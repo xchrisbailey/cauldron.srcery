@@ -9,10 +9,53 @@ import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { sql } from "drizzle-orm";
 import { Config, Context, Effect, Exit, Layer, Option, Redacted, Schema } from "effect";
 import pg from "pg";
+import { NodeEnv } from "./AppConfig.ts";
 
 export class DbError extends Schema.TaggedError<DbError>()("DbError", {
   cause: Schema.Defect(),
+  /** The SQLSTATE (for example "23505"), when the driver reported one. */
+  code: Schema.optional(Schema.String),
 }) {}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+// pg and PGlite put the SQLSTATE on the error; Drizzle may wrap it in a
+// DrizzleQueryError that keeps the original as `cause`.
+const findCode = (cause: unknown): string | undefined => {
+  for (let error = cause, depth = 0; isRecord(error) && depth < 5; depth++) {
+    if (typeof error.code === "string") return error.code;
+    error = error.cause;
+  }
+  return undefined;
+};
+
+/** Wraps a thrown driver error, keeping its Postgres error code. */
+export const dbError = (cause: unknown) => new DbError({ cause, code: findCode(cause) });
+
+/** A unique constraint was violated (SQLSTATE 23505). */
+export const isUniqueViolation = (error: DbError) => error.code === "23505";
+
+/** A value had the wrong text representation for its column type, such as a bad uuid (SQLSTATE 22P02). */
+export const isInvalidText = (error: DbError) => error.code === "22P02";
+
+/**
+ * What is safe to log about a DbError. Drizzle's own message includes the
+ * query parameters, so this reports the SQLSTATE and the driver's message only.
+ */
+export const redactDbError = (error: DbError): { code: string | undefined; message: string } => {
+  let inner: unknown = error.cause;
+  for (let depth = 0; isRecord(inner) && isRecord(inner.cause) && depth < 5; depth++) {
+    inner = inner.cause;
+  }
+  const message =
+    isRecord(inner) &&
+    typeof inner.message === "string" &&
+    !inner.message.startsWith("Failed query")
+      ? inner.message
+      : "query failed";
+  return { code: error.code, message };
+};
 
 export type Drizzle = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -48,7 +91,7 @@ export class Db extends Context.Service<
         const tx = yield* CurrentTx;
         return yield* Effect.tryPromise({
           try: () => f(tx ?? db),
-          catch: (cause) => new DbError({ cause }),
+          catch: (cause) => dbError(cause),
         });
       });
 
@@ -59,15 +102,23 @@ export class Db extends Context.Service<
         if (outer) return yield* self;
         const context = yield* Effect.context<R>();
         const exit = yield* Effect.tryPromise({
-          try: () =>
+          // Interrupting the Effect aborts the signal, which interrupts the
+          // inner program; its non-success Exit then rolls the transaction back.
+          try: (signal) =>
             db.transaction(async (tx) => {
-              const exit = await Effect.runPromiseExitWith(Context.add(context, CurrentTx, tx))(
-                self,
-              );
-              if (Exit.isFailure(exit)) throw new RollbackSignal(exit);
+              const fiber = Effect.runForkWith(Context.add(context, CurrentTx, tx))(self);
+              const finished = new Promise<Exit.Exit<A, E>>((resolve) => {
+                fiber.addObserver(resolve);
+              });
+              const interrupt = () => fiber.interruptUnsafe();
+              if (signal.aborted) interrupt();
+              else signal.addEventListener("abort", interrupt, { once: true });
+              const exit = await finished;
+              signal.removeEventListener("abort", interrupt);
+              if (!Exit.isSuccess(exit)) throw new RollbackSignal(exit);
               return exit;
             }),
-          catch: (cause) => (cause instanceof RollbackSignal ? cause : new DbError({ cause })),
+          catch: (cause) => (cause instanceof RollbackSignal ? cause : dbError(cause)),
         }).pipe(
           Effect.catchIf(
             (error): error is RollbackSignal => error instanceof RollbackSignal,
@@ -87,22 +138,50 @@ export class Db extends Context.Service<
     Layer.effect(
       Db,
       Effect.gen(function* () {
+        const context = yield* Effect.context<never>();
         const pool = yield* Effect.acquireRelease(
-          Effect.sync(() => new pg.Pool({ connectionString: Redacted.value(url) })),
+          Effect.sync(() => {
+            const pool = new pg.Pool({
+              connectionString: Redacted.value(url),
+              // Fail fast so /v1/health answers 503 when Postgres is unreachable.
+              connectionTimeoutMillis: 5000,
+            });
+            // An idle client erroring (server restart, network drop) must not crash the process.
+            pool.on("error", (error) => {
+              Effect.runForkWith(context)(
+                Effect.logWarning("Postgres pool error", {
+                  code: findCode(error),
+                  message: error.message,
+                }),
+              );
+            });
+            return pool;
+          }),
           (pool) => Effect.promise(() => pool.end()),
         );
         yield* Effect.tryPromise({
           try: async () => {
             const client = await pool.connect();
+            let failure: Error | undefined;
             try {
+              // Don't wait forever behind a stuck instance: lock_timeout also
+              // covers advisory locks. Cleared once we hold the lock so it
+              // doesn't apply to the migrations themselves.
+              await client.query("set lock_timeout = '60s'");
               await client.query("select pg_advisory_lock(7263541)");
+              await client.query("reset lock_timeout");
               await migratePg(drizzlePg({ client, schema }), { migrationsFolder });
             } finally {
-              await client.query("select pg_advisory_unlock(7263541)").catch(() => undefined);
-              client.release();
+              try {
+                await client.query("select pg_advisory_unlock(7263541)");
+              } catch (error) {
+                failure = error instanceof Error ? error : new Error(String(error));
+              }
+              // Destroying the connection also drops the session lock if unlock failed.
+              client.release(failure);
             }
           },
-          catch: (cause) => new DbError({ cause }),
+          catch: (cause) => dbError(cause),
         });
         return Db.fromDrizzle(drizzlePg({ client: pool, schema }));
       }),
@@ -117,22 +196,26 @@ export class Db extends Context.Service<
         const client = yield* Effect.acquireRelease(
           Effect.tryPromise({
             try: () => PGlite.create(dataDir),
-            catch: (cause) => new DbError({ cause }),
+            catch: (cause) => dbError(cause),
           }),
           (client) => Effect.promise(() => client.close()),
         );
         const db = drizzlePglite({ client, schema });
         yield* Effect.tryPromise({
           try: () => migratePglite(db, { migrationsFolder }),
-          catch: (cause) => new DbError({ cause }),
+          catch: (cause) => dbError(cause),
         });
         return Db.fromDrizzle(db);
       }),
     );
 
-  /** Postgres when DATABASE_URL is set, otherwise PGlite (PGLITE_DATA_DIR, or in memory). */
+  /** Postgres when DATABASE_URL is set, otherwise PGlite (PGLITE_DATA_DIR, or in memory). Production requires DATABASE_URL. */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
+      // Production must use Postgres: no silent fall back to an in-memory database.
+      if ((yield* NodeEnv) === "production") {
+        return Db.layerPostgres(yield* Config.Redacted("DATABASE_URL"));
+      }
       const url = yield* Config.option(Config.Redacted("DATABASE_URL"));
       if (Option.isSome(url)) return Db.layerPostgres(url.value);
       const dataDir = yield* Config.option(Config.String("PGLITE_DATA_DIR"));
@@ -161,7 +244,7 @@ export class Db extends Context.Service<
               await client.end();
             }
           },
-          catch: (cause) => new DbError({ cause }),
+          catch: (cause) => dbError(cause),
         });
       yield* Effect.acquireRelease(admin(`create database "${name}"`), () =>
         admin(`drop database if exists "${name}" with (force)`).pipe(Effect.ignore),

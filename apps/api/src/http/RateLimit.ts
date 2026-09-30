@@ -1,49 +1,62 @@
-import { RateLimit, RateLimitPolicy } from "@cauldron/api-spec";
+import { CurrentUser, RateLimit, RateLimitPolicy, TooManyRequestsError } from "@cauldron/api-spec";
 import { copy, TooManyRequests } from "@cauldron/shared";
-import { Context, Duration, Effect, Layer, Option } from "effect";
-import { HttpServerRequest } from "effect/http";
+import { Context, Duration, Effect, Layer, Option, Schema } from "effect";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { RateLimiter } from "effect/persistence";
+import { AppConfig } from "../AppConfig.ts";
+import { resolveClientIp } from "./ClientIp.ts";
+import { layerStoreMemoryBounded } from "./RateLimitStore.ts";
 
-/** First `x-forwarded-for` entry, else the socket's remote address, else "unknown". */
-export const clientIp = (request: HttpServerRequest.HttpServerRequest): string => {
-  const forwarded = request.headers["x-forwarded-for"]?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return Option.getOrElse(request.remoteAddress, () => "unknown");
-};
+const encodeTooManyRequests = Schema.encodeSync(TooManyRequestsError);
 
 export const RateLimitMiddleware = Layer.effect(
   RateLimit,
   Effect.gen(function* () {
     const limiter = yield* RateLimiter.RateLimiter;
+    const { trustProxy } = yield* AppConfig;
     return RateLimit.of((httpEffect, { endpoint, group }) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
         const policy = Context.get(endpoint.annotations, RateLimitPolicy);
-        yield* limiter
+        // Signed-in requests are limited per user (an address can be shared or
+        // rotate); anonymous ones per client address.
+        const user = yield* Effect.serviceOption(CurrentUser);
+        const subject = Option.match(user, {
+          onNone: () => `ip:${resolveClientIp(request, trustProxy)}`,
+          onSome: (u) => `user:${u.id}`,
+        });
+        const rejected = yield* limiter
           .consume({
             algorithm: "fixed-window",
             onExceeded: "fail",
-            key: `${group.identifier}:${endpoint.identifier}:${clientIp(request)}`,
+            key: `${group.identifier}:${endpoint.identifier}:${subject}`,
             limit: policy.limit,
             window: policy.window,
           })
           .pipe(
-            Effect.catchTag("RateLimiterError", (error) =>
-              error.reason._tag === "RateLimitExceeded"
-                ? Effect.fail(
+            Effect.as(undefined as HttpServerResponse.HttpServerResponse | undefined),
+            Effect.catchTag("RateLimiterError", (error) => {
+              // A broken limiter store shouldn't take the route down.
+              if (error.reason._tag !== "RateLimitExceeded") return Effect.void;
+              const retryAfterSeconds = Math.max(
+                1,
+                Math.ceil(Duration.toSeconds(error.reason.retryAfter)),
+              );
+              // Answered here rather than failed, so the response can carry Retry-After.
+              return Effect.succeed(
+                HttpServerResponse.jsonUnsafe(
+                  encodeTooManyRequests(
                     new TooManyRequests({
                       message: copy.errors.tooManyRequests.text,
-                      retryAfterSeconds: Math.max(
-                        1,
-                        Math.ceil(Duration.toSeconds(error.reason.retryAfter)),
-                      ),
+                      retryAfterSeconds,
                     }),
-                  )
-                : // A broken limiter store shouldn't take the route down.
-                  Effect.void,
-            ),
+                  ),
+                  { status: 429, headers: { "retry-after": String(retryAfterSeconds) } },
+                ),
+              );
+            }),
           );
-        return yield* httpEffect;
+        return rejected ?? (yield* httpEffect);
       }),
     );
   }),
@@ -52,5 +65,5 @@ export const RateLimitMiddleware = Layer.effect(
 /** The middleware plus its in-memory store. Swap the store layer for Redis when the API scales out. */
 export const RateLimitLive = RateLimitMiddleware.pipe(
   Layer.provide(RateLimiter.layer),
-  Layer.provide(RateLimiter.layerStoreMemory),
+  Layer.provide(layerStoreMemoryBounded),
 );

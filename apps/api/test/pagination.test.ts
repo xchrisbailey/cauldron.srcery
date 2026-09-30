@@ -1,8 +1,9 @@
 import { InvalidRequest, MAX_PAGE_LIMIT, PageQuery } from "@cauldron/shared";
+import { timestampMs } from "@cauldron/db";
 import { PGlite } from "@electric-sql/pglite";
 import { desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { Effect, Schema } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { makeCursor, paginate } from "../src/Pagination.ts";
@@ -11,6 +12,15 @@ const items = pgTable("pagination_items", {
   id: text("id").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
+
+// Keyset columns default to now() here: Postgres stamps them itself, so
+// precision 3 (timestampMs) is what keeps them comparable with a JS Date.
+const stamped = pgTable("pagination_stamped", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestampMs("created_at").notNull().defaultNow(),
+});
+
+const Uuid = Schema.String.check(Schema.isUUID());
 
 const client = new PGlite();
 const db = drizzle({ client });
@@ -33,6 +43,11 @@ beforeAll(async () => {
     "create table pagination_items (id text primary key, created_at timestamptz not null)",
   );
   await db.insert(items).values(rows);
+  await client.exec(
+    "create table pagination_stamped (id uuid primary key default gen_random_uuid(), created_at timestamptz(3) not null default now())",
+  );
+  // One statement each, so every row gets its own now(); a few in the same millisecond.
+  for (let n = 0; n < 40; n++) await db.insert(stamped).values({});
 });
 afterAll(() => client.close());
 
@@ -41,6 +56,7 @@ const page = (query: PageQuery) =>
     query,
     createdAt: items.createdAt,
     id: items.id,
+    idSchema: Schema.String,
     run: ({ where, limit }) =>
       Effect.promise(() =>
         db
@@ -108,6 +124,58 @@ describe("paginate", () => {
     );
     const result = await Effect.runPromise(page({ cursor, limit: 2 }));
     expect(result.items.map((r) => r.id)).toEqual(["tie-a", "r10"]);
+  });
+});
+
+describe("paginate with a uuid id and database-stamped timestamps", () => {
+  const stampedPage = (query: PageQuery) =>
+    paginate({
+      query,
+      createdAt: stamped.createdAt,
+      id: stamped.id,
+      idSchema: Uuid,
+      run: ({ where, limit }) =>
+        Effect.promise(() =>
+          db
+            .select()
+            .from(stamped)
+            .where(where)
+            .orderBy(desc(stamped.createdAt), desc(stamped.id))
+            .limit(limit),
+        ),
+    });
+
+  it("walks every row exactly once in order, whatever the page size", async () => {
+    const all = await db.select().from(stamped).orderBy(desc(stamped.createdAt), desc(stamped.id));
+    for (const limit of [1, 3, 7]) {
+      const ids: Array<string> = [];
+      let cursor: string | undefined;
+      do {
+        const result = await Effect.runPromise(
+          stampedPage({ limit, ...(cursor ? { cursor } : {}) }),
+        );
+        ids.push(...result.items.map((r) => r.id));
+        cursor = result.nextCursor ?? undefined;
+      } while (cursor);
+      expect(ids).toEqual(all.map((r) => r.id));
+    }
+  });
+
+  it("stores millisecond-precision timestamps, so a cursor round-trips exactly", async () => {
+    const [row] = await db.select().from(stamped).limit(1);
+    const raw = await client.query<{ us: string }>(
+      "select (extract(epoch from created_at) * 1000000)::bigint::text as us from pagination_stamped limit 1",
+    );
+    expect(Number(raw.rows[0]!.us) % 1000).toBe(0);
+    expect(row!.createdAt.getTime() * 1000).toBeGreaterThan(0);
+  });
+
+  it("rejects a cursor whose id is not a uuid as InvalidRequest, before touching the database", async () => {
+    const forged = Buffer.from(
+      JSON.stringify({ c: new Date(base).toISOString(), i: "not-a-uuid'; drop table x" }),
+    ).toString("base64url");
+    const error = await Effect.runPromise(stampedPage({ cursor: forged }).pipe(Effect.flip));
+    expect(error).toBeInstanceOf(InvalidRequest);
   });
 });
 

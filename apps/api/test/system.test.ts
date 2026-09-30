@@ -94,6 +94,15 @@ describe("CORS", () => {
     expect(res.headers.get("access-control-allow-credentials")).toBe("true");
   });
 
+  it("exposes the request id and auth token headers to the browser", async () => {
+    const res = await app.handler(
+      new Request(url("/v1/version"), { headers: { origin: WEB_ORIGIN } }),
+    );
+    const exposed = (res.headers.get("access-control-expose-headers") ?? "").toLowerCase();
+    expect(exposed).toContain("x-request-id");
+    expect(exposed).toContain("set-auth-token");
+  });
+
   it("does not allow other origins", async () => {
     const res = await preflight("https://evil.example");
     expect(res.headers.get("access-control-allow-origin")).not.toBe("https://evil.example");

@@ -12,7 +12,11 @@ import { Mailer } from "./Mailer.ts";
 const Cors = Layer.unwrap(
   Effect.gen(function* () {
     const { publicUrl } = yield* AppConfig;
-    return HttpRouter.cors({ allowedOrigins: [publicUrl], credentials: true });
+    return HttpRouter.cors({
+      allowedOrigins: [publicUrl],
+      credentials: true,
+      exposedHeaders: ["x-request-id", "set-auth-token"],
+    });
   }),
 );
 

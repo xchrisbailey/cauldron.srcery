@@ -48,7 +48,7 @@ export const UnauthorizedError = wire(Unauthorized, "Unauthorized", "unauthorize
 export const ForbiddenError = wire(Forbidden, "Forbidden", "forbidden", 403);
 export const NotFoundError = wire(NotFound, "NotFound", "not_found", 404);
 export const ConflictError = wire(Conflict, "Conflict", "conflict", 409);
-export const InvalidRequestError = wire(InvalidRequest, "InvalidRequest", "invalid_request", 422);
+export const InvalidRequestError = wire(InvalidRequest, "InvalidRequest", "invalid_request", 400);
 export const UnavailableError = wire(Unavailable, "Unavailable", "unavailable", 503);
 
 export const TooManyRequestsError = Schema.Struct({

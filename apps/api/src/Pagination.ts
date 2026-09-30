@@ -19,23 +19,30 @@ export interface CursorPosition {
 export const makeCursor = (position: CursorPosition) =>
   encodeCursor({ c: position.createdAt.toISOString(), i: position.id }).pipe(Effect.orDie);
 
-/** Decodes a cursor; anything malformed fails with the shared `InvalidRequest`. */
-export const parseCursor = Effect.fn("Pagination.parseCursor")(function* (cursor: string) {
-  const decoded = yield* decodeCursor(cursor).pipe(
-    Effect.mapError(() => new InvalidRequest({ message: copy.errors.invalidRequest.text })),
-  );
+/**
+ * Decodes a cursor; anything malformed fails with the shared `InvalidRequest`.
+ * `idSchema` validates the id inside the cursor (for example `Schema.String.check(Schema.isUUID())` for
+ * a uuid column), so a tampered id is a 400 here and not a database error.
+ */
+export const parseCursor = Effect.fn("Pagination.parseCursor")(function* <I extends string>(
+  cursor: string,
+  idSchema: Schema.Codec<I, string>,
+) {
+  const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
+  const decoded = yield* decodeCursor(cursor).pipe(Effect.mapError(invalid));
   const createdAt = new Date(decoded.c);
-  if (Number.isNaN(createdAt.getTime())) {
-    return yield* new InvalidRequest({ message: copy.errors.invalidRequest.text });
-  }
-  return { createdAt, id: decoded.i } satisfies CursorPosition;
+  if (Number.isNaN(createdAt.getTime())) return yield* invalid();
+  const id = yield* Schema.decodeEffect(idSchema)(decoded.i).pipe(Effect.mapError(invalid));
+  return { createdAt, id } as { readonly createdAt: Date; readonly id: I };
 });
 
-export interface PaginateOptions<Row extends CursorPosition, E, R> {
+export interface PaginateOptions<Row extends CursorPosition, I extends string, E, R> {
   readonly query: PageQuery;
   /** The `created_at` and `id` columns of the table being listed. */
   readonly createdAt: AnyColumn;
   readonly id: AnyColumn;
+  /** Validates the id carried in a cursor, for example `Schema.String.check(Schema.isUUID())`. */
+  readonly idSchema: Schema.Codec<I, string>;
   /**
    * Runs the query. Add `where` (undefined on the first page) to your own
    * conditions, order by `desc(createdAt), desc(id)`, and apply `limit`.
@@ -50,11 +57,17 @@ export interface PaginateOptions<Row extends CursorPosition, E, R> {
  * Keyset pagination for rows ordered by (created_at desc, id desc). Fetches
  * one extra row to know whether another page exists.
  *
+ * The `createdAt` column must have millisecond precision (`timestampMs` from
+ * `@cauldron/db`, i.e. `precision: 3`). Cursors carry a JavaScript `Date`, which
+ * has no microseconds; against a microsecond column (Postgres `now()` default)
+ * the comparison would skip or repeat rows at page boundaries.
+ *
  * ```ts
  * paginate({
  *   query,
  *   createdAt: recipes.createdAt,
  *   id: recipes.id,
+ *   idSchema: Schema.String.check(Schema.isUUID()),
  *   run: ({ where, limit }) =>
  *     db.use((d) =>
  *       d.select().from(recipes)
@@ -67,13 +80,14 @@ export interface PaginateOptions<Row extends CursorPosition, E, R> {
  */
 export const paginate = Effect.fn("Pagination.paginate")(function* <
   Row extends CursorPosition,
+  I extends string,
   E,
   R,
->(options: PaginateOptions<Row, E, R>) {
+>(options: PaginateOptions<Row, I, E, R>) {
   const limit = options.query.limit ?? DEFAULT_PAGE_LIMIT;
   let where: SQL | undefined;
   if (options.query.cursor !== undefined) {
-    const after = yield* parseCursor(options.query.cursor);
+    const after = yield* parseCursor(options.query.cursor, options.idSchema);
     where = or(
       lt(options.createdAt, after.createdAt),
       and(eq(options.createdAt, after.createdAt), lt(options.id, after.id)),

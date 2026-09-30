@@ -6,6 +6,7 @@ import { schema } from "@cauldron/db";
 import { Context, Effect, Layer, Redacted } from "effect";
 import { AppConfig } from "./AppConfig.ts";
 import { Db } from "./Db.ts";
+import { CLIENT_IP_HEADER } from "./http/ClientIp.ts";
 
 const makeAuth = (config: AppConfig["Service"], db: Db["Service"]) =>
   betterAuth({
@@ -23,8 +24,14 @@ const makeAuth = (config: AppConfig["Service"], db: Db["Service"]) =>
       },
     }),
     emailAndPassword: { enabled: true },
-    // The API sits behind the web server's /v1 proxy (or a load balancer), which sets X-Forwarded-For.
-    advanced: { ipAddress: { ipAddressHeaders: ["x-forwarded-for"] } },
+    // Better Auth only reads headers, never the socket. Follow the same rule as
+    // http/ClientIp.ts: trust the web proxy's x-client-ip when configured to,
+    // otherwise record no IP rather than believe a client-supplied header.
+    advanced: {
+      ipAddress: config.trustProxy
+        ? { ipAddressHeaders: [CLIENT_IP_HEADER] }
+        : { disableIpTracking: true },
+    },
     plugins: [
       bearer(),
       genericOAuth({

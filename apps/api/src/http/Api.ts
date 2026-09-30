@@ -3,7 +3,7 @@ import { copy, Unavailable } from "@cauldron/shared";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
 import { AppConfig } from "../AppConfig.ts";
-import { Db } from "../Db.ts";
+import { Db, redactDbError } from "../Db.ts";
 import { AuthorizationLive } from "./Authorization.ts";
 
 const SystemHandlers = HttpApiBuilder.group(
@@ -17,7 +17,7 @@ const SystemHandlers = HttpApiBuilder.group(
         db.ping.pipe(
           Effect.as(new Health({ status: "ok", database: "ok" })),
           Effect.catchTag("DbError", (error) =>
-            Effect.logWarning("Health check failed", error.cause).pipe(
+            Effect.logWarning("Health check failed", redactDbError(error)).pipe(
               Effect.andThen(new Unavailable({ message: copy.errors.unavailable.text })),
             ),
           ),

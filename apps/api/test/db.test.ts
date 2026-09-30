@@ -1,8 +1,8 @@
 import { schema } from "@cauldron/db";
 import { assert, layer } from "@effect/vitest";
-import { eq } from "drizzle-orm";
-import { Effect, Schema } from "effect";
-import { Db, DbError } from "../src/Db.ts";
+import { eq, sql } from "drizzle-orm";
+import { Deferred, Effect, Fiber, Schema } from "effect";
+import { Db, DbError, isInvalidText, isUniqueViolation, redactDbError } from "../src/Db.ts";
 
 class TestFailure extends Schema.TaggedError<TestFailure>()("TestFailure", {}) {}
 
@@ -44,6 +44,30 @@ layer(Db.layerTest)("Db", (it) => {
       const error = yield* Effect.flip(insertUser(id));
       assert.strictEqual(error._tag, "DbError");
       assert.instanceOf(error, DbError);
+    }),
+  );
+
+  it.effect("a unique violation keeps its Postgres code, and logging redacts the parameters", () =>
+    Effect.gen(function* () {
+      const id = newId();
+      yield* insertUser(id);
+      const error = yield* Effect.flip(insertUser(id));
+      assert.strictEqual(error.code, "23505");
+      assert.isTrue(isUniqueViolation(error));
+      assert.isFalse(isInvalidText(error));
+      const redacted = redactDbError(error);
+      assert.strictEqual(redacted.code, "23505");
+      assert.notInclude(redacted.message, id);
+      assert.notInclude(redacted.message, "Failed query");
+    }),
+  );
+
+  it.effect("an invalid text representation is flagged", () =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const error = yield* Effect.flip(db.use((d) => d.execute(sql`select 'nope'::uuid`)));
+      assert.strictEqual(error.code, "22P02");
+      assert.isTrue(isInvalidText(error));
     }),
   );
 
@@ -143,5 +167,36 @@ layer(Db.layerTest)("Db", (it) => {
         );
         assert.strictEqual(yield* findUser(outerId), 1);
       }),
+  );
+
+  it.effect("interrupting a transaction interrupts its program and rolls back", () =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const id = newId();
+      const inserted = yield* Deferred.make<void>();
+      const finalized = yield* Deferred.make<void>();
+      const fiber = yield* Effect.forkChild(
+        db.transaction(
+          Effect.gen(function* () {
+            yield* insertUser(id);
+            yield* Deferred.succeed(inserted, undefined);
+            return yield* Effect.never;
+          }).pipe(Effect.ensuring(Deferred.succeed(finalized, undefined))),
+        ),
+      );
+      yield* Deferred.await(inserted);
+      const exit = yield* Fiber.interrupt(fiber).pipe(Effect.andThen(Fiber.await(fiber)));
+      assert.isTrue(exit._tag === "Failure");
+      // The inner program was interrupted too (its finalizer ran).
+      yield* Deferred.await(finalized);
+      // The rollback finishes just after the interrupt returns.
+      let rows = 1;
+      for (let attempt = 0; attempt < 50 && rows > 0; attempt++) {
+        rows = yield* findUser(id);
+        if (rows > 0)
+          yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 20)));
+      }
+      assert.strictEqual(rows, 0);
+    }),
   );
 });
