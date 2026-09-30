@@ -7,6 +7,9 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts"
   },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
     "drizzle-orm": "catalog:"

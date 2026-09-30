@@ -11,5 +11,7 @@ export default defineConfig({
     // Web and API share one origin in dev so Better Auth cookies stay first-party.
     proxy: { "/v1": { target: apiOrigin, changeOrigin: false } },
   },
-  plugins: [tanstackStart(), stylex.vite(), viteReact()],
+  // The app plugins start dev servers that keep Vitest alive; unit tests do not need them.
+  plugins: process.env.VITEST ? [] : [tanstackStart(), stylex.vite(), viteReact()],
+  test: { include: ["test/**/*.test.ts"] },
 });

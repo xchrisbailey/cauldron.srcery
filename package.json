@@ -25,9 +25,10 @@
   "type": "module",
   "scripts": {
     "dev": "vp run --parallel --log labeled -F api -F web dev",
+    "typecheck": "vp run -r typecheck",
     "test": "vp run -r test",
     "build": "vp run -r build",
-    "ready": "vp check && vp run -r test && vp run -r build",
+    "ready": "vp check && vp run -r typecheck && vp run -r test && vp run -r build",
     "prepare": "effect-tsgo patch --typescript"
   },
   "devDependencies": {

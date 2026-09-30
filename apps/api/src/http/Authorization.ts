@@ -8,13 +8,12 @@ export const AuthorizationLive = Layer.effect(
   Authorization,
   Effect.gen(function* () {
     const auth = yield* Auth;
-    return Authorization.of((httpEffect) =>
-      Effect.gen(function* () {
+    return Authorization.of(
+      Effect.fn("Authorization")(function* (httpEffect) {
         const request = yield* HttpServerRequest.HttpServerRequest;
         const headers = new Headers(request.headers as Record<string, string>);
-        const session = yield* Effect.tryPromise(() => auth.api.getSession({ headers })).pipe(
-          Effect.orElseSucceed(() => null),
-        );
+        // getSession resolves null when signed out; a rejection is an outage, not a 401.
+        const session = yield* Effect.promise(() => auth.api.getSession({ headers }));
         if (!session) {
           return yield* new Unauthorized({ message: "Sign in to continue." });
         }

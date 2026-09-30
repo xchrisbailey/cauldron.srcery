@@ -7,7 +7,8 @@
     "dev": "bun --watch src/main.ts",
     "dev:oidc": "bun scripts/dev-oidc.ts",
     "start": "bun src/main.ts",
-    "test": "vp test"
+    "test": "vp test",
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@cauldron/api-spec": "workspace:*",

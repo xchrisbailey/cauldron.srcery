@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",
-    "start": "bun server.ts"
+    "start": "bun server.ts",
+    "test": "vp test",
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@cauldron/api-spec": "workspace:*",

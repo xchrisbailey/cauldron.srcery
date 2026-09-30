@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
   "dependencies": {
     "@cauldron/shared": "workspace:*",
     "effect": "catalog:"

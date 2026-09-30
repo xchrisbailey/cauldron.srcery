@@ -1,16 +1,15 @@
 // Production server: static assets, a same-origin /v1 proxy to the API, and
 // TanStack Start SSR for everything else.
 import { join, normalize, sep } from "node:path";
+import type { Server } from "bun";
+import { forwardHeaders } from "./forward-headers.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:3001").replace(/\/+$/, "");
+// Set when a load balancer we control sits in front and appends the client IP
+// to X-Forwarded-For. Otherwise client-sent forwarding headers are dropped.
+const trustProxy = process.env.TRUST_PROXY === "true";
 const clientDir = join(import.meta.dir, "dist", "client");
-
-// Built output, resolved at runtime so typechecking works before a build.
-const entry = join(import.meta.dir, "dist", "server", "server.js");
-const start = (await import(entry)) as {
-  default: { fetch: (request: Request) => Response | Promise<Response> };
-};
 
 const staticFile = async (pathname: string): Promise<Response | undefined> => {
   let decoded: string;
@@ -19,6 +18,7 @@ const staticFile = async (pathname: string): Promise<Response | undefined> => {
   } catch {
     return undefined;
   }
+  if (decoded.includes("\0")) return undefined;
   const filePath = normalize(join(clientDir, decoded));
   if (!filePath.startsWith(clientDir + sep)) return undefined;
   const file = Bun.file(filePath);
@@ -30,39 +30,45 @@ const staticFile = async (pathname: string): Promise<Response | undefined> => {
   return new Response(file, { headers });
 };
 
-const proxy = (request: Request, url: URL): Promise<Response> => {
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-  return fetch(apiOrigin + url.pathname + url.search, {
+const proxy = (request: Request, url: URL, server: Server<unknown>): Promise<Response> =>
+  fetch(apiOrigin + url.pathname + url.search, {
     method: request.method,
-    headers,
+    headers: forwardHeaders(request.headers, server.requestIP(request)?.address, trustProxy),
     body: request.body,
     redirect: "manual",
+    decompress: false,
+    signal: AbortSignal.timeout(30_000),
     // Keep the body streaming for uploads.
     duplex: "half",
   } as RequestInit);
-};
 
-Bun.serve({
-  port,
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
-      try {
-        return await proxy(request, url);
-      } catch {
-        return Response.json(
-          { error: { code: "bad_gateway", message: "API unavailable" } },
-          { status: 502 },
-        );
+if (import.meta.main) {
+  // Built output, resolved at runtime so typechecking works before a build.
+  const entry = join(import.meta.dir, "dist", "server", "server.js");
+  const start = (await import(entry)) as {
+    default: { fetch: (request: Request) => Response | Promise<Response> };
+  };
+
+  Bun.serve({
+    port,
+    async fetch(request, server) {
+      const url = new URL(request.url);
+      if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
+        try {
+          return await proxy(request, url, server);
+        } catch {
+          return Response.json(
+            { error: { code: "bad_gateway", message: "Cauldron can't reach its API right now." } },
+            { status: 502 },
+          );
+        }
       }
-    }
-    if (request.method === "GET" || request.method === "HEAD") {
-      const file = await staticFile(url.pathname);
-      if (file) return file;
-    }
-    return start.default.fetch(request);
-  },
-});
-
-console.log(`web listening on :${port}, proxying /v1 to ${apiOrigin}`);
+      if (request.method === "GET" || request.method === "HEAD") {
+        const file = await staticFile(url.pathname);
+        if (file) return file;
+      }
+      return start.default.fetch(request);
+    },
+  });
+  console.log(`web listening on :${port}, proxying /v1 to ${apiOrigin}`);
+}

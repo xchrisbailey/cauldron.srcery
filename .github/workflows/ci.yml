@@ -5,9 +5,12 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -37,9 +40,28 @@ jobs:
           node-version: 24
       - name: Install
         run: bun install --frozen-lockfile
-      - name: Format, lint and typecheck
+      - name: Format and lint
         run: bunx vp check
+      # tsc (patched with the Effect language service) catches Effect diagnostics vp check doesn't.
+      - name: Typecheck
+        run: bun run typecheck
       - name: Test
         run: bun run test
       - name: Build
         run: bun run build
+
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

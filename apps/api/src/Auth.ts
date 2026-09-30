@@ -23,6 +23,8 @@ const makeAuth = (config: AppConfig["Service"], db: Db["Service"]) =>
       },
     }),
     emailAndPassword: { enabled: true },
+    // The API sits behind the web server's /v1 proxy (or a load balancer), which sets X-Forwarded-For.
+    advanced: { ipAddress: { ipAddressHeaders: ["x-forwarded-for"] } },
     plugins: [
       bearer(),
       genericOAuth({
