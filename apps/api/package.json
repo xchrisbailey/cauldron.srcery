@@ -1,0 +1,27 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@cauldron/api-spec": "workspace:*",
+    "@cauldron/db": "workspace:*",
+    "@cauldron/shared": "workspace:*",
+    "@effect/platform-bun": "catalog:",
+    "@electric-sql/pglite": "catalog:",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/bun": "latest",
+    "oauth2-mock-server": "9.2.0",
+    "vite-plus": "catalog:"
+  }
+}

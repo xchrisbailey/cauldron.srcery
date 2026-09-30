@@ -29,31 +29,31 @@ The ingredient line parser in #6 feeds the editor, every importer and the Gather
 
 The `effect` version is pinned **exactly**. Upgrade on purpose, in its own PR. Most of what you remember about Effect is v3, and v4 renamed a lot. **Check v4 sources before writing Effect code**:
 
-- Guide for writing v4 code: https://github.com/Effect-TS/effect-smol/blob/main/LLMS.md, with runnable examples in `ai-docs/src/` (HTTP server, HTTP client, AI, testing).
+- The pinned package ships its own guide: `node_modules/effect/AGENTS.md`, with runnable examples in `node_modules/effect/ai-docs/src/` (HTTP server and its tests, HTTP client, SQL, AI, testing). Prefer these over the effect-smol repo, which lags the RC. With Bun's isolated installs, look under `apps/api/node_modules/effect/`.
 - Migration notes: https://github.com/Effect-TS/effect-smol/tree/main/migration (start with `v3-to-v4.md` and `services.md`).
 - When in doubt, read the source under `node_modules/effect/src` for the pinned version, and don't write it from memory.
 
 The v3 habits that break most often:
 
-| v3 | v4 |
-|---|---|
-| `Context.Tag`, `Effect.Tag`, `Effect.Service` | `Context.Service<Self, Shape>()("Id")`, or `Context.Service<Self>()("Id", { make })` |
+| v3                                                 | v4                                                                                                                                     |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Context.Tag`, `Effect.Tag`, `Effect.Service`      | `Context.Service<Self, Shape>()("Id")`, or `Context.Service<Self>()("Id", { make })`                                                   |
 | `.Default` / `.Live` layers, `dependencies: [...]` | An explicit `static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(...))`. Use `layerTest` and similar for variants |
-| Static accessor proxies (`Service.method()`) | `yield* Service` inside `Effect.gen` / `Effect.fn` |
-| `Effect.catchAll`, `catchAllCause`, `catchSome` | `Effect.catch`, `Effect.catchCause`, `Effect.catchFilter` |
-| `Either` | `Result` (`Result.succeed` / `Result.fail`) |
-| `Schema.TaggedError` | `Schema.TaggedErrorClass<Self>()("Tag", { ... })` |
-| `Runtime<R>`, `Runtime.runFork(runtime)` | `Context<R>` with `Effect.runForkWith(services)`, or `ManagedRuntime` at the edge |
-| `FiberRef` | `Context.Reference` |
-| `@effect/platform`, `@effect/rpc` | `effect/unstable/http`, `effect/unstable/httpapi`, `effect/unstable/rpc` |
+| Static accessor proxies (`Service.method()`)       | `yield* Service` inside `Effect.gen` / `Effect.fn`                                                                                     |
+| `Effect.catchAll`, `catchAllCause`, `catchSome`    | `Effect.catch`, `Effect.catchCause`, `Effect.catchFilter`                                                                              |
+| `Either`                                           | `Result` (`Result.succeed` / `Result.fail`)                                                                                            |
+| `Schema.TaggedError` (v3 signature)                | `Schema.TaggedError<Self>()("Tag", { ... }, { httpApiStatus })` (the beta name `TaggedErrorClass` is gone in the RC)                   |
+| `Runtime<R>`, `Runtime.runFork(runtime)`           | `Context<R>` with `Effect.runForkWith(services)`, or `ManagedRuntime` at the edge                                                      |
+| `FiberRef`                                         | `Context.Reference`                                                                                                                    |
+| `@effect/platform`, `@effect/rpc`                  | `effect/http`, `effect/http-api`, `effect/rpc` (the betas used `effect/unstable/*`; the RC moved them)                                 |
 
 House style:
 
 - Write functions that return an Effect with `Effect.fn("name")(function*() { ... })`, not with functions that return `Effect.gen`. Pass extra combinators as arguments to `Effect.fn`, not through `.pipe`.
 - Fail with `return yield* new SomeError({ ... })`.
-- Domain errors are `Schema.TaggedErrorClass`es in `packages/shared`. They are mapped to HTTP status and `{ error: { code, message } }` in one place in the API, and never with ad-hoc try/catch in handlers.
+- Domain errors are `Schema.TaggedError` classes in `packages/shared`. They are mapped to HTTP status and `{ error: { code, message } }` in one place in the API, and never with ad-hoc try/catch in handlers.
 - Every external dependency (DB, storage, email, AI, fetch) is a service with a `layer` and a `layerTest`. Tests provide test layers, not mocks of modules.
-- Anything under `effect/unstable/*` may break between RCs. Keep that code at the edges (HTTP, client), not in domain logic.
+- HTTP (`effect/http`, `effect/http-api`) and other modules marked `@stability unstable` may break between RCs. Keep that code at the edges (HTTP, client), not in domain logic.
 - The web app imports Effect **Schema** only (through Standard Schema into TanStack Form) and never runs the Effect runtime in components.
 
 ## Conventions

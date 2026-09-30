@@ -1,0 +1,42 @@
+{
+  "name": "cauldron",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "effect": "4.0.0-rc.118",
+      "@effect/platform-bun": "4.0.0-rc.118",
+      "@effect/vitest": "4.0.0-rc.118",
+      "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0",
+      "vite-plus": "1.0.0",
+      "typescript": "7.0.2",
+      "better-auth": "1.7.6",
+      "drizzle-orm": "0.45.3",
+      "drizzle-kit": "0.31.11",
+      "@electric-sql/pglite": "0.5.8",
+      "react": "19.3.0",
+      "react-dom": "19.3.0"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vp run --parallel api#dev web#dev",
+    "ready": "vp check && vp run -r test && vp run -r build"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "overrides": {
+    "vite": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "bun@1.4.3"
+}

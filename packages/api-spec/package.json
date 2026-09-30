@@ -1,0 +1,16 @@
+{
+  "name": "@cauldron/api-spec",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@cauldron/shared": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

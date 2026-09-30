@@ -1,0 +1,6 @@
+/* Global CSS entry. StyleX appends its compiled rules to this asset in production builds. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
