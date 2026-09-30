@@ -74,6 +74,7 @@ Web (production server only):
 | `bun run typecheck`                  | `tsc` per package, including Effect language-service diagnostics |
 | `bun run test`                       | Every package's tests                                            |
 | `bun run build`                      | Production builds                                                |
+| `bun run brand`                      | Regenerate the brand SVGs, favicon and app icons                 |
 | `bun run ready`                      | All of the above, as CI runs it                                  |
 | `bun run --cwd apps/web start`       | Serve the built web app (`server.ts`)                            |
 | `bun run --cwd packages/db generate` | New migration from the Drizzle schema                            |

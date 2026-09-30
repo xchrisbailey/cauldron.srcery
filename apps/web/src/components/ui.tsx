@@ -3,6 +3,7 @@ import type { AnyFieldApi } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import type { ComponentProps, ReactNode } from "react";
 import { colors, fonts } from "../styles/tokens.stylex";
+import { Mark } from "./Mark";
 
 // Minimal building blocks for the account screens. #7 brings the app shell.
 
@@ -10,6 +11,7 @@ export function AuthCard({ title, children }: { title: string; children: ReactNo
   return (
     <main {...stylex.props(styles.page)}>
       <section {...stylex.props(styles.card)}>
+        <Mark size={40} />
         <h1 {...stylex.props(styles.title)}>{title}</h1>
         {children}
       </section>
