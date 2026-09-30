@@ -1,6 +1,7 @@
 import { Context } from "effect";
 import { HttpApiMiddleware } from "effect/http-api";
-import { Unauthorized, type User } from "@cauldron/shared";
+import type { User } from "@cauldron/shared";
+import { UnauthorizedError } from "./errors.ts";
 
 export class CurrentUser extends Context.Service<CurrentUser, User>()(
   "cauldron/api-spec/CurrentUser",
@@ -12,5 +13,5 @@ export class Authorization extends HttpApiMiddleware.Service<
   Authorization,
   { provides: CurrentUser; requires: never }
 >()("cauldron/api-spec/Authorization", {
-  error: Unauthorized,
+  error: UnauthorizedError,
 }) {}

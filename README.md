@@ -24,7 +24,9 @@ bun run dev
 
 `bun run dev` starts the API on :3001 and the web app on http://localhost:3000. The web dev server proxies `/v1` to the API, so the browser sees one origin and auth cookies stay first-party.
 
-Locally the API runs Postgres in-process with [PGlite](https://pglite.dev), so there's nothing else to install. Data lives in `apps/api/.data/pglite`; delete it to start over.
+Locally the API runs Postgres in-process with [PGlite](https://pglite.dev), so there's nothing else to install. Data lives in `apps/api/.data/pglite`; delete it to start over. To use a real Postgres instead, run `docker compose up -d` and set `DATABASE_URL` (see [`.env.example`](apps/api/.env.example)). Migrations run when the API boots, under an advisory lock so several instances can start at once.
+
+In development the API serves interactive docs at http://localhost:3000/v1/docs and the OpenAPI document (the contract for the iOS app) at `/v1/openapi.json`. Every error response has the shape `{ "error": { "code": "...", "message": "..." } }`.
 
 To try social sign-in without Google or Apple credentials, run a throwaway OIDC provider and point the API at it:
 
@@ -38,13 +40,18 @@ DEV_OAUTH_DISCOVERY_URL=http://localhost:9400/.well-known/openid-configuration
 
 API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 
-| Variable                  | Default                 | Notes                                                                |
-| ------------------------- | ----------------------- | -------------------------------------------------------------------- |
-| `PORT`                    | `3001`                  |                                                                      |
-| `PUBLIC_URL`              | `http://localhost:3000` | The origin the browser sees. Auth cookies and OAuth redirects use it |
-| `BETTER_AUTH_SECRET`      | (required)              | 32+ random characters: `openssl rand -base64 32`                     |
-| `PGLITE_DATA_DIR`         | in memory               | Where PGlite keeps data                                              |
-| `DEV_OAUTH_DISCOVERY_URL` | unset                   | Enables the "dev" OIDC provider                                      |
+| Variable                      | Default                 | Notes                                                                |
+| ----------------------------- | ----------------------- | -------------------------------------------------------------------- |
+| `PORT`                        | `3001`                  |                                                                      |
+| `PUBLIC_URL`                  | `http://localhost:3000` | The origin the browser sees. Auth cookies and OAuth redirects use it |
+| `BETTER_AUTH_SECRET`          | (required)              | 32+ random characters: `openssl rand -base64 32`                     |
+| `DATABASE_URL`                | unset                   | Postgres connection string. Unset means PGlite                       |
+| `PGLITE_DATA_DIR`             | in memory               | Where PGlite keeps data                                              |
+| `DEV_OAUTH_DISCOVERY_URL`     | unset                   | Enables the "dev" OIDC provider                                      |
+| `API_DOCS`                    | on unless production    | Serves Scalar docs at `/v1/docs`                                     |
+| `NODE_ENV`                    | `development`           | `production` turns docs off by default                               |
+| `GIT_SHA`                     | unset                   | Reported by `/v1/version`                                            |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset                   | Exports traces and logs over OTLP/HTTP                               |
 
 Web (production server only):
 
@@ -56,16 +63,16 @@ Web (production server only):
 
 ## Scripts
 
-| Command                        | What                                                             |
-| ------------------------------ | ---------------------------------------------------------------- |
-| `bun run dev`                  | API and web together, with reload                                |
-| `vp check`                     | Format check, lint and typecheck (`vp check --fix` to fix)       |
-| `bun run typecheck`            | `tsc` per package, including Effect language-service diagnostics |
-| `bun run test`                 | Every package's tests                                            |
-| `bun run build`                | Production builds                                                |
-| `bun run ready`                | All of the above, as CI runs it                                  |
-| `bun run --cwd apps/web start` | Serve the built web app (`server.ts`)                            |
-| `bunx drizzle-kit generate`    | New migration from the schema (run in `packages/db`)             |
+| Command                              | What                                                             |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| `bun run dev`                        | API and web together, with reload                                |
+| `vp check`                           | Format check, lint and typecheck (`vp check --fix` to fix)       |
+| `bun run typecheck`                  | `tsc` per package, including Effect language-service diagnostics |
+| `bun run test`                       | Every package's tests                                            |
+| `bun run build`                      | Production builds                                                |
+| `bun run ready`                      | All of the above, as CI runs it                                  |
+| `bun run --cwd apps/web start`       | Serve the built web app (`server.ts`)                            |
+| `bun run --cwd packages/db generate` | New migration from the Drizzle schema                            |
 
 ## Containers
 

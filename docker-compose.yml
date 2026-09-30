@@ -1,0 +1,22 @@
+# Optional local Postgres. Without it the API uses in-process PGlite.
+# docker compose up -d, then set DATABASE_URL in apps/api/.env:
+# DATABASE_URL=postgres://cauldron:cauldron@localhost:5432/cauldron
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: cauldron
+      POSTGRES_PASSWORD: cauldron
+      POSTGRES_DB: cauldron
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cauldron"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres:

@@ -40,7 +40,7 @@ describe("Better Auth bridge", () => {
   it("serves health without auth", async () => {
     const res = await api.handler(new Request(url("/v1/health")));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok" });
+    expect(await res.json()).toEqual({ status: "ok", database: "ok" });
   });
 
   it("rejects anonymous requests to data routes", async () => {

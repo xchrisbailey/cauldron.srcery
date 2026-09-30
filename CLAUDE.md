@@ -19,6 +19,7 @@ A personal recipe box and weekly meal planner, by srcery. The web app comes firs
 - `vp check` (`--fix` to fix): format, lint and typecheck across the workspace. `vp` alone runs Vite+ built-ins; `vpr <script>` runs a package script.
 - `bun run test`, `bun run build`, `bun run ready` (what CI runs).
 - Locally the API uses PGlite (in-process Postgres); there is no Docker on the main dev machine.
+- API tests build the whole app in process with `makeTestApi()` from `apps/api/test/helpers.ts`, on `Db.layerTest` (a fresh database: real Postgres when `DATABASE_URL` is set, as in CI, PGlite otherwise) and `Mailer.layerTest`.
 - The Effect language service is `@effect/tsgo`, patched into TypeScript 7 by the root `prepare` script, so `tsc -p <pkg>` also reports Effect diagnostics.
 
 ## Build order
@@ -59,7 +60,8 @@ House style:
 
 - Write functions that return an Effect with `Effect.fn("name")(function*() { ... })`, not with functions that return `Effect.gen`. Pass extra combinators as arguments to `Effect.fn`, not through `.pipe`.
 - Fail with `return yield* new SomeError({ ... })`.
-- Domain errors are `Schema.TaggedError` classes in `packages/shared`. They are mapped to HTTP status and `{ error: { code, message } }` in one place in the API, and never with ad-hoc try/catch in handlers.
+- Domain errors are `Schema.TaggedError` classes in `packages/shared` with a plain `message` from the copy module, and know nothing about HTTP. `packages/api-spec/src/errors.ts` is the one place that gives each a status and the `{ error: { code, message } }` wire shape; endpoints list those schemas as `error`. `apps/api/src/http/ErrorShape.ts` gives bad input, unknown routes and defects the same shape. Never use ad-hoc try/catch in handlers.
+- Database access goes through the `Db` service: `db.use((d) => d.select()...)` for a query and `db.transaction(effect)` to run an Effect in a transaction (every `use` inside joins it).
 - Every external dependency (DB, storage, email, AI, fetch) is a service with a `layer` and a `layerTest`. Tests provide test layers, not mocks of modules.
 - HTTP (`effect/http`, `effect/http-api`) and other modules marked `@stability unstable` may break between RCs. Keep that code at the edges (HTTP, client), not in domain logic.
 - The web app imports Effect **Schema** only (through Standard Schema into TanStack Form) and never runs the Effect runtime in components.
