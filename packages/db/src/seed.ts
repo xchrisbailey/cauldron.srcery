@@ -1,4 +1,4 @@
-import { parseIngredientLine } from "@cauldron/shared";
+import { ingredientKey, parseIngredientLine } from "@cauldron/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema/index.ts";
@@ -55,6 +55,7 @@ export const seed = async (db: Db, ownerId: string) => {
           quantityMax: parsed.quantity?.max ?? null,
           unit: parsed.unit,
           item: parsed.item,
+          itemKey: ingredientKey(parsed.item),
           note: parsed.note,
           optional: parsed.optional,
           altQuantityMin: parsed.alt?.quantity.min ?? null,

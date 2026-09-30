@@ -1,5 +1,5 @@
 {
-  "id": "1fa7e408-a433-4e87-a8ed-40d8d7558c3e",
+  "id": "aa1a96c9-576c-428d-860b-8a2427985b35",
   "prevId": "1f73e090-7b34-4382-9a9d-80871e60dfa6",
   "version": "7",
   "dialect": "postgresql",
@@ -390,15 +390,21 @@
           "primaryKey": false,
           "notNull": true
         },
+        "item_key": {
+          "name": "item_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "quantity_min": {
           "name": "quantity_min",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
         "quantity_max": {
           "name": "quantity_max",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
@@ -427,13 +433,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "source_recipe_ids": {
-          "name": "source_recipe_ids",
-          "type": "uuid[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::uuid[]"
         },
         "position": {
           "name": "position",
@@ -478,6 +477,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "gather_item_owner_week_key_idx": {
+          "name": "gather_item_owner_week_key_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "week_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "item_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -496,9 +522,159 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "gather_item_id_owner_unique": {
+          "name": "gather_item_id_owner_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "owner_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "gather_item_quantity_check": {
+          "name": "gather_item_quantity_check",
+          "value": "(\"gather_item\".\"quantity_min\" is null or \"gather_item\".\"quantity_min\" >= 0)\n        and (\"gather_item\".\"quantity_max\" is null or (\"gather_item\".\"quantity_min\" is not null and \"gather_item\".\"quantity_max\" >= \"gather_item\".\"quantity_min\"))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.gather_item_source": {
+      "name": "gather_item_source",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gather_item_id": {
+          "name": "gather_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recipe_id": {
+          "name": "recipe_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_min": {
+          "name": "quantity_min",
+          "type": "numeric(12, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity_max": {
+          "name": "quantity_max",
+          "type": "numeric(12, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "gather_item_source_item_idx": {
+          "name": "gather_item_source_item_idx",
+          "columns": [
+            {
+              "expression": "gather_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "gather_item_source_recipe_idx": {
+          "name": "gather_item_source_recipe_idx",
+          "columns": [
+            {
+              "expression": "recipe_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "gather_item_source_owner_id_user_id_fk": {
+          "name": "gather_item_source_owner_id_user_id_fk",
+          "tableFrom": "gather_item_source",
+          "tableTo": "user",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "gather_item_source_item_owner_fk": {
+          "name": "gather_item_source_item_owner_fk",
+          "tableFrom": "gather_item_source",
+          "tableTo": "gather_item",
+          "columnsFrom": [
+            "gather_item_id",
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id",
+            "owner_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "gather_item_source_recipe_owner_fk": {
+          "name": "gather_item_source_recipe_owner_fk",
+          "tableFrom": "gather_item_source",
+          "tableTo": "recipe",
+          "columnsFrom": [
+            "recipe_id",
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id",
+            "owner_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "gather_item_source_quantity_check": {
+          "name": "gather_item_source_quantity_check",
+          "value": "(\"gather_item_source\".\"quantity_min\" is null or \"gather_item_source\".\"quantity_min\" >= 0)\n        and (\"gather_item_source\".\"quantity_max\" is null or (\"gather_item_source\".\"quantity_min\" is not null and \"gather_item_source\".\"quantity_max\" >= \"gather_item_source\".\"quantity_min\"))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.meal_plan_entry": {
@@ -592,6 +768,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "meal_plan_recipe_idx": {
+          "name": "meal_plan_recipe_idx",
+          "columns": [
+            {
+              "expression": "recipe_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -608,15 +799,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "meal_plan_entry_recipe_id_recipe_id_fk": {
-          "name": "meal_plan_entry_recipe_id_recipe_id_fk",
+        "meal_plan_entry_recipe_owner_fk": {
+          "name": "meal_plan_entry_recipe_owner_fk",
           "tableFrom": "meal_plan_entry",
           "tableTo": "recipe",
           "columnsFrom": [
-            "recipe_id"
+            "recipe_id",
+            "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "owner_id"
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
@@ -625,7 +818,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "meal_plan_servings_positive": {
+          "name": "meal_plan_servings_positive",
+          "value": "\"meal_plan_entry\".\"servings\" is null or \"meal_plan_entry\".\"servings\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.recipe": {
@@ -764,6 +962,7 @@
             }
           ],
           "isUnique": false,
+          "where": "\"recipe\".\"deleted_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -785,7 +984,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "recipe_id_owner_unique": {
+          "name": "recipe_id_owner_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "owner_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "recipe_servings_positive": {
@@ -832,13 +1040,13 @@
         },
         "quantity_min": {
           "name": "quantity_min",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
         "quantity_max": {
           "name": "quantity_max",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
@@ -850,6 +1058,12 @@
         },
         "item": {
           "name": "item",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -869,13 +1083,13 @@
         },
         "alt_quantity_min": {
           "name": "alt_quantity_min",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
         "alt_quantity_max": {
           "name": "alt_quantity_max",
-          "type": "numeric",
+          "type": "numeric(12, 4)",
           "primaryKey": false,
           "notNull": false
         },
@@ -934,11 +1148,17 @@
           "method": "btree",
           "with": {}
         },
-        "recipe_ingredient_owner_idx": {
-          "name": "recipe_ingredient_owner_idx",
+        "recipe_ingredient_owner_food_idx": {
+          "name": "recipe_ingredient_owner_food_idx",
           "columns": [
             {
               "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "food_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -964,15 +1184,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "recipe_ingredient_recipe_id_recipe_id_fk": {
-          "name": "recipe_ingredient_recipe_id_recipe_id_fk",
+        "recipe_ingredient_recipe_owner_fk": {
+          "name": "recipe_ingredient_recipe_owner_fk",
           "tableFrom": "recipe_ingredient",
           "tableTo": "recipe",
           "columnsFrom": [
-            "recipe_id"
+            "recipe_id",
+            "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "owner_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -982,9 +1204,13 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "recipe_ingredient_range": {
-          "name": "recipe_ingredient_range",
-          "value": "\"recipe_ingredient\".\"quantity_max\" is null or (\"recipe_ingredient\".\"quantity_min\" is not null and \"recipe_ingredient\".\"quantity_max\" >= \"recipe_ingredient\".\"quantity_min\")"
+        "recipe_ingredient_quantity_check": {
+          "name": "recipe_ingredient_quantity_check",
+          "value": "(\"recipe_ingredient\".\"quantity_min\" is null or \"recipe_ingredient\".\"quantity_min\" >= 0)\n        and (\"recipe_ingredient\".\"quantity_max\" is null or (\"recipe_ingredient\".\"quantity_min\" is not null and \"recipe_ingredient\".\"quantity_max\" >= \"recipe_ingredient\".\"quantity_min\"))"
+        },
+        "recipe_ingredient_alt_quantity_check": {
+          "name": "recipe_ingredient_alt_quantity_check",
+          "value": "(\"recipe_ingredient\".\"alt_quantity_min\" is null or \"recipe_ingredient\".\"alt_quantity_min\" >= 0)\n        and (\"recipe_ingredient\".\"alt_quantity_max\" is null or (\"recipe_ingredient\".\"alt_quantity_min\" is not null and \"recipe_ingredient\".\"alt_quantity_max\" >= \"recipe_ingredient\".\"alt_quantity_min\"))"
         }
       },
       "isRLSEnabled": false
@@ -1072,21 +1298,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "recipe_step_owner_idx": {
-          "name": "recipe_step_owner_idx",
-          "columns": [
-            {
-              "expression": "owner_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -1103,15 +1314,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "recipe_step_recipe_id_recipe_id_fk": {
-          "name": "recipe_step_recipe_id_recipe_id_fk",
+        "recipe_step_recipe_owner_fk": {
+          "name": "recipe_step_recipe_owner_fk",
           "tableFrom": "recipe_step",
           "tableTo": "recipe",
           "columnsFrom": [
-            "recipe_id"
+            "recipe_id",
+            "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "owner_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1189,28 +1402,32 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "recipe_tag_recipe_id_recipe_id_fk": {
-          "name": "recipe_tag_recipe_id_recipe_id_fk",
+        "recipe_tag_recipe_owner_fk": {
+          "name": "recipe_tag_recipe_owner_fk",
           "tableFrom": "recipe_tag",
           "tableTo": "recipe",
           "columnsFrom": [
-            "recipe_id"
+            "recipe_id",
+            "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "owner_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "recipe_tag_tag_id_tag_id_fk": {
-          "name": "recipe_tag_tag_id_tag_id_fk",
+        "recipe_tag_tag_owner_fk": {
+          "name": "recipe_tag_tag_owner_fk",
           "tableFrom": "recipe_tag",
           "tableTo": "tag",
           "columnsFrom": [
-            "tag_id"
+            "tag_id",
+            "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "owner_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1315,7 +1532,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "tag_id_owner_unique": {
+          "name": "tag_id_owner_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "owner_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -66,7 +66,7 @@ export const UNITS: Readonly<Record<Code, UnitDef>> = {
     singular: "teaspoon",
     plural: "teaspoons",
     abbr: "tsp",
-    aliases: ["tsp", "tsps", "teaspoon", "teaspoons", "tspn"],
+    aliases: ["tsp", "tsps", "ts", "teaspoon", "teaspoons", "tspn"],
     caseSensitiveAliases: ["t"],
   },
   tbsp: {
@@ -271,17 +271,27 @@ export interface Measure {
  * - Volume to metric: ml below 1 l, else l. Volume to US: tsp below 1 tbsp,
  *   tbsp below 1/4 cup, cup below 1 quart, quart below 1 gallon, else gallon.
  * - Mass to metric: g below 1 kg, else kg. Mass to US: oz below 1 lb, else lb.
- * - Count units, `pinch`, `dash` and measures already in the target system
- *   come back unchanged.
+ * - Count units, `pinch` and `dash` come back unchanged. So do measures already
+ *   in the target system, except that small US volumes step down: a cup below
+ *   1/4 cup becomes tbsp, and a tbsp below 1 tbsp becomes tsp.
  */
 export function convertForDisplay(quantity: number, unit: Code, target: TargetSystem): Measure {
   const def = UNITS[unit];
-  if (def.dimension === "count" || def.system === target || unit === "pinch" || unit === "dash") {
-    return { quantity, unit };
-  }
   const base = quantity * def.factor;
   const to = (code: Code): Measure => ({ quantity: base / UNITS[code].factor, unit: code });
   const eps = 1e-9;
+  if (def.dimension === "count" || unit === "pinch" || unit === "dash") {
+    return { quantity, unit };
+  }
+  if (def.system === target) {
+    // Already in the target system: only step small US volumes down, so
+    // 1/8 cup reads as 2 tbsp and 1/2 tbsp as 1 1/2 tsp. Everything else is kept.
+    if (target === "us" && unit === "cup" && base < UNITS.cup.factor / 4 - eps) {
+      return convertForDisplay(to("tbsp").quantity, "tbsp", "us");
+    }
+    if (target === "us" && unit === "tbsp" && base < UNITS.tbsp.factor - eps) return to("tsp");
+    return { quantity, unit };
+  }
   if (def.dimension === "volume") {
     if (target === "metric") return to(base < 1000 - eps ? "ml" : "l");
     if (base < UNITS.tbsp.factor - eps) return to("tsp");

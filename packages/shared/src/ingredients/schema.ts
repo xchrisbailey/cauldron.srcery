@@ -1,11 +1,15 @@
 import { Schema } from "effect";
 import { UNIT_CODES } from "./units.ts";
 
-/** A quantity: a single amount (`max` null) or a range from `min` to `max`. */
+/** A quantity: a single amount (`max` null) or a range from `min` to `max` (`max >= min`). */
 export const Quantity = Schema.Struct({
   min: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
   max: Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
-});
+}).check(
+  Schema.makeFilter<{ readonly min: number; readonly max: number | null }>((q) =>
+    q.max === null || q.max >= q.min ? undefined : "max must be greater than or equal to min",
+  ),
+);
 export type Quantity = typeof Quantity.Type;
 
 /** Normalized unit code, see `UNITS` in `units.ts`. */

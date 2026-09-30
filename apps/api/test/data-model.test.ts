@@ -42,11 +42,27 @@ const insertIngredient = Effect.fn("insertIngredient")(function* (
 ) {
   const db = yield* Db;
   yield* db.use((d) =>
-    d
-      .insert(schema.recipeIngredient)
-      .values({ ownerId, recipeId, position: 0, item: "flour", originalLine: "flour", ...values }),
+    d.insert(schema.recipeIngredient).values({
+      ownerId,
+      recipeId,
+      position: 0,
+      item: "flour",
+      itemKey: "flour",
+      originalLine: "flour",
+      ...values,
+    }),
   );
 });
+
+// Asserts an effect fails with a DbError carrying the given Postgres code
+// (23503 foreign key violation, 23514 check violation).
+const failsWith =
+  (code: string) =>
+  <R>(effect: Effect.Effect<unknown, { readonly code?: string | undefined }, R>) =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(effect);
+      assert.strictEqual(error.code, code);
+    });
 
 const ownedTables = [
   ["recipe", schema.recipe],
@@ -56,6 +72,7 @@ const ownedTables = [
   ["recipe_tag", schema.recipeTag],
   ["meal_plan_entry", schema.mealPlanEntry],
   ["gather_item", schema.gatherItem],
+  ["gather_item_source", schema.gatherItemSource],
 ] as const;
 
 const countFor = Effect.fn("countFor")(function* (
@@ -215,10 +232,16 @@ layer(Db.layerTest)("data model", (it) => {
             title: "x",
           }),
         );
-        yield* db.use((d) =>
+        const [g] = yield* db.use((d) =>
           d
             .insert(schema.gatherItem)
-            .values({ ownerId: owner, weekStart: "2026-01-05", item: "eggs" }),
+            .values({ ownerId: owner, weekStart: "2026-01-05", item: "eggs", itemKey: "egg" })
+            .returning(),
+        );
+        yield* db.use((d) =>
+          d
+            .insert(schema.gatherItemSource)
+            .values({ ownerId: owner, gatherItemId: g!.id, recipeId: r.id, quantityMin: 2 }),
         );
       }
       const before: Record<string, number> = {};
@@ -332,6 +355,178 @@ layer(Db.layerTest)("data model", (it) => {
       assert.strictEqual(entries.length, 1);
       assert.isNull(entries[0]!.recipeId);
       assert.strictEqual(entries[0]!.title, "Test recipe");
+    }),
+  );
+
+  it.effect("children cannot reference another owner's recipe, tag or gather item", () =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const a = yield* insertUser();
+      const b = yield* insertUser();
+      const recipeA = yield* insertRecipe(a);
+      const [tagA] = yield* db.use((d) =>
+        d.insert(schema.tag).values({ ownerId: a, name: "Mine" }).returning(),
+      );
+      const [gatherB] = yield* db.use((d) =>
+        d
+          .insert(schema.gatherItem)
+          .values({ ownerId: b, weekStart: "2026-01-05", item: "egg", itemKey: "egg" })
+          .returning(),
+      );
+      const recipeB = yield* insertRecipe(b);
+      const fails = failsWith("23503");
+
+      yield* fails(insertIngredient(b, recipeA.id));
+      yield* fails(
+        db.use((d) =>
+          d
+            .insert(schema.recipeStep)
+            .values({ ownerId: b, recipeId: recipeA.id, position: 0, text: "x" }),
+        ),
+      );
+      yield* fails(
+        db.use((d) =>
+          d.insert(schema.recipeTag).values({ ownerId: b, recipeId: recipeB.id, tagId: tagA!.id }),
+        ),
+      );
+      yield* fails(
+        db.use((d) =>
+          d.insert(schema.recipeTag).values({ ownerId: b, recipeId: recipeA.id, tagId: tagA!.id }),
+        ),
+      );
+      yield* fails(
+        db.use((d) =>
+          d.insert(schema.mealPlanEntry).values({
+            ownerId: b,
+            date: "2026-01-05",
+            slot: "dinner",
+            recipeId: recipeA.id,
+            title: "x",
+          }),
+        ),
+      );
+      yield* fails(
+        db.use((d) =>
+          d
+            .insert(schema.gatherItemSource)
+            .values({ ownerId: b, gatherItemId: gatherB!.id, recipeId: recipeA.id }),
+        ),
+      );
+      yield* fails(
+        db.use((d) =>
+          d
+            .insert(schema.gatherItemSource)
+            .values({ ownerId: a, gatherItemId: gatherB!.id, recipeId: recipeA.id }),
+        ),
+      );
+      // The matching owner works.
+      yield* insertIngredient(a, recipeA.id);
+      yield* db.use((d) =>
+        d
+          .insert(schema.gatherItemSource)
+          .values({ ownerId: b, gatherItemId: gatherB!.id, recipeId: recipeB.id }),
+      );
+    }),
+  );
+
+  it.effect(
+    "deleting a recipe nulls only recipe_id on plan entries and removes gather sources",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Db;
+        const owner = yield* insertUser();
+        const r = yield* insertRecipe(owner);
+        const [g] = yield* db.use((d) =>
+          d
+            .insert(schema.gatherItem)
+            .values({ ownerId: owner, weekStart: "2026-01-05", item: "egg", itemKey: "egg" })
+            .returning(),
+        );
+        yield* db.use((d) =>
+          d
+            .insert(schema.gatherItemSource)
+            .values({ ownerId: owner, gatherItemId: g!.id, recipeId: r.id, quantityMin: 2 }),
+        );
+        yield* db.use((d) =>
+          d.insert(schema.mealPlanEntry).values({
+            ownerId: owner,
+            date: "2026-01-05",
+            slot: "dinner",
+            recipeId: r.id,
+            title: "Dinner",
+          }),
+        );
+        yield* db.use((d) => d.delete(schema.recipe).where(eq(schema.recipe.id, r.id)));
+        const [entry] = yield* db.use((d) =>
+          d.select().from(schema.mealPlanEntry).where(eq(schema.mealPlanEntry.ownerId, owner)),
+        );
+        assert.isNull(entry!.recipeId);
+        assert.strictEqual(entry!.ownerId, owner);
+        assert.strictEqual(yield* countFor(schema.gatherItemSource, owner), 0);
+        // The gather item itself stays.
+        assert.strictEqual(yield* countFor(schema.gatherItem, owner), 1);
+      }),
+  );
+
+  it.effect("quantity checks reject negatives, bad ranges and non-positive servings", () =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const owner = yield* insertUser();
+      const r = yield* insertRecipe(owner);
+      const check = failsWith("23514");
+      yield* check(insertIngredient(owner, r.id, { quantityMin: -1 }));
+      yield* check(insertIngredient(owner, r.id, { altQuantityMin: 3, altQuantityMax: 2 }));
+      yield* check(insertIngredient(owner, r.id, { altQuantityMax: 2 }));
+      yield* check(insertIngredient(owner, r.id, { altQuantityMin: -1 }));
+      const gather = (values: Partial<typeof schema.gatherItem.$inferInsert>) =>
+        db.use((d) =>
+          d.insert(schema.gatherItem).values({
+            ownerId: owner,
+            weekStart: "2026-01-05",
+            item: "egg",
+            itemKey: "egg",
+            ...values,
+          }),
+        );
+      yield* check(gather({ quantityMin: -1 }));
+      yield* check(gather({ quantityMin: 3, quantityMax: 2 }));
+      yield* check(gather({ quantityMax: 2 }));
+      yield* gather({ quantityMin: 1, quantityMax: 2 });
+      const plan = (servings: number) =>
+        db.use((d) =>
+          d
+            .insert(schema.mealPlanEntry)
+            .values({ ownerId: owner, date: "2026-01-05", slot: "dinner", title: "x", servings }),
+        );
+      yield* check(plan(0));
+      yield* check(plan(-1));
+      yield* plan(2);
+    }),
+  );
+
+  it.effect("quantities keep a fixed scale", () =>
+    Effect.gen(function* () {
+      const owner = yield* insertUser();
+      const r = yield* insertRecipe(owner);
+      const db = yield* Db;
+      yield* insertIngredient(owner, r.id, { quantityMin: 1 / 3 });
+      const [row] = yield* db.use((d) =>
+        d.select().from(schema.recipeIngredient).where(eq(schema.recipeIngredient.recipeId, r.id)),
+      );
+      assert.strictEqual(row!.quantityMin, 0.3333);
+    }),
+  );
+
+  it.effect("seed sets item_key", () =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const owner = yield* insertUser();
+      yield* Effect.promise(() => seed(db.drizzle, owner));
+      const rows = yield* db.use((d) =>
+        d.select().from(schema.recipeIngredient).where(eq(schema.recipeIngredient.ownerId, owner)),
+      );
+      assert.isTrue(rows.every((r) => r.itemKey.length > 0));
+      assert.isTrue(rows.some((r) => r.item === "large eggs" && r.itemKey === "egg"));
     }),
   );
 

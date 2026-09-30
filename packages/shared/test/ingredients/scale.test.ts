@@ -27,7 +27,12 @@ describe("formatQuantity, US and counts use fractions", () => {
     [2.97, "cup", "3"],
     [2.98, "cup", "3"],
     [3.6, "cup", "3 ⅝"],
-    [0.01, "tsp", "⅛"],
+    [0.01, "tsp", "0.01"],
+    [0.05, "tsp", "0.05"],
+    [0.06, "tsp", "0.06"],
+    [0.07, "tsp", "⅛"],
+    [1 / 6, "tsp", "⅙"],
+    [5 / 6, "cup", "⅚"],
     [0, "tsp", "0"],
     [10.5, "oz", "10 ½"],
     [1.49, "cup", "1 ½"],
@@ -78,6 +83,36 @@ describe("formatMeasure", () => {
     expect(formatMeasure({ min: 2, max: 3 }, "clove")).toBe("2–3 cloves");
     expect(formatMeasure({ min: 1, max: null }, "clove")).toBe("1 clove");
     expect(formatMeasure({ min: 2, max: null }, null)).toBe("2");
+  });
+
+  it("steps small US volumes down", () => {
+    expect(formatMeasure({ min: 0.125, max: null }, "cup")).toBe("2 tbsp");
+    expect(formatMeasure({ min: 0.0625, max: null }, "cup")).toBe("1 tbsp");
+    expect(formatMeasure({ min: 0.5, max: null }, "tbsp")).toBe("1 ½ tsp");
+    expect(formatMeasure({ min: 1 / 32, max: null }, "cup")).toBe("1 ½ tsp");
+    expect(formatMeasure({ min: 0.25, max: null }, "cup")).toBe("¼ c");
+    expect(formatMeasure({ min: 1, max: null }, "tbsp")).toBe("1 tbsp");
+    expect(formatMeasure({ min: 0.0625, max: 0.125 }, "cup")).toBe("1–2 tbsp");
+  });
+
+  it("does not step up, or touch metric and counts", () => {
+    expect(formatMeasure({ min: 48, max: null }, "tsp")).toBe("48 tsp");
+    expect(formatMeasure({ min: 0.5, max: null }, "g")).toBe("0.5 g");
+    expect(formatMeasure({ min: 0.01, max: null }, "clove")).toBe("0.01 clove");
+  });
+
+  it("shows pinch below 1/16 tsp and a fraction above it", () => {
+    expect(formatMeasure({ min: 0.01, max: null }, "tsp")).toBe("pinch");
+    expect(formatMeasure({ min: 0.06, max: null }, "tsp")).toBe("pinch");
+    expect(formatMeasure({ min: 0.0625, max: null }, "tsp")).toBe("⅛ tsp");
+    expect(formatMeasure({ min: 0.005, max: null }, "tbsp")).toBe("pinch");
+    expect(formatMeasure({ min: 0, max: null }, "tsp")).toBe("pinch");
+  });
+
+  it("does not inflate a scaled-down pinch", () => {
+    const p = parseIngredientLine("1/4 tsp salt");
+    expect(formatMeasure(scaleQuantity(p.quantity!, 1 / 8), p.unit)).toBe("pinch");
+    expect(formatMeasure(scaleQuantity(p.quantity!, 1 / 2), p.unit)).toBe("⅛ tsp");
   });
 });
 

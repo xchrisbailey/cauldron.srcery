@@ -1,5 +1,6 @@
+import { quantities } from "../copy.ts";
 import type { Quantity, UnitCode } from "./schema.ts";
-import { UNITS } from "./units.ts";
+import { convertForDisplay, UNITS } from "./units.ts";
 
 /** Multiply a quantity (and both ends of a range) by `factor`. */
 export function scaleQuantity(quantity: Quantity, factor: number): Quantity {
@@ -13,6 +14,7 @@ export function scaleQuantity(quantity: Quantity, factor: number): Quantity {
 const FRACTIONS: readonly (readonly [number, string])[] = [
   [0, ""],
   [1 / 8, "⅛"],
+  [1 / 6, "⅙"],
   [1 / 4, "¼"],
   [1 / 3, "⅓"],
   [3 / 8, "⅜"],
@@ -20,13 +22,19 @@ const FRACTIONS: readonly (readonly [number, string])[] = [
   [5 / 8, "⅝"],
   [2 / 3, "⅔"],
   [3 / 4, "¾"],
+  [5 / 6, "⅚"],
   [7 / 8, "⅞"],
   [1, ""],
 ];
 
-/** "1 ½", "¾", "2": nearest measurable fraction. Positive values never display as 0. */
+/**
+ * "1 ½", "¾", "2": nearest measurable fraction. Amounts below 1/16, which would
+ * round up to ⅛ and inflate the amount, show as a decimal instead. Positive
+ * values never display as 0.
+ */
 function formatFraction(value: number): string {
   if (value <= 0) return "0";
+  if (value < 1 / 16) return formatDecimal(value);
   let whole = Math.floor(value);
   const rest = value - whole;
   let best = FRACTIONS[0]!;
@@ -57,11 +65,32 @@ export function formatQuantity(quantity: Quantity, unit: UnitCode | null): strin
   return min === max ? min : `${min}–${max}`;
 }
 
-/** Quantity plus unit label: "1 ½ c", "250 g", "2–3 cloves". */
+const PINCH_ML = UNITS.tsp.factor / 16;
+
+/**
+ * Quantity plus unit label: "1 ½ c", "250 g", "2–3 cloves". Small US volumes
+ * step down first (1/8 cup is "2 tbsp", 1/2 tbsp is "1 ½ tsp"), and anything
+ * below 1/16 tsp reads "pinch" rather than an amount.
+ */
 export function formatMeasure(quantity: Quantity, unit: UnitCode | null): string {
-  const text = formatQuantity(quantity, unit);
-  if (unit === null) return text;
+  if (unit === null) return formatQuantity(quantity, unit);
+  let q = quantity;
+  let u: UnitCode = unit;
   const def = UNITS[unit];
-  const top = quantity.max ?? quantity.min;
-  return `${text} ${def.abbr ?? (top > 1 ? def.plural : def.singular)}`;
+  if (def.dimension === "volume" && def.system === "us" && unit !== "pinch" && unit !== "dash") {
+    const top = quantity.max ?? quantity.min;
+    if (top * def.factor < PINCH_ML) return quantities.pinch.text;
+    const next = convertForDisplay(top, unit, "us").unit;
+    if (next !== unit) {
+      u = next;
+      q = {
+        min: (quantity.min * def.factor) / UNITS[next].factor,
+        max: quantity.max === null ? null : (quantity.max * def.factor) / UNITS[next].factor,
+      };
+    }
+  }
+  const text = formatQuantity(q, u);
+  const d = UNITS[u];
+  const top = q.max ?? q.min;
+  return `${text} ${d.abbr ?? (top > 1 ? d.plural : d.singular)}`;
 }

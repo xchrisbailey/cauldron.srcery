@@ -276,6 +276,47 @@ const corpus: readonly (readonly [string, Expect])[] = [
   ],
   ["16 oz. canned pumpkin purée", { q: [16], u: "oz", item: "canned pumpkin purée" }],
   ["6 tbsp. unsalted butter, cubed", { q: [6], u: "tbsp", item: "unsalted butter", note: "cubed" }],
+  // thousands separators
+  ["1,000 g flour", { q: [1000], u: "g", item: "flour" }],
+  ["1,500 ml stock", { q: [1500], u: "ml", item: "stock" }],
+  ["2,500.5 g sugar", { q: [2500.5], u: "g", item: "sugar" }],
+  // slash alternate measures
+  ["400g/14oz tin tomatoes", { q: [400], u: "g", item: "tin tomatoes", alt: [[14], "oz"] }],
+  ["1 cup / 240 ml milk", { q: [1], u: "cup", item: "milk", alt: [[240], "ml"] }],
+  ["400g/14oz can tomatoes", { q: [400], u: "g", item: "can tomatoes", alt: [[14], "oz"] }],
+  // count x size
+  ["2 x 400g cans chickpeas", { q: [2], u: "can", item: "chickpeas", alt: [[400], "g"] }],
+  [
+    "2 x 400g cans chickpeas, drained",
+    { q: [2], u: "can", item: "chickpeas", note: "drained", alt: [[400], "g"] },
+  ],
+  // fill modifiers go to the note
+  ["1 heaping tsp salt", { q: [1], u: "tsp", item: "salt", note: "heaping" }],
+  ["2 heaped tbsp sugar", { q: [2], u: "tbsp", item: "sugar", note: "heaped" }],
+  ["1 level tablespoon flour", { q: [1], u: "tbsp", item: "flour", note: "level" }],
+  ["1 scant cup milk", { q: [1], u: "cup", item: "milk", note: "scant" }],
+  [
+    "1 rounded teaspoon baking powder",
+    { q: [1], u: "tsp", item: "baking powder", note: "rounded" },
+  ],
+  ["a heaping teaspoon salt", { q: [1], u: "tsp", item: "salt", note: "heaping" }],
+  // half and articles after a quantity
+  ["half an onion", { q: [0.5], item: "onion" }],
+  ["1/2 an onion", { q: [0.5], item: "onion" }],
+  ["half a lemon", { q: [0.5], item: "lemon" }],
+  ["1/2 a cup flour", { q: [0.5], u: "cup", item: "flour" }],
+  ["half and half", { item: "half and half" }],
+  // dozen is a multiplier
+  ["2 dozen eggs", { q: [24], item: "eggs" }],
+  ["a dozen eggs", { q: [12], item: "eggs" }],
+  ["half a dozen eggs", { q: [6], item: "eggs" }],
+  // glued and short units
+  ["1 tsp.salt", { q: [1], u: "tsp", item: "salt" }],
+  ["1 ts salt", { q: [1], u: "tsp", item: "salt" }],
+  // each after a unit
+  ["2 tbsp each salt and pepper", { q: [2], u: "tbsp", item: "salt and pepper", note: "each" }],
+  // weight then container word: weight is the measure, the container stays in the item
+  ["12 oz. package spaghetti", { q: [12], u: "oz", item: "package spaghetti" }],
   ["1/0 cup mystery", { item: "1/0 cup mystery" }],
   ["", { item: "" }],
   ["   ", { item: "" }],

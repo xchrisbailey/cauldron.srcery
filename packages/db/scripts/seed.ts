@@ -13,7 +13,8 @@ import { migrationsFolder, schema } from "../src/index.ts";
 import { seed } from "../src/seed.ts";
 
 const email = process.env.SEED_EMAIL ?? "demo@cauldron.local";
-const password = process.env.SEED_PASSWORD ?? "cauldron-demo";
+const DEFAULT_PASSWORD = "cauldron-demo";
+const password = process.env.SEED_PASSWORD ?? DEFAULT_PASSWORD;
 
 const connect = async () => {
   if (process.env.DATABASE_URL) {
@@ -36,18 +37,28 @@ try {
   let [owner] = await db.select().from(schema.user).where(eq(schema.user.email, email));
   if (!owner) {
     const id = crypto.randomUUID();
-    [owner] = await db
-      .insert(schema.user)
-      .values({ id, name: "Demo Cook", email, emailVerified: true })
-      .returning();
-    await db.insert(schema.account).values({
-      id: crypto.randomUUID(),
-      accountId: id,
-      providerId: "credential",
-      userId: id,
-      password: await hashPassword(password),
+    const hashed = await hashPassword(password);
+    // The user and their credential account are created together or not at all.
+    [owner] = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(schema.user)
+        .values({ id, name: "Demo Cook", email, emailVerified: true })
+        .returning();
+      await tx.insert(schema.account).values({
+        id: crypto.randomUUID(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: hashed,
+      });
+      return [created];
     });
-    console.log(`Created ${email} (password: ${password})`);
+    // Only the well-known demo password is safe to print.
+    console.log(
+      password === DEFAULT_PASSWORD
+        ? `Created ${email} (password: ${password})`
+        : `Created ${email} (password from SEED_PASSWORD)`,
+    );
   }
   const { created, total } = await seed(db, owner!.id);
   console.log(`Seeded ${created} of ${total} recipes for ${email}.`);

@@ -6,16 +6,31 @@ CREATE TABLE "gather_item" (
 	"owner_id" text NOT NULL,
 	"week_start" date NOT NULL,
 	"item" text NOT NULL,
-	"quantity_min" numeric,
-	"quantity_max" numeric,
+	"item_key" text NOT NULL,
+	"quantity_min" numeric(12, 4),
+	"quantity_max" numeric(12, 4),
 	"unit" text,
 	"aisle" text,
 	"checked" boolean DEFAULT false NOT NULL,
 	"manual" boolean DEFAULT false NOT NULL,
-	"source_recipe_ids" uuid[] DEFAULT '{}'::uuid[] NOT NULL,
 	"position" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "gather_item_id_owner_unique" UNIQUE("id","owner_id"),
+	CONSTRAINT "gather_item_quantity_check" CHECK (("gather_item"."quantity_min" is null or "gather_item"."quantity_min" >= 0)
+        and ("gather_item"."quantity_max" is null or ("gather_item"."quantity_min" is not null and "gather_item"."quantity_max" >= "gather_item"."quantity_min")))
+);
+--> statement-breakpoint
+CREATE TABLE "gather_item_source" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"owner_id" text NOT NULL,
+	"gather_item_id" uuid NOT NULL,
+	"recipe_id" uuid NOT NULL,
+	"quantity_min" numeric(12, 4),
+	"quantity_max" numeric(12, 4),
+	"unit" text,
+	CONSTRAINT "gather_item_source_quantity_check" CHECK (("gather_item_source"."quantity_min" is null or "gather_item_source"."quantity_min" >= 0)
+        and ("gather_item_source"."quantity_max" is null or ("gather_item_source"."quantity_min" is not null and "gather_item_source"."quantity_max" >= "gather_item_source"."quantity_min")))
 );
 --> statement-breakpoint
 CREATE TABLE "meal_plan_entry" (
@@ -28,7 +43,8 @@ CREATE TABLE "meal_plan_entry" (
 	"servings" integer,
 	"position" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "meal_plan_servings_positive" CHECK ("meal_plan_entry"."servings" is null or "meal_plan_entry"."servings" > 0)
 );
 --> statement-breakpoint
 CREATE TABLE "recipe" (
@@ -49,6 +65,7 @@ CREATE TABLE "recipe" (
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp (3) with time zone,
+	CONSTRAINT "recipe_id_owner_unique" UNIQUE("id","owner_id"),
 	CONSTRAINT "recipe_servings_positive" CHECK ("recipe"."servings" is null or "recipe"."servings" > 0)
 );
 --> statement-breakpoint
@@ -58,20 +75,24 @@ CREATE TABLE "recipe_ingredient" (
 	"recipe_id" uuid NOT NULL,
 	"position" integer NOT NULL,
 	"section" text,
-	"quantity_min" numeric,
-	"quantity_max" numeric,
+	"quantity_min" numeric(12, 4),
+	"quantity_max" numeric(12, 4),
 	"unit" text,
 	"item" text NOT NULL,
+	"item_key" text NOT NULL,
 	"note" text,
 	"optional" boolean DEFAULT false NOT NULL,
-	"alt_quantity_min" numeric,
-	"alt_quantity_max" numeric,
+	"alt_quantity_min" numeric(12, 4),
+	"alt_quantity_max" numeric(12, 4),
 	"alt_unit" text,
 	"original_line" text NOT NULL,
 	"food_id" uuid,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "recipe_ingredient_range" CHECK ("recipe_ingredient"."quantity_max" is null or ("recipe_ingredient"."quantity_min" is not null and "recipe_ingredient"."quantity_max" >= "recipe_ingredient"."quantity_min"))
+	CONSTRAINT "recipe_ingredient_quantity_check" CHECK (("recipe_ingredient"."quantity_min" is null or "recipe_ingredient"."quantity_min" >= 0)
+        and ("recipe_ingredient"."quantity_max" is null or ("recipe_ingredient"."quantity_min" is not null and "recipe_ingredient"."quantity_max" >= "recipe_ingredient"."quantity_min"))),
+	CONSTRAINT "recipe_ingredient_alt_quantity_check" CHECK (("recipe_ingredient"."alt_quantity_min" is null or "recipe_ingredient"."alt_quantity_min" >= 0)
+        and ("recipe_ingredient"."alt_quantity_max" is null or ("recipe_ingredient"."alt_quantity_min" is not null and "recipe_ingredient"."alt_quantity_max" >= "recipe_ingredient"."alt_quantity_min")))
 );
 --> statement-breakpoint
 CREATE TABLE "recipe_step" (
@@ -101,27 +122,35 @@ CREATE TABLE "tag" (
 	"name" text NOT NULL,
 	"kind" "tag_kind" DEFAULT 'other' NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tag_id_owner_unique" UNIQUE("id","owner_id")
 );
 --> statement-breakpoint
 ALTER TABLE "gather_item" ADD CONSTRAINT "gather_item_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gather_item_source" ADD CONSTRAINT "gather_item_source_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gather_item_source" ADD CONSTRAINT "gather_item_source_item_owner_fk" FOREIGN KEY ("gather_item_id","owner_id") REFERENCES "public"."gather_item"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gather_item_source" ADD CONSTRAINT "gather_item_source_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meal_plan_entry" ADD CONSTRAINT "meal_plan_entry_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meal_plan_entry" ADD CONSTRAINT "meal_plan_entry_recipe_id_recipe_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipe"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+-- Hand-edited: Drizzle cannot express the column list (PG15+). A plain SET NULL would also null owner_id.
+ALTER TABLE "meal_plan_entry" ADD CONSTRAINT "meal_plan_entry_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE set null ("recipe_id") ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe" ADD CONSTRAINT "recipe_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe_ingredient" ADD CONSTRAINT "recipe_ingredient_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_ingredient" ADD CONSTRAINT "recipe_ingredient_recipe_id_recipe_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipe"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recipe_ingredient" ADD CONSTRAINT "recipe_ingredient_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe_step" ADD CONSTRAINT "recipe_step_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_step" ADD CONSTRAINT "recipe_step_recipe_id_recipe_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipe"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recipe_step" ADD CONSTRAINT "recipe_step_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe_tag" ADD CONSTRAINT "recipe_tag_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_tag" ADD CONSTRAINT "recipe_tag_recipe_id_recipe_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipe"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_tag" ADD CONSTRAINT "recipe_tag_tag_id_tag_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tag"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recipe_tag" ADD CONSTRAINT "recipe_tag_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recipe_tag" ADD CONSTRAINT "recipe_tag_tag_owner_fk" FOREIGN KEY ("tag_id","owner_id") REFERENCES "public"."tag"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tag" ADD CONSTRAINT "tag_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "gather_item_owner_week_idx" ON "gather_item" USING btree ("owner_id","week_start");--> statement-breakpoint
+CREATE INDEX "gather_item_owner_week_key_idx" ON "gather_item" USING btree ("owner_id","week_start","item_key");--> statement-breakpoint
+CREATE INDEX "gather_item_source_item_idx" ON "gather_item_source" USING btree ("gather_item_id");--> statement-breakpoint
+CREATE INDEX "gather_item_source_recipe_idx" ON "gather_item_source" USING btree ("recipe_id");--> statement-breakpoint
 CREATE INDEX "meal_plan_owner_date_idx" ON "meal_plan_entry" USING btree ("owner_id","date");--> statement-breakpoint
-CREATE INDEX "recipe_owner_created_idx" ON "recipe" USING btree ("owner_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "meal_plan_recipe_idx" ON "meal_plan_entry" USING btree ("recipe_id");--> statement-breakpoint
+CREATE INDEX "recipe_owner_created_idx" ON "recipe" USING btree ("owner_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "recipe"."deleted_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "recipe_ingredient_position_idx" ON "recipe_ingredient" USING btree ("recipe_id","position");--> statement-breakpoint
-CREATE INDEX "recipe_ingredient_owner_idx" ON "recipe_ingredient" USING btree ("owner_id");--> statement-breakpoint
+CREATE INDEX "recipe_ingredient_owner_food_idx" ON "recipe_ingredient" USING btree ("owner_id","food_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "recipe_step_position_idx" ON "recipe_step" USING btree ("recipe_id","position");--> statement-breakpoint
-CREATE INDEX "recipe_step_owner_idx" ON "recipe_step" USING btree ("owner_id");--> statement-breakpoint
 CREATE INDEX "recipe_tag_tag_idx" ON "recipe_tag" USING btree ("tag_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "tag_owner_name_idx" ON "tag" USING btree ("owner_id",lower("name"));

@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
+  Quantity,
   ParsedIngredient,
   UNIT_CODES,
   UNITS,
@@ -103,6 +104,14 @@ describe("convertForDisplay", () => {
     expect(out.quantity).toBeCloseTo(expected, 2);
   });
 
+  it("steps small US volumes down within the US system", () => {
+    expect(convertForDisplay(0.125, "cup", "us")).toEqual({ quantity: 2, unit: "tbsp" });
+    expect(convertForDisplay(1 / 32, "cup", "us").unit).toBe("tsp");
+    expect(convertForDisplay(0.5, "tbsp", "us")).toEqual({ quantity: 1.5, unit: "tsp" });
+    expect(convertForDisplay(0.25, "cup", "us")).toEqual({ quantity: 0.25, unit: "cup" });
+    expect(convertForDisplay(1, "tbsp", "us")).toEqual({ quantity: 1, unit: "tbsp" });
+  });
+
   it("leaves matching systems, counts, pinch and dash alone", () => {
     expect(convertForDisplay(2, "cup", "us")).toEqual({ quantity: 2, unit: "cup" });
     expect(convertForDisplay(2, "g", "metric")).toEqual({ quantity: 2, unit: "g" });
@@ -116,6 +125,15 @@ describe("schemas", () => {
   it("accepts every unit code and rejects others", () => {
     for (const code of UNIT_CODES) expect(Schema.is(UnitCode)(code)).toBe(true);
     expect(Schema.is(UnitCode)("furlong")).toBe(false);
+  });
+
+  it("Quantity enforces max >= min", () => {
+    const ok = Schema.is(Quantity);
+    expect(ok({ min: 1, max: null })).toBe(true);
+    expect(ok({ min: 1, max: 1 })).toBe(true);
+    expect(ok({ min: 1, max: 2 })).toBe(true);
+    expect(ok({ min: 3, max: 2 })).toBe(false);
+    expect(ok({ min: -1, max: null })).toBe(false);
   });
 
   it("accepts parser output", () => {

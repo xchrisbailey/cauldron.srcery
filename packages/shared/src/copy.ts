@@ -19,3 +19,9 @@ export const errors = {
   internal: plain("Something went wrong on our side. Try again in a moment."),
   unavailable: plain("Cauldron can't reach its database right now. Try again in a moment."),
 } as const;
+
+/** Quantity words. Always plain. */
+export const quantities = {
+  /** Shown for amounts below 1/16 tsp. */
+  pinch: plain("pinch"),
+} as const;

@@ -6,3 +6,4 @@ export * from "./ingredients/units.ts";
 export * from "./ingredients/schema.ts";
 export * from "./ingredients/parse.ts";
 export * from "./ingredients/scale.ts";
+export * from "./ingredients/key.ts";

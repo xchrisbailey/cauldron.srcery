@@ -14,6 +14,25 @@
  *   ("1 1/2 cups (190g) flour") or the per-container size ("1 (14 oz) can
  *   tomatoes" is quantity 1, unit can, alt 14 oz). Other parentheticals become
  *   part of the note.
+ * - Thousands separators are read: "1,000 g flour" is 1000 g.
+ * - "400g/14oz tin tomatoes" (and "1 cup / 240 ml milk"): a slash after the unit
+ *   gives the alternate measure. "tin" is not a unit, so it stays in the item:
+ *   quantity 400 g, alt 14 oz, item "tin tomatoes". "can" is a unit, so
+ *   "400g/14oz can tomatoes" keeps the amount and alt the same way with item "can tomatoes".
+ * - "2 x 400g cans chickpeas" is quantity 2, unit can, alt 400 g, item "chickpeas".
+ * - Preparation-style measure modifiers before a unit ("heaping", "heaped",
+ *   "level", "scant", "rounded") go to the note: "1 heaping tsp salt" is 1 tsp,
+ *   note "heaping".
+ * - An article after a quantity is dropped: "1/2 an onion", "half a lemon"
+ *   are 0.5 of "onion" and "lemon". "half" is 0.5.
+ * - "dozen" is a multiplier, not a unit: "2 dozen eggs" is 24 "eggs" and
+ *   "half a dozen eggs" is 6.
+ * - "each" right after a unit moves to the note: "2 tbsp each salt and
+ *   pepper" is 2 tbsp of "salt and pepper", note "each".
+ * - "12 oz. package spaghetti": a weight followed by a container word is the
+ *   weight as the measure with the container left in the item: 12 oz,
+ *   item "package spaghetti". (Only a measure before a container, as in
+ *   "1 (14 oz) can" or "1 14-ounce can", makes the container the unit.)
  * - Bare "oz" is weight; only "fl oz" or "fluid ounce" is volume. "T" is tbsp
  *   and "t" is tsp.
  * - Lines with no leading quantity ("Juice of 1 lemon", "Salt, to taste") have
@@ -58,6 +77,7 @@ const NUMBER_WORDS: Readonly<Record<string, number>> = {
   ten: 10,
   eleven: 11,
   twelve: 12,
+  half: 0.5,
 };
 
 /** "a few", "a couple of" are not quantities. */
@@ -86,7 +106,10 @@ interface Parsed<T> {
 }
 
 function parseSingleNumber(s: string): Parsed<number> | null {
-  let m = /^(\d+)(?:\s+|-)(\d+)\/(\d+)/.exec(s);
+  // Thousands separators: "1,000", "12,500.5". Must come before the plain number.
+  let m = /^(\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?!\d)/.exec(s);
+  if (m) return { value: Number(m[1]!.replace(/,/g, "")), rest: s.slice(m[0].length) };
+  m = /^(\d+)(?:\s+|-)(\d+)\/(\d+)/.exec(s);
   if (m && Number(m[3]) !== 0) {
     return { value: Number(m[1]) + Number(m[2]) / Number(m[3]), rest: s.slice(m[0].length) };
   }
@@ -102,6 +125,8 @@ function parseSingleNumber(s: string): Parsed<number> | null {
     const value = NUMBER_WORDS[word];
     if (value !== undefined) {
       const next = /^\s*([A-Za-z]+)/.exec(s.slice(m[0].length));
+      // "half and half" is an ingredient, not a quantity.
+      if (word === "half" && next && next[1]!.toLowerCase() === "and") return null;
       if ((word === "a" || word === "an") && (!next || VAGUE_AFTER_A.has(next[1]!.toLowerCase()))) {
         return null;
       }
@@ -132,7 +157,9 @@ function parseUnit(s: string): Parsed<AltMeasure["unit"]> | null {
     const code = lookupUnit(`${two[1]} ${two[2]}`);
     if (code && UNITS[code].abbr === "fl oz") return { value: code, rest: s.slice(two[0].length) };
   }
-  const one = /^([A-Za-z]+)\.?(?=\s|$|\()/.exec(s);
+  // A unit ends at a space, "(", "/" (alternate measure) or a dot glued to the
+  // next word ("1 tsp.salt").
+  const one = /^([A-Za-z]+)(?:\.(?=[A-Za-z])|\.?(?=\s|$|\(|\/))/.exec(s);
   if (one) {
     const code = lookupUnit(one[1]!);
     if (code) return { value: code, rest: s.slice(one[0].length) };
@@ -186,6 +213,11 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   }
 }
 
+const scale12 = (q: Quantity): Quantity => ({
+  min: q.min * 12,
+  max: q.max === null ? null : q.max * 12,
+});
+
 function blank(original: string, item: string): ParsedIngredient {
   return { quantity: null, unit: null, item, note: null, optional: false, alt: null, original };
 }
@@ -238,6 +270,21 @@ function parse(original: string): ParsedIngredient {
       if (hyphenWord) rest = rest.slice(1);
       quantity = q.value;
 
+      // "2 x 400g cans chickpeas": a count of packs, each with a size.
+      const times = /^[x×]\s*(?=\d)/i.exec(rest);
+      if (times) rest = rest.slice(times[0].length);
+
+      // "1/2 an onion", "half a lemon": the article adds nothing after a quantity.
+      const article = /^an?\s+(?=\S)/i.exec(rest);
+      if (article) rest = rest.slice(article[0].length);
+
+      // "2 dozen eggs": a multiplier.
+      const dozen = /^dozen\b\s*/i.exec(rest);
+      if (dozen) {
+        quantity = scale12(quantity);
+        rest = rest.slice(dozen[0].length);
+      }
+
       // "1 14-ounce can tomatoes": size measure before a container unit.
       const size = /^(\d+(?:\.\d+)?)[\s-]*([A-Za-z]+)\.?\s+([A-Za-z]+)(.*)$/.exec(rest);
       if (size && alt === null) {
@@ -254,11 +301,36 @@ function parse(original: string): ParsedIngredient {
         }
       }
 
+      // "1 heaping tsp salt": how the measure is filled belongs in the note.
+      let measureNote: string | null = null;
+      const modifier = /^(heaping|heaped|level|scant|rounded)\s+(?=[A-Za-z])/i.exec(rest);
+      if (modifier && parseUnit(rest.slice(modifier[0].length))) {
+        measureNote = modifier[1]!.toLowerCase();
+        rest = rest.slice(modifier[0].length);
+      }
+
       const u = parseUnit(rest);
       if (u) {
         unit = u.value;
         unitText = rest.slice(0, rest.length - u.rest.length).trim();
         rest = u.rest.trim();
+        if (measureNote) notes.push(measureNote);
+        // "400g/14oz tin tomatoes", "1 cup / 240 ml milk": alternate measure after a slash.
+        const slash = /^\/\s*/.exec(rest);
+        if (slash) {
+          const altQ = parseQuantity(rest.slice(slash[0].length));
+          const altU = altQ ? parseUnit(altQ.rest.trim()) : null;
+          if (altQ && altU) {
+            if (alt === null) alt = { quantity: altQ.value, unit: altU.value };
+            rest = altU.rest.trim();
+          }
+        }
+        // "2 tbsp each salt and pepper": "each" is a note.
+        const each = /^each\b\s*/i.exec(rest);
+        if (each) {
+          notes.push("each");
+          rest = rest.slice(each[0].length);
+        }
         const plus = /^(?:plus|\+)\s+/i.exec(rest);
         if (plus) {
           const extra = parseQuantity(rest.slice(plus[0].length));
