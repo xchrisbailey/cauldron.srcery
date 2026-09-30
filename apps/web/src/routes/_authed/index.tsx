@@ -21,7 +21,7 @@ function Home() {
   // Proves the typed client works signed in; the session above came from the server.
   const me = useQuery({ queryKey: ["me"], queryFn: () => callApi((c) => c.account.me()) });
   return (
-    <AuthCard title="Cauldron">
+    <AuthCard title={copy.ui.appName.text}>
       {error ? (
         <FormMessage tone="error">{copy.auth.linkExpired.text}</FormMessage>
       ) : verified ? (

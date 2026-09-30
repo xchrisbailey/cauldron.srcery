@@ -83,3 +83,57 @@ export const auth = {
   account: plain("Account"),
   signedInAs: plain("Signed in as"),
 } as const;
+
+const voice = (text: string): CopyString => ({ tone: "voice", text });
+
+// The brand voice (#1): magic verbs with plain nouns. Recipes, ingredients,
+// meals and days keep their real names. Quantities, method steps, errors,
+// brewing-mode controls and the literal part of delete confirmations stay plain.
+export const recipes = {
+  conjure: voice("Conjure a recipe"),
+  distillFromLink: voice("Distill from a link"),
+  distill: voice("Distill"),
+  summon: voice("Summon a recipe"),
+  stirInto: (day: string) => voice(`Stir into ${day}`),
+  startBrewing: voice("Start brewing"),
+  brewed: voice("Brewed"),
+  saving: voice("Simmering…"),
+  saved: voice("Set"),
+  empty: voice("No recipes yet. Conjure one, or distill it from a link."),
+  /** "Banish" is the voice; the rest is the literal, plain confirmation. */
+  banishConfirm: (title: string) => ({
+    verb: voice("Banish"),
+    confirm: plain(`Banish ${title}? This can't be undone.`),
+  }),
+  couldntReadPage: plain("Couldn't read that page. Paste the recipe text instead."),
+} as const;
+
+export const brewing = {
+  nextStep: plain("Next step"),
+  previousStep: plain("Previous step"),
+} as const;
+
+export const week = {
+  title: plain("The week"),
+  empty: voice("The cauldron's cold. Stir in a recipe to start the week."),
+} as const;
+
+export const gather = {
+  title: voice("Gather list"),
+} as const;
+
+export const nav = {
+  recipes: plain("Recipes"),
+  week: plain("The week"),
+  gather: voice("Gather list"),
+  tracker: plain("Tracker"),
+  later: plain("later"),
+} as const;
+
+export const ui = {
+  appName: plain("Cauldron"),
+  byline: plain("by srcery"),
+  footer: voice("Cauldron, stirred at srcery.computer"),
+  switchToLight: plain("Switch to light theme"),
+  switchToDark: plain("Switch to dark theme"),
+} as const;
