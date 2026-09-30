@@ -42,6 +42,13 @@ const makeAuth = (
           subject: copy.auth.resetPasswordSubject.text,
           text: copy.auth.resetPasswordBody(url).text,
         }),
+      // Sign-up answers the same for a taken address; the owner hears about it here.
+      onExistingUserSignUp: ({ user }) =>
+        sendEmail({
+          to: user.email,
+          subject: copy.auth.alreadyHaveAccountSubject.text,
+          text: copy.auth.alreadyHaveAccountBody(`${config.publicUrl}/sign-in`).text,
+        }),
     },
     emailVerification: {
       sendOnSignUp: true,
@@ -77,10 +84,10 @@ const makeAuth = (
     account: {
       accountLinking: {
         enabled: true,
-        // Google and Apple verify emails, so signing in with them can join an
-        // existing account, but never one whose own email is unconfirmed (that
-        // would let someone pre-register a victim's address with a password).
-        trustedProviders: ["google", "apple"],
+        // Better Auth links a provider sign-in to an existing account only when the
+        // provider vouches for the email, and with this flag never into an account
+        // whose own email is unconfirmed (that would let someone pre-register a
+        // victim's address with a password and inherit the victim's sign-in).
         requireLocalEmailVerified: true,
       },
     },
@@ -116,12 +123,17 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("cauldron/api/Au
       const db = yield* Db;
       const mailer = yield* Mailer;
       const context = yield* Effect.context<never>();
-      // Better Auth awaits these, so a failed send surfaces as a failed request.
-      const sendEmail = (email: Email) =>
-        mailer.send(email).pipe(
-          Effect.tapError((error) => Effect.logError("Couldn't send email", error.cause)),
-          Effect.runPromiseWith(context),
+      // Sends run in their own fiber and are never awaited, so a request's timing
+      // and errors don't reveal whether an address has an account. Failures are logged.
+      const sendEmail = (email: Email): Promise<void> => {
+        Effect.runForkWith(context)(
+          mailer.send(email).pipe(
+            Effect.tapError((error) => Effect.logError("Couldn't send email", error.cause)),
+            Effect.ignore,
+          ),
         );
+        return Promise.resolve();
+      };
       return makeAuth(config, db, sendEmail);
     }),
   );

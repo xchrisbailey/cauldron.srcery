@@ -1,8 +1,9 @@
-import { copy, SignInInput, authErrorMessage } from "@cauldron/shared";
+import { copy, EmailInput, SignInInput, authErrorMessage } from "@cauldron/shared";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { SearchFlag } from "../lib/search";
+import { safeRedirect } from "../lib/safe-redirect";
 import { useState } from "react";
 import { SocialSignIn } from "../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../components/ui";
@@ -12,14 +13,11 @@ import { getSession } from "../lib/session";
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
     redirect: Schema.optional(Schema.String),
-    verified: SearchFlag,
     reset: SearchFlag,
+    // Better Auth sends a bad verification link here as `error=INVALID_TOKEN`.
+    error: Schema.optional(Schema.String),
   }),
 );
-
-// Only same-site paths, so a crafted link can't bounce people to another site.
-export const safeRedirect = (to: string | undefined) =>
-  to && to.startsWith("/") && !to.startsWith("//") && !to.startsWith("/\\") ? to : "/";
 
 export const Route = createFileRoute("/sign-in")({
   validateSearch: Search,
@@ -33,6 +31,8 @@ function SignIn() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const to = safeRedirect(search.redirect);
   const form = useForm({
     defaultValues: { email: "", password: "" },
@@ -40,13 +40,29 @@ function SignIn() {
     onSubmit: async ({ value }) => {
       setError(null);
       const res = await authClient.signIn.email(value);
-      if (res.error) return setError(authErrorMessage(errorCode(res.error)));
+      if (res.error) {
+        const code = errorCode(res.error);
+        setNeedsVerification(code === "EMAIL_NOT_VERIFIED");
+        return setError(authErrorMessage(code));
+      }
       await navigate({ href: to });
     },
   });
 
+  const resend = async () => {
+    const email = form.getFieldValue("email");
+    setResent(false);
+    if (!Schema.is(EmailInput)({ email })) return setError(copy.auth.invalidEmail.text);
+    setError(null);
+    const res = await authClient.sendVerificationEmail({ email, callbackURL: "/?verified=1" });
+    if (res.error) return setError(authErrorMessage(errorCode(res.error)));
+    setResent(true);
+  };
+  const showResend = Boolean(search.error) || needsVerification;
+
   return (
     <AuthCard title={copy.auth.signInTitle.text}>
+      {search.error ? <FormMessage tone="error">{copy.auth.linkExpired.text}</FormMessage> : null}
       {search.reset ? (
         <FormMessage tone="info">{copy.auth.passwordUpdated.text}</FormMessage>
       ) : null}
@@ -79,6 +95,7 @@ function SignIn() {
             )}
           </form.Field>
           {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+          {resent ? <FormMessage tone="info">{copy.auth.checkEmail.text}</FormMessage> : null}
           <form.Subscribe selector={(s) => s.isSubmitting}>
             {(submitting) => (
               <Button type="submit" disabled={submitting}>
@@ -88,6 +105,14 @@ function SignIn() {
           </form.Subscribe>
         </Stack>
       </form>
+      {showResend ? (
+        <Stack>
+          <p>{copy.auth.resendVerificationFor.text}</p>
+          <Button type="button" variant="secondary" onClick={() => void resend()}>
+            {copy.auth.resendVerification.text}
+          </Button>
+        </Stack>
+      ) : null}
       <SocialSignIn callbackURL={to} />
       <Stack>
         <TextLink to="/forgot-password">{copy.auth.forgotPassword.text}</TextLink>

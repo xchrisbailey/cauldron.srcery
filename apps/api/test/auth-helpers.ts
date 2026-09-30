@@ -34,6 +34,22 @@ export const makeAuthApi = (
       }),
     );
 
+  /**
+   * Better Auth's mail is sent in a forked fiber, not awaited by the request, so
+   * poll until the outbox holds `count` emails (or fail after a couple of seconds).
+   */
+  const waitForOutbox = async (count: number): Promise<ReadonlyArray<Email>> => {
+    for (let i = 0; i < 200; i++) {
+      const sent = await outbox();
+      if (sent.length >= count) return sent;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`expected ${count} emails in the outbox, got ${(await outbox()).length}`);
+  };
+
+  /** For asserting that nothing was sent: give a forked send time to land first. */
+  const settle = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const send = (path: string, init: RequestInit = {}) =>
     web.handler(new Request(url(path), { redirect: "manual", ...init }));
 
@@ -57,6 +73,8 @@ export const makeAuthApi = (
     send,
     post,
     outbox,
+    waitForOutbox,
+    settle,
     linkIn,
     dispose: async () => {
       await web.dispose();

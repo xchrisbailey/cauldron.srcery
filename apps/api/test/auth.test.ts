@@ -21,7 +21,8 @@ const signUp = async (api: AuthApi, email: string, name = "Test User") => {
     name,
     callbackURL: "/",
   });
-  const sent = (await api.outbox()).slice(before).filter((m) => m.to === email);
+  // The email goes out in a forked fiber, so wait for it to land.
+  const sent = (await api.waitForOutbox(before + 1)).slice(before).filter((m) => m.to === email);
   return { res, sent };
 };
 
@@ -113,6 +114,29 @@ describe("email and password", () => {
     expect((await signIn(api, "tamper@example.com")).status).toBe(403);
   });
 
+  it("tells the owner when someone signs up with their address, and answers the same", async () => {
+    const email = "taken@example.com";
+    await signUpVerified(api, email);
+    const before = (await api.outbox()).length;
+    const again = await api.post("/v1/auth/sign-up/email", {
+      email,
+      password: "another-pass-5",
+      name: "Someone Else",
+    });
+    const fresh = await api.post("/v1/auth/sign-up/email", {
+      email: "brand-new@example.com",
+      password: "another-pass-5",
+      name: "Someone Else",
+    });
+    expect(again.status).toBe(fresh.status);
+    expect(cookieOf(again)).toBeUndefined();
+    const sent = (await api.waitForOutbox(before + 2)).slice(before);
+    const note = sent.find((m) => m.to === email)!;
+    expect(note.subject).toBe(copy.auth.alreadyHaveAccountSubject.text);
+    expect(note.text).toContain(`${WEB_ORIGIN}/sign-in`);
+    expect(note.text).not.toMatch(/verify-email/);
+  });
+
   it("rejects short passwords", async () => {
     const res = await api.post("/v1/auth/sign-up/email", {
       email: "short@example.com",
@@ -141,7 +165,7 @@ describe("password reset", () => {
     const before = (await api.outbox()).length;
     const request = await requestReset(email);
     expect(request.status).toBe(200);
-    const sent = (await api.outbox()).slice(before);
+    const sent = (await api.waitForOutbox(before + 1)).slice(before);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: email, subject: copy.auth.resetPasswordSubject.text });
 
@@ -174,11 +198,13 @@ describe("password reset", () => {
 
   it("answers the same for unknown emails and sends nothing", async () => {
     await signUpVerified(api, "known@example.com");
+    const start = (await api.outbox()).length;
     const known = await requestReset("known@example.com");
-    const before = (await api.outbox()).length;
+    const before = (await api.waitForOutbox(start + 1)).length;
     const unknown = await requestReset("ghost@example.com");
     expect(unknown.status).toBe(known.status);
     expect(await unknown.json()).toEqual(await known.json());
+    await api.settle();
     expect(await api.outbox()).toHaveLength(before);
   });
 
@@ -307,6 +333,16 @@ describe("CSRF guard", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  it("rejects a cookie plus a bearer header from another origin", async () => {
+    const res = await create({
+      cookie,
+      authorization: "Bearer a.b",
+      origin: "https://evil.example",
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { code: "forbidden" } });
+  });
+
   it("lets a bearer POST through without an Origin", async () => {
     const res = await create({ authorization: `Bearer ${token}` });
     expect(res.status).toBe(200);
@@ -393,6 +429,15 @@ describe("OAuth account linking", () => {
 
     // The squatter's password still can't sign in either.
     expect((await signIn(api, email)).status).toBe(403);
+  });
+
+  it("lets a social-only user with a fresh session delete their account without a password", async () => {
+    const email = "social-only@example.com";
+    const cookie = cookieOf(await oauthSignIn(email))!;
+    expect((await me(api, { cookie })).status).toBe(200);
+    const res = await api.post("/v1/auth/delete-user", {}, { cookie });
+    expect(res.status).toBe(200);
+    expect((await me(api, { cookie })).status).toBe(401);
   });
 
   it("links into a verified password account with the same email", async () => {

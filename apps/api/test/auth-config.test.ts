@@ -1,6 +1,7 @@
 import { ConfigProvider, Effect, Exit, Layer, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { AppConfig } from "../src/AppConfig.ts";
+import { Mailer, maskEmail } from "../src/Mailer.ts";
 
 // Everything production requires, so these tests fail only for the reason they're about.
 const PRODUCTION = {
@@ -101,5 +102,46 @@ describe("AppConfig.layer", () => {
       expect(config.social.google).toBeDefined();
       expect(config.social.apple).toBeUndefined();
     });
+  });
+});
+
+describe("Mailer.layer", () => {
+  const loadMailer = (env: Record<string, string>) =>
+    Effect.runPromiseExit(
+      Effect.service(Mailer).pipe(
+        Effect.provide(
+          Mailer.layer.pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env)))),
+        ),
+      ),
+    );
+
+  it("uses the console mailer outside production without a key", async () => {
+    expect(Exit.isSuccess(await loadMailer({}))).toBe(true);
+  });
+
+  it("refuses to boot in production without RESEND_API_KEY", async () => {
+    const exit = await loadMailer({ NODE_ENV: "production", EMAIL_FROM: "Cauldron <a@b.example>" });
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(String(exit)).toContain("RESEND_API_KEY and EMAIL_FROM must be set in production");
+  });
+
+  it("refuses to boot in production without EMAIL_FROM", async () => {
+    const exit = await loadMailer({ NODE_ENV: "production", RESEND_API_KEY: "re_test" });
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(String(exit)).toContain("RESEND_API_KEY and EMAIL_FROM must be set in production");
+  });
+
+  it("boots in production with both set", async () => {
+    const exit = await loadMailer({
+      NODE_ENV: "production",
+      RESEND_API_KEY: "re_test",
+      EMAIL_FROM: "Cauldron <a@b.example>",
+    });
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  it("masks the recipient", () => {
+    expect(maskEmail("ada@example.com")).toBe("a***@example.com");
+    expect(maskEmail("nonsense")).toBe("***");
   });
 });

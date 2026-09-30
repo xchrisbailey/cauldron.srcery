@@ -17,10 +17,12 @@ export const AuthorizationLive = Layer.effect(
       Effect.fn("Authorization")(function* (httpEffect) {
         const request = yield* HttpServerRequest.HttpServerRequest;
         const bearer = request.headers["authorization"]?.toLowerCase().startsWith("bearer ");
-        // Cookies ride along on cross-site requests; bearer tokens don't, so only
-        // cookie-authenticated writes need the Origin check.
+        // Cookies ride along on cross-site requests; bearer tokens don't. Any request
+        // that carries a cookie gets the Origin check (a bearer header alongside a
+        // cookie mustn't skip it); only bearer with no cookie is exempt.
+        const cookie = Boolean(request.headers["cookie"]);
         if (
-          !bearer &&
+          (cookie || !bearer) &&
           !SAFE_METHODS.has(request.method) &&
           request.headers["origin"] !== webOrigin
         ) {

@@ -34,7 +34,16 @@ export const auth = {
     plain(
       `Use this link to choose a new password. It expires in an hour.\n\n${url}\n\nIf you didn't ask for this, you can ignore this email.`,
     ),
+  alreadyHaveAccountSubject: plain("You already have a Cauldron account"),
+  alreadyHaveAccountBody: (url: string) =>
+    plain(
+      `Someone tried to create a Cauldron account with this email address, but you already have one.\n\nSign in here, or use "Forgot password?" on that page if you need a new password:\n\n${url}\n\nIf that wasn't you, you can ignore this email.`,
+    ),
   signIn: plain("Sign in"),
+  signInWithDevOidc: plain("Continue with dev OIDC"),
+  signInAgain: plain("Sign in again"),
+  signInAgainToDelete: plain("For your security, sign in again, then delete your account."),
+  resendVerificationFor: plain("Enter your email and we'll send a new confirmation link."),
   signUp: plain("Create account"),
   signOut: plain("Sign out"),
   signInWithGoogle: plain("Continue with Google"),
@@ -60,6 +69,8 @@ export const auth = {
   emailNotVerified: plain("Confirm your email first. We sent you a link when you signed up."),
   emailTaken: plain("There's already an account with that email. Sign in instead."),
   linkExpired: plain("That link has expired or was already used. Ask for a new one."),
+  passwordRequired: plain("Enter your password."),
+  noPasswordOnAccount: plain("This account doesn't have a password. Sign in again to continue."),
   wrongPassword: plain("That password isn't right."),
   somethingWentWrong: plain("Something went wrong. Try again in a moment."),
   signInTitle: plain("Sign in to Cauldron"),

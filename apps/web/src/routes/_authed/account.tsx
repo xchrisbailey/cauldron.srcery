@@ -1,6 +1,6 @@
 import { authErrorMessage, copy, DeleteAccountInput } from "@cauldron/shared";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState } from "react";
@@ -16,6 +16,17 @@ function Account() {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  // Accounts created through Google or Apple have no password to confirm with.
+  const accounts = useQuery({
+    queryKey: ["accounts"],
+    queryFn: async () => {
+      const res = await authClient.listAccounts();
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
+  });
+  const hasPassword = accounts.data?.some((a) => a.providerId === "credential") ?? true;
 
   const leave = async () => {
     queryClient.clear();
@@ -25,11 +36,19 @@ function Account() {
 
   const form = useForm({
     defaultValues: { password: "" },
-    validators: { onSubmit: Schema.toStandardSchemaV1(DeleteAccountInput) },
+    validators: {
+      onSubmit: Schema.toStandardSchemaV1(
+        hasPassword ? DeleteAccountInput : Schema.Struct({ password: Schema.String }),
+      ),
+    },
     onSubmit: async ({ value }) => {
       setError(null);
-      const res = await authClient.deleteUser({ password: value.password });
-      if (res.error) return setError(authErrorMessage(errorCode(res.error)));
+      const res = await authClient.deleteUser(hasPassword ? { password: value.password } : {});
+      if (res.error) {
+        const code = errorCode(res.error);
+        setSessionExpired(code === "SESSION_EXPIRED");
+        return setError(authErrorMessage(code));
+      }
       await leave();
     },
   });
@@ -52,24 +71,42 @@ function Account() {
         >
           <Stack>
             <FormMessage tone="error">{copy.auth.deleteAccountConfirm.text}</FormMessage>
-            <form.Field name="password">
-              {(field) => (
-                <TextField
-                  field={field}
-                  label={copy.auth.password.text}
-                  type="password"
-                  autoComplete="current-password"
-                />
-              )}
-            </form.Field>
+            {hasPassword ? (
+              <form.Field name="password">
+                {(field) => (
+                  <TextField
+                    field={field}
+                    label={copy.auth.password.text}
+                    type="password"
+                    autoComplete="current-password"
+                  />
+                )}
+              </form.Field>
+            ) : null}
             {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+            {sessionExpired ? (
+              // Sign-in skips signed-in visitors, so end this session first.
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  authClient
+                    .signOut()
+                    .then(() => queryClient.clear())
+                    .then(() => router.invalidate())
+                    .then(() => navigate({ to: "/sign-in", search: { redirect: "/account" } }))
+                }
+              >
+                {copy.auth.signInAgain.text}
+              </Button>
+            ) : null}
             <Button type="submit" variant="danger">
               {copy.auth.deleteAccount.text}
             </Button>
           </Stack>
         </form>
       ) : (
-        <Button variant="danger" onClick={() => setConfirming(true)}>
+        <Button variant="danger" disabled={accounts.isPending} onClick={() => setConfirming(true)}>
           {copy.auth.deleteAccount.text}
         </Button>
       )}
