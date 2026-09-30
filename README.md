@@ -36,6 +36,12 @@ bun run --cwd apps/api dev:oidc
 DEV_OAUTH_DISCOVERY_URL=http://localhost:9400/.well-known/openid-configuration
 ```
 
+To load a demo account with a few recipes (stop the API first when using PGlite):
+
+```bash
+bun run --cwd packages/db seed   # demo@cauldron.local / cauldron-demo
+```
+
 ## Environment
 
 API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):

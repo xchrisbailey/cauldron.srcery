@@ -78,10 +78,15 @@
       "name": "@cauldron/db",
       "version": "0.0.0",
       "dependencies": {
+        "@cauldron/shared": "workspace:*",
         "@electric-sql/pglite": "catalog:",
         "drizzle-orm": "catalog:",
+        "pg": "8.23.1",
       },
       "devDependencies": {
+        "@types/bun": "1.4.2",
+        "@types/pg": "8.23.1",
+        "better-auth": "catalog:",
         "drizzle-kit": "catalog:",
         "vite-plus": "catalog:",
       },

@@ -72,6 +72,7 @@ House style:
 - **One schema source**: Effect Schema in `packages/shared`. Don't add zod or TypeBox.
 - **Brand**: colors live in `apps/web/src/styles/tokens.css` (the only file with raw hex) and are used through `colors`, `fonts`, `type` and `quantity` in `tokens.stylex.ts`. Brand assets come from `bun run brand` (`brand/build.ts`), which writes `brand/*.svg` and the icons in `apps/web/public`. Follow issue #1 and the [brand book](https://claude.ai/artifact/G1C5x9s76ey5iEN6sbhMgu). Use Catppuccin Mocha and Latte tokens only, with no raw hex outside the token file. Set every quantity, unit, time and date in Geist Mono.
 - **Copy**: every user-facing string comes from the copy module and is marked `voice` or `plain`. The rule is magic verbs with plain nouns. Errors, quantities, step controls and the literal part of delete confirmations are always plain.
+- **Tables** use `timestamps()` / `timestampMs()` from `packages/db/src/schema/columns.ts` (millisecond precision, which keyset pagination relies on) and the `ownerId()` column, which cascades on user deletion.
 - **Ingredients** are always stored structured (quantity, unit, item, note, original line). Never store only a free-text blob.
 - **Ownership**: every owned row has `owner_id`, and every query is scoped to the current user.
 

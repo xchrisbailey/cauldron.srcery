@@ -137,3 +137,9 @@ export const ui = {
   switchToLight: plain("Switch to light theme"),
   switchToDark: plain("Switch to dark theme"),
 } as const;
+
+/** Quantity words. Always plain. */
+export const quantities = {
+  /** Shown for amounts below 1/16 tsp. */
+  pinch: plain("pinch"),
+} as const;
