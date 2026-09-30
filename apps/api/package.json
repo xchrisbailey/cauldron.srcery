@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/main.ts",
+    "dev:oidc": "bun scripts/dev-oidc.ts",
     "start": "bun src/main.ts",
     "test": "vp test"
   },
