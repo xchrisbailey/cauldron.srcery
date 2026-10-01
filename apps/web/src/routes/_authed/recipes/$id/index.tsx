@@ -25,6 +25,7 @@ import {
   useToast,
 } from "../../../../components/ui";
 import { StirRecipeDialog } from "../../../../components/StirIn";
+import { failureOf } from "../../../../lib/api-failure";
 import { useUnitChoice } from "../../../../lib/units";
 import { focusRing } from "../../../../components/ui/controls";
 import {
@@ -40,8 +41,7 @@ import { colors, fonts, quantity, type } from "../../../../styles/tokens.stylex"
 
 export const Route = createFileRoute("/_authed/recipes/$id/")({ component: RecipePage });
 
-const isNotFound = (error: unknown) =>
-  typeof error === "object" && error !== null && "_tag" in error && error._tag === "NotFound";
+const isNotFound = (error: unknown) => failureOf(error).tag === "NotFound";
 
 function RecipePage() {
   const { id } = Route.useParams();

@@ -1,4 +1,4 @@
-import { type IngredientInput, parseIngredientLine, RecipeInput } from "@cauldron/shared";
+import { readIngredientBlock, RecipeInput } from "@cauldron/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { Schema } from "effect";
@@ -12,17 +12,8 @@ type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 const decodeRecipe = Schema.decodeUnknownSync(RecipeInput);
 
 /** A seed recipe as the API would receive it. Throws if it isn't valid input. */
-const toInput = (r: SeedRecipe): RecipeInput => {
-  let section: string | null = null;
-  const ingredients: Array<IngredientInput> = [];
-  for (const line of r.ingredients) {
-    if (line.startsWith("## ")) {
-      section = line.slice(3);
-      continue;
-    }
-    ingredients.push({ section, ...parseIngredientLine(line) });
-  }
-  return decodeRecipe({
+const toInput = (r: SeedRecipe): RecipeInput =>
+  decodeRecipe({
     title: r.title,
     description: r.description,
     servings: r.servings,
@@ -36,14 +27,13 @@ const toInput = (r: SeedRecipe): RecipeInput => {
     photoKey: null,
     ...(r.macros === undefined ? {} : { macros: r.macros }),
     tags: r.tags.map((t) => t.name),
-    ingredients,
+    ingredients: readIngredientBlock(r.ingredients),
     steps: r.steps.map((step) => ({
       section: null,
       text: step.text,
       timerSeconds: step.timerSeconds ?? null,
     })),
   });
-};
 
 /**
  * Loads the seed recipes for `ownerId`. Idempotent: recipes the owner already

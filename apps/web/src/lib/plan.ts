@@ -7,10 +7,8 @@ import {
   type PlanEntryInput,
   type PlanEntryUpdate,
   type PlanRecipe,
-  type WeekStartDay,
 } from "@cauldron/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { callApi } from "./api";
 
 // The week for TanStack Query. Writes update the cached week straight away
@@ -168,32 +166,6 @@ export const settlePlan = (queryClient: QueryClient) => {
   void queryClient.invalidateQueries({ queryKey: planKeys.all });
   void queryClient.invalidateQueries({ queryKey: ["gather"] });
 };
-
-const WEEK_START_KEY = "cauldron:week-start";
-
-/** The saved first day of the week (Monday unless the viewer chose Sunday). Browser only. */
-export const savedWeekStartDay = (): WeekStartDay => {
-  try {
-    return window.localStorage.getItem(WEEK_START_KEY) === "0" ? 0 : 1;
-  } catch {
-    // Storage is optional.
-    return 1;
-  }
-};
-
-/** Monday or Sunday, a per-viewer preference remembered in this browser. */
-export function useWeekStartDay(initial: WeekStartDay) {
-  const [day, setDay] = useState<WeekStartDay>(initial);
-  const choose = (next: WeekStartDay) => {
-    setDay(next);
-    try {
-      window.localStorage.setItem(WEEK_START_KEY, String(next));
-    } catch {
-      // Storage is optional.
-    }
-  };
-  return [day, choose] as const;
-}
 
 /**
  * Where a meal dragged onto a slot lands: before `beforeId` when it was dropped

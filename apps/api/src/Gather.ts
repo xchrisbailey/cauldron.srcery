@@ -2,7 +2,6 @@ import { quantity, schema } from "@cauldron/db";
 import {
   addDays,
   aisleFor,
-  type Aisle,
   copy,
   type GatherItem,
   GatherItemId,
@@ -20,9 +19,10 @@ import {
   sortRows,
   type UserId,
 } from "@cauldron/shared";
-import { and, asc, between, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, between, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { Db } from "./Db.ts";
+import { liveRecipe } from "./Recipes.ts";
 
 const { gatherItem, gatherItemSource, mealPlanEntry, pantryItem, recipe, recipeIngredient } =
   schema;
@@ -49,11 +49,7 @@ const make = Effect.gen(function* () {
         // Banished recipes drop out of the list along with the week.
         .innerJoin(
           recipe,
-          and(
-            eq(recipe.id, mealPlanEntry.recipeId),
-            eq(recipe.ownerId, mealPlanEntry.ownerId),
-            isNull(recipe.deletedAt),
-          ),
+          and(eq(recipe.id, mealPlanEntry.recipeId), liveRecipe(mealPlanEntry.ownerId)),
         )
         .where(
           and(
@@ -292,7 +288,7 @@ const make = Effect.gen(function* () {
       itemKey: row.itemKey,
       quantity: quantity.fromRow(row),
       unit: row.unit,
-      aisle: (row.aisle ?? aisleFor(row.itemKey)) as Aisle,
+      aisle: row.aisle ?? aisleFor(row.itemKey),
       checked: row.checked,
       manual: row.manual,
       inPantry: Boolean(row.inPantry),

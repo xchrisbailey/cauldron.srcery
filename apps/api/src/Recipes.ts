@@ -2,7 +2,6 @@ import { ingredient, macros, refreshRecipeSearch, schema } from "@cauldron/db";
 import {
   Conflict,
   copy,
-  DEFAULT_PAGE_LIMIT,
   InvalidRequest,
   isRealDate,
   NotFound,
@@ -34,11 +33,14 @@ import {
   isNull,
   sql,
   type SQL,
+  type SQLWrapper,
 } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Db, isUniqueViolation } from "./Db.ts";
+import { Photos } from "./Photos.ts";
+import { newestFirst, paginate, type SortKey } from "./Pagination.ts";
 
-const { photo, recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
+const { recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
 
 // Every recipe column but the search document, which only SQL reads.
 const { search: _search, ...recipeColumns } = getTableColumns(recipe);
@@ -109,67 +111,49 @@ const searchCondition = (q: string): SQL | undefined => {
 };
 
 // ---------------------------------------------------------------------------
-// Keyset cursors for the three sorts
-
-const Cursor = Schema.Struct({
-  s: Schema.Literals(["recent", "title", "lastCooked"]),
-  k: Schema.String,
-  i: Schema.String.check(Schema.isUUID()),
-});
-const CursorFromString = Schema.StringFromBase64Url.pipe(
-  Schema.decodeTo(Schema.fromJsonString(Cursor)),
-);
+// Keyset sort keys for the three sorts
 
 /** For sorting by last cooked: never-cooked recipes sort after every real date. */
 const NEVER_COOKED = "0001-01-01";
 
-const sortKey = (sort: RecipeSort) => {
-  switch (sort) {
-    case "recent":
-      return {
-        key: (row: ListedRow) => row.createdAt.toISOString(),
-        orderBy: [desc(recipe.createdAt), desc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(${recipe.createdAt} < ${k}::timestamptz or (${recipe.createdAt} = ${k}::timestamptz and ${recipe.id} < ${id}))`,
-      };
-    case "title":
-      return {
-        key: (row: ListedRow) => row.titleKey,
-        orderBy: [asc(sql`lower(${recipe.title})`), asc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(lower(${recipe.title}) > ${k} or (lower(${recipe.title}) = ${k} and ${recipe.id} > ${id}))`,
-      };
-    case "lastCooked": {
-      // The same expression as recipe_owner_cooked_idx, so the index serves it.
-      const cooked = sql`coalesce(${recipe.lastCookedOn}, '0001-01-01'::date)`;
-      return {
-        key: (row: ListedRow) => row.lastCookedOn ?? NEVER_COOKED,
-        orderBy: [desc(cooked), desc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(${cooked} < ${k}::date or (${cooked} = ${k}::date and ${recipe.id} < ${id}))`,
-      };
-    }
-  }
+// The same expression as recipe_owner_cooked_idx, so the index serves it.
+const cooked = sql`coalesce(${recipe.lastCookedOn}, '0001-01-01'::date)`;
+
+const sortKeys: { readonly [S in RecipeSort]: SortKey<ListedRow> } = {
+  recent: newestFirst(recipe),
+  title: {
+    name: "title",
+    key: (row) => row.titleKey,
+    valid: (k) => k.length <= RECIPE_LIMITS.title * 2,
+    orderBy: [asc(sql`lower(${recipe.title})`), asc(recipe.id)],
+    after: (k, id) =>
+      sql`(lower(${recipe.title}) > ${k} or (lower(${recipe.title}) = ${k} and ${recipe.id} > ${id}))`,
+  },
+  lastCooked: {
+    name: "lastCooked",
+    key: (row) => row.lastCookedOn ?? NEVER_COOKED,
+    valid: isRealDate,
+    orderBy: [desc(cooked), desc(recipe.id)],
+    after: (k, id) =>
+      sql`(${cooked} < ${k}::date or (${cooked} = ${k}::date and ${recipe.id} < ${id}))`,
+  },
 };
 
-// The cursor's key is compared in SQL, so check it has the right shape first.
-const validKey = (sort: RecipeSort, k: string) => {
-  switch (sort) {
-    case "recent": {
-      const date = new Date(k);
-      return !Number.isNaN(date.getTime()) && date.toISOString() === k;
-    }
-    case "title":
-      return k.length <= RECIPE_LIMITS.title * 2;
-    case "lastCooked":
-      return isRealDate(k);
-  }
-};
+const RecipeCursorId = Schema.String.check(Schema.isUUID());
 
 // ---------------------------------------------------------------------------
 
+/**
+ * A recipe the owner can see: theirs and not banished. Every other query that
+ * has to agree a banished recipe is gone (joins included) uses this. `ownerId`
+ * may be a column, for joins that follow another row's owner.
+ */
+export const liveRecipe = (ownerId: string | SQLWrapper) =>
+  and(eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt));
+
 const make = Effect.gen(function* () {
   const db = yield* Db;
+  const photos = yield* Photos;
 
   const tagsFor = Effect.fn("Recipes.tagsFor")(function* (
     ownerId: string,
@@ -216,8 +200,7 @@ const make = Effect.gen(function* () {
         .where(
           and(
             eq(recipe.id, id),
-            eq(recipe.ownerId, ownerId),
-            deleted === "live" ? isNull(recipe.deletedAt) : undefined,
+            deleted === "live" ? liveRecipe(ownerId) : eq(recipe.ownerId, ownerId),
           ),
         )
         .limit(1),
@@ -346,13 +329,7 @@ const make = Effect.gen(function* () {
     photoKey: string | null | undefined,
   ) {
     if (photoKey === null || photoKey === undefined) return;
-    const rows = yield* db.use((d) =>
-      d
-        .select({ id: photo.id })
-        .from(photo)
-        .where(and(eq(photo.id, photoKey), eq(photo.ownerId, ownerId))),
-    );
-    if (rows.length === 0) return yield* invalid();
+    if (!(yield* photos.owns(ownerId, photoKey))) return yield* invalid();
   });
 
   const fields = (input: RecipeInput) => ({
@@ -372,46 +349,30 @@ const make = Effect.gen(function* () {
   });
 
   const list = Effect.fn("Recipes.list")(function* (ownerId: UserId, query: RecipeListQuery) {
-    const sort = query.sort ?? "recent";
-    const order = sortKey(sort);
-    const limit = query.limit ?? DEFAULT_PAGE_LIMIT;
-    let after: SQL | undefined;
-    if (query.cursor !== undefined) {
-      const cursor = yield* Schema.decodeEffect(CursorFromString)(query.cursor).pipe(
-        Effect.mapError(invalid),
-      );
-      if (cursor.s !== sort || !validKey(sort, cursor.k)) return yield* invalid();
-      after = order.after(cursor.k, cursor.i);
-    }
-    const rows = yield* db.use((d) =>
-      d
-        .select({ ...recipeColumns, titleKey: sql<string>`lower(${recipe.title})` })
-        .from(recipe)
-        .where(
-          and(
-            eq(recipe.ownerId, ownerId),
-            isNull(recipe.deletedAt),
-            query.tag === undefined
-              ? undefined
-              : sql`exists (select 1 from ${recipeTag} where ${recipeTag.recipeId} = ${recipe.id} and ${recipeTag.tagId} = ${query.tag})`,
-            query.q === undefined ? undefined : searchCondition(query.q),
-            after,
-          ),
-        )
-        .orderBy(...order.orderBy)
-        .limit(limit + 1),
-    );
-    const page = rows.slice(0, limit);
-    const last = page[page.length - 1];
-    const nextCursor =
-      rows.length > limit && last
-        ? yield* Schema.encodeEffect(CursorFromString)({
-            s: sort,
-            k: order.key(last),
-            i: last.id,
-          }).pipe(Effect.orDie)
-        : null;
-    return { items: yield* summaries(ownerId, page), nextCursor };
+    const page = yield* paginate({
+      query,
+      sort: sortKeys[query.sort ?? "recent"],
+      idSchema: RecipeCursorId,
+      run: ({ where, orderBy, limit }) =>
+        db.use((d) =>
+          d
+            .select({ ...recipeColumns, titleKey: sql<string>`lower(${recipe.title})` })
+            .from(recipe)
+            .where(
+              and(
+                liveRecipe(ownerId),
+                query.tag === undefined
+                  ? undefined
+                  : sql`exists (select 1 from ${recipeTag} where ${recipeTag.recipeId} = ${recipe.id} and ${recipeTag.tagId} = ${query.tag})`,
+                query.q === undefined ? undefined : searchCondition(query.q),
+                where,
+              ),
+            )
+            .orderBy(...orderBy)
+            .limit(limit),
+        ),
+    });
+    return { items: yield* summaries(ownerId, page.items), nextCursor: page.nextCursor };
   });
 
   const search = Effect.fn("Recipes.search")(function* (ownerId: UserId, query: RecipeSearchQuery) {
@@ -423,7 +384,7 @@ const make = Effect.gen(function* () {
       d
         .select(recipeColumns)
         .from(recipe)
-        .where(and(eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt), condition))
+        .where(and(liveRecipe(ownerId), condition))
         .orderBy(
           // A title that starts with the query first, then by rank.
           desc(sql`${recipe.title} ilike ${`${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}`),
@@ -437,6 +398,11 @@ const make = Effect.gen(function* () {
 
   const get = Effect.fn("Recipes.get")(function* (ownerId: UserId, id: RecipeId) {
     return yield* load(yield* findRow(ownerId, id));
+  });
+
+  /** A live recipe of this owner's, for callers that point at one. Fails with NotFound. */
+  const live = Effect.fn("Recipes.live")(function* (ownerId: UserId, id: RecipeId) {
+    return yield* findRow(ownerId, id);
   });
 
   const create = Effect.fn("Recipes.create")(function* (ownerId: UserId, input: RecipeInput) {
@@ -471,7 +437,7 @@ const make = Effect.gen(function* () {
           d
             .update(recipe)
             .set(fields(input))
-            .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)))
+            .where(and(eq(recipe.id, id), liveRecipe(ownerId)))
             .returning({ id: recipe.id }),
         );
         if (rows.length === 0) return yield* notFound();
@@ -486,7 +452,7 @@ const make = Effect.gen(function* () {
       d
         .update(recipe)
         .set({ deletedAt: new Date() })
-        .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)))
+        .where(and(eq(recipe.id, id), liveRecipe(ownerId)))
         .returning(recipeColumns),
     );
     if (!rows[0]) return yield* notFound();
@@ -579,7 +545,7 @@ const make = Effect.gen(function* () {
         })
         .from(tag)
         .leftJoin(recipeTag, eq(recipeTag.tagId, tag.id))
-        .leftJoin(recipe, and(eq(recipe.id, recipeTag.recipeId), isNull(recipe.deletedAt)))
+        .leftJoin(recipe, and(eq(recipe.id, recipeTag.recipeId), liveRecipe(tag.ownerId)))
         .where(and(eq(tag.ownerId, ownerId), where))
         .groupBy(tag.id)
         .orderBy(asc(sql`lower(${tag.name})`)),
@@ -649,6 +615,7 @@ const make = Effect.gen(function* () {
     list,
     search,
     get,
+    live,
     create,
     update,
     banish,
@@ -664,5 +631,5 @@ const make = Effect.gen(function* () {
 export class Recipes extends Context.Service<Recipes, Effect.Success<typeof make>>()(
   "cauldron/api/Recipes",
 ) {
-  static readonly layer = Layer.effect(Recipes, make);
+  static readonly layer = Layer.effect(Recipes, make).pipe(Layer.provide(Photos.layer));
 }
