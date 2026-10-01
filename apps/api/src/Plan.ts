@@ -19,9 +19,10 @@ import {
   type PlanRangeQuery,
   type UserId,
 } from "@cauldron/shared";
-import { and, asc, between, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, between, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { Db } from "./Db.ts";
+import { liveRecipe, Recipes } from "./Recipes.ts";
 
 const { mealPlanEntry: entry, recipe, recipeCook } = schema;
 
@@ -33,6 +34,7 @@ type Slot = { readonly date: string; readonly slot: MealSlot };
 
 const make = Effect.gen(function* () {
   const db = yield* Db;
+  const recipes = yield* Recipes;
 
   /** Entries with their live recipe, by day, slot and position. */
   const select = (ownerId: UserId, where: SQL | undefined) =>
@@ -61,14 +63,7 @@ const make = Effect.gen(function* () {
           })
           .from(entry)
           // A banished recipe reads as gone; the entry keeps its title.
-          .leftJoin(
-            recipe,
-            and(
-              eq(recipe.id, entry.recipeId),
-              eq(recipe.ownerId, entry.ownerId),
-              isNull(recipe.deletedAt),
-            ),
-          )
+          .leftJoin(recipe, and(eq(recipe.id, entry.recipeId), liveRecipe(entry.ownerId)))
           .where(and(eq(entry.ownerId, ownerId), where))
           // The slot enum sorts in meal order: breakfast, lunch, dinner, snack.
           .orderBy(asc(entry.date), asc(entry.slot), asc(entry.position), asc(entry.createdAt)),
@@ -180,15 +175,9 @@ const make = Effect.gen(function* () {
         }
         let title = text!;
         if (recipeId !== null) {
-          const [live] = yield* db.use((d) =>
-            d
-              .select({ title: recipe.title })
-              .from(recipe)
-              .where(
-                and(eq(recipe.id, recipeId), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)),
-              ),
-          );
-          if (!live) return yield* invalid();
+          const live = yield* recipes
+            .live(ownerId, RecipeId.make(recipeId))
+            .pipe(Effect.catchTag("NotFound", () => invalid()));
           title = live.title;
         }
         const at = { date: input.date, slot: input.slot };
@@ -243,17 +232,9 @@ const make = Effect.gen(function* () {
         // Only free text can be renamed; a recipe entry follows its recipe. An
         // entry whose recipe is banished reads as free text, so it can be renamed.
         if (input.title !== undefined && row.recipeId !== null) {
-          const [live] = yield* db.use((d) =>
-            d
-              .select({ id: recipe.id })
-              .from(recipe)
-              .where(
-                and(
-                  eq(recipe.id, row.recipeId!),
-                  eq(recipe.ownerId, ownerId),
-                  isNull(recipe.deletedAt),
-                ),
-              ),
+          const live = yield* recipes.live(ownerId, RecipeId.make(row.recipeId)).pipe(
+            Effect.as(true),
+            Effect.catchTag("NotFound", () => Effect.succeed(false)),
           );
           if (live) return yield* invalid();
         }
@@ -377,5 +358,5 @@ const make = Effect.gen(function* () {
 export class Plan extends Context.Service<Plan, Effect.Success<typeof make>>()(
   "cauldron/api/Plan",
 ) {
-  static readonly layer = Layer.effect(Plan, make);
+  static readonly layer = Layer.effect(Plan, make).pipe(Layer.provide(Recipes.layer));
 }

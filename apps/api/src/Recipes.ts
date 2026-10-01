@@ -33,12 +33,14 @@ import {
   isNull,
   sql,
   type SQL,
+  type SQLWrapper,
 } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Db, isUniqueViolation } from "./Db.ts";
+import { Photos } from "./Photos.ts";
 import { newestFirst, paginate, type SortKey } from "./Pagination.ts";
 
-const { photo, recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
+const { recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
 
 // Every recipe column but the search document, which only SQL reads.
 const { search: _search, ...recipeColumns } = getTableColumns(recipe);
@@ -141,8 +143,17 @@ const RecipeCursorId = Schema.String.check(Schema.isUUID());
 
 // ---------------------------------------------------------------------------
 
+/**
+ * A recipe the owner can see: theirs and not banished. Every other query that
+ * has to agree a banished recipe is gone (joins included) uses this. `ownerId`
+ * may be a column, for joins that follow another row's owner.
+ */
+export const liveRecipe = (ownerId: string | SQLWrapper) =>
+  and(eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt));
+
 const make = Effect.gen(function* () {
   const db = yield* Db;
+  const photos = yield* Photos;
 
   const tagsFor = Effect.fn("Recipes.tagsFor")(function* (
     ownerId: string,
@@ -189,8 +200,7 @@ const make = Effect.gen(function* () {
         .where(
           and(
             eq(recipe.id, id),
-            eq(recipe.ownerId, ownerId),
-            deleted === "live" ? isNull(recipe.deletedAt) : undefined,
+            deleted === "live" ? liveRecipe(ownerId) : eq(recipe.ownerId, ownerId),
           ),
         )
         .limit(1),
@@ -319,13 +329,7 @@ const make = Effect.gen(function* () {
     photoKey: string | null | undefined,
   ) {
     if (photoKey === null || photoKey === undefined) return;
-    const rows = yield* db.use((d) =>
-      d
-        .select({ id: photo.id })
-        .from(photo)
-        .where(and(eq(photo.id, photoKey), eq(photo.ownerId, ownerId))),
-    );
-    if (rows.length === 0) return yield* invalid();
+    if (!(yield* photos.owns(ownerId, photoKey))) return yield* invalid();
   });
 
   const fields = (input: RecipeInput) => ({
@@ -356,8 +360,7 @@ const make = Effect.gen(function* () {
             .from(recipe)
             .where(
               and(
-                eq(recipe.ownerId, ownerId),
-                isNull(recipe.deletedAt),
+                liveRecipe(ownerId),
                 query.tag === undefined
                   ? undefined
                   : sql`exists (select 1 from ${recipeTag} where ${recipeTag.recipeId} = ${recipe.id} and ${recipeTag.tagId} = ${query.tag})`,
@@ -381,7 +384,7 @@ const make = Effect.gen(function* () {
       d
         .select(recipeColumns)
         .from(recipe)
-        .where(and(eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt), condition))
+        .where(and(liveRecipe(ownerId), condition))
         .orderBy(
           // A title that starts with the query first, then by rank.
           desc(sql`${recipe.title} ilike ${`${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}`),
@@ -395,6 +398,11 @@ const make = Effect.gen(function* () {
 
   const get = Effect.fn("Recipes.get")(function* (ownerId: UserId, id: RecipeId) {
     return yield* load(yield* findRow(ownerId, id));
+  });
+
+  /** A live recipe of this owner's, for callers that point at one. Fails with NotFound. */
+  const live = Effect.fn("Recipes.live")(function* (ownerId: UserId, id: RecipeId) {
+    return yield* findRow(ownerId, id);
   });
 
   const create = Effect.fn("Recipes.create")(function* (ownerId: UserId, input: RecipeInput) {
@@ -429,7 +437,7 @@ const make = Effect.gen(function* () {
           d
             .update(recipe)
             .set(fields(input))
-            .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)))
+            .where(and(eq(recipe.id, id), liveRecipe(ownerId)))
             .returning({ id: recipe.id }),
         );
         if (rows.length === 0) return yield* notFound();
@@ -444,7 +452,7 @@ const make = Effect.gen(function* () {
       d
         .update(recipe)
         .set({ deletedAt: new Date() })
-        .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)))
+        .where(and(eq(recipe.id, id), liveRecipe(ownerId)))
         .returning(recipeColumns),
     );
     if (!rows[0]) return yield* notFound();
@@ -537,7 +545,7 @@ const make = Effect.gen(function* () {
         })
         .from(tag)
         .leftJoin(recipeTag, eq(recipeTag.tagId, tag.id))
-        .leftJoin(recipe, and(eq(recipe.id, recipeTag.recipeId), isNull(recipe.deletedAt)))
+        .leftJoin(recipe, and(eq(recipe.id, recipeTag.recipeId), liveRecipe(tag.ownerId)))
         .where(and(eq(tag.ownerId, ownerId), where))
         .groupBy(tag.id)
         .orderBy(asc(sql`lower(${tag.name})`)),
@@ -607,6 +615,7 @@ const make = Effect.gen(function* () {
     list,
     search,
     get,
+    live,
     create,
     update,
     banish,
@@ -622,5 +631,5 @@ const make = Effect.gen(function* () {
 export class Recipes extends Context.Service<Recipes, Effect.Success<typeof make>>()(
   "cauldron/api/Recipes",
 ) {
-  static readonly layer = Layer.effect(Recipes, make);
+  static readonly layer = Layer.effect(Recipes, make).pipe(Layer.provide(Photos.layer));
 }
