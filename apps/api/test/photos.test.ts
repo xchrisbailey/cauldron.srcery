@@ -246,6 +246,22 @@ describe("photos on recipes", () => {
     expect(copied.body.photoKey).toBe(photo.body.id);
   });
 
+  it("treats an uppercase photo id as the same photo", async () => {
+    const photo = await upload(ada, png, "image/png");
+    const created = await call(
+      ada,
+      "POST",
+      "/v1/recipes",
+      recipeInput(String(photo.body.id).toUpperCase()),
+    );
+    expect(created.status).toBe(200);
+    expect(created.body.photoKey).toBe(photo.body.id);
+    const variant = await api.send(`/v1/photos/${String(photo.body.id).toUpperCase()}/thumb`, {
+      headers: { cookie: ada },
+    });
+    expect(variant.status).toBe(200);
+  });
+
   it("refuses another user's photo or a made-up id", async () => {
     const photo = await upload(ada, png, "image/png");
     const stolen = await call(bob, "POST", "/v1/recipes", recipeInput(photo.body.id));

@@ -25,6 +25,8 @@ export class Storage extends Context.Service<
       bytes: Uint8Array,
       contentType: string,
     ) => Effect.Effect<void, StorageError>;
+    /** The object's size in bytes, or null when there's no such object. */
+    readonly size: (key: string) => Effect.Effect<number | null, StorageError>;
     /** The object's bytes, or null when there's no such object. */
     readonly get: (key: string) => Effect.Effect<Uint8Array | null, StorageError>;
     readonly delete: (keys: ReadonlyArray<string>) => Effect.Effect<void, StorageError>;
@@ -59,6 +61,8 @@ export class Storage extends Context.Service<
       return Storage.of({
         put: (key, bytes, contentType) =>
           attempt(() => client.write(key, bytes, { type: contentType })).pipe(Effect.asVoid),
+        size: (key) =>
+          attempt(async () => ((await client.exists(key)) ? await client.size(key) : null)),
         get: (key) =>
           attempt(async () => {
             const file = client.file(key);
@@ -97,6 +101,11 @@ export class Storage extends Context.Service<
             await mkdir(dirname(path), { recursive: true });
             await Bun.write(path, bytes);
           }),
+        size: (key) =>
+          attempt(async () => {
+            const file = Bun.file(pathOf(key));
+            return (await file.exists()) ? file.size : null;
+          }),
         get: (key) =>
           attempt(async () => {
             const file = Bun.file(pathOf(key));
@@ -117,6 +126,7 @@ export class Storage extends Context.Service<
       const objects = yield* StorageObjects;
       return Storage.of({
         put: (key, bytes) => Ref.update(objects, (all) => new Map(all).set(key, bytes)),
+        size: (key) => Ref.get(objects).pipe(Effect.map((all) => all.get(key)?.byteLength ?? null)),
         get: (key) => Ref.get(objects).pipe(Effect.map((all) => all.get(key) ?? null)),
         delete: (keys) =>
           Ref.update(objects, (all) => {

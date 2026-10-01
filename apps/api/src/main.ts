@@ -9,7 +9,8 @@ const ServerLayer = Layer.unwrap(
   Effect.gen(function* () {
     const { port } = yield* AppConfig;
     return Layer.merge(HttpRouter.serve(Routes), Jobs).pipe(
-      Layer.provide(BunHttpServer.layer({ port })),
+      // Photo uploads are the largest bodies (15 MB); refuse anything well past that.
+      Layer.provide(BunHttpServer.layer({ port, maxRequestBodySize: 20 * 1024 * 1024 })),
     );
   }),
 ).pipe(Layer.provide(Services), Layer.provide(Observability), Layer.provide(AppConfig.layer));

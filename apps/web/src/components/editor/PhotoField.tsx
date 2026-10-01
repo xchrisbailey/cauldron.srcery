@@ -31,7 +31,7 @@ export function PhotoField({
       const photo = await uploadPhoto(file);
       onChange(photo.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : photoError(cause));
+      setError(photoError(cause));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";

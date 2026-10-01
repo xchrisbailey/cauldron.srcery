@@ -260,7 +260,7 @@ export const photos = {
   remove: plain("Remove photo"),
   uploading: plain("Uploading photo…"),
   alt: (title: string) => plain(`Photo of ${title}`),
-  unsupported: plain("Use a JPEG, PNG, WebP, AVIF or HEIC photo."),
+  unsupported: plain("Use a JPEG, PNG, WebP or AVIF photo."),
   tooLarge: plain("That photo is over 15 MB. Try a smaller one."),
   tooBig: plain("That photo is too large to process. Try a smaller one."),
   couldntRead: plain("We couldn't read that photo. Try another one."),

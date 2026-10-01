@@ -1,5 +1,5 @@
 {
-  "id": "4290ce98-949b-40b1-afef-4b1c8032fada",
+  "id": "6c846c14-4288-45d3-bdce-f38a41ff5215",
   "prevId": "9784b927-8a32-4bbd-acc6-bfe82ff5f22e",
   "version": "7",
   "dialect": "postgresql",
@@ -864,21 +864,6 @@
         }
       },
       "indexes": {
-        "photo_owner_idx": {
-          "name": "photo_owner_idx",
-          "columns": [
-            {
-              "expression": "owner_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "photo_created_idx": {
           "name": "photo_created_idx",
           "columns": [
@@ -911,7 +896,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "photo_id_owner_unique": {
+          "name": "photo_id_owner_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "owner_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1066,7 +1060,7 @@
         },
         "photo_key": {
           "name": "photo_key",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1222,6 +1216,21 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "recipe_photo_owner_fk": {
+          "name": "recipe_photo_owner_fk",
+          "tableFrom": "recipe",
+          "tableTo": "photo",
+          "columnsFrom": [
+            "photo_key",
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id",
+            "owner_id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

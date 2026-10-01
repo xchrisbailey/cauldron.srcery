@@ -58,6 +58,7 @@ const input = (overrides: Partial<RecipeInput> = {}): RecipeInput => ({
   sourceUrl: null,
   sourceAuthor: null,
   notes: null,
+  photoKey: null,
   tags: ["Indian", "Vegetarian"],
   ingredients: lines("1 cup red lentils", "2 cloves garlic, minced", "1 tsp ground turmeric"),
   steps: [

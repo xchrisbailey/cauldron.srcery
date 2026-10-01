@@ -48,6 +48,7 @@ const PRIVATE_V4: ReadonlyArray<readonly [string, number]> = [
   ["172.16.0.0", 12],
   ["192.0.0.0", 24],
   ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
   ["192.168.0.0", 16],
   ["198.18.0.0", 15],
   ["198.51.100.0", 24],
@@ -56,25 +57,45 @@ const PRIVATE_V4: ReadonlyArray<readonly [string, number]> = [
   ["240.0.0.0", 4],
 ];
 
-/** Whether an address is somewhere a user-supplied URL must never reach. */
+/** Eight 16-bit groups of an IPv6 address, or null if it isn't one. Handles `::` and a trailing dotted IPv4. */
+const v6Groups = (ip: string): Array<number> | null => {
+  let text = ip.toLowerCase().replace(/%.*$/, "");
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+  if (dotted) {
+    if (isIP(dotted[1]!) !== 4) return null;
+    const n = v4ToInt(dotted[1]!);
+    text = `${text.slice(0, -dotted[1]!.length)}${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`;
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return null;
+  const parse = (part: string) => (part === "" ? [] : part.split(":").map((h) => parseInt(h, 16)));
+  const head = parse(halves[0]!);
+  const tail = halves.length === 2 ? parse(halves[1]!) : [];
+  const fill = 8 - head.length - tail.length;
+  if (halves.length === 1 ? head.length !== 8 : fill < 1) return null;
+  const groups = [...head, ...Array<number>(halves.length === 2 ? fill : 0).fill(0), ...tail];
+  return groups.every((g) => Number.isInteger(g) && g >= 0 && g <= 0xffff) ? groups : null;
+};
+
+/**
+ * Whether an address is somewhere a user-supplied URL must never reach.
+ * IPv4 is checked against the reserved ranges. IPv6 must be global unicast
+ * (2000::/3) and not documentation, Teredo or 6to4; IPv4-mapped and
+ * -compatible forms are checked as the IPv4 address they carry.
+ */
 export const isPrivateAddress = (ip: string): boolean => {
   if (isIP(ip) === 4) return PRIVATE_V4.some(([base, bits]) => inV4(ip, base, bits));
-  const v6 = ip.toLowerCase();
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v6);
-  if (mapped) return isPrivateAddress(mapped[1]!);
-  return (
-    v6 === "::" ||
-    v6 === "::1" ||
-    v6.startsWith("fc") ||
-    v6.startsWith("fd") ||
-    v6.startsWith("fe8") ||
-    v6.startsWith("fe9") ||
-    v6.startsWith("fea") ||
-    v6.startsWith("feb") ||
-    v6.startsWith("ff") ||
-    v6.startsWith("64:ff9b:") ||
-    v6.startsWith("2001:db8:")
-  );
+  const g = v6Groups(ip);
+  if (!g) return true;
+  const embedded = () => `${g[6]! >> 8}.${g[6]! & 0xff}.${g[7]! >> 8}.${g[7]! & 0xff}`;
+  // ::/96 (compatible) and ::ffff:0:0/96 (mapped): the last 32 bits are IPv4.
+  if (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0 || g[5] === 0xffff)) {
+    return isPrivateAddress(embedded());
+  }
+  if (g[0]! < 0x2000 || g[0]! > 0x3fff) return true;
+  if (g[0] === 0x2001 && (g[1] === 0 || g[1] === 0xdb8)) return true;
+  if (g[0] === 0x2002) return true;
+  return false;
 };
 
 const blocked = (detail: string) => new FetchError({ reason: "blocked", detail });
@@ -165,6 +186,7 @@ export class RemoteFetch extends Context.Service<
             const location = response.headers.get("location");
             if (!location) return yield* new FetchError({ reason: "status", detail: "redirect" });
             next = new URL(location, url).toString();
+            yield* Effect.promise(() => response.body?.cancel() ?? Promise.resolve());
             continue;
           }
           if (!response.ok) {

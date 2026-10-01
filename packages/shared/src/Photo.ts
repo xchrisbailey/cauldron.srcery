@@ -12,14 +12,9 @@ export const PhotoVariant = Schema.Literals(["thumb", "card", "full"]);
 export type PhotoVariant = typeof PhotoVariant.Type;
 
 export const PHOTO_MAX_BYTES = 15 * 1024 * 1024;
-export const PHOTO_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-  "image/heic",
-  "image/heif",
-] as const;
+export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"] as const;
+// Not HEIC: the prebuilt sharp can't decode HEVC. Leaving it out of the file
+// picker's accept list makes iOS hand over a JPEG instead.
 
 export const PhotoUploadInput = Schema.Struct({
   contentType: Schema.Literals(PHOTO_TYPES),

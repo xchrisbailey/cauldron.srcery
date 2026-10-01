@@ -107,8 +107,8 @@ export const RecipeInput = Schema.Struct({
   sourceUrl: Schema.NullOr(SourceUrl),
   sourceAuthor: OptionalText(RECIPE_LIMITS.author),
   notes: OptionalText(RECIPE_LIMITS.notes),
-  /** The cover photo's id from the photos API (#12). Left out means none. */
-  photoKey: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  /** The cover photo's id from the photos API (#12), or null for none. */
+  photoKey: Schema.NullOr(Schema.String.check(Schema.isUUID())),
   tags: List(TagName, RECIPE_LIMITS.tags),
   ingredients: List(IngredientInput, RECIPE_LIMITS.ingredients),
   steps: List(StepInput, RECIPE_LIMITS.steps),

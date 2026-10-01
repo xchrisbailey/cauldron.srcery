@@ -10,15 +10,23 @@ const isPhotoType = (type: string): type is PhotoType =>
 
 export const PHOTO_ACCEPT = PHOTO_TYPES.join(",");
 
-/** The plain message to show for a failed upload. */
+/** Our own checks, whose message is already plain copy. */
+class PhotoRejected extends Error {}
+
+/** The plain message to show for a failed upload; transport errors get the generic one. */
 export const photoError = (error: unknown) =>
-  typeof error === "object" && error !== null && "_tag" in error && error._tag === "InvalidRequest"
-    ? String((error as unknown as { message: string }).message)
-    : copy.photos.couldntRead.text;
+  error instanceof PhotoRejected
+    ? error.message
+    : typeof error === "object" &&
+        error !== null &&
+        "_tag" in error &&
+        error._tag === "InvalidRequest"
+      ? String((error as unknown as { message: string }).message)
+      : copy.photos.couldntRead.text;
 
 export const uploadPhoto = async (file: File): Promise<Photo> => {
-  if (!isPhotoType(file.type)) throw new Error(copy.photos.unsupported.text);
-  if (file.size > PHOTO_MAX_BYTES) throw new Error(copy.photos.tooLarge.text);
+  if (!isPhotoType(file.type)) throw new PhotoRejected(copy.photos.unsupported.text);
+  if (file.size > PHOTO_MAX_BYTES) throw new PhotoRejected(copy.photos.tooLarge.text);
   const upload = await callApi((c) =>
     c.photos.startUpload({ payload: { contentType: file.type as PhotoType, size: file.size } }),
   );
@@ -28,6 +36,6 @@ export const uploadPhoto = async (file: File): Promise<Photo> => {
     headers: upload.headers,
     credentials: "same-origin",
   });
-  if (!put.ok) throw new Error(copy.photos.couldntRead.text);
+  if (!put.ok) throw new PhotoRejected(copy.photos.couldntRead.text);
   return callApi((c) => c.photos.finishUpload({ payload: { uploadId: upload.id } }));
 };
