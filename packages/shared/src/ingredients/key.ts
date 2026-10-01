@@ -45,7 +45,8 @@ const SINGULAR_EXCEPTIONS: Readonly<Record<string, string>> = {
   radishes: "radish",
 };
 
-function singularize(word: string): string {
+/** One word in its singular form, by the same simple rules as `ingredientKey`. */
+export function singularize(word: string): string {
   const exact = SINGULAR_EXCEPTIONS[word];
   if (exact !== undefined) return exact;
   if (word.length <= 3) return word;
