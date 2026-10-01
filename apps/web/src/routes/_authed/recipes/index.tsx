@@ -71,11 +71,17 @@ function Recipes() {
 
   // The field updates as you type; the URL (and the query) follow, debounced.
   const [text, setText] = useState(search.q ?? "");
-  const [q] = useDebouncedValue(text, { wait: 200 });
+  const [debounced] = useDebouncedValue(text, { wait: 200 });
+  const q = debounced.trim();
   useEffect(() => {
     if ((search.q ?? "") === q) return;
     void navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true });
   }, [q]);
+  // And the field follows the URL when it changes on its own (the Recipes
+  // link, back and forward). After our own debounced update they agree.
+  useEffect(() => {
+    if ((search.q ?? "") !== q) setText(search.q ?? "");
+  }, [search.q]);
 
   const tags = useQuery(tagsQuery());
   const library = useInfiniteQuery({
@@ -122,7 +128,7 @@ function Recipes() {
               .filter((tag) => tag.recipeCount > 0 || tag.id === search.tag)
               .map((tag) => (
                 <option key={tag.id} value={tag.id}>
-                  {tag.name} ({tag.recipeCount})
+                  {copy.library.tagOption(tag.name, tag.recipeCount).text}
                 </option>
               ))}
           </select>
@@ -160,7 +166,7 @@ function Recipes() {
             <Skeleton key={i} height={220} />
           ))}
         </div>
-      ) : library.isError ? (
+      ) : library.isError && !library.data ? (
         <FormMessage tone="error">{copy.errors.internal.text}</FormMessage>
       ) : recipes.length === 0 ? (
         filtered ? (
@@ -190,11 +196,23 @@ function Recipes() {
           view={view}
           hasMore={library.hasNextPage}
           loadMore={() => {
-            if (!library.isFetchingNextPage) void library.fetchNextPage();
+            // Never cancel a refetch in flight, and stop after a failed page.
+            if (!library.isFetching && !library.isFetchNextPageError) {
+              void library.fetchNextPage({ cancelRefetch: false });
+            }
           }}
           loadingMore={library.isFetchingNextPage}
+          stale={library.isPlaceholderData}
         />
       )}
+      {library.isFetchNextPageError ? (
+        <div {...stylex.props(styles.retry)}>
+          <FormMessage tone="error">{copy.library.couldntLoadMore.text}</FormMessage>
+          <Button variant="secondary" onClick={() => void library.fetchNextPage()}>
+            {copy.library.retry.text}
+          </Button>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -209,12 +227,15 @@ function Results({
   hasMore,
   loadMore,
   loadingMore,
+  stale,
 }: {
   recipes: ReadonlyArray<RecipeSummary>;
   view: View;
   hasMore: boolean;
   loadMore: () => void;
   loadingMore: boolean;
+  /** Showing the previous filter's results while the new ones load. */
+  stale: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -243,6 +264,8 @@ function Results({
     gap: view === "list" ? 0 : GAP,
   });
   const items = virtualizer.getVirtualItems();
+  // Rows change height with the view and the column count: measure again.
+  useEffect(() => virtualizer.measure(), [view, columns]);
   const last = items[items.length - 1];
 
   useEffect(() => {
@@ -250,7 +273,7 @@ function Results({
   }, [last?.index, rows, hasMore]);
 
   return (
-    <div ref={container} aria-busy={loadingMore}>
+    <div ref={container} aria-busy={loadingMore || stale} {...stylex.props(stale && styles.stale)}>
       <p {...stylex.props(styles.srOnly)} aria-live="polite">
         {copy.library.count(recipes.length).text}
       </p>
@@ -329,6 +352,8 @@ const styles = stylex.create({
     gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_MIN}px, 1fr))`,
     gap: GAP,
   },
+  retry: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 },
+  stale: { opacity: 0.6 },
   more: { textAlign: "center", fontFamily: fonts.mono, fontSize: 12.5, color: colors.subtext },
   srOnly: {
     position: "absolute",

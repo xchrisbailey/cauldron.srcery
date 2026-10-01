@@ -64,6 +64,13 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
   const current = Math.min(active, options.length - 1);
 
   useEffect(() => setActive(0), [q]);
+  // Keep the chosen option in view as the arrow keys move through a long list.
+  const activeId = options[current]?.id;
+  useEffect(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
+  }, [activeId]);
+  // Until results for what's typed arrive, the ones shown are for older text.
+  const stale = results.isPlaceholderData || text.trim() !== q;
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -72,12 +79,14 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
       setActive((current + step + options.length) % options.length);
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
+      // Don't open a match for text that's since changed; actions are always fine.
+      if (stale && current < recipes.length) return;
       options[current]?.go();
     }
   };
 
   const item = (option: Option, index: number) => (
-    <li
+    <div
       key={option.id}
       id={option.id}
       role="option"
@@ -88,7 +97,7 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
     >
       <span {...stylex.props(styles.label)}>{option.label}</span>
       {option.detail ? <span {...stylex.props(styles.detail)}>{option.detail}</span> : null}
-    </li>
+    </div>
   );
 
   return (
@@ -98,6 +107,7 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
         role="combobox"
         aria-label={copy.recipes.summon.text}
         aria-expanded="true"
+        aria-autocomplete="list"
         aria-controls={`${id}-list`}
         aria-activedescendant={options[current]?.id}
         aria-describedby={`${id}-help`}
@@ -112,25 +122,33 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
       <p id={`${id}-help`} {...stylex.props(styles.hint)}>
         {q === "" ? copy.recipes.summonHint.text : copy.library.summonHelp.text}
       </p>
-      <ul
+      <div
         id={`${id}-list`}
         role="listbox"
         aria-label={copy.recipes.summon.text}
         {...stylex.props(styles.list)}
       >
         {q !== "" ? (
-          <li role="presentation" {...stylex.props(styles.group)}>
-            {recipes.length > 0 || results.isFetching
-              ? copy.library.results.text
-              : copy.library.noResults.text}
-          </li>
+          <div
+            role="group"
+            aria-labelledby={`${id}-recipes`}
+            {...stylex.props(styles.groupBox, stale && styles.stale)}
+          >
+            <div id={`${id}-recipes`} role="presentation" {...stylex.props(styles.group)}>
+              {recipes.length > 0 || results.isFetching
+                ? copy.library.results.text
+                : copy.library.noResults.text}
+            </div>
+            {recipes.map(item)}
+          </div>
         ) : null}
-        {recipes.map(item)}
-        <li role="presentation" {...stylex.props(styles.group)}>
-          {copy.library.actions.text}
-        </li>
-        {actions.map((option, index) => item(option, recipes.length + index))}
-      </ul>
+        <div role="group" aria-labelledby={`${id}-actions`} {...stylex.props(styles.groupBox)}>
+          <div id={`${id}-actions`} role="presentation" {...stylex.props(styles.group)}>
+            {copy.library.actions.text}
+          </div>
+          {actions.map((option, index) => item(option, recipes.length + index))}
+        </div>
+      </div>
     </Dialog>
   );
 }
@@ -147,6 +165,8 @@ const styles = stylex.create({
     maxHeight: "min(60vh, 420px)",
     overflowY: "auto",
   },
+  groupBox: { display: "flex", flexDirection: "column", gap: 2 },
+  stale: { opacity: 0.6 },
   group: {
     paddingTop: 10,
     paddingBottom: 4,

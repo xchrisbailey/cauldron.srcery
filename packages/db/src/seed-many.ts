@@ -131,7 +131,7 @@ const ingredientLines = [
 const stepTemplates: ReadonlyArray<{ text: string; timed: boolean }> = [
   { text: "Heat the oil in a large pan over medium heat.", timed: false },
   { text: "Cook the onion and garlic for {n} minutes until soft.", timed: true },
-  { text: "Stir in the spices and cook for 1 minute until fragrant.", timed: true },
+  { text: "Stir in the spices and cook for 1 minute until fragrant.", timed: false },
   { text: "Add the remaining ingredients and bring to a simmer.", timed: false },
   { text: "Simmer gently for {n} minutes, stirring now and then.", timed: true },
   { text: "Roast on a lined tray for {n} minutes until golden.", timed: true },
