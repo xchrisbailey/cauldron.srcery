@@ -25,6 +25,7 @@ import {
   settlePlan,
   updateEntry,
 } from "./plan";
+import { failureOf, messageOr, retryWhile } from "./api-failure";
 
 type Week = ReadonlyArray<PlanEntry>;
 
@@ -34,14 +35,7 @@ type ManyVars = {
   recipe: PlanRecipe;
 };
 
-const tagOf = (error: unknown) =>
-  typeof error === "object" && error !== null && "_tag" in error ? error._tag : undefined;
-
-/** The API refused the request itself; retrying won't help. */
-const refused = (error: unknown) =>
-  tagOf(error) === "InvalidRequest" || tagOf(error) === "NotFound";
-
-const retry = (count: number, error: unknown) => !refused(error) && count < 2;
+const retry = retryWhile(2);
 
 /**
  * Optimistic plan writes: the cached week changes at once, rolls back if the
@@ -69,13 +63,7 @@ export function usePlanWrites(startsOn: WeekStartDay) {
   };
 
   // An InvalidRequest carries a plain message saying why ("That meal is full").
-  const failed = (error: unknown) =>
-    toast(
-      tagOf(error) === "InvalidRequest" && error instanceof Error && error.message
-        ? error.message
-        : copy.week.couldntSave.text,
-      "error",
-    );
+  const failed = (error: unknown) => toast(messageOr(error, copy.week.couldntSave.text), "error");
 
   const add = useMutation({
     mutationKey: planMutationKey,
@@ -172,7 +160,7 @@ export function usePlanWrites(startsOn: WeekStartDay) {
     // A retried remove that already landed finds nothing to remove: that's done too.
     mutationFn: (entry: PlanEntry) =>
       removeEntry(entry.id).catch((error: unknown) => {
-        if (tagOf(error) === "NotFound") return entry;
+        if (failureOf(error).tag === "NotFound") return entry;
         throw error;
       }),
     retry,
