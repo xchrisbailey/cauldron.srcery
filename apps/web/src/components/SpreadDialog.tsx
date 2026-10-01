@@ -6,11 +6,11 @@ import {
   oneADay,
   PLAN_LIMITS,
   type PlanEntryInput,
+  type PlanRecipe,
   type RecipeId,
 } from "@cauldron/shared";
 import { type FormEvent, useEffect, useState } from "react";
 import { dayLabel } from "../lib/dates";
-import type { StirRecipe } from "../lib/use-plan";
 import { colors, fonts } from "../styles/tokens.stylex";
 import { Button, Dialog, Select } from "./ui";
 import { focusRing } from "./ui/controls";
@@ -22,7 +22,7 @@ import { focusRing } from "./ui/controls";
 export interface Spreading {
   readonly date: string;
   readonly slot: MealSlot;
-  readonly recipe: StirRecipe;
+  readonly recipe: PlanRecipe;
   /** Where in the first day's slot, when it was dropped on another meal. */
   readonly position?: number;
 }
@@ -39,7 +39,7 @@ export function SpreadDialog({
   days: ReadonlyArray<string>;
   today: string;
   onClose: () => void;
-  onStir: (inputs: ReadonlyArray<PlanEntryInput>, recipe: StirRecipe) => void;
+  onStir: (inputs: ReadonlyArray<PlanEntryInput>, recipe: PlanRecipe) => void;
 }) {
   const [slot, setSlot] = useState<MealSlot>("dinner");
   const [plan, setPlan] = useState<ReadonlyMap<string, number>>(new Map());

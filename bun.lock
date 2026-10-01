@@ -93,6 +93,7 @@
         "@cauldron/shared": "workspace:*",
         "@electric-sql/pglite": "catalog:",
         "drizzle-orm": "catalog:",
+        "effect": "catalog:",
         "pg": "8.23.1",
       },
       "devDependencies": {

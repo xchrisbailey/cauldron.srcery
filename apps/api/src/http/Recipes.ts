@@ -1,9 +1,10 @@
-import { Api, CurrentUser } from "@cauldron/api-spec";
+import { Api } from "@cauldron/api-spec";
 import { copy, Unavailable } from "@cauldron/shared";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { RecipeExtractor } from "../imports/RecipeExtractor.ts";
 import { Recipes } from "../Recipes.ts";
+import { owned } from "./owned.ts";
 
 // Thin handlers: the Recipes service owns the queries and the owner scoping.
 // A DbError here is a bug or an outage, so it becomes a defect, which the
@@ -31,50 +32,18 @@ export const RecipesHandlers = HttpApiBuilder.group(
             ),
           ),
       )
-      .handle("list", ({ query }) =>
-        CurrentUser.use((user) => recipes.list(user.id, query)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("search", ({ query }) =>
-        CurrentUser.use((user) => recipes.search(user.id, query)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("get", ({ params }) =>
-        CurrentUser.use((user) => recipes.get(user.id, params.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("create", ({ payload }) =>
-        CurrentUser.use((user) => recipes.create(user.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
+      .handle("list", ({ query }) => owned((owner) => recipes.list(owner, query)))
+      .handle("search", ({ query }) => owned((owner) => recipes.search(owner, query)))
+      .handle("get", ({ params }) => owned((owner) => recipes.get(owner, params.id)))
+      .handle("create", ({ payload }) => owned((owner) => recipes.create(owner, payload)))
       .handle("update", ({ params, payload }) =>
-        CurrentUser.use((user) => recipes.update(user.id, params.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
+        owned((owner) => recipes.update(owner, params.id, payload)),
       )
-      .handle("banish", ({ params }) =>
-        CurrentUser.use((user) => recipes.banish(user.id, params.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("restore", ({ params }) =>
-        CurrentUser.use((user) => recipes.restore(user.id, params.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("duplicate", ({ params }) =>
-        CurrentUser.use((user) => recipes.duplicate(user.id, params.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
+      .handle("banish", ({ params }) => owned((owner) => recipes.banish(owner, params.id)))
+      .handle("restore", ({ params }) => owned((owner) => recipes.restore(owner, params.id)))
+      .handle("duplicate", ({ params }) => owned((owner) => recipes.duplicate(owner, params.id)))
       .handle("cooked", ({ params, payload }) =>
-        CurrentUser.use((user) => recipes.cooked(user.id, params.id, payload.on)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
+        owned((owner) => recipes.cooked(owner, params.id, payload.on)),
       );
   }),
 );
@@ -85,15 +54,9 @@ export const TagsHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const recipes = yield* Recipes;
     return handlers
-      .handle("list", () =>
-        CurrentUser.use((user) => recipes.tags(user.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
+      .handle("list", () => owned((owner) => recipes.tags(owner)))
       .handle("rename", ({ params, payload }) =>
-        CurrentUser.use((user) => recipes.renameTag(user.id, params.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
+        owned((owner) => recipes.renameTag(owner, params.id, payload)),
       );
   }),
 );

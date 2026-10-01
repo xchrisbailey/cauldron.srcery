@@ -1,4 +1,4 @@
-import type { PlanEntry, PlanEntryInput } from "@cauldron/shared";
+import { noMacros, type PlanEntry, type PlanEntryInput, type RecipeId } from "@cauldron/shared";
 import { describe, expect, it } from "vite-plus/test";
 import {
   applyAdd,
@@ -311,9 +311,16 @@ describe("applyRemove", () => {
 });
 
 describe("pendingEntry / isPending", () => {
-  const recipe = { id: "r1", title: "Chili", servings: 4, totalMinutes: 90 };
+  const recipe = {
+    id: "r1" as RecipeId,
+    title: "Chili",
+    servings: 4,
+    totalMinutes: 90,
+    photoKey: "photo-1",
+    macros: noMacros,
+  };
 
-  it("builds a placeholder for a recipe entry from the recipe", () => {
+  it("builds a placeholder for a recipe entry from the recipe, photo and all", () => {
     const input: PlanEntryInput = { date: D1, slot: "dinner", recipeId: "r1" as never };
     const e = pendingEntry(input, recipe, 2);
     expect(e).toMatchObject({
@@ -323,7 +330,7 @@ describe("pendingEntry / isPending", () => {
       servings: null,
       position: 2,
       brewed: false,
-      recipe: { id: "r1", title: "Chili", servings: 4, totalMinutes: 90, photoKey: null },
+      recipe: { id: "r1", title: "Chili", servings: 4, totalMinutes: 90, photoKey: "photo-1" },
     });
     expect(isPending(e)).toBe(true);
   });

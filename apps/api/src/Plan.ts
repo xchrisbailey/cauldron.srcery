@@ -1,4 +1,4 @@
-import { schema } from "@cauldron/db";
+import { macros, schema } from "@cauldron/db";
 import {
   addDays,
   copy,
@@ -9,6 +9,7 @@ import {
   type PlanEntry,
   PlanEntryId,
   RecipeId,
+  toPlanRecipe,
   type LocalDate,
   type MealSlot,
   type PlanBatchInput,
@@ -55,9 +56,9 @@ const make = Effect.gen(function* () {
             cookMinutes: recipe.cookMinutes,
             photoKey: recipe.photoKey,
             calories: recipe.calories,
-            protein: recipe.proteinGrams,
-            carbs: recipe.carbsGrams,
-            fat: recipe.fatGrams,
+            proteinGrams: recipe.proteinGrams,
+            carbsGrams: recipe.carbsGrams,
+            fatGrams: recipe.fatGrams,
             brewed: sql<boolean>`exists (select 1 from ${recipeCook} where ${recipeCook.recipeId} = ${entry.recipeId} and ${recipeCook.ownerId} = ${entry.ownerId} and ${recipeCook.cookedOn} = ${entry.date})`,
           })
           .from(entry)
@@ -77,23 +78,16 @@ const make = Effect.gen(function* () {
             recipe:
               row.recipeId === null
                 ? null
-                : {
+                : toPlanRecipe({
                     id: RecipeId.make(row.recipeId),
                     title: row.recipeTitle!,
                     servings: row.recipeServings,
-                    totalMinutes:
-                      row.totalMinutes ??
-                      (row.prepMinutes !== null || row.cookMinutes !== null
-                        ? (row.prepMinutes ?? 0) + (row.cookMinutes ?? 0)
-                        : null),
+                    totalMinutes: row.totalMinutes,
+                    prepMinutes: row.prepMinutes,
+                    cookMinutes: row.cookMinutes,
                     photoKey: row.photoKey,
-                    macros: {
-                      calories: row.calories,
-                      protein: row.protein,
-                      carbs: row.carbs,
-                      fat: row.fat,
-                    },
-                  },
+                    macros: macros.fromRow(row),
+                  }),
             servings: row.servings,
             position: row.position,
             brewed: row.recipeId !== null && Boolean(row.brewed),

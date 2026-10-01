@@ -1,3 +1,4 @@
+import type { UnitCode } from "@cauldron/shared";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -16,6 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { MealSlot, SourcePlatform, TagKind, type Aisle } from "@cauldron/shared";
 import { user } from "./auth.ts";
 import { timestampMs, timestamps } from "./columns.ts";
 
@@ -43,15 +45,9 @@ const quantity = (name: string) => numeric(name, { precision: 12, scale: 4, mode
 /** Postgres full text search document. Written only by SQL (see `recipeSearchDocument` in the API). */
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
-export const sourcePlatform = pgEnum("source_platform", [
-  "web",
-  "instagram",
-  "tiktok",
-  "manual",
-  "text",
-]);
-export const mealSlot = pgEnum("meal_slot", ["breakfast", "lunch", "dinner", "snack"]);
-export const tagKind = pgEnum("tag_kind", ["cuisine", "meal", "diet", "other"]);
+export const sourcePlatform = pgEnum("source_platform", SourcePlatform.literals);
+export const mealSlot = pgEnum("meal_slot", MealSlot.literals);
+export const tagKind = pgEnum("tag_kind", TagKind.literals);
 
 /**
  * A processed photo. Its WebP variants live in storage under
@@ -173,7 +169,7 @@ export const recipeIngredient = pgTable(
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
     /** Normalized unit code from the shared unit catalog. */
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
     item: text("item").notNull(),
     /**
      * Normalized merge key from `ingredientKey(item)` in `@cauldron/shared`
@@ -188,7 +184,7 @@ export const recipeIngredient = pgTable(
     /** A second measure, e.g. the "(190g)" in "1 1/2 cups (190g) flour". */
     altQuantityMin: quantity("alt_quantity_min"),
     altQuantityMax: quantity("alt_quantity_max"),
-    altUnit: text("alt_unit"),
+    altUnit: text("alt_unit").$type<UnitCode>(),
     /** The line exactly as written. */
     originalLine: text("original_line").notNull(),
     /** Reserved for the nutrition database the tracker will use (#23). */
@@ -329,9 +325,9 @@ export const gatherItem = pgTable(
     itemKey: text("item_key").notNull(),
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
     /** Store aisle for grouping, e.g. "produce". */
-    aisle: text("aisle"),
+    aisle: text("aisle").$type<Aisle>(),
     checked: boolean("checked").notNull().default(false),
     /** Added by hand rather than gathered from the week's recipes. */
     manual: boolean("manual").notNull().default(false),
@@ -361,7 +357,7 @@ export const gatherItemSource = pgTable(
     recipeId: uuid("recipe_id").notNull(),
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
   },
   (t) => [
     foreignKey({
