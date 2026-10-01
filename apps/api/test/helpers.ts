@@ -3,6 +3,7 @@ import { HttpRouter, HttpServer } from "effect/http";
 import { AppConfig } from "../src/AppConfig.ts";
 import { Routes } from "../src/App.ts";
 import { Db } from "../src/Db.ts";
+import { RecipeExtractor } from "../src/imports/RecipeExtractor.ts";
 import { Mailer } from "../src/Mailer.ts";
 import { RemoteFetch } from "../src/RemoteFetch.ts";
 import { Storage } from "../src/Storage.ts";
@@ -12,17 +13,20 @@ export const WEB_ORIGIN = "http://localhost:3000";
 /**
  * Test versions of every external service: a fresh migrated database (real
  * Postgres when DATABASE_URL is set, as in CI; in-memory PGlite otherwise) and
- * an in-memory mail outbox.
+ * an in-memory mail outbox. No model is configured unless a test passes a
+ * fake one (`RecipeExtractor.layerTest`).
  */
 export const TestServices = (
   config: Partial<AppConfig["Service"]> = {},
   remote: Parameters<typeof RemoteFetch.layerTest>[0] = {},
+  extractor: Layer.Layer<RecipeExtractor> = RecipeExtractor.layerNone,
 ) =>
   Layer.mergeAll(
     Db.layerTest,
     Mailer.layerTest,
     Storage.layerTest,
     RemoteFetch.layerTest(remote),
+    extractor,
   ).pipe(Layer.provideMerge(AppConfig.layerTest(config)));
 
 /** Builds the full API (HttpApi routes + Better Auth) as an in-process fetch handler. */

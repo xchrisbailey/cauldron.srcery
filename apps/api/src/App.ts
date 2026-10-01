@@ -8,6 +8,8 @@ import { AuthRoute } from "./http/AuthRoute.ts";
 import { RateLimitLive } from "./http/RateLimit.ts";
 import { RequestId } from "./http/RequestId.ts";
 import { Mailer } from "./Mailer.ts";
+import { ImportWorker } from "./Imports.ts";
+import { RecipeExtractor } from "./imports/RecipeExtractor.ts";
 import { PhotoCleanup, Photos } from "./Photos.ts";
 import { RemoteFetch } from "./RemoteFetch.ts";
 import { Storage } from "./Storage.ts";
@@ -23,16 +25,23 @@ const Cors = Layer.unwrap(
   }),
 );
 
-/** Every route, needing only the external services (config, database, email, storage, fetch). */
+/** Every route, needing only the external services (config, database, email, storage, fetch, model). */
 export const Routes = Layer.mergeAll(ApiRoutes, AuthRoute, RequestId, Cors).pipe(
   Layer.provide([Auth.layer, RateLimitLive]),
 );
 
-/** Background work that runs while the API is up: the hourly photo cleanup. */
-export const Jobs = PhotoCleanup.pipe(Layer.provide(Photos.layer));
+/** Background work that runs while the API is up: the import workers and the hourly photo cleanup. */
+export const Jobs = Layer.merge(PhotoCleanup.pipe(Layer.provide(Photos.layer)), ImportWorker);
 
 /**
  * The external services for a real run. Tests swap in `Db.layerTest`,
- * `Mailer.layerTest`, `Storage.layerTest` and `RemoteFetch.layerTest`.
+ * `Mailer.layerTest`, `Storage.layerTest`, `RemoteFetch.layerTest` and
+ * `RecipeExtractor.layerTest`.
  */
-export const Services = Layer.mergeAll(Db.layer, Mailer.layer, Storage.layer, RemoteFetch.layer);
+export const Services = Layer.mergeAll(
+  Db.layer,
+  Mailer.layer,
+  Storage.layer,
+  RemoteFetch.layer,
+  RecipeExtractor.layer,
+);

@@ -9,6 +9,7 @@ import { Db, DbError } from "../src/Db.ts";
 import { ErrorShape } from "../src/http/ErrorShape.ts";
 import { Mailer } from "../src/Mailer.ts";
 import { Storage } from "../src/Storage.ts";
+import { RecipeExtractor } from "../src/imports/RecipeExtractor.ts";
 import { RemoteFetch } from "../src/RemoteFetch.ts";
 import { WEB_ORIGIN, makeTestApi, url } from "./helpers.ts";
 import { NotFoundError } from "@cauldron/api-spec";
@@ -129,6 +130,7 @@ describe("health when the database is down", () => {
           Mailer.layerTest,
           Storage.layerTest,
           RemoteFetch.layerTest({}),
+          RecipeExtractor.layerNone,
         ).pipe(Layer.provideMerge(AppConfig.layerTest())),
       ),
       Layer.provide(HttpServer.layerServices),

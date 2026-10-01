@@ -15,9 +15,10 @@ export const makeAuthApi = (
   // oxlint-disable-next-line typescript/no-explicit-any
   routes: Layer.Layer<never, never, any> = Routes,
   remote: Parameters<typeof TestServices>[1] = {},
+  extractor?: Parameters<typeof TestServices>[2],
 ) => {
   const memoMap = Layer.makeMemoMapUnsafe();
-  const services = TestServices(config, remote);
+  const services = TestServices(config, remote, extractor);
   const web = HttpRouter.toWebHandler(
     routes.pipe(Layer.provide(services), Layer.provide(HttpServer.layerServices)) as Layer.Layer<
       never,
@@ -69,8 +70,13 @@ export const makeAuthApi = (
     return parsed.pathname + parsed.search;
   };
 
+  /** Runs an Effect against the same services the API uses, e.g. to read the database. */
+  const run = <A, E>(effect: Effect.Effect<A, E, Layer.Success<typeof services>>) =>
+    runtime.runPromise(effect);
+
   return {
     handler: web.handler,
+    run,
     send,
     post,
     outbox,

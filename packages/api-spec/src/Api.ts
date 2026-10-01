@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
 import { Authorization } from "./Authorization.ts";
 import { UnavailableError } from "./errors.ts";
+import { ImportsApi } from "./Imports.ts";
 import { PhotosApi } from "./Photos.ts";
 import { RecipesApi, TagsApi } from "./Recipes.ts";
 
@@ -43,5 +44,6 @@ export class Api extends HttpApi.make("cauldron")
   .add(RecipesApi)
   .add(TagsApi)
   .add(PhotosApi)
+  .add(ImportsApi)
   .prefix("/v1")
   .annotateMerge(OpenApi.annotations({ title: "Cauldron API" })) {}

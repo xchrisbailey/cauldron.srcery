@@ -20,6 +20,7 @@ import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-
 import { Route as PublicSignInRouteImport } from './routes/_public/sign-in'
 import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes/index'
+import { Route as AuthedRecipesDistillRouteImport } from './routes/_authed/recipes/distill'
 import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
 import { Route as AuthedRecipesIdIndexRouteImport } from './routes/_authed/recipes/$id/index'
 import { Route as AuthedRecipesIdEditRouteImport } from './routes/_authed/recipes/$id/edit'
@@ -77,6 +78,11 @@ const AuthedRecipesIndexRoute = AuthedRecipesIndexRouteImport.update({
   path: '/recipes/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedRecipesDistillRoute = AuthedRecipesDistillRouteImport.update({
+  id: '/recipes/distill',
+  path: '/recipes/distill',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedRecipesNewRoute = AuthedRecipesNewRouteImport.update({
   id: '/recipes/new',
   path: '/recipes/new',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof PublicResetPasswordRoute
   '/sign-in': typeof PublicSignInRoute
   '/sign-up': typeof PublicSignUpRoute
+  '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
   '/recipes/': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof PublicResetPasswordRoute
   '/sign-in': typeof PublicSignInRoute
   '/sign-up': typeof PublicSignUpRoute
+  '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
   '/recipes': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/sign-up': typeof PublicSignUpRoute
   '/_public/': typeof PublicIndexRoute
+  '/_authed/recipes/distill': typeof AuthedRecipesDistillRoute
   '/_authed/recipes/new': typeof AuthedRecipesNewRoute
   '/_authed/recipes/': typeof AuthedRecipesIndexRoute
   '/_authed/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/recipes/distill'
     | '/recipes/new'
     | '/recipes/'
     | '/recipes/$id/edit'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/recipes/distill'
     | '/recipes/new'
     | '/recipes'
     | '/recipes/$id/edit'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/_public/sign-in'
     | '/_public/sign-up'
     | '/_public/'
+    | '/_authed/recipes/distill'
     | '/_authed/recipes/new'
     | '/_authed/recipes/'
     | '/_authed/recipes/$id/edit'
@@ -269,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRecipesIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/recipes/distill': {
+      id: '/_authed/recipes/distill'
+      path: '/recipes/distill'
+      fullPath: '/recipes/distill'
+      preLoaderRoute: typeof AuthedRecipesDistillRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/recipes/new': {
       id: '/_authed/recipes/new'
       path: '/recipes/new'
@@ -297,6 +316,7 @@ interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedGatherRoute: typeof AuthedGatherRoute
   AuthedWeekRoute: typeof AuthedWeekRoute
+  AuthedRecipesDistillRoute: typeof AuthedRecipesDistillRoute
   AuthedRecipesNewRoute: typeof AuthedRecipesNewRoute
   AuthedRecipesIndexRoute: typeof AuthedRecipesIndexRoute
   AuthedRecipesIdEditRoute: typeof AuthedRecipesIdEditRoute
@@ -307,6 +327,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
   AuthedGatherRoute: AuthedGatherRoute,
   AuthedWeekRoute: AuthedWeekRoute,
+  AuthedRecipesDistillRoute: AuthedRecipesDistillRoute,
   AuthedRecipesNewRoute: AuthedRecipesNewRoute,
   AuthedRecipesIndexRoute: AuthedRecipesIndexRoute,
   AuthedRecipesIdEditRoute: AuthedRecipesIdEditRoute,

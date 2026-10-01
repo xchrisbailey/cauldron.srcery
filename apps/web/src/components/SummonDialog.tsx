@@ -55,6 +55,11 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
       go: close(() => void navigate({ to: "/recipes/new" })),
     },
     {
+      id: `${id}-distill`,
+      label: copy.recipes.distillFromLink.text,
+      go: close(() => void navigate({ to: "/recipes/distill" })),
+    },
+    {
       id: `${id}-week`,
       label: copy.library.openWeek.text,
       go: close(() => void navigate({ to: "/week" })),
