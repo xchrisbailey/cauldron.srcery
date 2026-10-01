@@ -11,6 +11,7 @@ import {
   RecipeId,
   type LocalDate,
   type MealSlot,
+  type PlanBatchInput,
   type PlanCopyInput,
   type PlanEntryInput,
   type PlanEntryUpdate,
@@ -51,6 +52,10 @@ const make = Effect.gen(function* () {
             prepMinutes: recipe.prepMinutes,
             cookMinutes: recipe.cookMinutes,
             photoKey: recipe.photoKey,
+            calories: recipe.calories,
+            protein: recipe.proteinGrams,
+            carbs: recipe.carbsGrams,
+            fat: recipe.fatGrams,
             brewed: sql<boolean>`exists (select 1 from ${recipeCook} where ${recipeCook.recipeId} = ${entry.recipeId} and ${recipeCook.ownerId} = ${entry.ownerId} and ${recipeCook.cookedOn} = ${entry.date})`,
           })
           .from(entry)
@@ -87,6 +92,12 @@ const make = Effect.gen(function* () {
                         ? (row.prepMinutes ?? 0) + (row.cookMinutes ?? 0)
                         : null),
                     photoKey: row.photoKey,
+                    macros: {
+                      calories: row.calories,
+                      protein: row.protein,
+                      carbs: row.carbs,
+                      fat: row.fat,
+                    },
                   },
             servings: row.servings,
             position: row.position,
@@ -213,6 +224,11 @@ const make = Effect.gen(function* () {
         return yield* one(ownerId, row!.id).pipe(Effect.catchTag("NotFound", Effect.die));
       }),
     );
+  });
+
+  const addMany = Effect.fn("Plan.addMany")(function* (ownerId: UserId, input: PlanBatchInput) {
+    // Each add joins this transaction, so one refusal undoes the lot.
+    return yield* db.transaction(Effect.forEach(input.entries, (one) => add(ownerId, one)));
   });
 
   const update = Effect.fn("Plan.update")(function* (
@@ -360,7 +376,7 @@ const make = Effect.gen(function* () {
     );
   });
 
-  return { list, add, update, remove, copy: copyWeek, clear };
+  return { list, add, addMany, update, remove, copy: copyWeek, clear };
 });
 
 /** The week: meal plan entries, every read and write scoped to one owner. */

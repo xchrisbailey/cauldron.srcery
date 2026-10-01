@@ -43,6 +43,13 @@
       "when": 1790829144018,
       "tag": "0005_gather_pantry",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790859194731,
+      "tag": "0006_recipe_macros",
+      "breakpoints": true
     }
   ]
 }

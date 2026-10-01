@@ -98,6 +98,12 @@ const summaryFields = (row: RecipeRow, tags: ReadonlyArray<Tag>) => ({
   cookMinutes: row.cookMinutes,
   totalMinutes: row.totalMinutes,
   photoKey: row.photoKey,
+  macros: {
+    calories: row.calories,
+    protein: row.proteinGrams,
+    carbs: row.carbsGrams,
+    fat: row.fatGrams,
+  },
   tags,
   lastCookedOn: row.lastCookedOn,
   createdAt: row.createdAt,
@@ -400,6 +406,15 @@ const make = Effect.gen(function* () {
     sourceUrl: input.sourceUrl,
     sourceAuthor: orNull(input.sourceAuthor),
     notes: orNull(input.notes),
+    // Left out, an update keeps the recipe's macros.
+    ...(input.macros === undefined
+      ? {}
+      : {
+          calories: input.macros.calories,
+          proteinGrams: input.macros.protein,
+          carbsGrams: input.macros.carbs,
+          fatGrams: input.macros.fat,
+        }),
   });
 
   const list = Effect.fn("Recipes.list")(function* (ownerId: UserId, query: RecipeListQuery) {

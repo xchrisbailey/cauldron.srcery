@@ -1,5 +1,6 @@
 import {
   copy,
+  type Macros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
@@ -10,6 +11,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/ui";
 import {
+  addEntries,
   addEntry,
   applyAdd,
   applyRemove,
@@ -31,9 +33,14 @@ export interface StirRecipe {
   readonly title: string;
   readonly servings: number | null;
   readonly totalMinutes: number | null;
+  readonly macros: Macros;
 }
 
 type AddVars = { input: PlanEntryInput & { id: PlanEntryId }; recipe: StirRecipe | null };
+type ManyVars = {
+  inputs: ReadonlyArray<PlanEntryInput & { id: PlanEntryId }>;
+  recipe: StirRecipe;
+};
 
 const tagOf = (error: unknown) =>
   typeof error === "object" && error !== null && "_tag" in error ? error._tag : undefined;
@@ -100,6 +107,39 @@ export function usePlanWrites(startsOn: WeekStartDay) {
       settlePlan(queryClient);
     },
   });
+
+  const addMany = useMutation({
+    mutationKey: planMutationKey,
+    mutationFn: ({ inputs }: ManyVars) => addEntries(inputs),
+    retry,
+    onMutate: async ({ inputs, recipe }: ManyVars) => {
+      const saved = await snapshot(inputs.map((input) => input.date));
+      for (const input of inputs) {
+        queryClient.setQueryData<Week>(keyFor(input.date), (week) => {
+          if (!week) return week;
+          const end = inSlot(week, input.date, input.slot).length;
+          return applyAdd(week, pendingEntry(input, recipe, input.position ?? end));
+        });
+      }
+      return saved;
+    },
+    onError: (error, _vars, saved) => {
+      if (saved) rollback(saved);
+      failed(error);
+    },
+    onSuccess: (_entries, { inputs }) => toast(copy.week.spread.stirred(inputs.length).text),
+    onSettled: (_entries, _error, { inputs }) => {
+      for (const input of inputs) confirmPending(input.id);
+      settlePlan(queryClient);
+    },
+  });
+
+  /** Stir one recipe into several days at once: all of them land, or none do. */
+  const spread = (inputs: ReadonlyArray<PlanEntryInput>, recipe: StirRecipe) =>
+    addMany.mutate({
+      inputs: inputs.map((input) => ({ ...input, id: crypto.randomUUID() as PlanEntryId })),
+      recipe,
+    });
 
   /** Stir in a recipe (with `recipeId`) or a free-text meal (with `title`). */
   const stir = (input: PlanEntryInput, recipe: StirRecipe | null) =>
@@ -174,5 +214,5 @@ export function usePlanWrites(startsOn: WeekStartDay) {
     onSettled: () => settlePlan(queryClient),
   });
 
-  return { stir, update, remove };
+  return { stir, spread, update, remove };
 }

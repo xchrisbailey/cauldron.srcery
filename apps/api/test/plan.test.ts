@@ -457,4 +457,60 @@ describe("plan", () => {
     expect(renamed.status).toBe(200);
     expect(renamed.body.title).toBe("Takeaway");
   });
+
+  it("spreads a recipe's servings over several days in one batch, with its macros", async () => {
+    const chili = await create(ada, {
+      title: "Batch chili",
+      servings: 5,
+      macros: { calories: 520, protein: 31.5, carbs: 48, fat: 18 },
+    });
+    const days = ["2027-11-01", "2027-11-02", "2027-11-03"];
+    const res = await call(ada, "POST", "/v1/plan/batch", {
+      entries: days.map((date, i) => ({
+        date,
+        slot: i === 0 ? "dinner" : "lunch",
+        recipeId: chili.id,
+        servings: i === 0 ? 3 : 1,
+      })),
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.map((e: { date: string; servings: number }) => [e.date, e.servings])).toEqual([
+      ["2027-11-01", 3],
+      ["2027-11-02", 1],
+      ["2027-11-03", 1],
+    ]);
+    expect(res.body[0].recipe.macros).toEqual({ calories: 520, protein: 31.5, carbs: 48, fat: 18 });
+    const listed = (await range(ada, "2027-11-01", "2027-11-03")).body;
+    expect(listed).toHaveLength(3);
+  });
+
+  it("adds none of a batch when one entry is refused", async () => {
+    const mine = await create(ada, { title: "Half a batch" });
+    const theirs = await create(bob, { title: "Not yours" });
+    const res = await call(ada, "POST", "/v1/plan/batch", {
+      entries: [
+        { date: "2027-11-08", slot: "dinner", recipeId: mine.id, servings: 1 },
+        { date: "2027-11-09", slot: "dinner", recipeId: theirs.id, servings: 1 },
+      ],
+    });
+    expect(res.status).toBe(400);
+    expect((await range(ada, "2027-11-08", "2027-11-09")).body).toEqual([]);
+  });
+
+  it("refuses an empty or oversized batch", async () => {
+    const recipe = await create(ada, { title: "Too many" });
+    expect((await call(ada, "POST", "/v1/plan/batch", { entries: [] })).status).toBe(400);
+    const tooMany = Array.from({ length: PLAN_LIMITS.batch + 1 }, (_, i) => ({
+      date: addDays("2027-12-06", i),
+      slot: "dinner",
+      recipeId: recipe.id,
+    }));
+    expect((await call(ada, "POST", "/v1/plan/batch", { entries: tooMany })).status).toBe(400);
+  });
+
+  it("shows a recipe without macros as all unknown", async () => {
+    const plain = await create(ada, { title: "No numbers" });
+    const entry = await addEntry(ada, { date: "2027-11-15", slot: "lunch", recipeId: plain.id });
+    expect(entry.recipe.macros).toEqual({ calories: null, protein: null, carbs: null, fat: null });
+  });
 });

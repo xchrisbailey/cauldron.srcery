@@ -1,4 +1,5 @@
 import {
+  PlanBatchInput,
   PlanCopyInput,
   PlanEntry,
   PlanEntryId,
@@ -30,6 +31,14 @@ export class PlanApi extends HttpApiGroup.make("plan")
     }).annotate(
       OpenApi.Description,
       "Stirs a recipe into a meal slot (`recipeId`), or adds a free-text meal (`title`).",
+    ),
+    HttpApiEndpoint.post("addMany", "/batch", {
+      payload: PlanBatchInput,
+      success: Schema.Array(PlanEntry),
+      error: InvalidRequestError,
+    }).annotate(
+      OpenApi.Description,
+      "Adds up to 14 entries in one go, all or none, such as one recipe's servings spread over several days. Returns them in the order sent.",
     ),
     HttpApiEndpoint.patch("update", "/:id", {
       params,

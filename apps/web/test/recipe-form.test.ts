@@ -182,6 +182,22 @@ describe("toRecipeInput", () => {
     expect(input.totalMinutes).toBe(30);
   });
 
+  it("sends macros as numbers, blanks as null", () => {
+    const { input } = toRecipeInput(
+      form({ macros: { calories: "520", protein: " 31.5 ", carbs: "", fat: "18" } }),
+    );
+    expect(input.macros).toEqual({ calories: 520, protein: 31.5, carbs: null, fat: 18 });
+  });
+
+  it("flags a macro that isn't a number on its own field", () => {
+    const errors = validateRecipeForm(
+      form({ title: "Soup", macros: { calories: "lots", protein: "", carbs: "", fat: "-2" } }),
+    );
+    expect(errors["macros.calories"]).toBeDefined();
+    expect(errors["macros.fat"]).toBeDefined();
+    expect(errors["macros.protein"]).toBeUndefined();
+  });
+
   it("keeps a real source URL", () => {
     expect(toRecipeInput(form({ sourceUrl: "https://example.com/r" })).input.sourceUrl).toBe(
       "https://example.com/r",
@@ -306,6 +322,7 @@ describe("fromRecipe round trip", () => {
     cookMinutes: 20,
     totalMinutes: 25,
     photoKey: null,
+    macros: { calories: 410, protein: 8.5, carbs: null, fat: 12 },
     tags: [{ id: "1a2b3c4d-1b6d-4c1e-9a53-0d2f6b7a9c11", name: "dinner", kind: "meal" }],
     lastCookedOn: null,
     createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -347,6 +364,7 @@ describe("fromRecipe round trip", () => {
     expect(input.prepMinutes).toBe(5);
     expect(input.cookMinutes).toBe(20);
     expect(input.totalMinutes).toBe(25);
+    expect(input.macros).toEqual({ calories: 410, protein: 8.5, carbs: null, fat: 12 });
     expect(input.sourcePlatform).toBe("web");
     expect(input.sourceUrl).toBe("https://example.com/rice");
     expect(input.sourceAuthor).toBe("Ann");

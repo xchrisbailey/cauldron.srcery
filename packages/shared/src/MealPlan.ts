@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { validation } from "./copy.ts";
-import { LocalDate, RECIPE_LIMITS, RecipeId } from "./Recipe.ts";
+import { LocalDate, Macros, RECIPE_LIMITS, RecipeId } from "./Recipe.ts";
 
 // The week (#18): what's planned for each day's meals. An entry is a recipe
 // (with its own servings) or a free-text meal like "Leftovers".
@@ -19,6 +19,8 @@ export const PLAN_LIMITS = {
   perSlot: 20,
   /** The longest range one read or clear may cover. */
   rangeDays: 62,
+  /** Entries in one batch add: two a day for a week. */
+  batch: 14,
 } as const;
 
 const Title = Schema.Trim.check(
@@ -43,6 +45,8 @@ export const PlanRecipe = Schema.Struct({
   /** Total time, or prep plus cook when the total isn't set. */
   totalMinutes: Schema.NullOr(Schema.Int),
   photoKey: Schema.NullOr(Schema.String),
+  /** Per serving. */
+  macros: Macros,
 }).annotate({ identifier: "PlanRecipe" });
 export type PlanRecipe = typeof PlanRecipe.Type;
 
@@ -88,6 +92,20 @@ export const PlanEntryInput = Schema.Struct({
   position: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
 });
 export type PlanEntryInput = typeof PlanEntryInput.Type;
+
+/**
+ * Several adds that land together or not at all, such as one recipe's
+ * servings spread over the days that will eat them.
+ */
+export const PlanBatchInput = Schema.Struct({
+  entries: Schema.Array(PlanEntryInput).check(
+    Schema.isMinLength(1, { message: validation.required.text }),
+    Schema.isMaxLength(PLAN_LIMITS.batch, {
+      message: validation.tooMany(PLAN_LIMITS.batch).text,
+    }),
+  ),
+});
+export type PlanBatchInput = typeof PlanBatchInput.Type;
 
 /** Move an entry (date, slot, position), change its servings, or rename free text. */
 export const PlanEntryUpdate = Schema.Struct({

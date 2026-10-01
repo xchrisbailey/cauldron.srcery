@@ -31,6 +31,10 @@ export const RECIPE_LIMITS = {
   /** Two weeks, enough for a long ferment. */
   minutes: 60 * 24 * 14,
   timerSeconds: 60 * 60 * 72,
+  /** Per serving. */
+  calories: 20000,
+  /** Grams of protein, carbs or fat per serving. */
+  grams: 2000,
 } as const;
 
 /** Trimmed, non-empty text of at most `max` characters. */
@@ -58,6 +62,54 @@ const List = <S extends Schema.Top>(item: S, max: number) =>
   Schema.Array(item).check(Schema.isMaxLength(max, { message: validation.tooMany(max).text }));
 
 const Minutes = Schema.NullOr(WholeNumber(0, RECIPE_LIMITS.minutes));
+
+const Grams = Schema.Finite.annotate({
+  message: validation.numberBetween(0, RECIPE_LIMITS.grams).text,
+}).check(
+  Schema.isBetween(
+    { minimum: 0, maximum: RECIPE_LIMITS.grams },
+    { message: validation.numberBetween(0, RECIPE_LIMITS.grams).text },
+  ),
+);
+
+/**
+ * Calories and macros for one serving, as written on the recipe or entered by
+ * hand. Any of them can be unknown. The tracker (#23) may later compute these
+ * from the ingredients instead.
+ */
+export const MacrosInput = Schema.Struct({
+  calories: Schema.NullOr(WholeNumber(0, RECIPE_LIMITS.calories)),
+  protein: Schema.NullOr(Grams),
+  carbs: Schema.NullOr(Grams),
+  fat: Schema.NullOr(Grams),
+});
+export type MacrosInput = typeof MacrosInput.Type;
+
+export const Macros = Schema.Struct({
+  calories: Schema.NullOr(Schema.Number),
+  protein: Schema.NullOr(Schema.Number),
+  carbs: Schema.NullOr(Schema.Number),
+  fat: Schema.NullOr(Schema.Number),
+}).annotate({ identifier: "Macros" });
+export type Macros = typeof Macros.Type;
+
+export const MACRO_KEYS = ["calories", "protein", "carbs", "fat"] as const;
+export type MacroKey = (typeof MACRO_KEYS)[number];
+
+export const noMacros: Macros = { calories: null, protein: null, carbs: null, fat: null };
+
+/** What a model needs to estimate a recipe's macros: its ingredient lines and yield. */
+export const MacroEstimateInput = Schema.Struct({
+  title: Schema.NullOr(Schema.Trim.check(Schema.isMaxLength(RECIPE_LIMITS.title))),
+  servings: Schema.NullOr(WholeNumber(1, RECIPE_LIMITS.servings)),
+  ingredients: Schema.Array(Text(RECIPE_LIMITS.line)).check(
+    Schema.isMinLength(1, { message: validation.required.text }),
+    Schema.isMaxLength(RECIPE_LIMITS.ingredients, {
+      message: validation.tooMany(RECIPE_LIMITS.ingredients).text,
+    }),
+  ),
+});
+export type MacroEstimateInput = typeof MacroEstimateInput.Type;
 
 export const SourcePlatform = Schema.Literals(["web", "instagram", "tiktok", "manual", "text"]);
 export type SourcePlatform = typeof SourcePlatform.Type;
@@ -109,6 +161,8 @@ export const RecipeInput = Schema.Struct({
   notes: OptionalText(RECIPE_LIMITS.notes),
   /** The cover photo's id from the photos API (#12), or null for none. */
   photoKey: Schema.NullOr(Schema.String.check(Schema.isUUID())),
+  /** Per serving. Left out, an update keeps what the recipe had. */
+  macros: Schema.optionalKey(MacrosInput),
   tags: List(TagName, RECIPE_LIMITS.tags),
   ingredients: List(IngredientInput, RECIPE_LIMITS.ingredients),
   steps: List(StepInput, RECIPE_LIMITS.steps),
@@ -173,6 +227,8 @@ const RecipeFields = {
   totalMinutes: Schema.NullOr(Schema.Int),
   /** The cover photo's id; show it with `photoUrl(photoKey, variant)`. */
   photoKey: Schema.NullOr(Schema.String),
+  /** Per serving. */
+  macros: Macros,
   tags: Schema.Array(Tag),
   lastCookedOn: Schema.NullOr(LocalDate),
   createdAt: Schema.Date,

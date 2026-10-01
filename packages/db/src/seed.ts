@@ -32,6 +32,10 @@ export const seed = async (db: Db, ownerId: string) => {
           prepMinutes: r.prepMinutes,
           cookMinutes: r.cookMinutes,
           totalMinutes: r.prepMinutes + r.cookMinutes,
+          calories: r.macros?.calories ?? null,
+          proteinGrams: r.macros?.protein ?? null,
+          carbsGrams: r.macros?.carbs ?? null,
+          fatGrams: r.macros?.fat ?? null,
           sourcePlatform: "manual",
           notes: r.notes ?? null,
         })

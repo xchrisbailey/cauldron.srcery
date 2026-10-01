@@ -1,3 +1,4 @@
+import type { Macros } from "@cauldron/shared";
 import { emptyExtracted, type ExtractedRecipe, type ExtractedStep } from "./Extracted.ts";
 import { absolute, type HtmlDocument, plainText } from "./html.ts";
 
@@ -52,6 +53,30 @@ const servingsOf = (value: Json): number | null => {
     if (n) return Number(n);
   }
   return null;
+};
+
+/** "240 calories", "12 g", 12 → the number. Anything else is unknown. */
+const amountOf = (value: Json): number | null => {
+  const text = textOf(value);
+  if (!text || text.length > 64) return null;
+  // "1,200 kcal" has a thousands comma; "12,5 g" has a decimal one.
+  const n = /(\d+(?:[.,]\d+)?)/.exec(text.replace(/(\d),(?=\d{3}(?!\d))/g, "$1"))?.[1];
+  if (n === undefined) return null;
+  const amount = Number(n.replace(",", "."));
+  return Number.isFinite(amount) ? amount : null;
+};
+
+/** schema.org NutritionInformation, which is per serving. */
+export const macrosOf = (value: Json): Macros | undefined => {
+  const node = list(value).find(isNode);
+  if (!node) return undefined;
+  const macros = {
+    calories: amountOf(node["calories"]),
+    protein: amountOf(node["proteinContent"]),
+    carbs: amountOf(node["carbohydrateContent"]),
+    fat: amountOf(node["fatContent"]),
+  };
+  return Object.values(macros).some((v) => v !== null) ? macros : undefined;
 };
 
 const namesOf = (value: Json): string | null => {
@@ -118,6 +143,7 @@ const fromRecipeNode = (node: Node, base: string): ExtractedRecipe => {
   );
   const prepMinutes = isoMinutes(node["prepTime"]);
   const cookMinutes = isoMinutes(node["cookTime"]);
+  const macros = macrosOf(node["nutrition"]);
   return {
     ...emptyExtracted,
     title: textOf(node["name"]) ?? textOf(node["headline"]),
@@ -126,6 +152,7 @@ const fromRecipeNode = (node: Node, base: string): ExtractedRecipe => {
     prepMinutes,
     cookMinutes,
     totalMinutes: isoMinutes(node["totalTime"]),
+    ...(macros === undefined ? {} : { macros }),
     author: namesOf(node["author"]),
     siteName: namesOf(node["publisher"]),
     canonicalUrl: typeof node["url"] === "string" ? absolute(node["url"], base) : null,

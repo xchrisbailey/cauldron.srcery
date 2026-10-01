@@ -21,6 +21,11 @@ export const PlanHandlers = HttpApiBuilder.group(
           Effect.catchTag("DbError", Effect.die),
         ),
       )
+      .handle("addMany", ({ payload }) =>
+        CurrentUser.use((user) => plan.addMany(user.id, payload)).pipe(
+          Effect.catchTag("DbError", Effect.die),
+        ),
+      )
       .handle("update", ({ params, payload }) =>
         CurrentUser.use((user) => plan.update(user.id, params.id, payload)).pipe(
           Effect.catchTag("DbError", Effect.die),

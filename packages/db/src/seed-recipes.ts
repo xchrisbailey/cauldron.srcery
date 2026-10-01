@@ -7,6 +7,13 @@ export interface SeedRecipe {
   readonly servings: number;
   readonly prepMinutes: number;
   readonly cookMinutes: number;
+  /** Rough per-serving figures for the demo; left out to show a recipe without them. */
+  readonly macros?: {
+    readonly calories: number;
+    readonly protein: number;
+    readonly carbs: number;
+    readonly fat: number;
+  };
   readonly tags: ReadonlyArray<{
     readonly name: string;
     readonly kind: "cuisine" | "meal" | "diet" | "other";
@@ -24,6 +31,7 @@ export const seedRecipes: ReadonlyArray<SeedRecipe> = [
     servings: 4,
     prepMinutes: 10,
     cookMinutes: 25,
+    macros: { calories: 310, protein: 17, carbs: 18, fat: 19 },
     tags: [
       { name: "Middle Eastern", kind: "cuisine" },
       { name: "Breakfast", kind: "meal" },
@@ -70,6 +78,7 @@ export const seedRecipes: ReadonlyArray<SeedRecipe> = [
     servings: 4,
     prepMinutes: 15,
     cookMinutes: 40,
+    macros: { calories: 420, protein: 34, carbs: 6, fat: 28 },
     tags: [
       { name: "Dinner", kind: "meal" },
       { name: "Gluten-free", kind: "diet" },
@@ -106,6 +115,7 @@ export const seedRecipes: ReadonlyArray<SeedRecipe> = [
     servings: 2,
     prepMinutes: 5,
     cookMinutes: 0,
+    macros: { calories: 380, protein: 14, carbs: 58, fat: 10 },
     tags: [
       { name: "Breakfast", kind: "meal" },
       { name: "Vegetarian", kind: "diet" },
@@ -133,6 +143,7 @@ export const seedRecipes: ReadonlyArray<SeedRecipe> = [
     servings: 4,
     prepMinutes: 10,
     cookMinutes: 25,
+    macros: { calories: 260, protein: 12, carbs: 38, fat: 7 },
     tags: [
       { name: "Italian", kind: "cuisine" },
       { name: "Lunch", kind: "meal" },

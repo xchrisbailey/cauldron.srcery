@@ -31,6 +31,12 @@ const int = (value: number | null, min: number, max: number) =>
     ? null
     : Math.round(value);
 
+/** Grams to one decimal place, the precision the recipe stores. */
+const grams = (value: number | null) =>
+  value === null || !Number.isFinite(value) || value < 0 || value > RECIPE_LIMITS.grams
+    ? null
+    : Math.round(value * 10) / 10;
+
 const isDraftField = (value: string): value is DraftField =>
   (DraftField.literals as ReadonlyArray<string>).includes(value);
 
@@ -90,6 +96,16 @@ export const toDraft = (recipe: ExtractedRecipe, from: DraftSource): ImportDraft
     prepMinutes: int(recipe.prepMinutes, 0, RECIPE_LIMITS.minutes),
     cookMinutes: int(recipe.cookMinutes, 0, RECIPE_LIMITS.minutes),
     totalMinutes: int(recipe.totalMinutes, 0, RECIPE_LIMITS.minutes),
+    ...(recipe.macros === undefined
+      ? {}
+      : {
+          macros: {
+            calories: int(recipe.macros.calories, 0, RECIPE_LIMITS.calories),
+            protein: grams(recipe.macros.protein),
+            carbs: grams(recipe.macros.carbs),
+            fat: grams(recipe.macros.fat),
+          },
+        }),
     sourcePlatform: from.source,
     sourceUrl: from.sourceUrl?.slice(0, RECIPE_LIMITS.url) ?? null,
     sourceAuthor: text(recipe.author, RECIPE_LIMITS.author),
