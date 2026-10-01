@@ -9,9 +9,15 @@
   box-sizing: border-box;
 }
 
-/* Controls and chrome marked data-print="hide" don't go to paper. */
+/* Print rules live here, keyed on data-print, not in StyleX: mixing
+   "@media print" with other media queries in one StyleX value makes StyleX
+   emit queries that never match. Marked controls and chrome don't go to
+   paper, and the app shell drops its sidebar column. */
 @media print {
   [data-print="hide"] {
     display: none !important;
+  }
+  [data-print="single"] {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
