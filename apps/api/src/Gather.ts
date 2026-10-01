@@ -1,4 +1,4 @@
-import { schema } from "@cauldron/db";
+import { quantity, schema } from "@cauldron/db";
 import {
   addDays,
   aisleFor,
@@ -13,7 +13,6 @@ import {
   type GatheredRow,
   ingredientKey,
   InvalidRequest,
-  MAX_QUANTITY,
   mergeKeyOf,
   NotFound,
   parseIngredientLine,
@@ -33,16 +32,6 @@ const { gatherItem, gatherItemSource, mealPlanEntry, pantryItem, recipe, recipeI
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
 const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
-
-/** Quantities are stored as numeric(12, 4): round the same way so comparisons match. */
-const round4 = (n: number) => Math.min(MAX_QUANTITY, Math.round(n * 10_000) / 10_000);
-const stored = (q: Quantity | null) =>
-  q === null
-    ? { quantityMin: null, quantityMax: null }
-    : { quantityMin: round4(q.min), quantityMax: q.max === null ? null : round4(q.max) };
-
-const quantityOf = (min: number | null, max: number | null): Quantity | null =>
-  min === null ? null : { min, max: max ?? null };
 
 /** The most of a measure, in ml or g for volumes and masses, for spotting "needs more". */
 const most = (q: Quantity | null, unit: UnitCode | null) =>
@@ -124,7 +113,7 @@ const make = Effect.gen(function* () {
           ? entry.servings / entry.recipeServings
           : 1;
       for (const i of byRecipe.get(entry.recipeId) ?? []) {
-        const q = quantityOf(i.quantityMin, i.quantityMax);
+        const q = quantity.fromRow(i);
         lines.push({
           recipeId: entry.recipeId,
           item: i.item,
@@ -133,7 +122,7 @@ const make = Effect.gen(function* () {
             q === null
               ? null
               : { min: q.min * factor, max: q.max === null ? null : q.max * factor },
-          unit: i.unit as UnitCode | null,
+          unit: i.unit,
         });
       }
     }
@@ -151,7 +140,7 @@ const make = Effect.gen(function* () {
                 gatherItemId,
                 recipeId: s.recipeId,
                 unit: s.unit,
-                ...stored(s.quantity),
+                ...quantity.toRow(s.quantity),
               })),
             ),
           )
@@ -206,16 +195,12 @@ const make = Effect.gen(function* () {
         const byKey = new Map<string, ItemRow>();
         const stale: Array<string> = [];
         for (const row of existing) {
-          const key = mergeKeyOf(
-            row.itemKey,
-            quantityOf(row.quantityMin, row.quantityMax),
-            row.unit as UnitCode | null,
-          );
+          const key = mergeKeyOf(row.itemKey, quantity.fromRow(row), row.unit);
           if (byKey.has(key)) stale.push(row.id);
           else byKey.set(key, row);
         }
         for (const row of rows) {
-          const amount = stored(row.quantity);
+          const amount = quantity.toRow(row.quantity);
           const found = byKey.get(row.mergeKey);
           if (!found) {
             const [inserted] = yield* db.use((d) =>
@@ -239,9 +224,8 @@ const make = Effect.gen(function* () {
           // Both sides as stored (rounded to numeric(12, 4)), so a 1/3 that
           // rounds down doesn't read as "more" on every sync.
           const grew =
-            most(quantityOf(amount.quantityMin, amount.quantityMax), row.unit) >
-            most(quantityOf(found.quantityMin, found.quantityMax), found.unit as UnitCode | null) *
-              (1 + 1e-9);
+            most(quantity.fromRow(amount), row.unit) >
+            most(quantity.fromRow(found), found.unit) * (1 + 1e-9);
           const changed =
             found.item !== row.item ||
             found.quantityMin !== amount.quantityMin ||
@@ -263,7 +247,11 @@ const make = Effect.gen(function* () {
             );
           }
           const want = sourcesKey(
-            row.sources.map((s) => ({ recipeId: s.recipeId, unit: s.unit, ...stored(s.quantity) })),
+            row.sources.map((s) => ({
+              recipeId: s.recipeId,
+              unit: s.unit,
+              ...quantity.toRow(s.quantity),
+            })),
           );
           if (want !== sourcesKey(sourcesOf.get(found.id) ?? [])) {
             yield* db.use((d) =>
@@ -348,8 +336,8 @@ const make = Effect.gen(function* () {
       id: GatherItemId.make(row.id),
       item: row.item,
       itemKey: row.itemKey,
-      quantity: quantityOf(row.quantityMin, row.quantityMax),
-      unit: row.unit as UnitCode | null,
+      quantity: quantity.fromRow(row),
+      unit: row.unit,
       aisle: (row.aisle ?? aisleFor(row.itemKey)) as Aisle,
       checked: row.checked,
       manual: row.manual,
@@ -357,8 +345,8 @@ const make = Effect.gen(function* () {
       sources: (sourcesOf.get(row.id) ?? []).map((s) => ({
         recipeId: RecipeId.make(s.recipeId),
         title: s.title,
-        quantity: quantityOf(s.quantityMin, s.quantityMax),
-        unit: s.unit as UnitCode | null,
+        quantity: quantity.fromRow(s),
+        unit: s.unit,
       })),
     }));
     return sortRows(items);
@@ -395,7 +383,7 @@ const make = Effect.gen(function* () {
           unit: parsed.unit,
           aisle: aisleFor(itemKey),
           manual: true,
-          ...stored(parsed.quantity),
+          ...quantity.toRow(parsed.quantity),
         })
         .returning({ id: gatherItem.id }),
     );
