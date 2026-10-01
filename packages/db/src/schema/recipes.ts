@@ -95,6 +95,11 @@ export const recipe = pgTable(
      */
     photoKey: uuid("photo_key"),
     notes: text("notes"),
+    /** Per serving, entered by hand or imported; null when unknown. */
+    calories: integer("calories"),
+    proteinGrams: numeric("protein_grams", { precision: 7, scale: 1, mode: "number" }),
+    carbsGrams: numeric("carbs_grams", { precision: 7, scale: 1, mode: "number" }),
+    fatGrams: numeric("fat_grams", { precision: 7, scale: 1, mode: "number" }),
     /** The most recent day it was marked as cooked; mirrors the latest `recipe_cook` row. */
     lastCookedOn: date("last_cooked_on", { mode: "string" }),
     /**
@@ -129,6 +134,10 @@ export const recipe = pgTable(
       .where(sql`${t.deletedAt} is null`),
     index("recipe_search_idx").using("gin", t.search),
     check("recipe_servings_positive", sql`${t.servings} is null or ${t.servings} > 0`),
+    check(
+      "recipe_macros_nonnegative",
+      sql`coalesce(${t.calories}, 0) >= 0 and coalesce(${t.proteinGrams}, 0) >= 0 and coalesce(${t.carbsGrams}, 0) >= 0 and coalesce(${t.fatGrams}, 0) >= 0`,
+    ),
   ],
 );
 

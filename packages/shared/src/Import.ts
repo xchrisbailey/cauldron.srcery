@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { validation } from "./copy.ts";
-import { RecipeId, SourceUrl } from "./Recipe.ts";
+import { Macros, RecipeId, SourceUrl } from "./Recipe.ts";
 
 // Distill (#13): a link or pasted text becomes a draft recipe, which the cook
 // reviews in the editor before anything is saved.
@@ -85,6 +85,8 @@ export const ImportDraft = Schema.Struct({
   prepMinutes: Schema.NullOr(Schema.Int),
   cookMinutes: Schema.NullOr(Schema.Int),
   totalMinutes: Schema.NullOr(Schema.Int),
+  /** Per serving, when the source published it. */
+  macros: Schema.optionalKey(Macros),
   sourcePlatform: ImportSource,
   sourceUrl: Schema.NullOr(Schema.String),
   sourceAuthor: Schema.NullOr(Schema.String),

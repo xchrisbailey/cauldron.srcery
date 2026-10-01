@@ -1,4 +1,4 @@
-import type { DraftField } from "@cauldron/shared";
+import type { DraftField, Macros } from "@cauldron/shared";
 
 // What every extractor produces, before it's tidied into an `ImportDraft`.
 // JSON-LD, the text reader and the model all fill this one shape, so the
@@ -23,6 +23,8 @@ export interface ExtractedRecipe {
   readonly prepMinutes: number | null;
   readonly cookMinutes: number | null;
   readonly totalMinutes: number | null;
+  /** Per serving, when the source publishes it. */
+  readonly macros?: Macros;
   readonly author: string | null;
   readonly siteName: string | null;
   /** The page's canonical link, when it gives one. */

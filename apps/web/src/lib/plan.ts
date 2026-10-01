@@ -1,7 +1,9 @@
 import {
   addDays,
   MEAL_SLOTS,
+  type Macros,
   type MealSlot,
+  noMacros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
@@ -29,6 +31,8 @@ export const weekQuery = (start: string) =>
   });
 
 export const addEntry = (input: PlanEntryInput) => callApi((c) => c.plan.add({ payload: input }));
+export const addEntries = (entries: ReadonlyArray<PlanEntryInput>) =>
+  callApi((c) => c.plan.addMany({ payload: { entries } }));
 export const updateEntry = (id: string, update: PlanEntryUpdate) =>
   callApi((c) => c.plan.update({ params: { id: id as PlanEntryId }, payload: update }));
 export const removeEntry = (id: string) =>
@@ -129,6 +133,7 @@ export const pendingEntry = (
     title: string;
     servings: number | null;
     totalMinutes: number | null;
+    macros?: Macros;
   } | null,
   position: number,
 ): PlanEntry => {
@@ -146,6 +151,7 @@ export const pendingEntry = (
           servings: recipe.servings,
           totalMinutes: recipe.totalMinutes,
           photoKey: null,
+          macros: recipe.macros ?? noMacros,
         }
       : null,
     servings: input.servings ?? null,

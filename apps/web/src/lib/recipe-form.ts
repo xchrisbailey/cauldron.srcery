@@ -2,6 +2,8 @@ import {
   copy,
   detectTimer,
   type ImportDraft,
+  type MacroKey,
+  type Macros,
   isSectionHeading,
   parseIngredientLine,
   type DraftField,
@@ -59,6 +61,8 @@ export interface RecipeFormValues {
   prepMinutes: string;
   cookMinutes: string;
   totalMinutes: string;
+  /** Per serving, as typed. */
+  macros: Record<MacroKey, string>;
   sourceUrl: string;
   notes: string;
   /** The cover photo's id, once uploaded (#12). */
@@ -113,6 +117,7 @@ export const emptyRecipeForm = (): RecipeFormValues => ({
   prepMinutes: "",
   cookMinutes: "",
   totalMinutes: "",
+  macros: blankMacros(),
   sourceUrl: "",
   notes: "",
   photoKey: null,
@@ -125,6 +130,20 @@ export const emptyRecipeForm = (): RecipeFormValues => ({
 });
 
 const text = (value: number | null) => (value === null ? "" : String(value));
+
+function blankMacros(): Record<MacroKey, string> {
+  return { calories: "", protein: "", carbs: "", fat: "" };
+}
+
+const macroText = (macros: Macros | undefined): Record<MacroKey, string> =>
+  macros === undefined
+    ? blankMacros()
+    : {
+        calories: text(macros.calories),
+        protein: text(macros.protein),
+        carbs: text(macros.carbs),
+        fat: text(macros.fat),
+      };
 
 const sameParse = (a: ParsedIngredient, b: ParsedIngredient) =>
   JSON.stringify([a.quantity, a.unit, a.item, a.note, a.optional, a.alt]) ===
@@ -164,6 +183,7 @@ export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
     prepMinutes: text(recipe.prepMinutes),
     cookMinutes: text(recipe.cookMinutes),
     totalMinutes: text(recipe.totalMinutes),
+    macros: macroText(recipe.macros),
     sourceUrl: recipe.sourceUrl ?? "",
     notes: recipe.notes ?? "",
     photoKey: recipe.photoKey,
@@ -217,6 +237,7 @@ export const fromDraft = (draft: ImportDraft): RecipeFormValues => {
     prepMinutes: text(draft.prepMinutes),
     cookMinutes: text(draft.cookMinutes),
     totalMinutes: text(draft.totalMinutes),
+    macros: macroText(draft.macros),
     sourceUrl: draft.sourceUrl ?? "",
     notes: draft.notes ?? "",
     photoKey: draft.photoKey,
@@ -270,6 +291,12 @@ export const toRecipeInput = (values: RecipeFormValues) => {
     prepMinutes: number(values.prepMinutes),
     cookMinutes: number(values.cookMinutes),
     totalMinutes: number(values.totalMinutes),
+    macros: {
+      calories: number(values.macros.calories),
+      protein: number(values.macros.protein),
+      carbs: number(values.macros.carbs),
+      fat: number(values.macros.fat),
+    },
     sourcePlatform: values.sourcePlatform,
     sourceUrl: values.sourceUrl.trim() === "" ? null : values.sourceUrl,
     sourceAuthor: values.sourceAuthor,
@@ -306,6 +333,8 @@ export const validateRecipeForm = (values: RecipeFormValues): RecipeFormErrors =
       name = `ingredients[${rowOf[index]}]`;
     } else if (head === "steps" && typeof index === "number") {
       name = `steps[${stepOf[index]}]`;
+    } else if (head === "macros" && typeof index === "string") {
+      name = `macros.${index}`;
     }
     // The shared schemas carry plain messages from copy.validation.
     errors[name] ??= issue.message;

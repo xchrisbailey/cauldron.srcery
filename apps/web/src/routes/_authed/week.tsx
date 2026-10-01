@@ -6,18 +6,22 @@ import {
   isRealDate,
   MEAL_SLOTS,
   type MealSlot,
+  noMacros,
   PLAN_LIMITS,
   type PlanEntry,
   type PlanEntryUpdate,
-  type RecipeId,
+  servingsOf,
   startOfWeek,
+  tallyMacros,
   weekDays,
   type WeekStartDay,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { type DragEvent, type FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { BagGlyph, PlusGlyph } from "../../components/glyphs";
+import { MacroTally } from "../../components/MacroTally";
+import { type Spreading, SpreadDialog } from "../../components/SpreadDialog";
 import { PickMealDialog, stirRecipe, useRecipeSearch } from "../../components/StirIn";
 import { WeekRange } from "../../components/WeekRange";
 import {
@@ -53,9 +57,11 @@ import { localToday } from "../../lib/recipes";
 import { type StirRecipe, usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
 
-// The week (#18): breakfast, lunch, dinner and snack for seven days. A grid on
-// desktop with a recipe panel to drag from; one day at a time on a phone.
-// Every change shows at once and rolls back if the API refuses it.
+// The week (#18): a seven-day calendar of breakfast, lunch, dinner and snack,
+// with the week's calories and macros on top and the chosen day's beside them.
+// A recipe stirred in can feed several days. Desktop has a recipe panel to
+// drag from; a phone shows one day at a time. Every change shows at once and
+// rolls back if the API refuses it.
 
 export const Route = createFileRoute("/_authed/week")({
   validateSearch: (search: Record<string, unknown>): { week?: string } =>
@@ -65,6 +71,9 @@ export const Route = createFileRoute("/_authed/week")({
 
 const RECIPE_TYPE = "application/x-cauldron-recipe";
 const ENTRY_TYPE = "application/x-cauldron-entry";
+
+const num = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 /** A recipe dragged in from the panel. Anything else with the same type is ignored. */
 const readRecipe = (data: string): StirRecipe | null => {
@@ -85,6 +94,15 @@ const readRecipe = (data: string): StirRecipe | null => {
         title: v.title!,
         servings: typeof v.servings === "number" ? v.servings : null,
         totalMinutes: typeof v.totalMinutes === "number" ? v.totalMinutes : null,
+        macros:
+          typeof v.macros === "object" && v.macros !== null
+            ? {
+                calories: num(v.macros.calories),
+                protein: num(v.macros.protein),
+                carbs: num(v.macros.carbs),
+                fat: num(v.macros.fat),
+              }
+            : noMacros,
       };
     }
   } catch {
@@ -121,20 +139,18 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
   const [startsOn, setStartsOn] = useWeekStartDay(initialStartsOn);
   const start = startOfWeek(search.week ?? today, startsOn);
   const thisWeek = startOfWeek(today, startsOn);
-  const days = weekDays(start);
+  const days = useMemo(() => weekDays(start), [start]);
   const week = useQuery(weekQuery(start));
   const writes = usePlanWrites(startsOn);
 
   const [picking, setPicking] = useState<Target | null>(null);
+  const [spreading, setSpreading] = useState<Spreading | null>(null);
   const [editing, setEditing] = useState<PlanEntry | null>(null);
   const [clearing, setClearing] = useState(false);
-  const [phoneDay, setPhoneDay] = useState<string | null>(null);
-  const selectedDay =
-    phoneDay !== null && days.includes(phoneDay)
-      ? phoneDay
-      : days.includes(today)
-        ? today
-        : days[0]!;
+  /** The day whose macros show beside the week's; on a phone, the day shown. */
+  const [chosen, setChosen] = useState<string | null>(null);
+  const chosenDay = chosen !== null && days.includes(chosen) ? chosen : null;
+  const phoneDay = chosenDay ?? (days.includes(today) ? today : days[0]!);
 
   const goTo = (weekStart: string) =>
     void navigate({ search: weekStart === thisWeek ? {} : { week: weekStart } });
@@ -168,16 +184,9 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
     onSettled: () => settlePlan(queryClient),
   });
 
+  /** A recipe goes through the days picker, so its servings can feed more than one day. */
   const stir = (target: Target, recipe: StirRecipe, position?: number) =>
-    writes.stir(
-      {
-        date: target.date,
-        slot: target.slot,
-        recipeId: recipe.id as RecipeId,
-        ...(position === undefined ? {} : { position }),
-      },
-      recipe,
-    );
+    setSpreading({ ...target, recipe, ...(position === undefined ? {} : { position }) });
 
   const pick = (choice: { recipe: StirRecipe } | { title: string }) => {
     if (!picking) return;
@@ -186,7 +195,14 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
     setPicking(null);
   };
 
-  const entries = week.data ?? [];
+  const entries = useMemo(() => week.data ?? [], [week.data]);
+  const tallies = useMemo(
+    () => new Map(days.map((day) => [day, tallyMacros(entries.filter((e) => e.date === day))])),
+    [days, entries],
+  );
+  const weekTally = useMemo(() => tallyMacros(entries), [entries]);
+  const daysPlanned = [...tallies.values()].filter((t) => t.totals.calories > 0).length;
+  const toggleDay = (day: string) => setChosen((current) => (current === day ? null : day));
 
   /** A recipe or a meal dropped on a slot, before `before` when it landed on one. */
   const drop = (e: DragEvent, target: Target, before?: PlanEntry) => {
@@ -264,92 +280,121 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         <Skeleton height={320} />
       ) : (
         <>
+          <MacroTally
+            week={weekTally}
+            daysPlanned={daysPlanned}
+            day={chosenDay}
+            dayTally={chosenDay === null ? null : tallies.get(chosenDay)!}
+            onClearDay={() => setChosen(null)}
+          />
+
           {entries.length === 0 ? (
             <p {...stylex.props(styles.empty)}>{copy.week.empty.text}</p>
           ) : null}
 
           <div {...stylex.props(styles.desk)}>
-            <div {...stylex.props(styles.grid)} role="table" aria-label={weekRangeLabel(start)}>
-              <div role="row" {...stylex.props(styles.row)}>
-                <span role="columnheader" />
-                {days.map((day) => (
-                  <span
+            <div {...stylex.props(styles.calendar)} aria-label={weekRangeLabel(start)} role="group">
+              {days.map((day) => {
+                const tally = tallies.get(day)!;
+                const label = dayLabel(day, "long");
+                return (
+                  <section
                     key={day}
-                    role="columnheader"
-                    aria-current={day === today ? "date" : undefined}
-                    {...stylex.props(styles.dayHead, day === today && styles.dayToday)}
+                    aria-label={label}
+                    {...stylex.props(
+                      styles.dayCol,
+                      day === today && styles.dayColToday,
+                      day === chosenDay && styles.dayColOn,
+                    )}
                   >
-                    {weekdayName(day, "short")}{" "}
-                    <span {...stylex.props(styles.dayNumber, day === today && styles.dayToday)}>
-                      {dayOfMonth(day)}
-                    </span>
-                    {day === today ? (
-                      <span {...stylex.props(styles.srOnly)}> ({copy.week.today.text})</span>
-                    ) : null}
-                  </span>
-                ))}
-              </div>
-              {MEAL_SLOTS.map((slot) => (
-                <div key={slot} role="row" {...stylex.props(styles.row)}>
-                  <span role="rowheader" {...stylex.props(styles.slotHead)}>
-                    {copy.week.slots[slot].text}
-                  </span>
-                  {days.map((date) => (
-                    <div
-                      key={date}
-                      role="cell"
-                      {...slotProps({ date, slot })}
-                      {...stylex.props(styles.cell)}
+                    <button
+                      type="button"
+                      aria-pressed={day === chosenDay}
+                      aria-current={day === today ? "date" : undefined}
+                      aria-label={copy.week.tally.showDay(label).text}
+                      onClick={() => toggleDay(day)}
+                      {...stylex.props(styles.dayHead, focusRing.ring)}
                     >
-                      {inSlot(entries, date, slot).map(card)}
-                      <button
-                        type="button"
-                        aria-label={
-                          copy.week.stirInto(dayLabel(date, "long"), copy.week.slots[slot].text)
-                            .text
-                        }
-                        onClick={() => setPicking({ date, slot })}
-                        {...stylex.props(
-                          styles.add,
-                          inSlot(entries, date, slot).length > 0 && styles.addSmall,
-                          date < today && styles.past,
-                          focusRing.ring,
-                        )}
-                      >
-                        <PlusGlyph />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ))}
+                      <span {...stylex.props(styles.dayName, day === today && styles.dayToday)}>
+                        {weekdayName(day, "short")}
+                      </span>
+                      <span {...stylex.props(styles.dayNumber, day === today && styles.dayToday)}>
+                        {dayOfMonth(day)}
+                      </span>
+                      <span {...stylex.props(styles.dayKcal)}>
+                        {tally.totals.calories > 0
+                          ? `${Math.round(tally.totals.calories).toLocaleString()} ${copy.week.tally.macros.calories.text}`
+                          : "\u00a0"}
+                      </span>
+                    </button>
+                    {MEAL_SLOTS.map((slot) => {
+                      const here = inSlot(entries, day, slot);
+                      return (
+                        <div
+                          key={slot}
+                          {...slotProps({ date: day, slot })}
+                          {...stylex.props(styles.cell)}
+                        >
+                          <span {...stylex.props(styles.slotLabel)}>
+                            {copy.week.slots[slot].text}
+                          </span>
+                          {here.map(card)}
+                          <button
+                            type="button"
+                            aria-label={
+                              copy.week.stirInto(dayLabel(day, "long"), copy.week.slots[slot].text)
+                                .text
+                            }
+                            onClick={() => setPicking({ date: day, slot })}
+                            {...stylex.props(
+                              styles.add,
+                              here.length > 0 && styles.addSmall,
+                              day < today && styles.past,
+                              focusRing.ring,
+                            )}
+                          >
+                            <PlusGlyph />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </section>
+                );
+              })}
             </div>
             <RecipePanel />
           </div>
 
           <div {...stylex.props(styles.phone)}>
             <div role="group" aria-label={copy.week.days.text} {...stylex.props(styles.dayTabs)}>
-              {days.map((day) => (
-                <button
-                  key={day}
-                  type="button"
-                  aria-pressed={day === selectedDay}
-                  aria-current={day === today ? "date" : undefined}
-                  aria-label={dayLabel(day, "long")}
-                  onClick={() => setPhoneDay(day)}
-                  {...stylex.props(
-                    styles.dayTab,
-                    day === today && styles.dayTabToday,
-                    day === selectedDay && styles.dayTabOn,
-                    focusRing.ring,
-                  )}
-                >
-                  <span>{weekdayName(day, "short")}</span>
-                  <span {...stylex.props(styles.dayTabNumber)}>{dayOfMonth(day)}</span>
-                </button>
-              ))}
+              {days.map((day) => {
+                const kcal = tallies.get(day)!.totals.calories;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    aria-pressed={day === phoneDay}
+                    aria-current={day === today ? "date" : undefined}
+                    aria-label={dayLabel(day, "long")}
+                    onClick={() => setChosen(day)}
+                    {...stylex.props(
+                      styles.dayTab,
+                      day === today && styles.dayTabToday,
+                      day === phoneDay && styles.dayTabOn,
+                      focusRing.ring,
+                    )}
+                  >
+                    <span>{weekdayName(day, "short")}</span>
+                    <span {...stylex.props(styles.dayTabNumber)}>{dayOfMonth(day)}</span>
+                    <span aria-hidden="true" {...stylex.props(styles.dayTabKcal)}>
+                      {kcal > 0 ? Math.round(kcal).toLocaleString() : "·"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <h2 {...stylex.props(styles.dayTitle, selectedDay === today && styles.dayToday)}>
-              {weekdayName(selectedDay, "long")}
+            <h2 {...stylex.props(styles.dayTitle, phoneDay === today && styles.dayToday)}>
+              {weekdayName(phoneDay, "long")}
             </h2>
             <div {...stylex.props(styles.dayList)}>
               {MEAL_SLOTS.map((slot) => (
@@ -358,17 +403,15 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
                     <h3 {...stylex.props(styles.slotHead)}>{copy.week.slots[slot].text}</h3>
                     <IconButton
                       label={
-                        copy.week.stirInto(
-                          dayLabel(selectedDay, "long"),
-                          copy.week.slots[slot].text,
-                        ).text
+                        copy.week.stirInto(dayLabel(phoneDay, "long"), copy.week.slots[slot].text)
+                          .text
                       }
-                      onClick={() => setPicking({ date: selectedDay, slot })}
+                      onClick={() => setPicking({ date: phoneDay, slot })}
                     >
                       <PlusGlyph />
                     </IconButton>
                   </div>
-                  {inSlot(entries, selectedDay, slot).map(card)}
+                  {inSlot(entries, phoneDay, slot).map(card)}
                 </section>
               ))}
             </div>
@@ -391,6 +434,16 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
       </label>
 
       <PickMealDialog target={picking} onClose={() => setPicking(null)} onPick={pick} />
+      <SpreadDialog
+        spreading={spreading}
+        days={days}
+        today={today}
+        onClose={() => setSpreading(null)}
+        onStir={(inputs, recipe) => {
+          setSpreading(null);
+          writes.spread(inputs, recipe);
+        }}
+      />
       <EntryDialog
         entry={editing}
         days={Array.from({ length: 21 }, (_, i) => addDays(start, i - 7))}
@@ -437,13 +490,17 @@ function EntryCard({
 }) {
   const minutes = entry.recipe?.totalMinutes ?? null;
   const servings = entry.servings ?? entry.recipe?.servings ?? null;
+  const calories = entry.recipe?.macros.calories ?? null;
   const detail = entry.brewed
     ? copy.week.brewed.text
     : entry.recipe === null
       ? null
       : [
           minutes ? formatTimer(minutes * 60) : null,
-          servings ? copy.recipeView.serves(servings).text : null,
+          servings ? copy.week.spread.servingsOn(servings).text : null,
+          calories === null
+            ? null
+            : `${Math.round(calories * servingsOf(entry)).toLocaleString()} ${copy.week.tally.macros.calories.text}`,
         ]
           .filter(Boolean)
           .join(" · ") || null;
@@ -688,27 +745,74 @@ const styles = stylex.create({
   empty: { margin: 0, color: colors.subtext },
   desk: {
     display: { default: "grid", [phone]: "none" },
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [wide]: "minmax(0, 1fr) 240px" },
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [wide]: "minmax(0, 1fr) 220px" },
     gap: 20,
     alignItems: "start",
   },
-  grid: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 },
-  row: {
+  // Seven day columns sharing one set of rows (the day head, then each meal),
+  // so a meal lines up across the week however full the days are.
+  calendar: {
     display: "grid",
-    gridTemplateColumns: "74px repeat(7, minmax(0, 1fr))",
-    gap: 6,
+    gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+    gridTemplateRows: "auto repeat(4, auto)",
+    columnGap: 6,
+    minWidth: 0,
+  },
+  dayCol: {
+    display: "grid",
+    gridRow: "span 5",
+    gridTemplateRows: "subgrid",
+    rowGap: 4,
+    minWidth: 0,
+    paddingBlockEnd: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "transparent",
+  },
+  dayColToday: { borderColor: `color-mix(in srgb, ${colors.heat} 30%, transparent)` },
+  dayColOn: {
+    borderColor: colors.magic,
+    backgroundColor: `color-mix(in srgb, ${colors.magic} 6%, transparent)`,
   },
   dayHead: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "baseline",
-    gap: 6,
-    paddingInline: 4,
-    paddingBottom: 4,
-    fontSize: 12.5,
+    columnGap: 6,
+    rowGap: 2,
+    paddingBlock: 6,
+    paddingInline: 6,
+    borderWidth: 0,
+    borderRadius: 11,
+    backgroundColor: { default: "transparent", ":hover": colors.surface0 },
     color: colors.subtext,
+    fontFamily: fonts.ui,
+    fontSize: 12.5,
+    textAlign: "start",
+    cursor: "pointer",
   },
+  dayName: { fontWeight: 500 },
   dayNumber: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.overlay0 },
   dayToday: { color: colors.heat, fontWeight: 600 },
+  dayKcal: {
+    flexBasis: "100%",
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.overlay1,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  slotLabel: {
+    paddingInline: 4,
+    fontFamily: fonts.mono,
+    fontSize: 9.5,
+    fontWeight: 500,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: colors.overlay0,
+  },
   slotHead: {
     margin: 0,
     paddingTop: 10,
@@ -719,7 +823,14 @@ const styles = stylex.create({
     textTransform: "uppercase",
     color: colors.overlay1,
   },
-  cell: { display: "flex", flexDirection: "column", gap: 6, minHeight: 66, minWidth: 0 },
+  cell: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minHeight: 66,
+    minWidth: 0,
+    paddingInline: 4,
+  },
   entry: {
     display: "flex",
     flexDirection: "column",
@@ -827,6 +938,7 @@ const styles = stylex.create({
   dayTabToday: { color: colors.heat, fontWeight: 600 },
   dayTabOn: { backgroundColor: colors.mantle, borderColor: colors.surface1, color: colors.ink },
   dayTabNumber: { fontFamily: fonts.mono, fontSize: 14 },
+  dayTabKcal: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.overlay1 },
   dayTitle: { margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em" },
   dayList: { display: "flex", flexDirection: "column", gap: 14 },
   daySlot: { display: "flex", flexDirection: "column", gap: 8 },

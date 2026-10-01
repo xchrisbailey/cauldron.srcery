@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { copy } from "@cauldron/shared";
+import { copy, MACRO_KEYS } from "@cauldron/shared";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +36,7 @@ export const snapshotOf = (values: RecipeFormValues) =>
     values.prepMinutes,
     values.cookMinutes,
     values.totalMinutes,
+    values.macros,
   ]);
 
 interface Props {
@@ -258,6 +259,26 @@ export function RecipeEditor({
         {text("totalMinutes", copy.editor.totalMinutes.text, { mono: true, inputMode: "numeric" })}
       </div>
 
+      <fieldset {...stylex.props(styles.macros)}>
+        <legend {...stylex.props(styles.macrosLegend)}>{copy.editor.macros.text}</legend>
+        <p {...stylex.props(styles.macrosHint)}>{copy.editor.macrosHint.text}</p>
+        <div {...stylex.props(styles.facts)}>
+          {MACRO_KEYS.map((key) => (
+            <Input
+              key={key}
+              label={copy.editor.macroFields[key].text}
+              name={`macros.${key}`}
+              value={values.macros[key]}
+              error={errorFor(`macros.${key}`)}
+              onBlur={blur(`macros.${key}`)}
+              xstyle={styles.mono}
+              inputMode={key === "calories" ? "numeric" : "decimal"}
+              onChange={(e) => setField("macros", { ...values.macros, [key]: e.target.value })}
+            />
+          ))}
+        </div>
+      </fieldset>
+
       <TagInput
         tags={values.tags}
         onChange={(next) => setField("tags", next)}
@@ -352,6 +373,26 @@ const styles = stylex.create({
     gap: 12,
   },
   mono: { fontFamily: fonts.mono },
+  macros: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    margin: 0,
+    padding: 0,
+    borderWidth: 0,
+    minWidth: 0,
+  },
+  macrosLegend: {
+    padding: 0,
+    marginBottom: 4,
+    fontFamily: fonts.mono,
+    fontSize: 10.5,
+    fontWeight: 500,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: colors.overlay1,
+  },
+  macrosHint: { margin: 0, fontSize: 13, color: colors.subtext },
   // Import fields to confirm get the Tips color around them.
   flagged: {
     padding: 8,

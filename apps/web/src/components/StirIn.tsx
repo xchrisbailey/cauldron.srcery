@@ -30,6 +30,7 @@ export const stirRecipe = (recipe: RecipeSummary) => ({
   title: recipe.title,
   servings: recipe.servings,
   totalMinutes: totalMinutes(recipe),
+  macros: recipe.macros,
 });
 
 /** Searches the recipe box. Shared by the meal picker and the week's recipe panel. */

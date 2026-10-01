@@ -119,6 +119,7 @@ export const validation = {
   tooLong: (max: number) => plain(`Keep it to ${max} characters or fewer.`),
   tooMany: (max: number) => plain(`Use ${max} or fewer.`),
   wholeNumber: (min: number, max: number) => plain(`Use a whole number from ${min} to ${max}.`),
+  numberBetween: (min: number, max: number) => plain(`Use a number from ${min} to ${max}.`),
   link: plain("Enter a link starting with https://"),
   date: plain("Use a real date, like 2026-10-01."),
   quantity: plain("Use an amount from 0 up to 99,999,999."),
@@ -146,6 +147,14 @@ export const editor = {
   prepMinutes: plain("Prep (min)"),
   cookMinutes: plain("Cook (min)"),
   totalMinutes: plain("Total (min)"),
+  macros: plain("Per serving"),
+  macrosHint: plain("Optional. The week adds these up for each day."),
+  macroFields: {
+    calories: plain("Calories"),
+    protein: plain("Protein (g)"),
+    carbs: plain("Carbs (g)"),
+    fat: plain("Fat (g)"),
+  },
   sourceUrl: plain("Source link"),
   tags: plain("Tags"),
   tagsHint: plain("Press Enter or comma to add a tag."),
@@ -400,6 +409,46 @@ export const week = {
   moveUp: plain("Move up"),
   moveDown: plain("Move down"),
   meal: plain("Meal"),
+  /** The running tally of calories and macros: all plain, they're numbers. */
+  tally: {
+    label: plain("Calories and macros"),
+    week: plain("Week"),
+    perDay: plain("a day"),
+    macros: {
+      calories: plain("kcal"),
+      protein: plain("protein"),
+      carbs: plain("carbs"),
+      fat: plain("fat"),
+    },
+    none: plain("Add calories and macros to your recipes to see totals here."),
+    gaps: (n: number) =>
+      plain(
+        n === 1
+          ? "1 meal has no calories or macros, so it isn't fully counted."
+          : `${n} meals have no calories or macros, so they aren't fully counted.`,
+      ),
+    showDay: (day: string) => plain(`Show ${day}`),
+    clearDay: plain("Back to the week"),
+  },
+  /** Spreading one recipe's servings over the days that will eat them. */
+  spread: {
+    days: plain("Days"),
+    hint: plain("Pick the days this batch feeds. Each day gets one serving unless you change it."),
+    planned: (n: number, of: number | null) =>
+      plain(
+        of === null
+          ? `${n} ${n === 1 ? "serving" : "servings"} planned`
+          : `${n} of ${of} servings planned`,
+      ),
+    oneADay: plain("One a day"),
+    allOn: (day: string) => plain(`All on ${day}`),
+    fewer: (day: string) => plain(`Fewer servings on ${day}`),
+    more: (day: string) => plain(`More servings on ${day}`),
+    servingsOn: (n: number) => plain(`${n} ${n === 1 ? "serving" : "servings"}`),
+    stir: (n: number) => voice(n === 1 ? "Stir into 1 day" : `Stir into ${n} days`),
+    stirred: (n: number) => voice(n === 1 ? "Stirred into 1 day." : `Stirred into ${n} days.`),
+    pickADay: plain("Pick at least one day."),
+  },
 } as const;
 
 // The Gather list (#19). Gather is voice; aisles, items, amounts and controls are plain.

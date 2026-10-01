@@ -160,6 +160,30 @@ describe("recipes", () => {
     expect(res.body.tags.map((t: { name: string }) => t.name)).toEqual(["Indian", "Quick"]);
   });
 
+  it("stores per-serving macros, keeps them when an update leaves them out, and rejects negatives", async () => {
+    const macros = { calories: 410, protein: 22.5, carbs: null, fat: 9 };
+    const created = await create(ada, { title: "Macro dal", macros });
+    expect(created.macros).toEqual(macros);
+    const { macros: _left, ...withoutMacros } = input({ title: "Macro dal 2" });
+    const kept = await call(ada, "PUT", `/v1/recipes/${created.id}`, withoutMacros);
+    expect(kept.status).toBe(200);
+    expect(kept.body.macros).toEqual(macros);
+    const cleared = await call(
+      ada,
+      "PUT",
+      `/v1/recipes/${created.id}`,
+      input({ macros: { calories: null, protein: null, carbs: null, fat: null } }),
+    );
+    expect(cleared.body.macros).toEqual({ calories: null, protein: null, carbs: null, fat: null });
+    const bad = await call(
+      ada,
+      "POST",
+      "/v1/recipes",
+      input({ macros: { calories: -5, protein: null, carbs: null, fat: null } }),
+    );
+    expect(bad.status).toBe(400);
+  });
+
   it("never shows one user's recipe to another", async () => {
     const created = await create(ada, { title: "Ada's secret soup" });
     const paths = [
