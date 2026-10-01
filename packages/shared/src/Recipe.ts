@@ -98,6 +98,19 @@ export type MacroKey = (typeof MACRO_KEYS)[number];
 
 export const noMacros: Macros = { calories: null, protein: null, carbs: null, fat: null };
 
+/** What a model needs to estimate a recipe's macros: its ingredient lines and yield. */
+export const MacroEstimateInput = Schema.Struct({
+  title: Schema.NullOr(Schema.Trim.check(Schema.isMaxLength(RECIPE_LIMITS.title))),
+  servings: Schema.NullOr(WholeNumber(1, RECIPE_LIMITS.servings)),
+  ingredients: Schema.Array(Text(RECIPE_LIMITS.line)).check(
+    Schema.isMinLength(1, { message: validation.required.text }),
+    Schema.isMaxLength(RECIPE_LIMITS.ingredients, {
+      message: validation.tooMany(RECIPE_LIMITS.ingredients).text,
+    }),
+  ),
+});
+export type MacroEstimateInput = typeof MacroEstimateInput.Type;
+
 export const SourcePlatform = Schema.Literals(["web", "instagram", "tiktok", "manual", "text"]);
 export type SourcePlatform = typeof SourcePlatform.Type;
 

@@ -9,6 +9,7 @@ import {
   ImportJob,
   type ImportSource,
   NotFound,
+  RECIPE_LIMITS,
   RecipeId,
   type RecipeInput,
   TooManyRequests,
@@ -31,7 +32,9 @@ import {
 } from "effect";
 import { Db } from "./Db.ts";
 import { toDraft } from "./imports/draft.ts";
+import type { ExtractedRecipe } from "./imports/Extracted.ts";
 import { ImportFailed, Importers } from "./imports/Importers.ts";
+import { RecipeExtractor } from "./imports/RecipeExtractor.ts";
 import { Photos } from "./Photos.ts";
 import { Recipes } from "./Recipes.ts";
 
@@ -44,6 +47,8 @@ export const DAILY_IMPORT_LIMIT = 100;
 export const JOB_TIMEOUT = Duration.minutes(2);
 /** The cover photo gets this long; past it the draft goes without one. */
 const PHOTO_TIMEOUT = Duration.seconds(20);
+/** An estimate is a nicety: the draft goes out without one rather than waiting long. */
+const MACRO_TIMEOUT = Duration.seconds(30);
 /** Jobs left running this long were orphaned by a stopped worker and are picked up again. */
 const STALE_AFTER = Duration.minutes(5);
 const MAX_ATTEMPTS = 3;
@@ -102,6 +107,7 @@ const make = Effect.gen(function* () {
   const recipes = yield* Recipes;
   const importers = yield* Importers;
   const photos = yield* Photos;
+  const model = yield* RecipeExtractor;
   // Wakes an idle worker when a job is queued, so it doesn't wait for the next poll.
   const wake = yield* Queue.unbounded<void>();
   // Running jobs by id, so cancelling one interrupts its work.
@@ -316,6 +322,43 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.ignore);
 
+  /**
+   * A recipe whose source gave no nutrition gets the model's estimate from its
+   * ingredients, flagged for the cook to check. No model, or a failed or slow
+   * estimate, leaves the macros blank rather than failing the import.
+   */
+  const withMacros = <A extends { readonly recipe: ExtractedRecipe }>(imported: A) =>
+    Effect.gen(function* () {
+      const recipe = imported.recipe;
+      const lines = recipe.ingredients
+        .map((l) => l.line.trim().slice(0, RECIPE_LIMITS.line))
+        .filter((l) => l !== "")
+        .slice(0, RECIPE_LIMITS.ingredients);
+      if (recipe.macros !== undefined || !model.available || lines.length === 0) return imported;
+      const macros = yield* model
+        .estimateMacros({
+          title: recipe.title?.slice(0, RECIPE_LIMITS.title) ?? null,
+          servings:
+            recipe.servings !== null &&
+            recipe.servings >= 1 &&
+            recipe.servings <= RECIPE_LIMITS.servings
+              ? Math.round(recipe.servings)
+              : null,
+          ingredients: lines,
+        })
+        .pipe(
+          Effect.timeoutOrElse({ duration: MACRO_TIMEOUT, orElse: () => Effect.succeed(null) }),
+          Effect.catchCause((cause) =>
+            Effect.logInfo("Import macro estimate skipped", cause).pipe(Effect.as(null)),
+          ),
+        );
+      if (macros === null) return imported;
+      return {
+        ...imported,
+        recipe: { ...recipe, macros, unsure: [...recipe.unsure, "macros" as const] },
+      };
+    });
+
   const work = Effect.fn("Imports.work")(function* (row: JobRow) {
     // A cancel that landed between the claim and now: don't spend a model call.
     if (yield* cancelled(row.id)) return yield* Effect.interrupt;
@@ -339,7 +382,7 @@ const make = Effect.gen(function* () {
                 Effect.logInfo("Import photo skipped", { id: row.id }, cause).pipe(Effect.as(null)),
               ),
             );
-      return { imported, photoKey };
+      return { imported: yield* withMacros(imported), photoKey };
     }).pipe(
       Effect.timeoutOrElse({
         duration: JOB_TIMEOUT,

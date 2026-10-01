@@ -1,6 +1,8 @@
 import { Api, CurrentUser } from "@cauldron/api-spec";
+import { copy, Unavailable } from "@cauldron/shared";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
+import { RecipeExtractor } from "../imports/RecipeExtractor.ts";
 import { Recipes } from "../Recipes.ts";
 
 // Thin handlers: the Recipes service owns the queries and the owner scoping.
@@ -12,7 +14,23 @@ export const RecipesHandlers = HttpApiBuilder.group(
   "recipes",
   Effect.fn(function* (handlers) {
     const recipes = yield* Recipes;
+    const model = yield* RecipeExtractor;
     return handlers
+      .handle("estimateMacros", ({ payload }) =>
+        model
+          .estimateMacros(payload)
+          .pipe(
+            Effect.catchTag("ExtractError", (error) =>
+              error.reason === "unavailable"
+                ? Effect.fail(new Unavailable({ message: copy.editor.divineUnavailable.text }))
+                : Effect.logWarning("Macro estimate failed", error).pipe(
+                    Effect.andThen(
+                      Effect.fail(new Unavailable({ message: copy.editor.divineFailed.text })),
+                    ),
+                  ),
+            ),
+          ),
+      )
       .handle("list", ({ query }) =>
         CurrentUser.use((user) => recipes.list(user.id, query)).pipe(
           Effect.catchTag("DbError", Effect.die),

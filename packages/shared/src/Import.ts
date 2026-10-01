@@ -51,6 +51,7 @@ export const DraftField = Schema.Literals([
   "prepMinutes",
   "cookMinutes",
   "totalMinutes",
+  "macros",
   "sourceUrl",
   "tags",
   "notes",

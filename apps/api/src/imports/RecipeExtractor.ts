@@ -1,4 +1,4 @@
-import { DraftField } from "@cauldron/shared";
+import { DraftField, type MacroEstimateInput, type Macros, RECIPE_LIMITS } from "@cauldron/shared";
 import { chat, type ChatMiddleware } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
@@ -133,6 +133,62 @@ export const fromModel = (model: ModelRecipe): ExtractedRecipe => ({
   unsure: model.unsure,
 });
 
+// Macro estimates: the model reads the ingredient lines and yield and answers
+// with per-serving figures. They're estimates, so the cook is asked to check.
+
+const Estimate = Schema.NullOr(Schema.Finite);
+
+/** What the model is asked for when estimating macros. Every key is required and nullable. */
+export const ModelMacros = Schema.Struct({
+  servings: Estimate.annotate({
+    description:
+      "The servings you divided by: the given yield, or your own guess when none was given.",
+  }),
+  calories: Estimate.annotate({ description: "Kilocalories per serving." }),
+  protein: Estimate.annotate({ description: "Grams of protein per serving." }),
+  carbs: Estimate.annotate({ description: "Grams of carbohydrate per serving." }),
+  fat: Estimate.annotate({ description: "Grams of fat per serving." }),
+});
+export type ModelMacros = typeof ModelMacros.Type;
+
+const macrosSchema = Schema.toStandardJSONSchemaV1(ModelMacros)["~standard"].jsonSchema.input({
+  target: "draft-2020-12",
+});
+
+const MACRO_RULES = `You estimate nutrition for home recipes from their ingredient lines.
+- Use typical values for each ingredient as written (raw weights unless the line says cooked). Ignore ingredients marked optional or "to taste".
+- Add up the whole recipe, then divide by the servings given. If no servings are given, pick a sensible number for the dish and say which.
+- Answer per serving: kilocalories, and grams of protein, carbohydrate and fat.
+- Use null for anything you can't estimate, such as when the lines aren't food.`;
+
+export const macroPromptFor = (input: MacroEstimateInput) => ({
+  system: MACRO_RULES,
+  user: [
+    input.title ? `Recipe: ${input.title}` : null,
+    `Servings: ${input.servings ?? "not given"}`,
+    "Ingredients:",
+    ...input.ingredients.map((line) => `- ${line}`),
+  ]
+    .filter((line) => line !== null)
+    .join("\n")
+    .slice(0, MODEL_INPUT_MAX),
+});
+
+const decodeModelMacros = Schema.decodeUnknownEffect(ModelMacros);
+
+const within = (value: number | null, max: number, step: number) =>
+  value === null || !Number.isFinite(value) || value < 0 || value > max
+    ? null
+    : Math.round(value / step) * step;
+
+/** The model's estimate, rounded and bounded like a recipe's own macros. */
+export const fromModelMacros = (model: ModelMacros): Macros => ({
+  calories: within(model.calories, RECIPE_LIMITS.calories, 1),
+  protein: within(model.protein, RECIPE_LIMITS.grams, 0.5),
+  carbs: within(model.carbs, RECIPE_LIMITS.grams, 0.5),
+  fat: within(model.fat, RECIPE_LIMITS.grams, 0.5),
+});
+
 export type ProviderName = "gemini" | "anthropic" | "openai";
 
 export interface Provider {
@@ -163,12 +219,57 @@ const adapterFor = (provider: Provider) => {
   }
 };
 
+/** One structured-output call to the configured model, with its token usage. */
+const ask = (
+  provider: Provider,
+  prompt: { readonly system: string; readonly user: string },
+  schema: typeof outputSchema,
+) =>
+  Effect.gen(function* () {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    const usage: ChatMiddleware = {
+      name: "cost-log",
+      onUsage: (_ctx, info) => {
+        inputTokens += info.promptTokens;
+        outputTokens += info.completionTokens;
+      },
+    };
+    const raw = yield* Effect.tryPromise({
+      try: (signal) => {
+        const abortController = new AbortController();
+        signal.addEventListener("abort", () => abortController.abort(), { once: true });
+        return chat({
+          adapter: adapterFor(provider),
+          systemPrompts: [prompt.system],
+          messages: [{ role: "user", content: prompt.user }],
+          outputSchema: schema,
+          middleware: [usage],
+          abortController,
+        });
+      },
+      catch: (cause) =>
+        new ExtractError({
+          reason: "failed",
+          detail: cause instanceof Error ? cause.message : "model call failed",
+        }),
+    });
+    return { raw, usage: { model: provider.model, inputTokens, outputTokens } satisfies Usage };
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: TIMEOUT,
+      orElse: () => Effect.fail(new ExtractError({ reason: "timeout" })),
+    }),
+  );
+
 export class RecipeExtractor extends Context.Service<
   RecipeExtractor,
   {
     /** False when no model is configured; importers then rely on the extractors that need none. */
     readonly available: boolean;
     readonly extract: (input: ExtractInput) => Effect.Effect<Extraction, ExtractError>;
+    /** Per-serving macros estimated from the ingredient lines. */
+    readonly estimateMacros: (input: MacroEstimateInput) => Effect.Effect<Macros, ExtractError>;
   }
 >()("cauldron/api/RecipeExtractor") {
   static readonly layerModel = (provider: Provider) =>
@@ -176,51 +277,21 @@ export class RecipeExtractor extends Context.Service<
       RecipeExtractor,
       RecipeExtractor.of({
         available: true,
-        extract: Effect.fn("RecipeExtractor.extract")(
-          function* (input) {
-            const prompt = promptFor(input);
-            let inputTokens = 0;
-            let outputTokens = 0;
-            const usage: ChatMiddleware = {
-              name: "cost-log",
-              onUsage: (_ctx, info) => {
-                inputTokens += info.promptTokens;
-                outputTokens += info.completionTokens;
-              },
-            };
-            const raw = yield* Effect.tryPromise({
-              try: (signal) => {
-                const abortController = new AbortController();
-                signal.addEventListener("abort", () => abortController.abort(), { once: true });
-                return chat({
-                  adapter: adapterFor(provider),
-                  systemPrompts: [prompt.system],
-                  messages: [{ role: "user", content: prompt.user }],
-                  outputSchema,
-                  middleware: [usage],
-                  abortController,
-                });
-              },
-              catch: (cause) =>
-                new ExtractError({
-                  reason: "failed",
-                  detail: cause instanceof Error ? cause.message : "model call failed",
-                }),
-            });
-            const model = yield* decodeModelRecipe(raw).pipe(
-              Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
-            );
-            return {
-              outcome: model.recipe,
-              recipe: fromModel(model),
-              usage: { model: provider.model, inputTokens, outputTokens },
-            };
-          },
-          Effect.timeoutOrElse({
-            duration: TIMEOUT,
-            orElse: () => Effect.fail(new ExtractError({ reason: "timeout" })),
-          }),
-        ),
+        extract: Effect.fn("RecipeExtractor.extract")(function* (input) {
+          const { raw, usage } = yield* ask(provider, promptFor(input), outputSchema);
+          const model = yield* decodeModelRecipe(raw).pipe(
+            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+          );
+          return { outcome: model.recipe, recipe: fromModel(model), usage };
+        }),
+        estimateMacros: Effect.fn("RecipeExtractor.estimateMacros")(function* (input) {
+          const { raw, usage } = yield* ask(provider, macroPromptFor(input), macrosSchema);
+          yield* Effect.logInfo("Macro estimate", usage);
+          const model = yield* decodeModelMacros(raw).pipe(
+            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+          );
+          return fromModelMacros(model);
+        }),
       }),
     );
 
@@ -230,6 +301,7 @@ export class RecipeExtractor extends Context.Service<
     RecipeExtractor.of({
       available: false,
       extract: () => Effect.fail(new ExtractError({ reason: "unavailable" })),
+      estimateMacros: () => Effect.fail(new ExtractError({ reason: "unavailable" })),
     }),
   );
 
@@ -272,6 +344,8 @@ export class RecipeExtractor extends Context.Service<
    */
   static readonly layerTest = (
     respond: (input: ExtractInput) => Effect.Effect<ExtractedRecipe | ExtractOutcome, ExtractError>,
+    estimate: (input: MacroEstimateInput) => Effect.Effect<Macros, ExtractError> = () =>
+      Effect.fail(new ExtractError({ reason: "unavailable" })),
   ) =>
     Layer.succeed(
       RecipeExtractor,
@@ -284,6 +358,7 @@ export class RecipeExtractor extends Context.Service<
             ? { outcome: answer, recipe: emptyExtracted, usage }
             : { outcome: "found" as const, recipe: answer, usage };
         }),
+        estimateMacros: estimate,
       }),
     );
 }

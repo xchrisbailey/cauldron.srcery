@@ -1,5 +1,7 @@
 import {
   CookedInput,
+  MacroEstimateInput,
+  Macros,
   Page,
   Recipe,
   RecipeId,
@@ -14,7 +16,13 @@ import {
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
 import { Authorization } from "./Authorization.ts";
-import { ConflictError, InvalidRequestError, NotFoundError } from "./errors.ts";
+import {
+  ConflictError,
+  InvalidRequestError,
+  NotFoundError,
+  TooManyRequestsError,
+  UnavailableError,
+} from "./errors.ts";
 import { RateLimit, RateLimitPolicy } from "./RateLimit.ts";
 
 const params = { id: RecipeId };
@@ -37,6 +45,17 @@ export class RecipesApi extends HttpApiGroup.make("recipes")
         "Best matches by title, tag and ingredient, for search-as-you-type.",
       ),
     HttpApiEndpoint.get("get", "/:id", { params, success: Recipe, error: NotFoundError }),
+    HttpApiEndpoint.post("estimateMacros", "/macros", {
+      payload: MacroEstimateInput,
+      success: Macros,
+      error: [InvalidRequestError, UnavailableError, TooManyRequestsError],
+    })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 20, window: "1 minute" })
+      .annotate(
+        OpenApi.Description,
+        "Estimates per-serving calories, protein, carbs and fat from ingredient lines with the configured AI model. Nothing is saved. 503 when no model is set up.",
+      ),
     HttpApiEndpoint.post("create", "/", {
       payload: RecipeInput,
       success: Recipe,

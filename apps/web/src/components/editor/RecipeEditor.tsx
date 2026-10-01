@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { copy, MACRO_KEYS } from "@cauldron/shared";
+import { copy, MACRO_KEYS, RECIPE_LIMITS } from "@cauldron/shared";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useDebouncer } from "@tanstack/react-pacer";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,7 +11,7 @@ import {
   toRecipeInput,
   validateRecipeForm,
 } from "../../lib/recipe-form";
-import { tagsQuery } from "../../lib/recipes";
+import { estimateMacros, tagsQuery } from "../../lib/recipes";
 import { colors, fonts, type } from "../../styles/tokens.stylex";
 import { Button, Dialog, FormMessage, Input, PageHeader, Textarea } from "../ui";
 import { IngredientRows } from "./IngredientRows";
@@ -174,13 +174,62 @@ export function RecipeEditor({
       );
     }
   };
+  // Divine: the model estimates the macros from the ingredient lines. The
+  // figures land in the fields flagged for a look, and nothing is saved until
+  // the recipe is.
+  const [divineMessage, setDivineMessage] = useState("");
+  const divine = useMutation({
+    mutationFn: estimateMacros,
+    onSuccess: (macros) => {
+      const text = (n: number | null) => (n === null ? "" : String(n));
+      form.setFieldValue("macros", {
+        calories: text(macros.calories),
+        protein: text(macros.protein),
+        carbs: text(macros.carbs),
+        fat: text(macros.fat),
+      });
+      if (!form.state.values.review.includes("macros")) {
+        form.setFieldValue("review", [...form.state.values.review, "macros"]);
+      }
+      setDivineMessage("");
+    },
+    onError: (error) =>
+      setDivineMessage(
+        error instanceof Error && "_tag" in error && error._tag === "Unavailable" && error.message
+          ? error.message
+          : copy.editor.divineFailed.text,
+      ),
+  });
+  const divineMacros = () => {
+    const { input } = toRecipeInput(values);
+    const ingredients = input.ingredients
+      .map((line) => (typeof line["original"] === "string" ? line["original"].trim() : ""))
+      .filter((line) => line !== "");
+    if (ingredients.length === 0) {
+      setDivineMessage(copy.editor.divineNeedsIngredients.text);
+      return;
+    }
+    const servings = input.servings;
+    divine.mutate({
+      title: input.title.trim() === "" ? null : input.title.trim(),
+      servings:
+        servings !== null &&
+        Number.isInteger(servings) &&
+        servings >= 1 &&
+        servings <= RECIPE_LIMITS.servings
+          ? servings
+          : null,
+      ingredients,
+    });
+  };
+
   const errorFor = (name: string) =>
     showAllErrors || submitted || touched.has(name) ? errors[name] : undefined;
   const listErrors = showAllErrors || submitted ? errors : {};
   const blur = (name: string) => () => setTouched((prev) => new Set(prev).add(name));
 
   const text = (
-    name: Exclude<ReviewField, "tags">,
+    name: Exclude<ReviewField, "tags" | "macros">,
     label: string,
     props: { mono?: boolean; inputMode?: "numeric" | "url"; multiline?: boolean } = {},
   ) => {
@@ -259,9 +308,24 @@ export function RecipeEditor({
         {text("totalMinutes", copy.editor.totalMinutes.text, { mono: true, inputMode: "numeric" })}
       </div>
 
-      <fieldset {...stylex.props(styles.macros)}>
+      <fieldset {...stylex.props(styles.macros, review.has("macros") && styles.flagged)}>
         <legend {...stylex.props(styles.macrosLegend)}>{copy.editor.macros.text}</legend>
-        <p {...stylex.props(styles.macrosHint)}>{copy.editor.macrosHint.text}</p>
+        <div {...stylex.props(styles.macrosHead)}>
+          <p {...stylex.props(styles.macrosHint)}>
+            {review.has("macros") ? copy.editor.divined.text : copy.editor.macrosHint.text}
+          </p>
+          <Button
+            variant="secondary"
+            onClick={divineMacros}
+            disabled={divine.isPending}
+            aria-describedby="divine-status"
+          >
+            {divine.isPending ? copy.editor.divining.text : copy.editor.divineMacros.text}
+          </Button>
+        </div>
+        <p id="divine-status" role="status" {...stylex.props(styles.macrosHint)}>
+          {divineMessage}
+        </p>
         <div {...stylex.props(styles.facts)}>
           {MACRO_KEYS.map((key) => (
             <Input
@@ -393,6 +457,13 @@ const styles = stylex.create({
     color: colors.overlay1,
   },
   macrosHint: { margin: 0, fontSize: 13, color: colors.subtext },
+  macrosHead: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   // Import fields to confirm get the Tips color around them.
   flagged: {
     padding: 8,

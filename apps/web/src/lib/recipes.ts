@@ -1,4 +1,11 @@
-import type { Recipe, RecipeId, RecipeInput, RecipeSort, TagId } from "@cauldron/shared";
+import type {
+  MacroEstimateInput,
+  Recipe,
+  RecipeId,
+  RecipeInput,
+  RecipeSort,
+  TagId,
+} from "@cauldron/shared";
 import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { callApi } from "./api";
 
@@ -68,6 +75,10 @@ export const updateRecipe = (id: string, input: RecipeInput) =>
   callApi((c) => c.recipes.update({ params: { id: id as RecipeId }, payload: input }));
 
 const asId = (id: string) => ({ params: { id: id as RecipeId } });
+
+/** The model's per-serving estimate from ingredient lines. Nothing is saved. */
+export const estimateMacros = (input: MacroEstimateInput) =>
+  callApi((c) => c.recipes.estimateMacros({ payload: input }));
 
 export const banishRecipe = (id: string) => callApi((c) => c.recipes.banish(asId(id)));
 export const restoreRecipe = (id: string) => callApi((c) => c.recipes.restore(asId(id)));

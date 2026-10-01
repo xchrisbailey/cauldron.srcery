@@ -149,6 +149,13 @@ export const editor = {
   totalMinutes: plain("Total (min)"),
   macros: plain("Per serving"),
   macrosHint: plain("Optional. The week adds these up for each day."),
+  /** Asks the model to estimate the macros from the ingredients. */
+  divineMacros: voice("Divine from ingredients"),
+  divining: voice("Divining…"),
+  divined: plain("Estimated from the ingredients. Check them before you save."),
+  divineNeedsIngredients: plain("Add some ingredients first."),
+  divineUnavailable: plain("Estimating needs an AI model, and none is set up."),
+  divineFailed: plain("Couldn't estimate the macros. Try again, or fill them in yourself."),
   macroFields: {
     calories: plain("Calories"),
     protein: plain("Protein (g)"),
