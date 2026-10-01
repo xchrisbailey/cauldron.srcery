@@ -219,7 +219,10 @@ const readSections = (lines: ReadonlyArray<string>): TextReading | null => {
       blocks[block].push(inline[2]!);
       continue;
     }
-    if (block !== "notes" && line !== "" && readMeta(line, meta)) continue;
+    // "Serves 4" and "Prep: 10 min" sit above the method. In the method, "Cook
+    // the onions for 10 minutes" is a step.
+    if ((block === "intro" || block === "ingredients") && line !== "" && readMeta(line, meta))
+      continue;
     blocks[block].push(line);
   }
   if (!sawIngredients) return null;

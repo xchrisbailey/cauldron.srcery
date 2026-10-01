@@ -162,7 +162,8 @@ function Job({ id }: { id: string }) {
     case "running":
       return <Working job={data} />;
     case "done":
-      return <Review job={data} />;
+      // A draft that no longer reads (stored by an older version) can't be reviewed.
+      return data.draft ? <Review job={data} /> : <Failed job={data} />;
     case "saved":
       return (
         <>
@@ -182,25 +183,32 @@ function Job({ id }: { id: string }) {
       );
     case "cancelled":
     case "failed":
-      return (
-        <>
-          <PageHeader title={copy.imports.title.text} />
-          <FormMessage tone={data.status === "failed" ? "error" : "info"}>
-            {data.failure?.message ?? copy.imports.stopped.text}
-          </FormMessage>
-          <div {...stylex.props(styles.row)}>
-            {data.sourceUrl !== null ? (
-              <Button onClick={() => void navigate({ search: { mode: "paste" } })}>
-                {copy.imports.pasteInstead.text}
-              </Button>
-            ) : null}
-            <Button variant="secondary" onClick={again}>
-              {copy.imports.another.text}
-            </Button>
-          </div>
-        </>
-      );
+      return <Failed job={data} />;
   }
+}
+
+function Failed({ job }: { job: ImportJob }) {
+  const navigate = Route.useNavigate();
+  return (
+    <>
+      <PageHeader title={copy.imports.title.text} />
+      <FormMessage tone={job.status === "cancelled" ? "info" : "error"}>
+        {job.status === "cancelled"
+          ? copy.imports.stopped.text
+          : (job.failure?.message ?? copy.imports.couldntRead.text)}
+      </FormMessage>
+      <div {...stylex.props(styles.row)}>
+        {job.sourceUrl !== null ? (
+          <Button onClick={() => void navigate({ search: { mode: "paste" } })}>
+            {copy.imports.pasteInstead.text}
+          </Button>
+        ) : null}
+        <Button variant="secondary" onClick={() => void navigate({ search: {} })}>
+          {copy.imports.another.text}
+        </Button>
+      </div>
+    </>
+  );
 }
 
 /** The link, or a note that it was pasted, with the duplicate warning. */
@@ -287,8 +295,11 @@ function Review({ job }: { job: ImportJob }) {
       settleRecipe(queryClient, recipe);
       void queryClient.invalidateQueries({ queryKey: importKeys.detail(job.id) });
       await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
-    } catch {
-      toast(copy.editor.couldntSave.text, "error");
+    } catch (error) {
+      // Already saved (in another tab, say): the server's message says so.
+      const conflict =
+        typeof error === "object" && error !== null && "_tag" in error && error._tag === "Conflict";
+      toast(conflict ? copy.imports.alreadySaved.text : copy.editor.couldntSave.text, "error");
     }
   };
 

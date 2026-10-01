@@ -57,7 +57,10 @@ export const fromText = Effect.fn("Importers.fromText")(function* (
   const extraction = yield* extractor.extract({ text, kind }).pipe(
     // The model failed: a rough reading is better than nothing.
     Effect.catchTag("ExtractError", (error) =>
-      rough ? Effect.succeed(null) : Effect.fail(fromExtractError(error)),
+      Effect.logWarning("Model extraction failed", {
+        reason: error.reason,
+        detail: error.detail,
+      }).pipe(Effect.andThen(rough ? Effect.succeed(null) : Effect.fail(fromExtractError(error)))),
     ),
   );
   if (extraction === null) return { ...rough!, usage: null };

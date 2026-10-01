@@ -231,9 +231,17 @@ const make = Effect.gen(function* () {
           row.status === "saved" ? copy.imports.alreadySaved.text : copy.imports.notReady.text,
       });
     }
+    // Where it came from is the job's to say, not the client's.
+    const draft = Option.getOrNull(decodeDraft(row.draft));
+    const link = input.sourceUrl ?? draft?.sourceUrl ?? row.sourceUrl;
+    const sourced: RecipeInput = {
+      ...input,
+      sourcePlatform: row.source as ImportSource,
+      sourceUrl: link === null ? null : normalizeUrl(link),
+    };
     return yield* db.transaction(
       Effect.gen(function* () {
-        const created = yield* recipes.create(ownerId, input);
+        const created = yield* recipes.create(ownerId, sourced);
         const claimed = yield* db.use((d) =>
           d
             .update(importJob)
@@ -279,7 +287,28 @@ const make = Effect.gen(function* () {
         .where(and(eq(importJob.id, id), eq(importJob.status, "running"))),
     );
 
+  /** Whether a job was cancelled, perhaps before its fiber could be interrupted. */
+  const cancelled = (id: string) =>
+    db
+      .use((d) =>
+        d.select({ status: importJob.status }).from(importJob).where(eq(importJob.id, id)),
+      )
+      .pipe(Effect.map((rows) => rows[0]?.status === "cancelled"));
+
+  /** Puts a job a stopping worker was running back in the queue, without counting the attempt. */
+  const requeue = (id: string) =>
+    db
+      .use((d) =>
+        d
+          .update(importJob)
+          .set({ status: "queued", attempts: sql`greatest(${importJob.attempts} - 1, 0)` })
+          .where(and(eq(importJob.id, id), eq(importJob.status, "running"))),
+      )
+      .pipe(Effect.ignore);
+
   const work = Effect.fn("Imports.work")(function* (row: JobRow) {
+    // A cancel that landed between the claim and now: don't spend a model call.
+    if (yield* cancelled(row.id)) return yield* Effect.interrupt;
     const imported = yield* importers
       .run({ source: row.source as ImportSource, url: row.sourceUrl, text: row.inputText })
       .pipe(
@@ -299,7 +328,13 @@ const make = Effect.gen(function* () {
 
   /** Runs one claimed job to a result, recording failures as plain codes. */
   const process = Effect.fn("Imports.process")(function* (row: JobRow) {
-    const fiber = yield* FiberMap.run(running, row.id, work(row));
+    // Interrupted by a cancel, the row is already cancelled and stays so. By a
+    // shutdown, it goes back in the queue for the next worker.
+    const fiber = yield* FiberMap.run(
+      running,
+      row.id,
+      work(row).pipe(Effect.onInterrupt(() => requeue(row.id))),
+    );
     const exit = yield* Fiber.await(fiber);
     if (Exit.isSuccess(exit)) {
       const { imported, draft } = exit.value;

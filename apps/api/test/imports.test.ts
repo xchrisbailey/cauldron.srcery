@@ -5,9 +5,14 @@ import { Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Routes } from "../src/App.ts";
 import { Db } from "../src/Db.ts";
-import { ImportWorker } from "../src/Imports.ts";
+import { DAILY_IMPORT_LIMIT, Imports, ImportWorker } from "../src/Imports.ts";
 import { emptyExtracted } from "../src/imports/Extracted.ts";
-import { type ExtractInput, RecipeExtractor } from "../src/imports/RecipeExtractor.ts";
+import {
+  ExtractError,
+  type ExtractInput,
+  RecipeExtractor,
+} from "../src/imports/RecipeExtractor.ts";
+import { readRecipeText } from "../src/imports/textRecipe.ts";
 import { type AuthApi, cookieOf, makeAuthApi } from "./auth-helpers.ts";
 import { WEB_ORIGIN } from "./helpers.ts";
 
@@ -39,6 +44,7 @@ const calls: Array<ExtractInput> = [];
 const fakeModel = RecipeExtractor.layerTest((input) => {
   calls.push(input);
   if (input.text.includes("hang")) return Effect.never;
+  if (input.text.includes("flaky")) return Effect.fail(new ExtractError({ reason: "failed" }));
   if (input.text.includes("no recipe here")) return Effect.succeed("missing" as const);
   return Effect.succeed({
     ...emptyExtracted,
@@ -56,6 +62,7 @@ const fakeModel = RecipeExtractor.layerTest((input) => {
 let api: AuthApi;
 let ada: string;
 let bob: string;
+let carol: string;
 
 const signUpVerified = async (email: string) => {
   const before = (await api.outbox()).length;
@@ -70,6 +77,7 @@ beforeAll(async () => {
   api = makeAuthApi({}, Layer.merge(Routes, ImportWorker), {}, fakeModel);
   ada = await signUpVerified("ada@example.com");
   bob = await signUpVerified("bob@example.com");
+  carol = await signUpVerified("carol@example.com");
 });
 afterAll(() => api.dispose());
 
@@ -239,6 +247,30 @@ describe("distilling pasted text", () => {
   });
 });
 
+describe("the text reader", () => {
+  it("keeps method steps that start like a time line", () => {
+    const reading = readRecipeText(`Onion soup
+
+Prep: 10 mins
+
+Ingredients
+- 4 onions, sliced
+- 1 litre stock
+
+Method
+- Cook the onions for 40 minutes until soft.
+- Bake for 10 minutes.
+- Cook pasta 10 minutes.`);
+    expect(reading?.recipe.prepMinutes).toBe(10);
+    expect(reading?.recipe.cookMinutes).toBeNull();
+    expect(reading?.recipe.steps.map((s) => s.text)).toEqual([
+      "Cook the onions for 40 minutes until soft.",
+      "Bake for 10 minutes.",
+      "Cook pasta 10 minutes.",
+    ]);
+  });
+});
+
 describe("import jobs", () => {
   it("takes a link or text, not both or neither", async () => {
     expect((await call(ada, "POST", "/v1/imports", {})).status).toBe(400);
@@ -297,6 +329,131 @@ describe("import jobs", () => {
     // Bob has no such recipe.
     const bobs = await call(bob, "POST", "/v1/imports", { url: link });
     expect(bobs.body.duplicateOf).toBeNull();
+  });
+
+  it("falls back to the rough reading when the model fails", async () => {
+    const text =
+      "flaky dal\n1 cup red lentils\n2 tsp cumin\nSimmer the lentils with the cumin until soft.";
+    const done = await settled(ada, (await call(ada, "POST", "/v1/imports", { text })).body.id);
+    expect(done.body.status).toBe("done");
+    expect(done.body.draft.ingredients.map((i: { line: string }) => i.line)).toEqual([
+      "1 cup red lentils",
+      "2 tsp cumin",
+    ]);
+    expect(done.body.draft.unsure).toContain("title");
+    expect((await jobRow(done.body.id)).extractor).toBe("text");
+  });
+
+  it("cancels a job that hasn't started", async () => {
+    // Fill both workers, so the next job waits in the queue.
+    const busy = [
+      await call(ada, "POST", "/v1/imports", { text: "hang one" }),
+      await call(ada, "POST", "/v1/imports", { text: "hang two" }),
+    ];
+    const queued = await call(ada, "POST", "/v1/imports", { text: PASTED });
+    const cancelled = await call(ada, "DELETE", `/v1/imports/${queued.body.id}`);
+    expect(cancelled.body.status).toBe("cancelled");
+    for (const job of busy) await call(ada, "DELETE", `/v1/imports/${job.body.id}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect((await call(ada, "GET", `/v1/imports/${queued.body.id}`)).body.status).toBe("cancelled");
+    // Cancelling a finished job leaves it as it was.
+    const done = await settled(
+      ada,
+      (await call(ada, "POST", "/v1/imports", { text: PASTED })).body.id,
+    );
+    expect((await call(ada, "DELETE", `/v1/imports/${done.body.id}`)).body.status).toBe("done");
+  });
+
+  it("records the source on save, whatever the client sends", async () => {
+    const link = "https://example.com/saved-source";
+    // A link job can't be read yet, so this one gets a draft written directly.
+    const started = await call(ada, "POST", "/v1/imports", { text: PASTED });
+    const done = await settled(ada, started.body.id);
+    await api.run(
+      Effect.gen(function* () {
+        const db = yield* Db;
+        yield* db.use((d) =>
+          d
+            .update(schema.importJob)
+            .set({
+              source: "web",
+              draft: { ...done.body.draft, sourcePlatform: "web", sourceUrl: link },
+            })
+            .where(eq(schema.importJob.id, started.body.id)),
+        );
+      }),
+    );
+    const saved = await call(ada, "POST", `/v1/imports/${started.body.id}/recipe`, {
+      ...reviewed(done.body.draft),
+      sourcePlatform: "manual",
+      sourceUrl: null,
+    });
+    expect(saved.body).toMatchObject({ sourcePlatform: "web", sourceUrl: link });
+  });
+
+  it("caps imports per person per day", async () => {
+    const userId = (await call(carol, "GET", "/v1/account/me")).body.id as string;
+    await api.run(
+      Effect.gen(function* () {
+        const db = yield* Db;
+        yield* db.use((d) =>
+          d.insert(schema.importJob).values(
+            Array.from({ length: DAILY_IMPORT_LIMIT }, () => ({
+              ownerId: userId,
+              source: "text" as const,
+              inputText: "x",
+              status: "failed" as const,
+            })),
+          ),
+        );
+      }),
+    );
+    const res = await call(carol, "POST", "/v1/imports", { text: PASTED });
+    expect(res.status).toBe(429);
+    expect(res.body.error.message).toBe(copy.imports.dailyLimit.text);
+  });
+
+  it("requeues jobs a stopped worker left running, and gives up after three tries", async () => {
+    const userId = (await call(carol, "GET", "/v1/account/me")).body.id as string;
+    const old = new Date(Date.now() - 10 * 60 * 1000);
+    const [stale, spent] = await api.run(
+      Effect.gen(function* () {
+        const db = yield* Db;
+        return yield* db.use((d) =>
+          d
+            .insert(schema.importJob)
+            .values([
+              {
+                ownerId: userId,
+                source: "text",
+                inputText: "x",
+                status: "running",
+                attempts: 1,
+                startedAt: old,
+              },
+              {
+                ownerId: userId,
+                source: "text",
+                inputText: "x",
+                status: "running",
+                attempts: 3,
+                startedAt: old,
+              },
+            ])
+            .returning({ id: schema.importJob.id }),
+        );
+      }),
+    );
+    await api.run(
+      Effect.gen(function* () {
+        const imports = yield* Imports;
+        yield* imports.recover();
+      }).pipe(Effect.provide(Imports.layer)),
+    );
+    // The requeued one may already have been picked up again.
+    expect(["queued", "running", "done", "failed"]).toContain((await jobRow(stale!.id)).status);
+    expect((await jobRow(stale!.id)).errorCode).not.toBe("unavailable");
+    expect(await jobRow(spent!.id)).toMatchObject({ status: "failed", errorCode: "unavailable" });
   });
 
   it("keeps each cook's jobs to themselves", async () => {
