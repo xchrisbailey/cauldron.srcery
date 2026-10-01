@@ -8,8 +8,9 @@ import {
   type PlanEntryUpdate,
   type PlanRecipe,
 } from "@cauldron/shared";
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { queryOptions } from "@tanstack/react-query";
 import { callApi } from "./api";
+import type { PlanApi } from "./plan-writes";
 
 // The week for TanStack Query. Writes update the cached week straight away
 // (optimistically) and roll back if the API refuses; the Gather list for the
@@ -26,17 +27,16 @@ export const weekQuery = (start: string) =>
     queryFn: () => callApi((c) => c.plan.list({ query: { from: start, to: addDays(start, 6) } })),
   });
 
-export const addEntry = (input: PlanEntryInput) => callApi((c) => c.plan.add({ payload: input }));
-export const addEntries = (entries: ReadonlyArray<PlanEntryInput>) =>
-  callApi((c) => c.plan.addMany({ payload: { entries } }));
-export const updateEntry = (id: string, update: PlanEntryUpdate) =>
-  callApi((c) => c.plan.update({ params: { id: id as PlanEntryId }, payload: update }));
-export const removeEntry = (id: string) =>
-  callApi((c) => c.plan.remove({ params: { id: id as PlanEntryId } }));
-export const copyWeek = (from: string, to: string) =>
-  callApi((c) => c.plan.copy({ payload: { from, to } }));
-export const clearWeek = (start: string) =>
-  callApi((c) => c.plan.clear({ payload: { from: start, to: addDays(start, 6) } }));
+/** The plan endpoints, for the writes in plan-writes.ts. */
+export const planApi: PlanApi = {
+  add: (input) => callApi((c) => c.plan.add({ payload: input })),
+  addMany: (entries) => callApi((c) => c.plan.addMany({ payload: { entries } })),
+  update: (id, update) => callApi((c) => c.plan.update({ params: { id }, payload: update })),
+  remove: (id) => callApi((c) => c.plan.remove({ params: { id } })),
+  copy: (from, to) => callApi((c) => c.plan.copy({ payload: { from, to } })),
+  clear: (start) =>
+    callApi((c) => c.plan.clear({ payload: { from: start, to: addDays(start, 6) } })),
+};
 
 /** Entries in one day's slot, in order. */
 export const inSlot = (entries: ReadonlyArray<PlanEntry>, date: string, slot: MealSlot) =>
@@ -152,20 +152,6 @@ export function applyAdd(entries: ReadonlyArray<PlanEntry>, entry: PlanEntry) {
   const order = siblings.toSpliced(Math.min(entry.position, siblings.length), 0, entry.id);
   return sorted(renumber([...entries, entry], entry.date, entry.slot, order));
 }
-
-/** Plan writes share a key, so the week is only refetched once the last one settles. */
-export const planMutationKey = ["plan"] as const;
-
-/**
- * After a plan write: refetch the week and anything built from it. Called from
- * a mutation's onSettled (while it still counts as running), it waits for the
- * last write in flight, so a refetch can't briefly undo a later optimistic edit.
- */
-export const settlePlan = (queryClient: QueryClient) => {
-  if (queryClient.isMutating({ mutationKey: planMutationKey }) > 1) return;
-  void queryClient.invalidateQueries({ queryKey: planKeys.all });
-  void queryClient.invalidateQueries({ queryKey: ["gather"] });
-};
 
 /**
  * Where a meal dragged onto a slot lands: before `beforeId` when it was dropped

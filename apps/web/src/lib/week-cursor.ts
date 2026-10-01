@@ -30,6 +30,9 @@ export const resolveWeek = ({
 const WEEK_START_KEY = "cauldron:week-start";
 const decodeStartsOn = (raw: string | null): WeekStartDay => (raw === "0" ? 0 : 1);
 
+/** The viewer's first day of the week (Monday until the saved choice loads), and a setter. */
+export const useWeekStartsOn = () => usePreference<WeekStartDay>(WEEK_START_KEY, decodeStartsOn, 1);
+
 /**
  * Today and the first day of the week are the viewer's own, so they're only
  * known in the browser: null until then. Once known, gives the week to show,
@@ -39,11 +42,7 @@ const decodeStartsOn = (raw: string | null): WeekStartDay => (raw === "0" ? 0 : 
 export function useWeekCursor(week: string | undefined) {
   const [today, setToday] = useState<string | null>(null);
   useEffect(() => setToday(localToday()), []);
-  const [startsOn, setStartsOn, loaded] = usePreference<WeekStartDay>(
-    WEEK_START_KEY,
-    decodeStartsOn,
-    1,
-  );
+  const [startsOn, setStartsOn, loaded] = useWeekStartsOn();
   if (today === null || !loaded) return null;
   const { start, thisWeek } = resolveWeek({ week, today, startsOn });
   const searchFor = (weekStart: string): { week?: string } =>

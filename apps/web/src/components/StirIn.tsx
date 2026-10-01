@@ -8,16 +8,16 @@ import {
   type MealSlot,
   type PlanEntryInput,
   type PlanRecipe,
-  type RecipeId,
   recipeMinutes,
   toPlanRecipe,
 } from "@cauldron/shared";
 import { useDebouncedValue } from "@tanstack/react-pacer";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 import { dayLabel } from "../lib/dates";
-import { addEntry, settlePlan } from "../lib/plan";
+import { useWeekStartsOn } from "../lib/week-cursor";
 import { libraryQuery, localToday } from "../lib/recipes";
+import { usePlanWrites } from "../lib/use-plan";
 import { colors, fonts } from "../styles/tokens.stylex";
 import { Button, Dialog, Input, Select, useToast } from "./ui";
 import { control, focusRing } from "./ui/controls";
@@ -126,16 +126,16 @@ export function StirRecipeDialog({
   open,
   onClose,
 }: {
-  recipe: { id: string; title: string; servings: number | null };
+  recipe: Parameters<typeof toPlanRecipe>[0];
   open: boolean;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const toast = useToast();
+  const [startsOn] = useWeekStartsOn();
+  const writes = usePlanWrites(startsOn);
   const [today, setToday] = useState(localToday);
   const [date, setDate] = useState(today);
   const [slot, setSlot] = useState<MealSlot>("dinner");
-  const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open) return;
     const now = localToday();
@@ -145,20 +145,15 @@ export function StirRecipeDialog({
 
   const days = Array.from({ length: 14 }, (_, i) => addDays(today, i));
 
-  const submit = async (e: FormEvent) => {
+  // Optimistic like every plan write: the dialog closes at once, and the
+  // entry carries its own id so a retried add can't plan it twice.
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    const input: PlanEntryInput = { date, slot, recipeId: recipe.id as RecipeId };
-    try {
-      await addEntry(input);
-      settlePlan(queryClient);
-      onClose();
-      toast(copy.week.stirred(dayLabel(date, "long")).text);
-    } catch {
-      toast(copy.week.couldntSave.text, "error");
-    } finally {
-      setBusy(false);
-    }
+    onClose();
+    const input: PlanEntryInput = { date, slot, recipeId: recipe.id };
+    void writes.stir(input, toPlanRecipe(recipe)).then((landed) => {
+      if (landed) toast(copy.week.stirred(dayLabel(date, "long")).text);
+    });
   };
 
   return (
@@ -187,7 +182,7 @@ export function StirRecipeDialog({
           <Button variant="secondary" onClick={onClose}>
             {copy.week.cancel.text}
           </Button>
-          <Button type="submit" disabled={busy}>
+          <Button type="submit">
             {copy.week.stirInto(dayLabel(date, "short"), copy.week.slots[slot].text).text}
           </Button>
         </div>

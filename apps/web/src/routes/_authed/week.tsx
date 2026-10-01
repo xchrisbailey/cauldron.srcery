@@ -14,7 +14,7 @@ import {
   toPlanRecipe,
   weekDays,
 } from "@cauldron/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
@@ -33,22 +33,10 @@ import {
   PageHeader,
   Select,
   Skeleton,
-  useToast,
 } from "../../components/ui";
 import { control, focusRing } from "../../components/ui/controls";
 import { dayLabel, dayOfMonth, weekdayName, weekRangeLabel } from "../../lib/dates";
-import {
-  clearWeek,
-  copyWeek,
-  inSlot,
-  isPending,
-  planKeys,
-  settlePlan,
-  dropAt,
-  dropMove,
-  planMutationKey,
-  weekQuery,
-} from "../../lib/plan";
+import { inSlot, isPending, dropAt, dropMove, weekQuery } from "../../lib/plan";
 import { gatherQuery, summarize } from "../../lib/gather";
 import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { usePlanWrites } from "../../lib/use-plan";
@@ -99,8 +87,6 @@ function Planner({
   cursor: WeekCursor;
 }) {
   const navigate = useNavigate({ from: Route.fullPath });
-  const queryClient = useQueryClient();
-  const toast = useToast();
   const days = useMemo(() => weekDays(start), [start]);
   const week = useQuery(weekQuery(start));
   const writes = usePlanWrites(startsOn);
@@ -116,35 +102,6 @@ function Planner({
 
   const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
 
-  const copyLast = useMutation({
-    mutationKey: planMutationKey,
-    mutationFn: () => copyWeek(addDays(start, -7), start),
-    onMutate: () => queryClient.cancelQueries({ queryKey: planKeys.week(start) }),
-    onSuccess: (entries) => {
-      queryClient.setQueryData(planKeys.week(start), entries);
-      toast(
-        entries.length > (week.data?.length ?? 0)
-          ? copy.week.copiedLastWeek.text
-          : copy.week.nothingToCopy.text,
-      );
-    },
-    onError: () => toast(copy.week.couldntSave.text, "error"),
-    onSettled: () => settlePlan(queryClient),
-  });
-
-  const clear = useMutation({
-    mutationKey: planMutationKey,
-    mutationFn: () => clearWeek(start),
-    onMutate: async () => {
-      setClearing(false);
-      await queryClient.cancelQueries({ queryKey: planKeys.week(start) });
-      queryClient.setQueryData(planKeys.week(start), []);
-    },
-    onSuccess: () => toast(copy.week.cleared.text),
-    onError: () => toast(copy.week.couldntSave.text, "error"),
-    onSettled: () => settlePlan(queryClient),
-  });
-
   /** A recipe goes through the days picker, so its servings can feed more than one day. */
   const stir = (target: Target, recipe: PlanRecipe, position?: number) =>
     setSpreading({ ...target, recipe, ...(position === undefined ? {} : { position }) });
@@ -152,7 +109,7 @@ function Planner({
   const pick = (choice: { recipe: PlanRecipe } | { title: string }) => {
     if (!picking) return;
     if ("recipe" in choice) stir(picking, choice.recipe);
-    else writes.stir({ ...picking, title: choice.title }, null);
+    else void writes.stir({ ...picking, title: choice.title }, null);
     setPicking(null);
   };
 
@@ -178,7 +135,7 @@ function Planner({
     const moving = entries.find((s) => s.id === entryId);
     if (!moving || isPending(moving)) return;
     const update = dropMove(entries, entryId, target, before?.id);
-    if (update) writes.update.mutate({ entry: moving, update });
+    if (update) void writes.update(moving, update);
   };
 
   const slotProps = (target: Target) => ({
@@ -210,8 +167,8 @@ function Planner({
           <>
             <Button
               variant="secondary"
-              onClick={() => copyLast.mutate()}
-              disabled={copyLast.isPending || week.isPending}
+              onClick={() => void writes.copyLastWeek(start)}
+              disabled={writes.copying || week.isPending}
             >
               {copy.week.copyLastWeek.text}
             </Button>
@@ -402,7 +359,7 @@ function Planner({
         onClose={() => setSpreading(null)}
         onStir={(inputs, recipe) => {
           setSpreading(null);
-          writes.spread(inputs, recipe);
+          void writes.spread(inputs, recipe);
         }}
       />
       <EntryDialog
@@ -412,11 +369,11 @@ function Planner({
         onClose={() => setEditing(null)}
         onSave={(entry, update) => {
           setEditing(null);
-          if (Object.keys(update).length > 0) writes.update.mutate({ entry, update });
+          if (Object.keys(update).length > 0) void writes.update(entry, update);
         }}
         onRemove={(entry) => {
           setEditing(null);
-          writes.remove.mutate(entry);
+          void writes.remove(entry);
         }}
       />
       <Dialog open={clearing} onClose={() => setClearing(false)} title={copy.week.clearWeek.text}>
@@ -427,7 +384,13 @@ function Planner({
           <Button variant="secondary" data-autofocus onClick={() => setClearing(false)}>
             {copy.week.cancel.text}
           </Button>
-          <Button variant="danger" onClick={() => clear.mutate()}>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setClearing(false);
+              void writes.clear(start);
+            }}
+          >
             {copy.week.clearWeek.text}
           </Button>
         </div>
