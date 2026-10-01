@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Layer, Redacted } from "effect";
 import { AppConfig } from "../src/AppConfig.ts";
 import { Db } from "../src/Db.ts";
+import { Storage } from "../src/Storage.ts";
 
 const SECRET = "x".repeat(32);
 
@@ -91,6 +92,33 @@ describe("Db.layer", () => {
   );
 
   it.effect("outside production it falls back to in-memory PGlite", () =>
+    Effect.gen(function* () {
+      const exit = yield* build({});
+      assert.isTrue(Exit.isSuccess(exit));
+    }),
+  );
+});
+
+describe("Storage.layer", () => {
+  const build = (env: Record<string, string>) =>
+    Effect.exit(Layer.build(Storage.layer).pipe(Effect.scoped, Effect.provide(withEnv(env))));
+
+  it.effect("production refuses to boot without S3_BUCKET or STORAGE_DIR", () =>
+    Effect.gen(function* () {
+      const exit = yield* build({ NODE_ENV: "production" });
+      assert.isTrue(Exit.isFailure(exit));
+      assert.include(failureText(exit), "S3_BUCKET or STORAGE_DIR");
+    }),
+  );
+
+  it.effect("production keeps photos on disk when STORAGE_DIR is set", () =>
+    Effect.gen(function* () {
+      const exit = yield* build({ NODE_ENV: "production", STORAGE_DIR: "/data/storage" });
+      assert.isTrue(Exit.isSuccess(exit));
+    }),
+  );
+
+  it.effect("outside production it defaults to a local folder", () =>
     Effect.gen(function* () {
       const exit = yield* build({});
       assert.isTrue(Exit.isSuccess(exit));

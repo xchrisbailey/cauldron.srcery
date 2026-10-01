@@ -3,9 +3,9 @@ import { dirname, join, resolve } from "node:path";
 import { Config, Context, Effect, Layer, Option, Redacted, Ref, Schema } from "effect";
 import { NodeEnv } from "./AppConfig.ts";
 
-// Object storage for photos: S3-compatible in production (the provider is
-// picked with hosting, #21), MinIO from docker-compose locally, or a folder on
-// disk when neither is set up. Tests keep objects in memory.
+// Object storage for photos: S3-compatible storage, MinIO from docker-compose
+// locally, or a folder on disk (in production, a mounted volume; see #21).
+// Tests keep objects in memory.
 
 export class StorageError extends Schema.TaggedError<StorageError>()("StorageError", {
   cause: Schema.Defect(),
@@ -82,7 +82,7 @@ export class Storage extends Context.Service<
       });
     });
 
-  /** Objects as files under `dir`. For local development without MinIO. */
+  /** Objects as files under `dir`: a mounted volume in production, or local development without MinIO. */
   static readonly layerDisk = (dir: string) =>
     Layer.sync(Storage, () => {
       const root = resolve(dir);
@@ -146,7 +146,8 @@ export class Storage extends Context.Service<
   /**
    * S3 when S3_BUCKET is set (with S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY and
    * optional S3_ENDPOINT / S3_REGION), otherwise a folder (STORAGE_DIR,
-   * default .data/storage). Production requires S3.
+   * default .data/storage). Production needs one of them set explicitly, so
+   * photos never land in a container's throwaway filesystem by default.
    */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
@@ -160,11 +161,13 @@ export class Storage extends Context.Service<
           region: Option.getOrUndefined(yield* Config.option(Config.String("S3_REGION"))),
         });
       }
-      if ((yield* NodeEnv) === "production") {
-        return yield* Effect.die("S3_BUCKET must be set in production.");
+      const dir = yield* Config.option(Config.String("STORAGE_DIR"));
+      if (Option.isNone(dir) && (yield* NodeEnv) === "production") {
+        return yield* Effect.die(
+          "S3_BUCKET or STORAGE_DIR (a folder on a mounted volume) must be set in production.",
+        );
       }
-      const dir = yield* Config.String("STORAGE_DIR").pipe(Config.withDefault(".data/storage"));
-      return Storage.layerDisk(dir);
+      return Storage.layerDisk(Option.getOrElse(dir, () => ".data/storage"));
     }),
   );
 }
