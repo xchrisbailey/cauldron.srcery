@@ -17,8 +17,9 @@ export const PAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const HTML = /^(?:text\/html|application\/xhtml\+xml|text\/plain|application\/xml|text\/xml)\b/i;
 
+// Not a name that doesn't resolve: that won't pass on a retry.
 const transient = (error: FetchError) =>
-  error.reason === "unreachable" ||
+  (error.reason === "unreachable" && error.detail !== "dns") ||
   error.reason === "timeout" ||
   (error.reason === "status" && /^(?:5\d\d|429)$/.test(error.detail ?? ""));
 
@@ -56,6 +57,25 @@ export const fetchPage = Effect.fn("Web.fetchPage")(function* (url: string) {
   return { html: decodeHtml(page.bytes, page.contentType), url: page.url };
 });
 
+const site = (href: string) => {
+  try {
+    return new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * A canonical link only counts when it's on the page's own site (or one of
+ * its subdomains), so a page can't make its recipe credit somewhere else.
+ */
+const sameSite = (canonical: string | null, page: string): string | null => {
+  const a = canonical ? site(canonical) : null;
+  const b = site(page);
+  if (!a || !b) return null;
+  return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`) ? canonical : null;
+};
+
 /** Fills what the recipe data left out from the page's own metadata. */
 const withMeta = (recipe: ExtractedRecipe, meta: PageMeta, url: string): ExtractedRecipe => ({
   ...recipe,
@@ -64,16 +84,19 @@ const withMeta = (recipe: ExtractedRecipe, meta: PageMeta, url: string): Extract
   author: recipe.author ?? meta.author,
   siteName: recipe.siteName ?? meta.siteName ?? new URL(url).hostname.replace(/^www\./, ""),
   imageUrl: recipe.imageUrl ?? meta.imageUrl,
-  canonicalUrl: meta.canonicalUrl ?? recipe.canonicalUrl,
+  canonicalUrl: sameSite(meta.canonicalUrl, url) ?? sameSite(recipe.canonicalUrl, url),
 });
 
 /** Reads a recipe from a page's HTML. Exported for the fixture tests, which have no network. */
 export const fromHtml = Effect.fn("Web.fromHtml")(function* (html: string, url: string) {
   const document = parseDocument(html);
   const meta = pageMeta(document, url);
+  // A stub JSON-LD Recipe (a name and a photo) doesn't hide full microdata.
   const jsonLd = jsonLdRecipe(document, url);
-  const structured = jsonLd ?? microdataRecipe(document, url);
-  const extractor = jsonLd ? "json-ld" : "microdata";
+  const microdata = jsonLd && hasRecipe(jsonLd) ? null : microdataRecipe(document, url);
+  const useMicrodata = microdata !== null && (hasRecipe(microdata) || jsonLd === null);
+  const structured = useMicrodata ? microdata : jsonLd;
+  const extractor = useMicrodata ? "microdata" : "json-ld";
   if (structured && hasRecipe(structured)) {
     return { recipe: withMeta(structured, meta, url), extractor, usage: null, raw: null };
   }

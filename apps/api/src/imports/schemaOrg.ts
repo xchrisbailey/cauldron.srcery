@@ -27,7 +27,8 @@ const textOf = (value: Json): string | null => {
 /** Minutes in an ISO 8601 duration ("PT1H20M", "P0DT45M") or a plain "45 minutes". */
 export const isoMinutes = (value: Json): number | null => {
   const text = textOf(value);
-  if (!text) return null;
+  // Durations are short; a long string is junk, and bounds the regexes below.
+  if (!text || text.length > 64) return null;
   const iso =
     /^P(?:(\d+(?:\.\d+)?)Y)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)W)?(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i.exec(
       text.trim(),
@@ -37,8 +38,8 @@ export const isoMinutes = (value: Json): number | null => {
     const total = (weeks! * 7 + days!) * 1440 + hours! * 60 + minutes! + seconds! / 60;
     return Number.isFinite(total) && total > 0 ? Math.round(total) : null;
   }
-  const hours = /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i.exec(text);
-  const minutes = /(\d+)\s*(?:m|min|mins|minutes?)\b/i.exec(text);
+  const hours = /(?<!\d)(\d{1,3}(?:\.\d{1,2})?)\s*(?:h|hr|hrs|hours?)\b/i.exec(text);
+  const minutes = /(?<!\d)(\d{1,4})\s*(?:m|min|mins|minutes?)\b/i.exec(text);
   if (!hours && !minutes) return null;
   return Math.round(Number(hours?.[1] ?? 0) * 60 + Number(minutes?.[1] ?? 0)) || null;
 };
@@ -147,10 +148,15 @@ function* nodes(value: Json, depth = 0): Generator<Node> {
   }
 }
 
+/** No recipe's JSON-LD comes near this; anything bigger isn't parsed. */
+const JSON_LD_MAX = 1024 * 1024;
+
 const parseJson = (text: string): Json => {
+  if (text.length > JSON_LD_MAX) return null;
   const cleaned = text
     .replace(/^\s*<!\[CDATA\[|\]\]>\s*$/g, "")
-    .replace(/^\s*\/\/.*$/gm, "")
+    // [ \t], not \s: \s also matches newlines, which makes this quadratic.
+    .replace(/^[ \t]*\/\/.*$/gm, "")
     .trim();
   try {
     return JSON.parse(cleaned);
@@ -223,7 +229,12 @@ export const microdataRecipe = (document: HtmlDocument, base: string): Extracted
         if (text) steps.push({ text, section: null, unsure: false });
       }
     } else {
-      steps.push(...stepsOf(el.innerHTML));
+      // Paragraphs and line breaks split steps; source newlines are just
+      // pretty-printing.
+      for (const part of el.innerHTML.split(/<br\s*\/?>|<\/p>|<\/div>/i)) {
+        const text = plainText(part);
+        if (text) steps.push({ text, section: null, unsure: false });
+      }
     }
   }
   const image = props(scope, "image")[0];

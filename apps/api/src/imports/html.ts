@@ -125,20 +125,31 @@ export const readableText = (document: HtmlDocument, max: number): string => {
     if (text !== "") out.push(text);
     line = "";
   };
-  const walk = (node: El | ChildNode) => {
+  // Walked with a stack, not recursion: a hostile page can nest far deeper
+  // than the call stack goes.
+  type Item = { readonly node: ChildNode | El; readonly closes?: boolean };
+  const stack: Array<Item> = [{ node: root }];
+  while (stack.length > 0) {
+    const { node, closes } = stack.pop()!;
+    if (closes) {
+      flush();
+      continue;
+    }
     if (node.nodeType === 3) {
       line += node.textContent ?? "";
-      return;
+      continue;
     }
-    if (node.nodeType !== 1) return;
+    if (node.nodeType !== 1) continue;
     const el = node as El;
     const block = BLOCK.has(el.tagName);
-    if (block) flush();
+    if (block) {
+      flush();
+      stack.push({ node, closes: true });
+    }
     if (el.tagName === "LI") line += "- ";
-    for (const child of el.childNodes) walk(child);
-    if (block) flush();
-  };
-  walk(root);
+    const children = [...el.childNodes];
+    for (let i = children.length - 1; i >= 0; i--) stack.push({ node: children[i]! });
+  }
   flush();
   return out.join("\n").slice(0, max);
 };
