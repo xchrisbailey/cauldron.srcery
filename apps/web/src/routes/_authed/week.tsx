@@ -17,10 +17,12 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { type DragEvent, type FormEvent, useEffect, useState } from "react";
-import { PlusGlyph } from "../../components/glyphs";
+import { BagGlyph, PlusGlyph } from "../../components/glyphs";
 import { PickMealDialog, stirRecipe, useRecipeSearch } from "../../components/StirIn";
+import { WeekRange } from "../../components/WeekRange";
 import {
   Button,
+  ButtonLink,
   Dialog,
   EmptyState,
   IconButton,
@@ -46,6 +48,7 @@ import {
   useWeekStartDay,
   weekQuery,
 } from "../../lib/plan";
+import { gatherQuery, summarize } from "../../lib/gather";
 import { localToday } from "../../lib/recipes";
 import { type StirRecipe, usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
@@ -246,22 +249,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         }
       />
 
-      <div {...stylex.props(styles.range)}>
-        <IconButton label={copy.week.previousWeek.text} onClick={() => goTo(addDays(start, -7))}>
-          ‹
-        </IconButton>
-        <span aria-live="polite" {...stylex.props(styles.rangeText)}>
-          {weekRangeLabel(start)}
-        </span>
-        <IconButton label={copy.week.nextWeek.text} onClick={() => goTo(addDays(start, 7))}>
-          ›
-        </IconButton>
-        {start !== thisWeek ? (
-          <Button variant="ghost" onClick={() => goTo(thisWeek)}>
-            {copy.week.thisWeek.text}
-          </Button>
-        ) : null}
-      </div>
+      <WeekRange start={start} thisWeek={thisWeek} onGo={goTo} />
 
       {week.isError ? (
         <EmptyState
@@ -388,6 +376,8 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         </>
       )}
 
+      <GatherBar start={start} thisWeek={thisWeek} />
+
       <label {...stylex.props(styles.startsOn)}>
         {copy.week.weekStarts.text}
         <select
@@ -491,6 +481,31 @@ function EntryCard({
         <span>{entry.recipe?.title ?? entry.title}</span>
         {detail ? <span {...stylex.props(styles.entryDetail)}>{detail}</span> : null}
       </button>
+    </div>
+  );
+}
+
+/** The week's Gather list in a line, with the way to it. */
+function GatherBar({ start, thisWeek }: { start: string; thisWeek: string }) {
+  const list = useQuery(gatherQuery(start));
+  if (!list.data || list.data.items.length === 0) return null;
+  const counts = summarize(list.data);
+  return (
+    <div {...stylex.props(styles.gatherBar)}>
+      <span aria-hidden="true" {...stylex.props(styles.gatherGlyph)}>
+        <BagGlyph />
+      </span>
+      <p {...stylex.props(styles.gatherText)}>
+        {copy.gather.summary(counts.items, counts.recipes).text}
+        {counts.inPantry > 0 ? ` ${copy.gather.inPantryCount(counts.inPantry).text}` : ""}
+      </p>
+      <ButtonLink
+        to="/gather"
+        search={start === thisWeek ? {} : { week: start }}
+        variant="secondary"
+      >
+        {copy.gather.gather.text}
+      </ButtonLink>
     </div>
   );
 }
@@ -670,14 +685,6 @@ const wide = "@media (min-width: 1280px)";
 
 const styles = stylex.create({
   page: { display: "flex", flexDirection: "column", gap: 16 },
-  range: { display: "flex", alignItems: "center", gap: 4, marginTop: -6 },
-  rangeText: {
-    minWidth: 130,
-    textAlign: "center",
-    fontFamily: fonts.mono,
-    fontSize: 13,
-    color: colors.subtext,
-  },
   empty: { margin: 0, color: colors.subtext },
   desk: {
     display: { default: "grid", [phone]: "none" },
@@ -824,6 +831,20 @@ const styles = stylex.create({
   dayList: { display: "flex", flexDirection: "column", gap: 14 },
   daySlot: { display: "flex", flexDirection: "column", gap: 8 },
   daySlotHead: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+  gatherBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    paddingBlock: 12,
+    paddingInline: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.surface0,
+    backgroundColor: colors.mantle,
+  },
+  gatherGlyph: { display: "flex", color: colors.magic },
+  gatherText: { margin: 0, flexGrow: 1, fontSize: 13.5, color: colors.subtext },
   startsOn: {
     display: "flex",
     alignItems: "center",

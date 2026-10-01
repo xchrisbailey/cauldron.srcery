@@ -308,7 +308,7 @@ export const gatherItem = pgTable(
   {
     id: id(),
     ownerId: ownerId(),
-    /** Monday of the week this list belongs to. */
+    /** First day of the week this list belongs to (Monday, or Sunday for cooks who start there). */
     weekStart: date("week_start", { mode: "string" }).notNull(),
     item: text("item").notNull(),
     /**
@@ -374,6 +374,21 @@ export const gatherItemSource = pgTable(
         and (${t.quantityMax} is null or (${t.quantityMin} is not null and ${t.quantityMax} >= ${t.quantityMin}))`,
     ),
   ],
+);
+
+/**
+ * Items the cook keeps in the pantry, by merge key: the Gather list (#19)
+ * marks them in the Fresh color in every week until they're unmarked.
+ */
+export const pantryItem = pgTable(
+  "pantry_item",
+  {
+    ownerId: ownerId(),
+    /** `ingredientKey(item)`, the same key gather_item and recipe_ingredient carry. */
+    itemKey: text("item_key").notNull(),
+    createdAt: timestampMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.itemKey] })],
 );
 
 /** An upload the client was given a URL for and hasn't finished yet. */

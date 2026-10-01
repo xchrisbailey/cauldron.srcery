@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
 import { Authorization } from "./Authorization.ts";
 import { UnavailableError } from "./errors.ts";
+import { GatherApi } from "./Gather.ts";
 import { ImportsApi } from "./Imports.ts";
 import { PhotosApi } from "./Photos.ts";
 import { PlanApi } from "./Plan.ts";
@@ -47,5 +48,6 @@ export class Api extends HttpApi.make("cauldron")
   .add(PhotosApi)
   .add(ImportsApi)
   .add(PlanApi)
+  .add(GatherApi)
   .prefix("/v1")
   .annotateMerge(OpenApi.annotations({ title: "Cauldron API" })) {}
