@@ -40,3 +40,18 @@ describe("stepIngredients", () => {
     expect(stepIngredients([{ text: "Crack in the EGGS!" }], list)).toEqual([[0]]);
   });
 });
+
+describe("stepIngredients with names inside other names", () => {
+  it("lets the longer name claim its words", () => {
+    const cases: ReadonlyArray<readonly [ReadonlyArray<string>, string, ReadonlyArray<number>]> = [
+      [["onions", "green onions"], "Scatter over the green onions.", [1]],
+      [["butter", "peanut butter"], "Stir in the peanut butter.", [1]],
+      [["tomatoes", "tomato paste"], "Add the tomato paste.", [1]],
+      [["salt", "kosher salt"], "Season with kosher salt.", [1]],
+      [["onions", "green onions"], "Fry the onions, then add the green onions.", [0, 1]],
+    ];
+    for (const [items, text, expected] of cases) {
+      expect(stepIngredients([{ text }], ingredients(...items))).toEqual([expected]);
+    }
+  });
+});

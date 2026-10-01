@@ -35,23 +35,30 @@ export function useStepTimers(onDone: (step: number) => void) {
     done.current = onDone;
   });
 
+  // The latest timers, for the ticker to check without a side effect inside a
+  // state updater (which React may run twice).
+  const latest = useRef(timers);
+  useEffect(() => {
+    latest.current = timers;
+  });
+
   const running = [...timers.values()].some((t) => t.endsAt !== null && !t.done);
   useEffect(() => {
     if (!running) return;
     const tick = () => {
       const at = Date.now();
       setNow(at);
-      setTimers((current) => {
-        let next: Map<number, StepTimer> | null = null;
-        for (const [step, timer] of current) {
-          if (timer.endsAt !== null && !timer.done && timer.endsAt <= at) {
-            next ??= new Map(current);
-            next.set(step, { ...timer, left: 0, endsAt: null, done: true });
-            queueMicrotask(() => done.current(step));
-          }
-        }
-        return next ?? current;
-      });
+      const due = [...latest.current].filter(
+        ([, t]) => t.endsAt !== null && !t.done && t.endsAt <= at,
+      );
+      if (due.length === 0) return;
+      const next = new Map(latest.current);
+      for (const [step, timer] of due) {
+        next.set(step, { ...timer, left: 0, endsAt: null, done: true });
+      }
+      latest.current = next;
+      setTimers(next);
+      for (const [step] of due) done.current(step);
     };
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
@@ -89,7 +96,7 @@ export function useStepTimers(onDone: (step: number) => void) {
 
 let audio: AudioContext | null = null;
 
-/** Call from a tap (a user gesture), so the chime is allowed to play later. */
+/** Call from every tap (a user gesture), so the chime is allowed to play later. */
 export const unlockChime = () => {
   try {
     audio ??= new AudioContext();
@@ -102,6 +109,8 @@ export const unlockChime = () => {
 /** Three short tones. */
 export const chime = () => {
   if (!audio) return;
+  // iOS suspends audio after the screen locks or a call; wake it first.
+  if (audio.state !== "running") void audio.resume();
   const start = audio.currentTime;
   for (let i = 0; i < 3; i++) {
     const tone = audio.createOscillator();

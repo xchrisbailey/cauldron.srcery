@@ -10,7 +10,7 @@ import {
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink, EmptyState, Skeleton, useToast } from "../../components/ui";
 import { focusRing } from "../../components/ui/controls";
 import { localToday, markCooked, recipeQuery, settleRecipe } from "../../lib/recipes";
@@ -22,6 +22,7 @@ import {
   unlockChime,
   useStepTimers,
 } from "../../lib/step-timers";
+import { useUnitChoice } from "../../lib/units";
 import { useWakeLock } from "../../lib/wake-lock";
 import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 
@@ -30,16 +31,21 @@ import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 // when done, and the screen stays awake. Controls are plain: hands are busy.
 
 export const Route = createFileRoute("/_kitchen/brew/$id")({
-  validateSearch: (search: Record<string, unknown>): { servings?: number } => {
+  validateSearch: (search: Record<string, unknown>): { servings?: number; multiplier?: number } => {
     const n = Number(search.servings);
-    return Number.isInteger(n) && n >= 1 && n <= 1000 ? { servings: n } : {};
+    if (Number.isInteger(n) && n >= 1 && n <= 1000) return { servings: n };
+    const m = Number(search.multiplier);
+    return Number.isFinite(m) && m > 0 && m <= 100 ? { multiplier: m } : {};
   },
   component: Brew,
 });
 
 function Brew() {
   const { id } = Route.useParams();
-  const recipe = useQuery(recipeQuery(id));
+  // Mid-cook, the recipe shouldn't change underfoot, and a failed refetch on a
+  // patchy kitchen signal mustn't tear down the page (and its timers).
+  const recipe = useQuery({ ...recipeQuery(id), staleTime: Infinity, refetchOnWindowFocus: false });
+  if (recipe.data) return <Brewing recipe={recipe.data} />;
   if (recipe.isPending) {
     return (
       <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.screen)}>
@@ -48,32 +54,43 @@ function Brew() {
       </div>
     );
   }
-  if (recipe.isError) {
-    return (
-      <div {...stylex.props(styles.screen)}>
-        <EmptyState
-          message={copy.recipeView.notFound.text}
-          actions={
-            <ButtonLink to="/recipes" variant="secondary">
-              {copy.recipeView.backToRecipes.text}
-            </ButtonLink>
-          }
-        />
-      </div>
-    );
-  }
-  return <Brewing recipe={recipe.data} />;
+  return (
+    <div {...stylex.props(styles.screen)}>
+      <EmptyState
+        message={copy.recipeView.notFound.text}
+        actions={
+          <ButtonLink to="/recipes" variant="secondary">
+            {copy.recipeView.backToRecipes.text}
+          </ButtonLink>
+        }
+      />
+    </div>
+  );
 }
 
-const UNIT_KEY = "cauldron:units";
-
-const savedUnits = (): UnitSystemChoice => {
-  try {
-    const saved = window.localStorage.getItem(UNIT_KEY);
-    return saved === "metric" || saved === "us" ? saved : "asWritten";
-  } catch {
-    return "asWritten";
-  }
+/**
+ * A system notification when the cook allowed them. Phones only show ones
+ * sent through a service worker (Android) or from an installed web app (iOS),
+ * so this uses a registered worker when there is one, and otherwise the plain
+ * constructor, which desktop browsers support. The toast and chime cover the rest.
+ */
+const notify = (title: string, body: string, tag: string) => {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const direct = () => {
+    try {
+      new Notification(title, { body, tag });
+    } catch {
+      // Not allowed outside a service worker here.
+    }
+  };
+  if (!("serviceWorker" in navigator)) return direct();
+  void navigator.serviceWorker
+    .getRegistration()
+    .then(
+      (registration) =>
+        registration ? registration.showNotification(title, { body, tag }) : direct(),
+      direct,
+    );
 };
 
 /** Numbers, fractions and the measures after them, set in Geist Mono inside a step. */
@@ -103,31 +120,31 @@ function Brewing({ recipe }: { recipe: Recipe }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const wake = useWakeLock();
-  const [index, setIndex] = useState(0);
-  const [units, setUnits] = useState<UnitSystemChoice>("asWritten");
+  const [at, setIndex] = useState(0);
+  const [units] = useUnitChoice();
   const [busy, setBusy] = useState(false);
-  useEffect(() => setUnits(savedUnits()), []);
+  // When the step last changed, so a quick second tap meant for "Next step"
+  // doesn't land on "Brewed" as it takes the button's place.
+  const movedAt = useRef(0);
 
   const steps = recipe.steps;
   const count = steps.length;
+  const index = Math.min(at, Math.max(0, count - 1));
   const step = steps[index];
   const factor =
     search.servings !== undefined && recipe.servings !== null
       ? search.servings / recipe.servings
-      : 1;
-  const [matched] = useState(() => stepIngredients(steps, recipe.ingredients));
+      : (search.multiplier ?? 1);
+  const matched = useMemo(
+    () => stepIngredients(steps, recipe.ingredients),
+    [steps, recipe.ingredients],
+  );
 
   const { timers, now, start, pause, reset } = useStepTimers((done) => {
     chime();
     navigator.vibrate?.([200, 100, 200]);
     const text = copy.brewing.timerDone(recipe.title, done + 1).text;
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      try {
-        new Notification(copy.brewing.timeUp.text, { body: text, tag: `brew-${done}` });
-      } catch {
-        // Some browsers only notify from a service worker; the chime still plays.
-      }
-    }
+    notify(copy.brewing.timeUp.text, text, `brew-${done}`);
     toast(text);
   });
 
@@ -147,13 +164,32 @@ function Brewing({ recipe }: { recipe: Recipe }) {
     else startTimer(index, step.timerSeconds);
   };
 
-  const go = (to: number) => setIndex(Math.min(count - 1, Math.max(0, to)));
+  const go = (to: number) => {
+    // Every tap re-arms audio, which iOS suspends after the screen locks.
+    unlockChime();
+    const next = Math.min(count - 1, Math.max(0, to));
+    if (next !== index) movedAt.current = Date.now();
+    setIndex(next);
+  };
 
   useHotkey("ArrowRight", () => go(index + 1));
   useHotkey("ArrowLeft", () => go(index - 1));
-  useHotkey("Space", toggle);
+  // Space on a focused button or link presses it, as usual; elsewhere it
+  // starts or pauses the step's timer.
+  useHotkey(
+    "Space",
+    (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("button, a, [role=button], input, select, textarea")) return;
+      if (!step?.timerSeconds) return;
+      event.preventDefault();
+      toggle();
+    },
+    { preventDefault: false },
+  );
 
   const brewed = async () => {
+    if (Date.now() - movedAt.current < 700) return;
     setBusy(true);
     try {
       settleRecipe(queryClient, await markCooked(recipe.id, localToday()));
@@ -183,7 +219,7 @@ function Brewing({ recipe }: { recipe: Recipe }) {
     );
   }
 
-  const ingredients = (matched[index] ?? []).map((i) => recipe.ingredients[i]!);
+  const ingredients = (matched[index] ?? []).flatMap((i) => recipe.ingredients[i] ?? []);
 
   return (
     <main {...stylex.props(styles.screen)}>
@@ -191,10 +227,11 @@ function Brewing({ recipe }: { recipe: Recipe }) {
         <Link
           to="/recipes/$id"
           params={{ id: recipe.id }}
-          aria-label={copy.brewing.leave.text}
           {...stylex.props(styles.title, focusRing.ring)}
         >
-          ‹ {recipe.title}
+          <span aria-hidden="true">‹ </span>
+          <span {...stylex.props(styles.srOnly)}>{copy.brewing.leave.text}: </span>
+          {recipe.title}
         </Link>
         <span {...stylex.props(styles.count)}>{copy.brewing.stepOf(index + 1, count).text}</span>
       </header>
@@ -209,7 +246,10 @@ function Brewing({ recipe }: { recipe: Recipe }) {
         <span {...stylex.props(styles.barFill((index + 1) / count))} />
       </div>
 
-      <section aria-live="polite" {...stylex.props(styles.body)}>
+      <p aria-live="polite" {...stylex.props(styles.srOnly)}>
+        {copy.brewing.stepOf(index + 1, count).text}. {step.text}
+      </p>
+      <section {...stylex.props(styles.body)}>
         {step.section ? <p {...stylex.props(styles.section)}>{step.section}</p> : null}
         <StepText text={step.text} />
 
@@ -259,15 +299,21 @@ function Brewing({ recipe }: { recipe: Recipe }) {
             {copy.brewing.previousStep.text}
           </Button>
           {index < count - 1 ? (
-            <Button onClick={() => go(index + 1)}>{copy.brewing.nextStep.text}</Button>
+            <Button key="next" onClick={() => go(index + 1)}>
+              {copy.brewing.nextStep.text}
+            </Button>
           ) : (
-            <Button onClick={() => void brewed()} disabled={busy}>
+            <Button key="brewed" onClick={() => void brewed()} disabled={busy}>
               {copy.brewing.brewed.text}
             </Button>
           )}
         </div>
         <p {...stylex.props(styles.note)}>
-          {wake === false ? copy.brewing.wakeOff.text : copy.brewing.wakeOn.text}
+          {wake === "unsupported"
+            ? copy.brewing.wakeOff.text
+            : wake === "off"
+              ? copy.brewing.wakeRefused.text
+              : copy.brewing.wakeOn.text}
         </p>
         <p {...stylex.props(styles.note, styles.keys)}>{copy.brewing.keys.text}</p>
       </footer>
@@ -468,7 +514,17 @@ const styles = stylex.create({
   },
   otherDone: { borderColor: colors.heat, fontWeight: 600 },
   mono: { fontFamily: fonts.mono },
-  controls: { display: "flex", flexDirection: "column", gap: 10 },
+  // Stays in reach at the bottom of the screen when a step runs long.
+  controls: {
+    position: "sticky",
+    bottom: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    paddingTop: 10,
+    paddingBottom: { default: 0, [phone]: "env(safe-area-inset-bottom)" },
+    backgroundColor: colors.base,
+  },
   buttons: {
     display: "grid",
     gridTemplateColumns: "1fr 2fr",
@@ -476,4 +532,12 @@ const styles = stylex.create({
   },
   note: { margin: 0, textAlign: "center", fontSize: 12, color: colors.overlay1 },
   keys: { display: { default: "block", [phone]: "none" } },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+  },
 });

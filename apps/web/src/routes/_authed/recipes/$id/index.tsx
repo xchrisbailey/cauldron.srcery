@@ -12,7 +12,7 @@ import {
 } from "@cauldron/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Button,
   ButtonLink,
@@ -23,6 +23,7 @@ import {
   useToast,
 } from "../../../../components/ui";
 import { StirRecipeDialog } from "../../../../components/StirIn";
+import { useUnitChoice } from "../../../../lib/units";
 import { focusRing } from "../../../../components/ui/controls";
 import {
   banishRecipe,
@@ -73,31 +74,7 @@ function RecipePage() {
 // Scaling: by servings when the recipe has them, otherwise by a multiplier.
 
 const MULTIPLIERS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
-const UNIT_KEY = "cauldron:units";
-
 const factorLabel = (factor: number) => formatQuantity({ min: factor, max: null }, null);
-
-/** The unit choice is a per-viewer preference, remembered in this browser. */
-function useUnitChoice() {
-  const [units, setUnits] = useState<UnitSystemChoice>("asWritten");
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(UNIT_KEY);
-      if (saved === "metric" || saved === "us" || saved === "asWritten") setUnits(saved);
-    } catch {
-      // Storage is optional.
-    }
-  }, []);
-  const choose = (next: UnitSystemChoice) => {
-    setUnits(next);
-    try {
-      window.localStorage.setItem(UNIT_KEY, next);
-    } catch {
-      // Storage is optional.
-    }
-  };
-  return [units, choose] as const;
-}
 
 const minutes = (value: number) => formatTimer(value * 60);
 
@@ -216,7 +193,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             <ButtonLink
               to="/brew/$id"
               params={{ id: recipe.id }}
-              search={servings !== null ? { servings } : {}}
+              search={servings !== null ? { servings } : multiplier !== 1 ? { multiplier } : {}}
               variant="secondary"
             >
               {copy.recipes.startBrewing.text}

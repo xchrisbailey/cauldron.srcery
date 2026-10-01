@@ -331,6 +331,7 @@ export const brewing = {
   timers: plain("Timers"),
   wakeOn: plain("Screen stays on while you brew"),
   wakeOff: plain("This browser can't keep the screen on, so it may sleep."),
+  wakeRefused: plain("The screen may sleep: the browser wouldn't keep it on just now."),
   keys: plain("Arrow keys move between steps. Space starts or pauses the timer."),
   noSteps: plain("This recipe has no method steps yet. Add some, then start brewing."),
   editRecipe: plain("Edit recipe"),
