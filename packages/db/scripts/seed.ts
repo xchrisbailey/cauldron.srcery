@@ -1,6 +1,7 @@
 // Seeds a demo account with a few recipes: `bun run --cwd packages/db seed`.
 // Uses DATABASE_URL when set, otherwise the API's local PGlite data directory
 // (stop the API first; PGlite allows one process at a time).
+import { mkdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
@@ -26,6 +27,8 @@ const connect = async () => {
   const dataDir =
     process.env.PGLITE_DATA_DIR ??
     new URL("../../../apps/api/.data/pglite", import.meta.url).pathname;
+  // PGlite creates only the last path segment, so make the parents first.
+  mkdirSync(dataDir, { recursive: true });
   const client = await PGlite.create(dataDir);
   const db = drizzlePglite({ client, schema });
   await migratePglite(db, { migrationsFolder });
