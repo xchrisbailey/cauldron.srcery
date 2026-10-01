@@ -9,6 +9,7 @@ export type FailureTag =
   | "TooManyRequests"
   | "Unavailable"
   | "Unauthorized"
+  | "Forbidden"
   | "Network"
   | "Defect";
 
@@ -25,6 +26,7 @@ const API_TAGS: ReadonlyArray<FailureTag> = [
   "TooManyRequests",
   "Unavailable",
   "Unauthorized",
+  "Forbidden",
 ];
 
 // The API's own messages are plain copy, safe to show as they are.

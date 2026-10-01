@@ -1,5 +1,6 @@
 import {
   ConflictError,
+  ForbiddenError,
   InvalidRequestError,
   NotFoundError,
   TooManyRequestsError,
@@ -20,6 +21,7 @@ const invalid = Schema.decodeUnknownSync(InvalidRequestError)(
 const conflict = Schema.decodeUnknownSync(ConflictError)(body("conflict", "Saved already"));
 const unavailable = Schema.decodeUnknownSync(UnavailableError)(body("unavailable", "Not now"));
 const unauthorized = Schema.decodeUnknownSync(UnauthorizedError)(body("unauthorized", "Sign in"));
+const forbidden = Schema.decodeUnknownSync(ForbiddenError)(body("forbidden", "Not yours"));
 const tooMany = Schema.decodeUnknownSync(TooManyRequestsError)({
   error: { code: "too_many_requests", message: "Slow down", retryAfterSeconds: 30 },
 });
@@ -32,6 +34,7 @@ describe("failureOf", () => {
     expect(failureOf(tooMany)).toEqual({ tag: "TooManyRequests", message: "Slow down" });
     expect(failureOf(unavailable).tag).toBe("Unavailable");
     expect(failureOf(unauthorized).tag).toBe("Unauthorized");
+    expect(failureOf(forbidden).tag).toBe("Forbidden");
   });
 
   it("calls a fetch TypeError a network failure", () => {
