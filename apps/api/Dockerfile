@@ -21,6 +21,8 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 # Without DATABASE_URL the API falls back to PGlite. Set DATABASE_URL in any
 # real deployment, or mount a volume at PGLITE_DATA_DIR; an unset data dir is in-memory.
+# Without S3_BUCKET, photos need STORAGE_DIR on a mounted volume, e.g. a volume at
+# /app/apps/api/.data with STORAGE_DIR=/app/apps/api/.data/storage.
 RUN mkdir -p apps/api/.data && chown -R bun:bun apps/api/.data
 USER bun
 WORKDIR /app/apps/api
