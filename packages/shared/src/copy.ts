@@ -381,9 +381,42 @@ export const week = {
   meal: plain("Meal"),
 } as const;
 
+// The Gather list (#19). Gather is voice; aisles, items, amounts and controls are plain.
 export const gather = {
   title: voice("Gather list"),
   empty: voice("Nothing to gather yet. Stir recipes into the week and the list fills itself."),
+  gather: voice("Gather"),
+  aisles: {
+    produce: plain("Produce"),
+    meat: plain("Meat and fish"),
+    dairy: plain("Dairy and eggs"),
+    bakery: plain("Bakery"),
+    pantry: plain("Pantry"),
+    spices: plain("Spices"),
+    frozen: plain("Frozen"),
+    drinks: plain("Drinks"),
+    other: plain("Other"),
+  },
+  addItem: plain("Add an item"),
+  addPlaceholder: plain("2 lemons, oat milk…"),
+  add: plain("Add"),
+  hideChecked: plain("Hide checked"),
+  checked: (n: number, of: number) => plain(`${n} of ${of} gathered`),
+  forRecipes: (titles: string) => plain(`For ${titles}`),
+  addedByHand: plain("Added by you"),
+  inPantry: plain("In the pantry"),
+  markInPantry: (item: string) => plain(`${item} is in the pantry`),
+  remove: (item: string) => plain(`Remove ${item}`),
+  allChecked: voice("Everything's gathered. Time to brew."),
+  summary: (items: number, recipes: number) =>
+    plain(
+      `${items === 1 ? "1 ingredient" : `${items} ingredients`} across ${recipes === 1 ? "1 recipe" : `${recipes} recipes`}.`,
+    ),
+  inPantryCount: (n: number) =>
+    plain(n === 1 ? "1 is already in the pantry." : `${n} are already in the pantry.`),
+  couldntSave: plain("Couldn't save that change. Check your connection and try again."),
+  couldntLoad: plain("Couldn't load the Gather list."),
+  retry: plain("Try again"),
 } as const;
 
 export const nav = {

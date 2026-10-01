@@ -13,6 +13,8 @@ import { Imports } from "../Imports.ts";
 import { ImportsHandlers } from "./Imports.ts";
 import { Plan } from "../Plan.ts";
 import { PlanHandlers } from "./Plan.ts";
+import { Gather } from "../Gather.ts";
+import { GatherHandlers } from "./Gather.ts";
 
 const SystemHandlers = HttpApiBuilder.group(
   Api,
@@ -67,8 +69,16 @@ export const ApiRoutes = Layer.mergeAll(
       PhotosHandlers,
       ImportsHandlers,
       PlanHandlers,
+      GatherHandlers,
     ]),
-    Layer.provide([AuthorizationLive, Recipes.layer, Photos.layer, Imports.layer, Plan.layer]),
+    Layer.provide([
+      AuthorizationLive,
+      Recipes.layer,
+      Photos.layer,
+      Imports.layer,
+      Plan.layer,
+      Gather.layer,
+    ]),
   ),
   Docs,
 );
