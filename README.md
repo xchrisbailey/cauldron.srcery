@@ -51,7 +51,7 @@ API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 | ----------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                                                                  | `3001`                  |                                                                                                                                 |
 | `PUBLIC_URL`                                                            | `http://localhost:3000` | The origin the browser sees. Auth cookies and OAuth redirects use it. Required in production                                    |
-| `BETTER_AUTH_SECRET`                                                    | (required)              | 32+ random characters (enforced in production): `openssl rand -base64 32`                                                       |
+| `BETTER_AUTH_SECRET`                                                    | (required)              | 32+ random characters, enforced in production. Generate with `openssl rand -base64 32`                                          |
 | `DATABASE_URL`                                                          | unset                   | Postgres connection string. Unset means PGlite; required in production                                                          |
 | `TRUST_PROXY`                                                           | `false`                 | Trust the web proxy's `x-client-ip` for rate limits and auth. Set it only when the API is reachable through the web proxy alone |
 | `PGLITE_DATA_DIR`                                                       | in memory               | Where PGlite keeps data                                                                                                         |
@@ -92,7 +92,7 @@ Better Auth runs inside the API on `/v1/auth/*`. The web app uses cookie session
 
 Every `/v1` data route goes through the `Authorization` middleware, which accepts either the session cookie or a bearer token, and rejects cookie-authenticated writes that don't come from `PUBLIC_URL` (a CSRF guard).
 
-**For the iOS app** (and any other non-browser client): sign in with `POST /v1/auth/sign-in/email` (or the social flow) and read the `set-auth-token` response header. Send it as `Authorization: Bearer <token>` on every request. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
+The iOS app, like any client without a browser, signs in with `POST /v1/auth/sign-in/email` (or the social flow) and reads the `set-auth-token` response header. It sends that token as `Authorization: Bearer <token>` on every request. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
 
 ## Containers
 

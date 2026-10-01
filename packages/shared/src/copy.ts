@@ -21,8 +21,8 @@ export const errors = {
   crossSite: plain("That request came from another site, so we didn't run it."),
 } as const;
 
-// Account emails and screens. Account and auth copy stays plain: it's about
-// trust and access, not cooking.
+// Account emails and screens. Account and auth copy stays plain, because it's
+// about trust and access, not cooking.
 export const auth = {
   verifyEmailSubject: plain("Confirm your email for Cauldron"),
   verifyEmailBody: (url: string) =>
@@ -153,7 +153,7 @@ export const editor = {
   notes: plain("Notes"),
   ingredients: plain("Ingredients"),
   ingredientsHint: plain(
-    "One ingredient per line, like “1 1/2 cups flour, sifted”. Paste a whole list to split it. A line like “For the sauce:” starts a section.",
+    'One ingredient per line, like "1 1/2 cups flour, sifted". Paste a whole list to split it. A line like "For the sauce:" starts a section.',
   ),
   ingredientLine: (n: number) => plain(`Ingredient ${n}`),
   heading: (n: number) => plain(`Section heading ${n}`),
@@ -161,7 +161,7 @@ export const editor = {
   addHeading: plain("Add section"),
   steps: plain("Method"),
   stepsHint: plain(
-    "Enter starts a new step and Shift+Enter a new line. Times like “bake 25 minutes” become timers.",
+    'Enter starts a new step and Shift+Enter a new line. Times like "bake 25 minutes" become timers.',
   ),
   step: (n: number) => plain(`Step ${n}`),
   addStep: plain("Add step"),
@@ -172,7 +172,7 @@ export const editor = {
   ),
   moved: (n: number, of: number) => plain(`Moved to position ${n} of ${of}.`),
   fix: plain("Fix"),
-  fixLine: (line: string) => plain(`Fix how “${line}” was read`),
+  fixLine: (line: string) => plain(`Fix how "${line}" was read`),
   resetLine: plain("Read it from the line again"),
   quantity: plain("Quantity"),
   unit: plain("Unit"),
@@ -252,7 +252,7 @@ export const library = {
   summonHelp: plain("Use the arrow keys to choose and Enter to open."),
 } as const;
 
-// Recipe photos (#12). Plain: they're controls and errors.
+// Recipe photos (#12). Plain, since they're controls and errors.
 export const photos = {
   add: plain("Add a photo"),
   replace: plain("Replace photo"),
@@ -314,7 +314,7 @@ export const imports = {
   ),
 } as const;
 
-// Start brewing (#20). The controls stay plain: hands are busy. Brewed is voice.
+// Start brewing (#20). The controls stay plain because hands are busy. Brewed is voice.
 export const brewing = {
   nextStep: plain("Next step"),
   previousStep: plain("Previous step"),
@@ -331,7 +331,7 @@ export const brewing = {
   timers: plain("Timers"),
   wakeOn: plain("Screen stays on while you brew"),
   wakeOff: plain("This browser can't keep the screen on, so it may sleep."),
-  wakeRefused: plain("The screen may sleep: the browser wouldn't keep it on just now."),
+  wakeRefused: plain("The browser wouldn't keep the screen on just now, so it may sleep."),
   keys: plain("Arrow keys move between steps. Space starts or pauses the timer."),
   noSteps: plain("This recipe has no method steps yet. Add some, then start brewing."),
   editRecipe: plain("Edit recipe"),
