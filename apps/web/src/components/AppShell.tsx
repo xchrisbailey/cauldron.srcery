@@ -36,6 +36,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Following a link in the sheet closes it.
   useEffect(() => setMenuOpen(false), [pathname]);
+  // So does widening the window past the phone layout.
+  useEffect(() => {
+    const wide = matchMedia("(min-width: 768px)");
+    const close = () => wide.matches && setMenuOpen(false);
+    wide.addEventListener("change", close);
+    return () => wide.removeEventListener("change", close);
+  }, []);
   useHotkey("Mod+K", () => {
     setMenuOpen(false);
     setSummoning((open) => !open);

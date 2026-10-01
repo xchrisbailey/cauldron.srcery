@@ -10,7 +10,7 @@ import { getSession } from "../../lib/session";
 
 export const Route = createFileRoute("/_public/sign-up")({
   beforeLoad: async () => {
-    if (await getSession()) throw redirect({ to: "/" });
+    if (await getSession()) throw redirect({ to: "/recipes" });
   },
   component: SignUp,
 });
@@ -90,7 +90,7 @@ function SignUp() {
           </form.Subscribe>
         </Stack>
       </form>
-      <SocialSignIn callbackURL="/" />
+      <SocialSignIn callbackURL="/recipes" />
       <TextLink to="/sign-in">{copy.auth.haveAccount.text}</TextLink>
     </AuthCard>
   );

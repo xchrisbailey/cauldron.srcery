@@ -4,6 +4,7 @@ import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { lazy, type ReactNode, Suspense } from "react";
 import { copy } from "@cauldron/shared";
+import { PublicShell } from "../components/PublicShell";
 import { ButtonLink, EmptyState, ToastProvider } from "../components/ui";
 import { themeScript } from "../lib/theme";
 import appCss from "../styles/app.css?url";
@@ -53,12 +54,14 @@ function RootComponent() {
 
 function NotFound() {
   return (
-    <main id="main" {...stylex.props(styles.notFound)}>
-      <EmptyState
-        message={copy.errors.notFound.text}
-        actions={<ButtonLink to="/">{copy.ui.goHome.text}</ButtonLink>}
-      />
-    </main>
+    <PublicShell>
+      <div {...stylex.props(styles.notFound)}>
+        <EmptyState
+          message={copy.errors.notFound.text}
+          actions={<ButtonLink to="/">{copy.ui.goHome.text}</ButtonLink>}
+        />
+      </div>
+    </PublicShell>
   );
 }
 
@@ -88,10 +91,5 @@ const styles = stylex.create({
     lineHeight: type.bodyLeading,
     WebkitFontSmoothing: "antialiased",
   },
-  notFound: {
-    maxWidth: 720,
-    marginInline: "auto",
-    paddingBlock: 48,
-    paddingInline: 16,
-  },
+  notFound: { width: "100%", maxWidth: 720 },
 });

@@ -1,6 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy } from "@cauldron/shared";
-import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { colors } from "../../styles/tokens.stylex";
 import { IconButton } from "./Button";
 
@@ -24,15 +32,26 @@ const LIFETIME_MS = 5000;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ReadonlyArray<Toast>>([]);
   const next = useRef(0);
-  const dismiss = useCallback(
-    (id: number) => setToasts((all) => all.filter((t) => t.id !== id)),
-    [],
-  );
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach(clearTimeout);
+  }, []);
+  const dismiss = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    setToasts((all) => all.filter((t) => t.id !== id));
+  }, []);
   const show = useCallback(
     (message: string, tone: Tone = "info") => {
       const id = next.current++;
       setToasts((all) => [...all, { id, message, tone }]);
-      setTimeout(() => dismiss(id), LIFETIME_MS);
+      // Errors stay until dismissed, so there's time to read and act on them.
+      if (tone === "info")
+        timers.current.set(
+          id,
+          setTimeout(() => dismiss(id), LIFETIME_MS),
+        );
     },
     [dismiss],
   );

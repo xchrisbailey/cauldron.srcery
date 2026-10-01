@@ -5,7 +5,8 @@ import { colors } from "../../styles/tokens.stylex";
 import { IconButton } from "./Button";
 
 // Modal surfaces on the native <dialog>, which brings the focus trap, Escape to
-// close, inert background and focus return for free. Mark the element that
+// close, inert background and focus return for free. Every close goes
+// through the native close event, so `onClose` runs once per close. Mark the element that
 // should take focus on open with `data-autofocus`. Both are controlled:
 // the parent owns `open` and hears about every close through `onClose`.
 
@@ -44,16 +45,16 @@ function Modal({
       aria-labelledby={titleId}
       onClose={onClose}
       // A click on the dialog element itself is a click on the backdrop.
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && ref.current?.close()}
       {...stylex.props(styles.dialog, surface === "sheet" ? styles.sheet : styles.centered)}
     >
-      <div {...stylex.props(styles.inner)}>
-        <div {...stylex.props(styles.head)}>
+      <div {...stylex.props(styles.inner, surface === "sheet" && styles.innerSheet)}>
+        <div {...stylex.props(styles.head, surface === "sheet" && styles.headSheet)}>
           <h2 id={titleId} {...stylex.props(styles.title, hideTitle && styles.srOnly)}>
             {title}
           </h2>
           <span {...stylex.props(styles.close)}>
-            <IconButton label={copy.ui.close.text} onClick={onClose}>
+            <IconButton label={copy.ui.close.text} onClick={() => ref.current?.close()}>
               <CloseGlyph />
             </IconButton>
           </span>
@@ -130,6 +131,9 @@ const styles = stylex.create({
     animationTimingFunction: "ease-out",
   },
   inner: { display: "flex", flexDirection: "column", gap: 16, padding: 16, height: "100%" },
+  // The sheet's content (the sidebar) brings its own padding.
+  innerSheet: { padding: 0, gap: 0 },
+  headSheet: { paddingTop: 12, paddingInline: 12 },
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
   title: { margin: 0, fontSize: 17, fontWeight: 650 },
   // Stays on the right even when the title is visually hidden.
