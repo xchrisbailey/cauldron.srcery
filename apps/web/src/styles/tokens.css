@@ -78,7 +78,7 @@
   color-scheme: light;
 }
 
-/* Paper is light: print in Latte whatever the screen theme. */
+/* Paper is light: print in Latte whatever the screen theme. Keep in step with the Latte block above. */
 @media print {
   :root,
   :root[data-theme] {

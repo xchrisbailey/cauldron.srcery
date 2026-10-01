@@ -103,7 +103,7 @@ export const recipes = {
   /** "Banish" is the voice; the rest is the literal, plain confirmation. */
   banishConfirm: (title: string) => ({
     verb: voice("Banish"),
-    confirm: plain(`Banish ${title}? You can undo it from the note that follows.`),
+    confirm: plain(`Banish ${title}? You can undo it straight after.`),
   }),
   /** Title of a duplicated recipe. */
   copyOf: (title: string) => plain(`${title} (copy)`),
@@ -196,7 +196,6 @@ export const recipeView = {
   ingredients: plain("Ingredients"),
   method: plain("Method"),
   checked: (n: number, of: number) => plain(`${n} of ${of}`),
-  checkIngredient: (line: string) => plain(`Got ${line}`),
   serves: (n: number) => plain(`serves ${n}`),
   scale: (factor: string) => plain(`×${factor}`),
   fewer: plain("Fewer servings"),

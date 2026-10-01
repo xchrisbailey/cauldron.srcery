@@ -111,8 +111,10 @@ export type UnitSystemChoice = "asWritten" | "metric" | "us";
 
 /**
  * An ingredient amount scaled by `factor` and shown in `system`. Volumes and
- * masses convert within their dimension (never cups to grams); counts and
- * pinches stay as written.
+ * masses convert within their dimension (never cups to grams); counts stay as
+ * written. Amounts below a pinch read "pinch" in every system. Grams and
+ * millilitres that were scaled or converted round to what a scale or jug
+ * shows, stepping up to kg or l from 1000.
  */
 export function displayMeasure(
   quantity: Quantity,
@@ -121,14 +123,34 @@ export function displayMeasure(
   system: UnitSystemChoice,
 ): MeasureParts {
   const scaled = scaleQuantity(quantity, factor);
-  if (unit === null || system === "asWritten") return measureParts(scaled, unit);
-  const target = convertForDisplay(scaled.max ?? scaled.min, unit, system).unit;
-  if (target === unit) return measureParts(scaled, unit);
-  const ratio = UNITS[unit].factor / UNITS[target].factor;
-  // Converted grams and millilitres round to what a scale or jug shows.
-  const nice = target === "g" || target === "ml" ? roundMetric : (value: number) => value;
+  if (unit === null) return measureParts(scaled, null);
+  const def = UNITS[unit];
+  const top = scaled.max ?? scaled.min;
+  if (
+    def.dimension === "volume" &&
+    unit !== "pinch" &&
+    unit !== "dash" &&
+    top * def.factor < PINCH_ML
+  ) {
+    return { amount: quantities.pinch.text, unit: null };
+  }
+  const target = system === "asWritten" ? unit : convertForDisplay(top, unit, system).unit;
+  const metric = UNITS[target].system === "metric";
+  if (target === unit && !(metric && factor !== 1)) return measureParts(scaled, unit);
+  if (metric) {
+    // Through grams or millilitres (factor 1), rounded, then kg or l when large.
+    const [small, large] =
+      def.dimension === "volume" ? (["ml", "l"] as const) : (["g", "kg"] as const);
+    const min = roundMetric(scaled.min * def.factor);
+    const max = scaled.max === null ? null : roundMetric(scaled.max * def.factor);
+    if ((max ?? min) >= 1000) {
+      return measureParts({ min: min / 1000, max: max === null ? null : max / 1000 }, large);
+    }
+    return measureParts({ min, max }, small);
+  }
+  const ratio = def.factor / UNITS[target].factor;
   return measureParts(
-    { min: nice(scaled.min * ratio), max: scaled.max === null ? null : nice(scaled.max * ratio) },
+    { min: scaled.min * ratio, max: scaled.max === null ? null : scaled.max * ratio },
     target,
   );
 }

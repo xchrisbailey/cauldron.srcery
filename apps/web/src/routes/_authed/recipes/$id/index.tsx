@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import {
   copy,
   displayMeasure,
+  formatQuantity,
   formatTimer,
   type Ingredient,
   type Recipe,
@@ -72,8 +73,7 @@ function RecipePage() {
 const MULTIPLIERS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 const UNIT_KEY = "cauldron:units";
 
-const factorLabel = (factor: number) =>
-  factor === 0.25 ? "¼" : factor === 0.5 ? "½" : factor === 1.5 ? "1½" : String(factor);
+const factorLabel = (factor: number) => formatQuantity({ min: factor, max: null }, null);
 
 /** The unit choice is a per-viewer preference, remembered in this browser. */
 function useUnitChoice() {
@@ -160,9 +160,11 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
   const banish = () =>
     run(async () => {
       setConfirmingBanish(false);
-      settleRecipe(queryClient, await banishRecipe(recipe.id));
-      // A banished recipe reads as not found, so drop it rather than show it stale.
+      await banishRecipe(recipe.id);
+      // A banished recipe reads as not found: drop it, and refresh lists and tags.
       queryClient.removeQueries({ queryKey: recipeQuery(recipe.id).queryKey });
+      void queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      void queryClient.invalidateQueries({ queryKey: ["tags"] });
       await navigate({ to: "/recipes" });
       toast(copy.recipeView.banished(recipe.title).text, "info", {
         label: copy.recipeView.undo.text,
@@ -236,6 +238,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           <button
             type="button"
             aria-label={copy.recipeView.fewer.text}
+            disabled={servings !== null ? servings <= 1 : multiplier <= MULTIPLIERS[0]!}
             onClick={() => step(-1)}
             data-print="hide"
             {...stylex.props(styles.stepButton, focusRing.ring)}
@@ -250,6 +253,11 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           <button
             type="button"
             aria-label={copy.recipeView.more.text}
+            disabled={
+              servings !== null
+                ? servings >= 1000
+                : multiplier >= MULTIPLIERS[MULTIPLIERS.length - 1]!
+            }
             onClick={() => step(1)}
             data-print="hide"
             {...stylex.props(styles.stepButton, focusRing.ring)}
@@ -340,7 +348,8 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           <h2 id="method-title" {...stylex.props(styles.label)}>
             {copy.recipeView.method.text}
           </h2>
-          <ol {...stylex.props(styles.steps)}>
+          {/* role keeps list semantics in Safari, where list-style: none drops them. */}
+          <ol role="list" {...stylex.props(styles.steps)}>
             {recipe.steps.map((s, index) => (
               <li key={index} {...stylex.props(styles.step)}>
                 <span aria-hidden="true" {...stylex.props(styles.stepNumber)}>
@@ -423,7 +432,6 @@ function IngredientLine({
             type="checkbox"
             checked={done}
             onChange={onToggle}
-            aria-label={copy.recipeView.checkIngredient(line.original).text}
             {...stylex.props(styles.check)}
           />
           <span {...stylex.props(styles.amount)}>
@@ -498,13 +506,14 @@ const styles = stylex.create({
   },
   stepButton: {
     width: { default: 32, [phone]: 44 },
-    height: { default: 30, [phone]: 40 },
+    height: { default: 30, [phone]: 44 },
+    opacity: { default: 1, ":disabled": 0.4 },
+    cursor: { default: "pointer", ":disabled": "default" },
     borderWidth: 0,
     backgroundColor: { default: "transparent", ":hover": colors.surface0 },
     color: colors.ink,
     fontFamily: fonts.mono,
     fontSize: 16,
-    cursor: "pointer",
   },
   stepValue: {
     paddingInline: 8,
@@ -573,6 +582,7 @@ const styles = stylex.create({
     borderRadius: 8,
   },
   unitOption: {
+    position: "relative",
     paddingBlock: { default: 3, [phone]: 8 },
     paddingInline: 10,
     borderRadius: 6,
@@ -592,7 +602,7 @@ const styles = stylex.create({
   },
   line: {
     display: "grid",
-    gridTemplateColumns: "18px 76px minmax(0, 1fr)",
+    gridTemplateColumns: "18px minmax(76px, max-content) minmax(0, 1fr)",
     alignItems: "baseline",
     gap: 10,
     paddingBlock: { default: 7, [phone]: 10 },

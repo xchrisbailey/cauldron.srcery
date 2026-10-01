@@ -55,12 +55,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, tone: Tone = "info", action?: ToastAction) => {
       const id = next.current++;
       setToasts((all) => [...all, { id, message, tone, action }]);
-      // Errors stay until dismissed, so there's time to read and act on them.
-      if (tone === "info")
+      // Errors and toasts with an action (Undo) stay until dismissed, so
+      // there's time to read them and reach the button from the keyboard.
+      if (tone === "info" && !action)
         timers.current.set(
           id,
-          // An action gets longer, so there's time to reach Undo.
-          setTimeout(() => dismiss(id), action ? LIFETIME_MS * 2 : LIFETIME_MS),
+          setTimeout(() => dismiss(id), LIFETIME_MS),
         );
     },
     [dismiss],
