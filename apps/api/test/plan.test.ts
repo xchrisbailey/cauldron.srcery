@@ -1,4 +1,10 @@
-import { addDays, parseIngredientLine, PLAN_LIMITS, type RecipeInput } from "@cauldron/shared";
+import {
+  copy,
+  addDays,
+  parseIngredientLine,
+  PLAN_LIMITS,
+  type RecipeInput,
+} from "@cauldron/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { type AuthApi, cookieOf, makeAuthApi } from "./auth-helpers.ts";
 import { WEB_ORIGIN } from "./helpers.ts";
@@ -409,6 +415,7 @@ describe("plan", () => {
       title: "one more",
     });
     expect(over.status).toBe(400);
+    expect(over.body.error.message).toBe(copy.week.slotFull.text);
     expect(await slotOf(ada, day, "snack")).toHaveLength(PLAN_LIMITS.perSlot);
     // Moving into a full slot is refused too; another slot is fine.
     const dinner = await free(ada, day, "dinner", "mover");
@@ -418,5 +425,36 @@ describe("plan", () => {
     // Within the full slot, reordering still works.
     const first = (await slotOf(ada, day, "snack"))[0];
     expect((await call(ada, "PATCH", `/v1/plan/${first.id}`, { position: 5 })).status).toBe(200);
+  });
+
+  it("adds an entry once when the client retries with the same id", async () => {
+    const id = crypto.randomUUID();
+    const day = "2026-11-02";
+    const first = await addEntry(ada, { id, date: day, slot: "lunch", title: "Soup" });
+    expect(first.id).toBe(id);
+    const again = await addEntry(ada, { id, date: day, slot: "lunch", title: "Soup" });
+    expect(again).toEqual(first);
+    expect(await slotOf(ada, day, "lunch")).toHaveLength(1);
+    // Another user can't claim or read it by reusing the id.
+    const theirs = await call(bob, "POST", "/v1/plan", {
+      id,
+      date: day,
+      slot: "lunch",
+      title: "x",
+    });
+    expect(theirs.status).toBe(400);
+  });
+
+  it("renames the entry of a banished recipe like free text", async () => {
+    const recipe = await create(ada, { title: "Short-lived stew" });
+    const planned = await addEntry(ada, {
+      date: "2026-11-03",
+      slot: "dinner",
+      recipeId: recipe.id,
+    });
+    expect((await call(ada, "DELETE", `/v1/recipes/${recipe.id}`)).status).toBe(200);
+    const renamed = await call(ada, "PATCH", `/v1/plan/${planned.id}`, { title: "Takeaway" });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.title).toBe("Takeaway");
   });
 });

@@ -6,9 +6,13 @@ import {
   isRealDate,
   MEAL_SLOTS,
   type MealSlot,
+  PLAN_LIMITS,
   type PlanEntry,
+  type PlanEntryUpdate,
+  type RecipeId,
   startOfWeek,
   weekDays,
+  type WeekStartDay,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -35,6 +39,10 @@ import {
   isPending,
   planKeys,
   settlePlan,
+  dropAt,
+  dropMove,
+  planMutationKey,
+  savedWeekStartDay,
   useWeekStartDay,
   weekQuery,
 } from "../../lib/plan";
@@ -55,14 +63,42 @@ export const Route = createFileRoute("/_authed/week")({
 const RECIPE_TYPE = "application/x-cauldron-recipe";
 const ENTRY_TYPE = "application/x-cauldron-entry";
 
+/** A recipe dragged in from the panel. Anything else with the same type is ignored. */
+const readRecipe = (data: string): StirRecipe | null => {
+  if (data === "") return null;
+  try {
+    const value: unknown = JSON.parse(data);
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "id" in value &&
+      "title" in value &&
+      typeof value.id === "string" &&
+      typeof value.title === "string"
+    ) {
+      const v = value as Partial<StirRecipe>;
+      return {
+        id: v.id!,
+        title: v.title!,
+        servings: typeof v.servings === "number" ? v.servings : null,
+        totalMinutes: typeof v.totalMinutes === "number" ? v.totalMinutes : null,
+      };
+    }
+  } catch {
+    // Not ours.
+  }
+  return null;
+};
+
 type Target = { date: string; slot: MealSlot };
 
 function Week() {
-  // Today is the viewer's own day, so it's only known in the browser.
-  const [today, setToday] = useState<string | null>(null);
-  useEffect(() => setToday(localToday()), []);
-  if (today === null) return <WeekSkeleton />;
-  return <Planner today={today} />;
+  // Today and the first day of the week are the viewer's own, so they're only
+  // known in the browser.
+  const [viewer, setViewer] = useState<{ today: string; startsOn: WeekStartDay } | null>(null);
+  useEffect(() => setViewer({ today: localToday(), startsOn: savedWeekStartDay() }), []);
+  if (viewer === null) return <WeekSkeleton />;
+  return <Planner today={viewer.today} initialStartsOn={viewer.startsOn} />;
 }
 
 function WeekSkeleton() {
@@ -74,17 +110,17 @@ function WeekSkeleton() {
   );
 }
 
-function Planner({ today }: { today: string }) {
+function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: WeekStartDay }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [startsOn, setStartsOn] = useWeekStartDay();
+  const [startsOn, setStartsOn] = useWeekStartDay(initialStartsOn);
   const start = startOfWeek(search.week ?? today, startsOn);
   const thisWeek = startOfWeek(today, startsOn);
   const days = weekDays(start);
   const week = useQuery(weekQuery(start));
-  const writes = usePlanWrites(start, startsOn);
+  const writes = usePlanWrites(startsOn);
 
   const [picking, setPicking] = useState<Target | null>(null);
   const [editing, setEditing] = useState<PlanEntry | null>(null);
@@ -101,7 +137,9 @@ function Planner({ today }: { today: string }) {
     void navigate({ search: weekStart === thisWeek ? {} : { week: weekStart } });
 
   const copyLast = useMutation({
+    mutationKey: planMutationKey,
     mutationFn: () => copyWeek(addDays(start, -7), start),
+    onMutate: () => queryClient.cancelQueries({ queryKey: planKeys.week(start) }),
     onSuccess: (entries) => {
       queryClient.setQueryData(planKeys.week(start), entries);
       toast(
@@ -115,9 +153,11 @@ function Planner({ today }: { today: string }) {
   });
 
   const clear = useMutation({
+    mutationKey: planMutationKey,
     mutationFn: () => clearWeek(start),
-    onMutate: () => {
+    onMutate: async () => {
       setClearing(false);
+      await queryClient.cancelQueries({ queryKey: planKeys.week(start) });
       queryClient.setQueryData(planKeys.week(start), []);
     },
     onSuccess: () => toast(copy.week.cleared.text),
@@ -126,20 +166,20 @@ function Planner({ today }: { today: string }) {
   });
 
   const stir = (target: Target, recipe: StirRecipe, position?: number) =>
-    writes.add.mutate({
-      input: {
+    writes.stir(
+      {
         date: target.date,
         slot: target.slot,
-        recipeId: recipe.id as never,
+        recipeId: recipe.id as RecipeId,
         ...(position === undefined ? {} : { position }),
       },
       recipe,
-    });
+    );
 
   const pick = (choice: { recipe: StirRecipe } | { title: string }) => {
     if (!picking) return;
     if ("recipe" in choice) stir(picking, choice.recipe);
-    else writes.add.mutate({ input: { ...picking, title: choice.title }, recipe: null });
+    else writes.stir({ ...picking, title: choice.title }, null);
     setPicking(null);
   };
 
@@ -149,21 +189,16 @@ function Planner({ today }: { today: string }) {
   const drop = (e: DragEvent, target: Target, before?: PlanEntry) => {
     e.preventDefault();
     e.stopPropagation();
-    const recipe = e.dataTransfer.getData(RECIPE_TYPE);
-    const entryId = e.dataTransfer.getData(ENTRY_TYPE);
-    const siblings = inSlot(entries, target.date, target.slot).filter((s) => s.id !== entryId);
-    const index = before ? siblings.findIndex((s) => s.id === before.id) : -1;
-    const position = index === -1 ? undefined : index;
+    const recipe = readRecipe(e.dataTransfer.getData(RECIPE_TYPE));
     if (recipe) {
-      stir(target, JSON.parse(recipe) as StirRecipe, position);
+      stir(target, recipe, dropAt(entries, target, before?.id));
       return;
     }
+    const entryId = e.dataTransfer.getData(ENTRY_TYPE);
     const moving = entries.find((s) => s.id === entryId);
     if (!moving || isPending(moving)) return;
-    writes.update.mutate({
-      entry: moving,
-      update: { date: target.date, slot: target.slot, position: position ?? siblings.length },
-    });
+    const update = dropMove(entries, entryId, target, before?.id);
+    if (update) writes.update.mutate({ entry: moving, update });
   };
 
   const slotProps = (target: Target) => ({
@@ -246,19 +281,23 @@ function Planner({ today }: { today: string }) {
           ) : null}
 
           <div {...stylex.props(styles.desk)}>
-            <div {...stylex.props(styles.grid)} role="grid" aria-label={weekRangeLabel(start)}>
+            <div {...stylex.props(styles.grid)} role="table" aria-label={weekRangeLabel(start)}>
               <div role="row" {...stylex.props(styles.row)}>
                 <span role="columnheader" />
                 {days.map((day) => (
                   <span
                     key={day}
                     role="columnheader"
+                    aria-current={day === today ? "date" : undefined}
                     {...stylex.props(styles.dayHead, day === today && styles.dayToday)}
                   >
                     {weekdayName(day, "short")}{" "}
                     <span {...stylex.props(styles.dayNumber, day === today && styles.dayToday)}>
                       {dayOfMonth(day)}
                     </span>
+                    {day === today ? (
+                      <span {...stylex.props(styles.srOnly)}> ({copy.week.today.text})</span>
+                    ) : null}
                   </span>
                 ))}
               </div>
@@ -270,7 +309,7 @@ function Planner({ today }: { today: string }) {
                   {days.map((date) => (
                     <div
                       key={date}
-                      role="gridcell"
+                      role="cell"
                       {...slotProps({ date, slot })}
                       {...stylex.props(styles.cell)}
                     >
@@ -300,13 +339,14 @@ function Planner({ today }: { today: string }) {
           </div>
 
           <div {...stylex.props(styles.phone)}>
-            <div role="tablist" aria-label={copy.week.days.text} {...stylex.props(styles.dayTabs)}>
+            <div role="group" aria-label={copy.week.days.text} {...stylex.props(styles.dayTabs)}>
               {days.map((day) => (
                 <button
                   key={day}
                   type="button"
-                  role="tab"
-                  aria-selected={day === selectedDay}
+                  aria-pressed={day === selectedDay}
+                  aria-current={day === today ? "date" : undefined}
+                  aria-label={dayLabel(day, "long")}
                   onClick={() => setPhoneDay(day)}
                   {...stylex.props(
                     styles.dayTab,
@@ -323,7 +363,7 @@ function Planner({ today }: { today: string }) {
             <h2 {...stylex.props(styles.dayTitle, selectedDay === today && styles.dayToday)}>
               {weekdayName(selectedDay, "long")}
             </h2>
-            <div role="tabpanel" {...stylex.props(styles.dayList)}>
+            <div {...stylex.props(styles.dayList)}>
               {MEAL_SLOTS.map((slot) => (
                 <section key={slot} {...stylex.props(styles.daySlot)}>
                   <div {...stylex.props(styles.daySlotHead)}>
@@ -363,7 +403,8 @@ function Planner({ today }: { today: string }) {
       <PickMealDialog target={picking} onClose={() => setPicking(null)} onPick={pick} />
       <EntryDialog
         entry={editing}
-        days={days}
+        days={Array.from({ length: 21 }, (_, i) => addDays(start, i - 7))}
+        slotSize={editing ? inSlot(entries, editing.date, editing.slot).length : 0}
         onClose={() => setEditing(null)}
         onSave={(entry, update) => {
           setEditing(null);
@@ -407,7 +448,7 @@ function EntryCard({
   const minutes = entry.recipe?.totalMinutes ?? null;
   const servings = entry.servings ?? entry.recipe?.servings ?? null;
   const detail = entry.brewed
-    ? `✓ ${copy.week.brewed.text}`
+    ? copy.week.brewed.text
     : entry.recipe === null
       ? null
       : [
@@ -416,9 +457,9 @@ function EntryCard({
         ]
           .filter(Boolean)
           .join(" · ") || null;
+  // Firefox won't start a drag from a <button>, so the wrapper is what drags.
   return (
-    <button
-      type="button"
+    <div
       draggable={!isPending(entry)}
       onDragStart={(e) => {
         e.dataTransfer.setData(ENTRY_TYPE, entry.id);
@@ -433,20 +474,24 @@ function EntryCard({
         }
       }}
       onDrop={onDrop}
-      onClick={onOpen}
-      aria-label={copy.week.edit(entry.recipe?.title ?? entry.title).text}
-      {...stylex.props(
-        styles.entry,
-        entry.recipe === null && styles.entryText,
-        today && styles.entryToday,
-        past && styles.past,
-        isPending(entry) && styles.pending,
-        focusRing.ring,
-      )}
+      {...stylex.props(styles.entryWrap)}
     >
-      <span {...stylex.props(styles.entryTitle)}>{entry.recipe?.title ?? entry.title}</span>
-      {detail ? <span {...stylex.props(styles.entryDetail)}>{detail}</span> : null}
-    </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        {...stylex.props(
+          styles.entry,
+          entry.recipe === null && styles.entryText,
+          today && styles.entryToday,
+          past && styles.past,
+          isPending(entry) && styles.pending,
+          focusRing.ring,
+        )}
+      >
+        <span>{entry.recipe?.title ?? entry.title}</span>
+        {detail ? <span {...stylex.props(styles.entryDetail)}>{detail}</span> : null}
+      </button>
+    </div>
   );
 }
 
@@ -490,17 +535,18 @@ function RecipePanel() {
 function EntryDialog({
   entry,
   days,
+  slotSize,
   onClose,
   onSave,
   onRemove,
 }: {
   entry: PlanEntry | null;
+  /** Days it can move to: this week and the weeks either side. */
   days: ReadonlyArray<string>;
+  /** Meals in the entry's slot, for moving it up or down. */
+  slotSize: number;
   onClose: () => void;
-  onSave: (
-    entry: PlanEntry,
-    update: Parameters<ReturnType<typeof usePlanWrites>["update"]["mutate"]>[0]["update"],
-  ) => void;
+  onSave: (entry: PlanEntry, update: PlanEntryUpdate) => void;
   onRemove: (entry: PlanEntry) => void;
 }) {
   const [date, setDate] = useState("");
@@ -532,6 +578,8 @@ function EntryDialog({
   const name = entry ? (entry.recipe?.title ?? entry.title) : "";
   const recipeServings = entry?.recipe?.servings ?? null;
   const choices = Array.from({ length: 24 }, (_, i) => i + 1);
+  /** Reorder within the slot: the keyboard and phone way to do what dragging does. */
+  const shift = (by: -1 | 1) => entry && onSave(entry, { position: entry.position + by });
 
   return (
     <Dialog open={entry !== null} onClose={onClose} title={name}>
@@ -539,9 +587,9 @@ function EntryDialog({
         <form onSubmit={save} {...stylex.props(styles.form)}>
           {entry.recipe === null ? (
             <Input
-              label={copy.week.orWrite.text}
+              label={copy.week.meal.text}
               value={title}
-              maxLength={200}
+              maxLength={PLAN_LIMITS.title}
               onChange={(e) => setTitle(e.target.value)}
             />
           ) : (
@@ -582,6 +630,20 @@ function EntryDialog({
               ))}
             </Select>
           </div>
+          {slotSize > 1 ? (
+            <div {...stylex.props(styles.reorder)}>
+              <Button variant="secondary" onClick={() => shift(-1)} disabled={entry.position === 0}>
+                {copy.week.moveUp.text}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => shift(1)}
+                disabled={entry.position >= slotSize - 1}
+              >
+                {copy.week.moveDown.text}
+              </Button>
+            </div>
+          ) : null}
           <div {...stylex.props(styles.dialogActions)}>
             {entry.recipe ? (
               <Link
@@ -676,7 +738,15 @@ const styles = stylex.create({
   },
   entryText: { backgroundColor: "transparent", borderStyle: "dashed", color: colors.subtext },
   entryToday: { borderColor: `color-mix(in srgb, ${colors.heat} 55%, transparent)` },
-  entryTitle: {},
+  entryWrap: { display: "flex", flexDirection: "column" },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+  },
   entryDetail: { fontFamily: fonts.mono, fontSize: 11, fontWeight: 400, color: colors.overlay1 },
   past: { opacity: 0.55 },
   pending: { opacity: 0.6, cursor: "progress" },
@@ -772,6 +842,7 @@ const styles = stylex.create({
     gap: 8,
   },
   form: { display: "flex", flexDirection: "column", gap: 14 },
+  reorder: { display: "flex", gap: 8 },
   formRow: {
     display: "grid",
     gridTemplateColumns: { default: "1fr 1fr", [phone]: "1fr" },

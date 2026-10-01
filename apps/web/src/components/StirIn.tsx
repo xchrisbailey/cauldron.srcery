@@ -4,6 +4,7 @@ import {
   copy,
   formatTimer,
   MEAL_SLOTS,
+  PLAN_LIMITS,
   type MealSlot,
   type PlanEntryInput,
   type RecipeId,
@@ -113,7 +114,7 @@ export function PickMealDialog({
           <Input
             label={copy.week.orWrite.text}
             placeholder={copy.week.writePlaceholder.text}
-            maxLength={200}
+            maxLength={PLAN_LIMITS.title}
             value={meal}
             onChange={(e) => setMeal(e.target.value)}
           />

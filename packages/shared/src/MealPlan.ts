@@ -74,6 +74,11 @@ export type PlanRangeQuery = typeof PlanRangeQuery.Type;
 
 /** Stir a recipe in (with `recipeId`), or add a free-text meal (with `title`). */
 export const PlanEntryInput = Schema.Struct({
+  /**
+   * An id chosen by the client, so a retried request can't add the meal twice:
+   * adding an id that's already planned returns that entry.
+   */
+  id: Schema.optionalKey(PlanEntryId),
   date: LocalDate,
   slot: MealSlot,
   recipeId: Schema.optionalKey(Schema.NullOr(RecipeId)),

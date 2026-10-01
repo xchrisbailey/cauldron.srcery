@@ -10,7 +10,7 @@ import {
   type WeekStartDay,
 } from "@cauldron/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { callApi } from "./api";
 
 // The week for TanStack Query. Writes update the cached week straight away
@@ -114,7 +114,14 @@ export function applyRemove(entries: ReadonlyArray<PlanEntry>, id: string) {
   );
 }
 
-/** A placeholder for an entry the API hasn't confirmed yet. */
+/** Entries added optimistically that the API hasn't confirmed yet. */
+const pendingIds = new Set<string>();
+
+/**
+ * A placeholder for an entry the API hasn't confirmed yet. It carries the id
+ * the client sends with the add, so a retry can't plan the meal twice and the
+ * placeholder turns into the real entry in place.
+ */
 export const pendingEntry = (
   input: PlanEntryInput,
   recipe: {
@@ -124,46 +131,70 @@ export const pendingEntry = (
     totalMinutes: number | null;
   } | null,
   position: number,
-): PlanEntry => ({
-  id: `pending-${Math.random().toString(36).slice(2)}` as PlanEntryId,
-  date: input.date,
-  slot: input.slot,
-  title: recipe?.title ?? input.title ?? "",
-  recipe: recipe
-    ? {
-        id: recipe.id as RecipeId,
-        title: recipe.title,
-        servings: recipe.servings,
-        totalMinutes: recipe.totalMinutes,
-        photoKey: null,
-      }
-    : null,
-  servings: input.servings ?? null,
-  position,
-  brewed: false,
-});
+): PlanEntry => {
+  const id = input.id ?? (crypto.randomUUID() as PlanEntryId);
+  pendingIds.add(id);
+  return {
+    id,
+    date: input.date,
+    slot: input.slot,
+    title: recipe?.title ?? input.title ?? "",
+    recipe: recipe
+      ? {
+          id: recipe.id as RecipeId,
+          title: recipe.title,
+          servings: recipe.servings,
+          totalMinutes: recipe.totalMinutes,
+          photoKey: null,
+        }
+      : null,
+    servings: input.servings ?? null,
+    position,
+    brewed: false,
+  };
+};
 
-export const isPending = (entry: PlanEntry) => entry.id.startsWith("pending-");
+export const isPending = (entry: PlanEntry) => pendingIds.has(entry.id);
 
-/** After any plan write: refetch the week and anything built from it. */
+/** The add for `id` has settled, one way or the other. */
+export const confirmPending = (id: string) => pendingIds.delete(id);
+
+/** The week with `entry` inserted at its position in its slot, which is renumbered. */
+export function applyAdd(entries: ReadonlyArray<PlanEntry>, entry: PlanEntry) {
+  const siblings = inSlot(entries, entry.date, entry.slot).map((e): string => e.id);
+  const order = siblings.toSpliced(Math.min(entry.position, siblings.length), 0, entry.id);
+  return sorted(renumber([...entries, entry], entry.date, entry.slot, order));
+}
+
+/** Plan writes share a key, so the week is only refetched once the last one settles. */
+export const planMutationKey = ["plan"] as const;
+
+/**
+ * After a plan write: refetch the week and anything built from it. Called from
+ * a mutation's onSettled (while it still counts as running), it waits for the
+ * last write in flight, so a refetch can't briefly undo a later optimistic edit.
+ */
 export const settlePlan = (queryClient: QueryClient) => {
+  if (queryClient.isMutating({ mutationKey: planMutationKey }) > 1) return;
   void queryClient.invalidateQueries({ queryKey: planKeys.all });
   void queryClient.invalidateQueries({ queryKey: ["gather"] });
 };
 
 const WEEK_START_KEY = "cauldron:week-start";
 
+/** The saved first day of the week (Monday unless the viewer chose Sunday). Browser only. */
+export const savedWeekStartDay = (): WeekStartDay => {
+  try {
+    return window.localStorage.getItem(WEEK_START_KEY) === "0" ? 0 : 1;
+  } catch {
+    // Storage is optional.
+    return 1;
+  }
+};
+
 /** Monday or Sunday, a per-viewer preference remembered in this browser. */
-export function useWeekStartDay() {
-  const [day, setDay] = useState<WeekStartDay>(1);
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(WEEK_START_KEY);
-      if (saved === "0" || saved === "1") setDay(Number(saved) as WeekStartDay);
-    } catch {
-      // Storage is optional.
-    }
-  }, []);
+export function useWeekStartDay(initial: WeekStartDay) {
+  const [day, setDay] = useState<WeekStartDay>(initial);
   const choose = (next: WeekStartDay) => {
     setDay(next);
     try {
@@ -173,4 +204,36 @@ export function useWeekStartDay() {
     }
   };
   return [day, choose] as const;
+}
+
+/**
+ * Where a meal dragged onto a slot lands: before `beforeId` when it was dropped
+ * on another meal, otherwise at the end. Null when nothing would change, such
+ * as a meal dropped on itself or back where it was.
+ */
+export function dropMove(
+  entries: ReadonlyArray<PlanEntry>,
+  movingId: string,
+  target: { date: string; slot: MealSlot },
+  beforeId?: string,
+): PlanEntryUpdate | null {
+  const moving = entries.find((e) => e.id === movingId);
+  if (!moving || beforeId === movingId) return null;
+  const siblings = inSlot(entries, target.date, target.slot).filter((e) => e.id !== movingId);
+  const index = beforeId === undefined ? -1 : siblings.findIndex((e) => e.id === beforeId);
+  const position = index === -1 ? siblings.length : index;
+  const stays = moving.date === target.date && moving.slot === target.slot;
+  if (stays && position === inSlot(entries, target.date, target.slot).indexOf(moving)) return null;
+  return { date: target.date, slot: target.slot, position };
+}
+
+/** Where a recipe dropped on a slot goes: before `beforeId`, or the end (undefined). */
+export function dropAt(
+  entries: ReadonlyArray<PlanEntry>,
+  target: { date: string; slot: MealSlot },
+  beforeId?: string,
+): number | undefined {
+  if (beforeId === undefined) return undefined;
+  const index = inSlot(entries, target.date, target.slot).findIndex((e) => e.id === beforeId);
+  return index === -1 ? undefined : index;
 }

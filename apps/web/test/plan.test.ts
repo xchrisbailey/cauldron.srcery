@@ -1,6 +1,15 @@
 import type { PlanEntry, PlanEntryInput } from "@cauldron/shared";
 import { describe, expect, it } from "vite-plus/test";
-import { applyRemove, applyUpdate, inSlot, isPending, pendingEntry } from "../src/lib/plan.ts";
+import {
+  applyAdd,
+  applyRemove,
+  applyUpdate,
+  dropAt,
+  dropMove,
+  inSlot,
+  isPending,
+  pendingEntry,
+} from "../src/lib/plan.ts";
 
 type Slot = PlanEntry["slot"];
 
@@ -343,5 +352,74 @@ describe("pendingEntry / isPending", () => {
 
   it("does not flag real entries as pending", () => {
     expect(isPending(entry("abc", D1, "dinner", 0))).toBe(false);
+  });
+});
+
+describe("applyAdd", () => {
+  const entries = [entry("a", D1, "dinner", 0), entry("b", D1, "dinner", 1)];
+
+  it("inserts at the entry's position and renumbers the slot", () => {
+    expect(shape(applyAdd(entries, entry("n", D1, "dinner", 1)))).toEqual([
+      ["a", D1, "dinner", 0],
+      ["n", D1, "dinner", 1],
+      ["b", D1, "dinner", 2],
+    ]);
+  });
+
+  it("clamps a position past the end", () => {
+    expect(shape(applyAdd(entries, entry("n", D1, "dinner", 9))).at(-1)).toEqual([
+      "n",
+      D1,
+      "dinner",
+      2,
+    ]);
+  });
+});
+
+describe("dropMove", () => {
+  const entries = [
+    entry("a", D1, "dinner", 0),
+    entry("b", D1, "dinner", 1),
+    entry("c", D1, "dinner", 2),
+    entry("x", D2, "lunch", 0),
+  ];
+  const dinner = { date: D1, slot: "dinner" as const };
+
+  it("does nothing when a meal is dropped on itself", () => {
+    expect(dropMove(entries, "b", dinner, "b")).toBeNull();
+  });
+
+  it("does nothing when a meal is dropped back where it was", () => {
+    // The last meal dropped on its own slot's empty space stays last.
+    expect(dropMove(entries, "c", dinner)).toBeNull();
+    // Dropped on the meal right after it: that's where it already is.
+    expect(dropMove(entries, "a", dinner, "b")).toBeNull();
+  });
+
+  it("moves before the meal it was dropped on", () => {
+    expect(dropMove(entries, "c", dinner, "a")).toEqual({ ...dinner, position: 0 });
+  });
+
+  it("moves to the end of the slot when dropped on empty space", () => {
+    expect(dropMove(entries, "a", dinner)).toEqual({ ...dinner, position: 2 });
+    expect(dropMove(entries, "a", { date: D2, slot: "lunch" })).toEqual({
+      date: D2,
+      slot: "lunch",
+      position: 1,
+    });
+  });
+
+  it("ignores an unknown meal", () => {
+    expect(dropMove(entries, "nope", dinner)).toBeNull();
+  });
+});
+
+describe("dropAt", () => {
+  const entries = [entry("a", D1, "dinner", 0), entry("b", D1, "dinner", 1)];
+
+  it("places a dropped recipe before the meal it landed on, or at the end", () => {
+    expect(dropAt(entries, { date: D1, slot: "dinner" }, "b")).toBe(1);
+    expect(dropAt(entries, { date: D1, slot: "dinner" })).toBeUndefined();
+    expect(dropAt(entries, { date: D1, slot: "dinner" }, "gone")).toBeUndefined();
   });
 });

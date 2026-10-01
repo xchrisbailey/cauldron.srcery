@@ -364,7 +364,7 @@ export const week = {
   removed: (title: string) => plain(`Removed ${title}.`),
   undo: plain("Undo"),
   save: plain("Save"),
-  brewed: voice("brewed"),
+  brewed: voice("✓ brewed"),
   leftovers: plain("not a recipe"),
   recipesPanel: plain("Recipes"),
   dragHint: plain("Drag a recipe onto a meal, or press + on a meal to stir one in."),
@@ -376,6 +376,9 @@ export const week = {
   couldntLoad: plain("Couldn't load the week."),
   retry: plain("Try again"),
   slotFull: plain("That meal is full. Remove something first."),
+  moveUp: plain("Move up"),
+  moveDown: plain("Move down"),
+  meal: plain("Meal"),
 } as const;
 
 export const gather = {

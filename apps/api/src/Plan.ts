@@ -25,6 +25,7 @@ const { mealPlanEntry: entry, recipe, recipeCook } = schema;
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
 const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
+const slotFull = () => new InvalidRequest({ message: copy.week.slotFull.text });
 
 type Slot = { readonly date: string; readonly slot: MealSlot };
 
@@ -107,6 +108,14 @@ const make = Effect.gen(function* () {
     if (days < 0 || days >= PLAN_LIMITS.rangeDays) return yield* invalid();
   });
 
+  /** Serializes writes to one day's slot, so concurrent adds can't pass the limit or share a position. */
+  const lockSlot = (ownerId: UserId, at: Slot) =>
+    db.use((d) =>
+      d.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`plan/${ownerId}/${at.date}/${at.slot}`}))`,
+      ),
+    );
+
   /** Ids in a slot, in order, leaving out `except`. */
   const slotIds = (ownerId: UserId, at: Slot, except?: string) =>
     db
@@ -154,6 +163,16 @@ const make = Effect.gen(function* () {
     if ((recipeId === null) === (text === null)) return yield* invalid();
     return yield* db.transaction(
       Effect.gen(function* () {
+        if (input.id !== undefined) {
+          // A retry of an add that already landed: hand back what's there.
+          const [already] = yield* db.use((d) =>
+            d.select({ ownerId: entry.ownerId }).from(entry).where(eq(entry.id, input.id!)),
+          );
+          if (already)
+            return already.ownerId === ownerId
+              ? yield* one(ownerId, input.id).pipe(Effect.catchTag("NotFound", Effect.die))
+              : yield* invalid();
+        }
         let title = text!;
         if (recipeId !== null) {
           const [live] = yield* db.use((d) =>
@@ -168,12 +187,14 @@ const make = Effect.gen(function* () {
           title = live.title;
         }
         const at = { date: input.date, slot: input.slot };
+        yield* lockSlot(ownerId, at);
         const ids = yield* slotIds(ownerId, at);
-        if (ids.length >= PLAN_LIMITS.perSlot) return yield* invalid();
+        if (ids.length >= PLAN_LIMITS.perSlot) return yield* slotFull();
         const [row] = yield* db.use((d) =>
           d
             .insert(entry)
             .values({
+              ...(input.id === undefined ? {} : { id: input.id }),
               ownerId,
               date: input.date,
               slot: input.slot,
@@ -209,8 +230,23 @@ const make = Effect.gen(function* () {
             .for("update"),
         );
         if (!row) return yield* notFound();
-        // Only free text can be renamed; a recipe entry follows its recipe.
-        if (input.title !== undefined && row.recipeId !== null) return yield* invalid();
+        // Only free text can be renamed; a recipe entry follows its recipe. An
+        // entry whose recipe is banished reads as free text, so it can be renamed.
+        if (input.title !== undefined && row.recipeId !== null) {
+          const [live] = yield* db.use((d) =>
+            d
+              .select({ id: recipe.id })
+              .from(recipe)
+              .where(
+                and(
+                  eq(recipe.id, row.recipeId!),
+                  eq(recipe.ownerId, ownerId),
+                  isNull(recipe.deletedAt),
+                ),
+              ),
+          );
+          if (live) return yield* invalid();
+        }
         if (input.servings !== undefined || input.title !== undefined) {
           yield* db.use((d) =>
             d
@@ -219,15 +255,16 @@ const make = Effect.gen(function* () {
                 ...(input.servings === undefined ? {} : { servings: input.servings }),
                 ...(input.title === undefined ? {} : { title: input.title }),
               })
-              .where(eq(entry.id, id)),
+              .where(and(eq(entry.id, id), eq(entry.ownerId, ownerId))),
           );
         }
         if (input.date !== undefined || input.slot !== undefined || input.position !== undefined) {
           const from: Slot = { date: row.date, slot: row.slot };
           const to: Slot = { date: input.date ?? row.date, slot: input.slot ?? row.slot };
           const moved = from.date !== to.date || from.slot !== to.slot;
+          yield* lockSlot(ownerId, to);
           const siblings = yield* slotIds(ownerId, to, id);
-          if (moved && siblings.length >= PLAN_LIMITS.perSlot) return yield* invalid();
+          if (moved && siblings.length >= PLAN_LIMITS.perSlot) return yield* slotFull();
           const current = moved ? siblings.length : (yield* slotIds(ownerId, from)).indexOf(id);
           const position = Math.min(input.position ?? current, siblings.length);
           yield* writeOrder(ownerId, to, siblings.toSpliced(position, 0, id));
