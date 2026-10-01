@@ -51,6 +51,8 @@ interface Props {
   onSubmit?: (values: RecipeFormValues) => Promise<void>;
   /** Hold navigation while changes are unsaved (existing recipes). */
   guard: boolean;
+  /** Shown under the header, before the fields: an import's source and notes. */
+  intro?: ReactNode;
 }
 
 export function RecipeEditor({
@@ -61,6 +63,7 @@ export function RecipeEditor({
   actions,
   onSubmit,
   guard,
+  intro,
 }: Props) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [showAllErrors, setShowAllErrors] = useState(false);
@@ -223,6 +226,7 @@ export function RecipeEditor({
           </div>
         }
       />
+      {intro}
       {submitted && Object.keys(errors).length > 0 ? (
         <FormMessage tone="error">{copy.editor.fixErrors.text}</FormMessage>
       ) : null}

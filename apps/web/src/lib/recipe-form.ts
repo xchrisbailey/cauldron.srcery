@@ -1,7 +1,10 @@
 import {
+  copy,
   detectTimer,
+  type ImportDraft,
   isSectionHeading,
   parseIngredientLine,
+  type DraftField,
   type ParsedIngredient,
   type Recipe,
   RecipeInput,
@@ -47,16 +50,7 @@ export interface StepRow {
 }
 
 /** Top-level fields an import can flag for a second look. */
-export type ReviewField =
-  | "title"
-  | "description"
-  | "servings"
-  | "prepMinutes"
-  | "cookMinutes"
-  | "totalMinutes"
-  | "sourceUrl"
-  | "tags"
-  | "notes";
+export type ReviewField = DraftField;
 
 export interface RecipeFormValues {
   title: string;
@@ -189,6 +183,55 @@ export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
     sourcePlatform: recipe.sourcePlatform,
     sourceAuthor: recipe.sourceAuthor,
     review: [],
+  };
+};
+
+/**
+ * An import's draft as the editor's form. Each ingredient line is read by the
+ * shared line parser here, the same way a typed or pasted line is, and lines
+ * and fields the importer wasn't sure of are flagged.
+ */
+export const fromDraft = (draft: ImportDraft): RecipeFormValues => {
+  const unsure = copy.imports.unsureLine.text;
+  const ingredients: Array<IngredientFormRow> = [];
+  let section: string | null = null;
+  for (const line of draft.ingredients) {
+    if (line.section !== section) {
+      section = line.section;
+      if (section !== null)
+        ingredients.push({ key: rowKey(), kind: "heading", text: section, flag: null });
+    }
+    ingredients.push({
+      key: rowKey(),
+      kind: "line",
+      text: line.line,
+      parsed: parseIngredientLine(line.line),
+      corrected: false,
+      flag: line.unsure ? unsure : null,
+    });
+  }
+  return {
+    title: draft.title,
+    description: draft.description ?? "",
+    servings: text(draft.servings),
+    prepMinutes: text(draft.prepMinutes),
+    cookMinutes: text(draft.cookMinutes),
+    totalMinutes: text(draft.totalMinutes),
+    sourceUrl: draft.sourceUrl ?? "",
+    notes: draft.notes ?? "",
+    photoKey: draft.photoKey,
+    tags: [...draft.tags],
+    ingredients: ingredients.length > 0 ? ingredients : [ingredientRow("")],
+    steps:
+      draft.steps.length > 0
+        ? draft.steps.map((step) => ({
+            ...stepRow(step.text, step.unsure ? unsure : null),
+            section: step.section,
+          }))
+        : [stepRow("")],
+    sourcePlatform: draft.sourcePlatform,
+    sourceAuthor: draft.sourceAuthor,
+    review: [...draft.unsure],
   };
 };
 

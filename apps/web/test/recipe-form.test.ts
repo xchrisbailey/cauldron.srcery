@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   decodeRecipeForm,
   emptyRecipeForm,
+  fromDraft,
   fromRecipe,
   ingredientRow,
   parseQuantity,
@@ -393,5 +394,61 @@ describe("parseQuantity", () => {
     expect(parseQuantity("")).toBeNull();
     expect(parseQuantity("   ")).toBeNull();
     expect(parseQuantity("abc")).toBe("invalid");
+  });
+});
+
+describe("fromDraft", () => {
+  const draft = {
+    title: "Dal",
+    description: null,
+    servings: 4,
+    prepMinutes: null,
+    cookMinutes: 30,
+    totalMinutes: null,
+    sourcePlatform: "web" as const,
+    sourceUrl: "https://example.com/dal",
+    sourceAuthor: "Ada",
+    siteName: "Example",
+    notes: null,
+    photoKey: null,
+    tags: ["Indian"],
+    ingredients: [
+      { line: "1 cup red lentils", section: null, unsure: false },
+      { line: "2 tsp cumin seeds", section: "For the tarka", unsure: true },
+    ],
+    steps: [{ text: "Simmer for 25 minutes.", section: null, unsure: false }],
+    unsure: ["servings" as const],
+  };
+
+  it("reads every line with the shared parser and flags what the import wasn't sure of", () => {
+    const form = fromDraft(draft);
+    expect(form).toMatchObject({
+      title: "Dal",
+      servings: "4",
+      cookMinutes: "30",
+      sourceUrl: "https://example.com/dal",
+      sourcePlatform: "web",
+      sourceAuthor: "Ada",
+      review: ["servings"],
+    });
+    expect(form.ingredients.map((row) => [row.kind, row.text, row.flag])).toEqual([
+      ["line", "1 cup red lentils", null],
+      ["heading", "For the tarka", null],
+      ["line", "2 tsp cumin seeds", copy.imports.unsureLine.text],
+    ]);
+    const line = form.ingredients[0] as IngredientRow;
+    expect(line.parsed).toEqual(parseIngredientLine("1 cup red lentils"));
+    expect(form.steps[0]).toMatchObject({ text: "Simmer for 25 minutes.", timerSeconds: 1500 });
+  });
+
+  it("decodes to the recipe it would save, source included", () => {
+    expect(decodeRecipeForm(fromDraft(draft))).toMatchObject({
+      sourcePlatform: "web",
+      sourceUrl: "https://example.com/dal",
+      ingredients: [
+        { item: "red lentils", section: null },
+        { item: "cumin seeds", section: "For the tarka" },
+      ],
+    });
   });
 });

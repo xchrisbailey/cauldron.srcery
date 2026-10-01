@@ -93,7 +93,14 @@ function Recipes() {
   const setFilter = (next: { tag?: string | undefined; sort?: RecipeSort }) =>
     void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
 
-  const conjure = <ButtonLink to="/recipes/new">{copy.recipes.conjure.text}</ButtonLink>;
+  const conjure = (
+    <>
+      <ButtonLink to="/recipes/distill" variant="secondary">
+        {copy.recipes.distillFromLink.text}
+      </ButtonLink>
+      <ButtonLink to="/recipes/new">{copy.recipes.conjure.text}</ButtonLink>
+    </>
+  );
 
   return (
     <>
