@@ -1,10 +1,10 @@
 import {
   copy,
-  type Macros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
   type PlanEntryUpdate,
+  type PlanRecipe,
   startOfWeek,
   type WeekStartDay,
 } from "@cauldron/shared";
@@ -29,18 +29,10 @@ import { failureOf, messageOr, retryWhile } from "./api-failure";
 
 type Week = ReadonlyArray<PlanEntry>;
 
-export interface StirRecipe {
-  readonly id: string;
-  readonly title: string;
-  readonly servings: number | null;
-  readonly totalMinutes: number | null;
-  readonly macros: Macros;
-}
-
-type AddVars = { input: PlanEntryInput & { id: PlanEntryId }; recipe: StirRecipe | null };
+type AddVars = { input: PlanEntryInput & { id: PlanEntryId }; recipe: PlanRecipe | null };
 type ManyVars = {
   inputs: ReadonlyArray<PlanEntryInput & { id: PlanEntryId }>;
-  recipe: StirRecipe;
+  recipe: PlanRecipe;
 };
 
 const retry = retryWhile(2);
@@ -123,14 +115,14 @@ export function usePlanWrites(startsOn: WeekStartDay) {
   });
 
   /** Stir one recipe into several days at once: all of them land, or none do. */
-  const spread = (inputs: ReadonlyArray<PlanEntryInput>, recipe: StirRecipe) =>
+  const spread = (inputs: ReadonlyArray<PlanEntryInput>, recipe: PlanRecipe) =>
     addMany.mutate({
       inputs: inputs.map((input) => ({ ...input, id: crypto.randomUUID() as PlanEntryId })),
       recipe,
     });
 
   /** Stir in a recipe (with `recipeId`) or a free-text meal (with `title`). */
-  const stir = (input: PlanEntryInput, recipe: StirRecipe | null) =>
+  const stir = (input: PlanEntryInput, recipe: PlanRecipe | null) =>
     add.mutate({ input: { ...input, id: crypto.randomUUID() as PlanEntryId }, recipe });
 
   const update = useMutation({

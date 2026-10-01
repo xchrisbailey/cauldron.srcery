@@ -6,23 +6,25 @@ import {
   isRealDate,
   MEAL_SLOTS,
   type MealSlot,
-  noMacros,
   PLAN_LIMITS,
   type PlanEntry,
   type PlanEntryUpdate,
+  PlanRecipe,
   servingsOf,
   startOfWeek,
   tallyMacros,
+  toPlanRecipe,
   weekDays,
   type WeekStartDay,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { BagGlyph, PlusGlyph } from "../../components/glyphs";
 import { MacroTally } from "../../components/MacroTally";
 import { type Spreading, SpreadDialog } from "../../components/SpreadDialog";
-import { PickMealDialog, stirRecipe, useRecipeSearch } from "../../components/StirIn";
+import { PickMealDialog, useRecipeSearch } from "../../components/StirIn";
 import { WeekRange } from "../../components/WeekRange";
 import {
   Button,
@@ -54,7 +56,7 @@ import {
 } from "../../lib/plan";
 import { gatherQuery, summarize } from "../../lib/gather";
 import { localToday } from "../../lib/recipes";
-import { type StirRecipe, usePlanWrites } from "../../lib/use-plan";
+import { usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
 
 // The week (#18): a seven-day calendar of breakfast, lunch, dinner and snack,
@@ -72,43 +74,11 @@ export const Route = createFileRoute("/_authed/week")({
 const RECIPE_TYPE = "application/x-cauldron-recipe";
 const ENTRY_TYPE = "application/x-cauldron-entry";
 
-const num = (value: unknown) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
-
 /** A recipe dragged in from the panel. Anything else with the same type is ignored. */
-const readRecipe = (data: string): StirRecipe | null => {
-  if (data === "") return null;
-  try {
-    const value: unknown = JSON.parse(data);
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "id" in value &&
-      "title" in value &&
-      typeof value.id === "string" &&
-      typeof value.title === "string"
-    ) {
-      const v = value as Partial<StirRecipe>;
-      return {
-        id: v.id!,
-        title: v.title!,
-        servings: typeof v.servings === "number" ? v.servings : null,
-        totalMinutes: typeof v.totalMinutes === "number" ? v.totalMinutes : null,
-        macros:
-          typeof v.macros === "object" && v.macros !== null
-            ? {
-                calories: num(v.macros.calories),
-                protein: num(v.macros.protein),
-                carbs: num(v.macros.carbs),
-                fat: num(v.macros.fat),
-              }
-            : noMacros,
-      };
-    }
-  } catch {
-    // Not ours.
-  }
-  return null;
+const decodeRecipe = Schema.decodeUnknownOption(Schema.fromJsonString(PlanRecipe));
+const readRecipe = (data: string): PlanRecipe | null => {
+  const decoded = decodeRecipe(data);
+  return decoded._tag === "Some" ? decoded.value : null;
 };
 
 type Target = { date: string; slot: MealSlot };
@@ -185,10 +155,10 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
   });
 
   /** A recipe goes through the days picker, so its servings can feed more than one day. */
-  const stir = (target: Target, recipe: StirRecipe, position?: number) =>
+  const stir = (target: Target, recipe: PlanRecipe, position?: number) =>
     setSpreading({ ...target, recipe, ...(position === undefined ? {} : { position }) });
 
-  const pick = (choice: { recipe: StirRecipe } | { title: string }) => {
+  const pick = (choice: { recipe: PlanRecipe } | { title: string }) => {
     if (!picking) return;
     if ("recipe" in choice) stir(picking, choice.recipe);
     else writes.stir({ ...picking, title: choice.title }, null);
@@ -590,7 +560,7 @@ function RecipePanel() {
             key={recipe.id}
             draggable
             onDragStart={(e) => {
-              e.dataTransfer.setData(RECIPE_TYPE, JSON.stringify(stirRecipe(recipe)));
+              e.dataTransfer.setData(RECIPE_TYPE, JSON.stringify(toPlanRecipe(recipe)));
               e.dataTransfer.effectAllowed = "copy";
             }}
             {...stylex.props(styles.panelItem)}
