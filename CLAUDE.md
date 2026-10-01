@@ -34,11 +34,11 @@ Follow the "Depends on" line at the top of each ticket. The critical path:
 
 The ingredient line parser in #6 feeds the editor, every importer and the Gather list. Give it its test corpus early and keep it strict.
 
-## Effect 4 (release candidate)
+## Effect 4
 
 The `effect` version is pinned **exactly**. Upgrade on purpose, in its own PR. Most of what you remember about Effect is v3, and v4 renamed a lot. **Check v4 sources before writing Effect code**:
 
-- The pinned package ships its own guide: `node_modules/effect/AGENTS.md`, with runnable examples in `node_modules/effect/ai-docs/src/` (HTTP server and its tests, HTTP client, SQL, AI, testing). Prefer these over the effect-smol repo, which lags the RC. With Bun's isolated installs, look under `apps/api/node_modules/effect/`.
+- The pinned package ships its own guide: `node_modules/effect/AGENTS.md`, with runnable examples in `node_modules/effect/ai-docs/src/` (HTTP server and its tests, HTTP client, SQL, AI, testing). Prefer these over the effect-smol repo, which can lag the release. With Bun's isolated installs, look under `apps/api/node_modules/effect/`.
 - Migration notes: https://github.com/Effect-TS/effect-smol/tree/main/migration (start with `v3-to-v4.md` and `services.md`).
 - When in doubt, read the source under `node_modules/effect/src` for the pinned version, and don't write it from memory.
 
@@ -63,7 +63,7 @@ House style:
 - Domain errors are `Schema.TaggedError` classes in `packages/shared` with a plain `message` from the copy module, and know nothing about HTTP. `packages/api-spec/src/errors.ts` is the one place that gives each a status and the `{ error: { code, message } }` wire shape; endpoints list those schemas as `error`. `apps/api/src/http/ErrorShape.ts` gives bad input, unknown routes and defects the same shape. Never use ad-hoc try/catch in handlers.
 - Database access goes through the `Db` service: `db.use((d) => d.select()...)` for a query and `db.transaction(effect)` to run an Effect in a transaction (every `use` inside joins it).
 - Every external dependency (DB, storage, email, AI, fetch) is a service with a `layer` and a `layerTest`. Tests provide test layers, not mocks of modules.
-- HTTP (`effect/http`, `effect/http-api`) and other modules marked `@stability unstable` may break between RCs. Keep that code at the edges (HTTP, client), not in domain logic.
+- HTTP (`effect/http`, `effect/http-api`) and other modules marked `@stability unstable` may break between minor releases. Keep that code at the edges (HTTP, client), not in domain logic.
 - The web app imports Effect **Schema** only (through Standard Schema into TanStack Form) and never runs the Effect runtime in components.
 
 ## Conventions
