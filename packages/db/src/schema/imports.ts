@@ -1,17 +1,11 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, jsonb, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { ImportStatus } from "@cauldron/shared";
 import { user } from "./auth.ts";
 import { timestampMs, timestamps } from "./columns.ts";
 import { sourcePlatform } from "./recipes.ts";
 
-export const importStatus = pgEnum("import_status", [
-  "queued",
-  "running",
-  "done",
-  "failed",
-  "cancelled",
-  "saved",
-]);
+export const importStatus = pgEnum("import_status", ImportStatus.literals);
 
 /**
  * One Distill (#13): a link or pasted text on its way to a draft recipe. The
