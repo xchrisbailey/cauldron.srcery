@@ -50,6 +50,13 @@ export const Route = createFileRoute("/_authed/gather")({
 
 const HIDE_KEY = "cauldron:gather-hide-checked";
 
+/** The API refused the change itself (for example, the item is gone); retrying won't help. */
+const refused = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  (error._tag === "NotFound" || error._tag === "InvalidRequest");
+
 function Gather() {
   const [viewer, setViewer] = useState<{
     today: string;
@@ -95,22 +102,30 @@ function List({ today, startsOn, hide }: { today: string; startsOn: WeekStartDay
     }
   };
 
-  // Setting a value (not toggling) makes every retry safe to repeat.
+  // Each change sets a value rather than toggling, and changes run one at a
+  // time in the order they were made, so retries can't land out of order.
   const update = useMutation({
     mutationKey: ["gather", "update"],
+    scope: { id: "gather-update" },
     mutationFn: ({ item, update }: { item: GatherItem; update: GatherItemUpdate }) =>
       updateGatherItem(item.id, update),
-    retry: 5,
+    retry: (count, error) => count < 5 && !refused(error),
     onMutate: async ({ item, update }) => {
       await queryClient.cancelQueries({ queryKey: key });
-      const saved = queryClient.getQueryData<Week>(key);
       queryClient.setQueryData<Week>(key, (week) =>
         week ? applyItemUpdate(week, item.id, update) : week,
       );
-      return saved;
     },
-    onError: (_error, _vars, saved) => {
-      queryClient.setQueryData(key, saved);
+    // Undo just this change, leaving any others still in flight.
+    onError: (_error, { item, update }) => {
+      queryClient.setQueryData<Week>(key, (week) =>
+        week
+          ? applyItemUpdate(week, item.id, {
+              ...(update.checked === undefined ? {} : { checked: item.checked }),
+              ...(update.inPantry === undefined ? {} : { inPantry: item.inPantry }),
+            })
+          : week,
+      );
       toast(copy.gather.couldntSave.text, "error");
     },
     onSettled: () => {
@@ -296,6 +311,7 @@ function Item({
           aria-label={copy.gather.markInPantry(item.item).text}
           {...stylex.props(styles.srOnly)}
         />
+        {item.inPantry ? <span aria-hidden="true">✓ </span> : null}
         {copy.gather.inPantry.text}
       </label>
       {item.manual ? (
@@ -381,6 +397,7 @@ const styles = stylex.create({
     outlineOffset: 2,
   },
   pantryOn: {
+    fontWeight: 600,
     borderColor: colors.fresh,
     backgroundColor: `color-mix(in srgb, ${colors.fresh} 22%, transparent)`,
     color: colors.ink,

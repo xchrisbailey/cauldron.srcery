@@ -45,7 +45,7 @@ export function applyItemUpdate(
   };
 }
 
-/** Counts for the week's summary bar: what's left to buy, and what's already at home. */
+/** Counts for the week's summary bar: every item on the list, and how many are already at home. */
 export const summarize = (list: GatherList) => ({
   items: list.items.length,
   recipes: list.recipeCount,

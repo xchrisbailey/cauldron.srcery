@@ -31,6 +31,8 @@ const find = (rows: ReturnType<typeof gather>, itemKey: string) =>
 describe("measureGroup and mergeKeyOf", () => {
   it("groups measures by how they add up", () => {
     expect(measureGroup(null, null)).toBe("none");
+    // A unit with no amount adds nothing, like no unit at all.
+    expect(measureGroup(null, "cup")).toBe("none");
     expect(measureGroup({ min: 2, max: null }, null)).toBe("count");
     expect(measureGroup({ min: 2, max: null }, "cup")).toBe("volume");
     expect(measureGroup({ min: 2, max: null }, "tbsp")).toBe("volume");
@@ -278,6 +280,15 @@ describe("gatherLines naming and order", () => {
 
 describe("aisleFor", () => {
   const cases: ReadonlyArray<readonly [string, string]> = [
+    ["garlic powder", "spices"],
+    ["onion powder", "spices"],
+    ["freshly ground pepper", "spices"],
+    ["cream of tartar", "spices"],
+    ["apple cider vinegar", "pantry"],
+    ["coconut cream", "pantry"],
+    ["egg noodles", "pantry"],
+    ["orange juice", "drinks"],
+    ["garlic cloves", "produce"],
     ["onion", "produce"],
     ["2 red onions", "produce"],
     ["garlic", "produce"],

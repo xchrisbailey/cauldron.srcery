@@ -236,10 +236,12 @@ const make = Effect.gen(function* () {
             continue;
           }
           byKey.delete(row.mergeKey);
+          // Both sides as stored (rounded to numeric(12, 4)), so a 1/3 that
+          // rounds down doesn't read as "more" on every sync.
           const grew =
-            most(row.quantity, row.unit) >
-            most(quantityOf(found.quantityMin, found.quantityMax), found.unit as UnitCode | null) +
-              1e-6;
+            most(quantityOf(amount.quantityMin, amount.quantityMax), row.unit) >
+            most(quantityOf(found.quantityMin, found.quantityMax), found.unit as UnitCode | null) *
+              (1 + 1e-9);
           const changed =
             found.item !== row.item ||
             found.quantityMin !== amount.quantityMin ||
@@ -323,7 +325,13 @@ const make = Effect.gen(function* () {
                 unit: gatherItemSource.unit,
               })
               .from(gatherItemSource)
-              .innerJoin(recipe, eq(recipe.id, gatherItemSource.recipeId))
+              .innerJoin(
+                recipe,
+                and(
+                  eq(recipe.id, gatherItemSource.recipeId),
+                  eq(recipe.ownerId, gatherItemSource.ownerId),
+                ),
+              )
               .where(
                 and(
                   eq(gatherItemSource.ownerId, ownerId),

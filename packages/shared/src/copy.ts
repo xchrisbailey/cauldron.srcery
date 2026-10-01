@@ -410,7 +410,7 @@ export const gather = {
   allChecked: voice("Everything's gathered. Time to brew."),
   summary: (items: number, recipes: number) =>
     plain(
-      `${items === 1 ? "1 ingredient" : `${items} ingredients`} across ${recipes === 1 ? "1 recipe" : `${recipes} recipes`} this week.`,
+      `${items === 1 ? "1 ingredient" : `${items} ingredients`} across ${recipes === 1 ? "1 recipe" : `${recipes} recipes`}.`,
     ),
   inPantryCount: (n: number) =>
     plain(n === 1 ? "1 is already in the pantry." : `${n} are already in the pantry.`),

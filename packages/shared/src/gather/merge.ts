@@ -45,7 +45,9 @@ export interface GatheredRow {
 
 /** How a measure adds up: "volume", "mass", "count" (bare), "unit:clove", or "none". */
 export const measureGroup = (quantity: Quantity | null, unit: UnitCode | null): string => {
-  if (unit === null) return quantity === null ? "none" : "count";
+  // A unit with no amount adds nothing, the same as no unit.
+  if (quantity === null) return "none";
+  if (unit === null) return "count";
   const def = UNITS[unit];
   return def.dimension === "count" ? `unit:${unit}` : def.dimension;
 };

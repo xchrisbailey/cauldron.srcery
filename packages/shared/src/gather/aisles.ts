@@ -29,8 +29,15 @@ const words = (list: string) => list.trim().split(/\s*,\s*/);
 const RULES: ReadonlyArray<readonly [ReadonlyArray<string>, Aisle]> = [
   // Phrases that would otherwise fall into the wrong aisle.
   [words("frozen pea, frozen corn, frozen spinach, frozen berry, ice cream, frozen"), "frozen"],
+  [words("orange juice, apple juice, lemonade"), "drinks"],
+  [
+    words(`garlic powder, onion powder, ground pepper, cream of tartar, garlic salt, onion salt,
+      celery salt, celery seed, mustard seed, fennel seed`),
+    "spices",
+  ],
   [
     words(`olive oil, vegetable oil, canola oil, sesame oil, coconut oil, coconut milk,
+      cider vinegar, wine vinegar, balsamic vinegar, rice vinegar, coconut cream, egg noodle,
       chicken stock, beef stock, vegetable stock, chicken broth, beef broth, vegetable broth, stock, broth,
       crushed tomato, diced tomato, chopped tomato, tomato paste, tomato puree, tomato sauce,
       can tomato, tin tomato, canned tomato, sun-dried tomato, cannellini bean, black bean,
@@ -42,7 +49,7 @@ const RULES: ReadonlyArray<readonly [ReadonlyArray<string>, Aisle]> = [
   [
     words(`chili flake, red pepper flake, black pepper, white pepper, peppercorn, kosher salt,
       sea salt, flaky salt, salt and pepper, salt, ground cumin, cumin, smoked paprika, paprika,
-      turmeric, coriander seed, ground coriander, cinnamon, nutmeg, clove, cardamom,
+      turmeric, coriander seed, ground coriander, cinnamon, nutmeg, ground clove, whole clove, cardamom,
       dried oregano, dried thyme, dried basil, bay leaf, chili powder, curry powder, garam masala,
       cayenne, allspice, ginger powder, ground ginger`),
     "spices",

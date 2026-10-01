@@ -683,4 +683,18 @@ describe("gather", () => {
       expect(bobList.items.map((i: any) => i.itemKey)).toEqual(["farro"]);
     });
   });
+
+  it("keeps a check when a scaled amount rounds in storage", async () => {
+    const cook = await freshCook();
+    const recipe = await create(cook, "Thirds", ["1 cup flour", "1 onion"], 6);
+    await plan(cook, recipe.id, WEEK, { servings: 2 });
+    const first = await gatherWeek(cook, WEEK);
+    for (const item of first.items) {
+      const res = await call(cook, "PATCH", `/v1/gather/items/${item.id}`, { checked: true });
+      expect(res.status).toBe(200);
+    }
+    await gatherWeek(cook, WEEK);
+    const again = await gatherWeek(cook, WEEK);
+    expect(again.items.map((i: any) => i.checked)).toEqual(first.items.map(() => true));
+  });
 });

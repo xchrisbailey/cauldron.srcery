@@ -20,7 +20,7 @@ export class GatherApi extends HttpApiGroup.make("gather")
       success: GatherList,
     }).annotate(
       OpenApi.Description,
-      "The list for the seven days from `weekStart`, brought up to date with the week's plan first. Checks and items added by hand are kept; a gathered item is unchecked when the week needs more of it.",
+      "The list for the seven days from `weekStart`, brought up to date with the week's plan first. Checks and items added by hand are kept; a gathered item is unchecked when the week needs more of it. A list belongs to its exact `weekStart`: a cook who switches between Monday and Sunday weeks sees a separate list, and the old one's checks and items stay with the old start day.",
     ),
     HttpApiEndpoint.post("add", "/:weekStart/items", {
       params: week,
