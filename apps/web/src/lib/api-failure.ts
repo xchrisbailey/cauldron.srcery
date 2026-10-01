@@ -44,8 +44,11 @@ export const failureOf = (error: unknown): Failure => {
   const known = API_TAGS.find((t) => t === tag);
   if (known) return { tag: known, message };
   // fetch rejects with a TypeError when there is no connection; the Effect
-  // client wraps that in an HttpClientError.
-  if (error instanceof TypeError || tag === "HttpClientError") return { tag: "Network", message };
+  // client wraps that in an HttpClientError with a TransportError reason.
+  // Other client errors (an unreadable body, say) are defects.
+  const transport =
+    tag === "HttpClientError" && field(field(error, "reason"), "_tag") === "TransportError";
+  if (error instanceof TypeError || transport) return { tag: "Network", message };
   return { tag: "Defect", message };
 };
 
