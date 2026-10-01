@@ -1,8 +1,7 @@
-import { refreshRecipeSearch, schema } from "@cauldron/db";
+import { ingredient, macros, refreshRecipeSearch, schema } from "@cauldron/db";
 import {
   Conflict,
   copy,
-  ingredientKey,
   InvalidRequest,
   isRealDate,
   NotFound,
@@ -13,7 +12,6 @@ import {
   Tag,
   TagId,
   TagWithCount,
-  type Ingredient,
   type LocalDate,
   type RecipeInput,
   type RecipeListQuery,
@@ -21,7 +19,6 @@ import {
   type RecipeSort,
   type Step,
   type TagUpdate,
-  type UnitCode,
   type UserId,
 } from "@cauldron/shared";
 import {
@@ -48,7 +45,6 @@ const { search: _search, ...recipeColumns } = getTableColumns(recipe);
 type RecipeRow = Omit<typeof recipe.$inferSelect, "search">;
 /** A listed row with the title's sort key, lowercased by Postgres so the cursor matches the comparison. */
 type ListedRow = RecipeRow & { readonly titleKey: string };
-type IngredientRow = typeof recipeIngredient.$inferSelect;
 type StepRow = typeof recipeStep.$inferSelect;
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
@@ -60,25 +56,6 @@ const orNull = (value: string | null): string | null =>
 
 // ---------------------------------------------------------------------------
 // Rows to domain
-
-const toIngredient = (row: IngredientRow): Ingredient => ({
-  section: row.section,
-  quantity:
-    row.quantityMin === null ? null : { min: row.quantityMin, max: row.quantityMax ?? null },
-  unit: row.unit as UnitCode | null,
-  item: row.item,
-  note: row.note,
-  optional: row.optional,
-  alt:
-    row.altQuantityMin === null || row.altUnit === null
-      ? null
-      : {
-          quantity: { min: row.altQuantityMin, max: row.altQuantityMax ?? null },
-          unit: row.altUnit as UnitCode,
-        },
-  original: row.originalLine,
-  itemKey: row.itemKey,
-});
 
 const toStep = (row: StepRow): Step => ({
   section: row.section,
@@ -98,12 +75,7 @@ const summaryFields = (row: RecipeRow, tags: ReadonlyArray<Tag>) => ({
   cookMinutes: row.cookMinutes,
   totalMinutes: row.totalMinutes,
   photoKey: row.photoKey,
-  macros: {
-    calories: row.calories,
-    protein: row.proteinGrams,
-    carbs: row.carbsGrams,
-    fat: row.fatGrams,
-  },
+  macros: macros.fromRow(row),
   tags,
   lastCookedOn: row.lastCookedOn,
   createdAt: row.createdAt,
@@ -254,7 +226,7 @@ const make = Effect.gen(function* () {
       sourceUrl: row.sourceUrl,
       sourceAuthor: row.sourceAuthor,
       notes: row.notes,
-      ingredients: ingredients.map(toIngredient),
+      ingredients: ingredients.map(ingredient.fromRow),
       steps: steps.map(toStep),
       deletedAt: row.deletedAt,
     });
@@ -313,18 +285,7 @@ const make = Effect.gen(function* () {
             ownerId,
             recipeId,
             position,
-            section: orNull(line.section),
-            quantityMin: line.quantity?.min ?? null,
-            quantityMax: line.quantity?.max ?? null,
-            unit: line.unit,
-            item: line.item,
-            itemKey: ingredientKey(line.item),
-            note: orNull(line.note),
-            optional: line.optional,
-            altQuantityMin: line.alt?.quantity.min ?? null,
-            altQuantityMax: line.alt?.quantity.max ?? null,
-            altUnit: line.alt?.unit ?? null,
-            originalLine: line.original,
+            ...ingredient.toRow(line),
           })),
         ),
       );
@@ -380,14 +341,7 @@ const make = Effect.gen(function* () {
     sourceAuthor: orNull(input.sourceAuthor),
     notes: orNull(input.notes),
     // Left out, an update keeps the recipe's macros.
-    ...(input.macros === undefined
-      ? {}
-      : {
-          calories: input.macros.calories,
-          proteinGrams: input.macros.protein,
-          carbsGrams: input.macros.carbs,
-          fatGrams: input.macros.fat,
-        }),
+    ...(input.macros === undefined ? {} : macros.toRow(input.macros)),
   });
 
   const list = Effect.fn("Recipes.list")(function* (ownerId: UserId, query: RecipeListQuery) {

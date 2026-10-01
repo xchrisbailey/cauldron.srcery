@@ -1,7 +1,8 @@
-import { Api, CurrentUser } from "@cauldron/api-spec";
+import { Api } from "@cauldron/api-spec";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { Plan } from "../Plan.ts";
+import { owned } from "./owned.ts";
 
 // Thin handlers over the Plan service, which owns the queries and owner scoping.
 
@@ -11,40 +12,14 @@ export const PlanHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const plan = yield* Plan;
     return handlers
-      .handle("list", ({ query }) =>
-        CurrentUser.use((user) => plan.list(user.id, query)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("add", ({ payload }) =>
-        CurrentUser.use((user) => plan.add(user.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("addMany", ({ payload }) =>
-        CurrentUser.use((user) => plan.addMany(user.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
+      .handle("list", ({ query }) => owned((owner) => plan.list(owner, query)))
+      .handle("add", ({ payload }) => owned((owner) => plan.add(owner, payload)))
+      .handle("addMany", ({ payload }) => owned((owner) => plan.addMany(owner, payload)))
       .handle("update", ({ params, payload }) =>
-        CurrentUser.use((user) => plan.update(user.id, params.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
+        owned((owner) => plan.update(owner, params.id, payload)),
       )
-      .handle("remove", ({ params }) =>
-        CurrentUser.use((user) => plan.remove(user.id, params.id)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("copy", ({ payload }) =>
-        CurrentUser.use((user) => plan.copy(user.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      )
-      .handle("clear", ({ payload }) =>
-        CurrentUser.use((user) => plan.clear(user.id, payload)).pipe(
-          Effect.catchTag("DbError", Effect.die),
-        ),
-      );
+      .handle("remove", ({ params }) => owned((owner) => plan.remove(owner, params.id)))
+      .handle("copy", ({ payload }) => owned((owner) => plan.copy(owner, payload)))
+      .handle("clear", ({ payload }) => owned((owner) => plan.clear(owner, payload)));
   }),
 );

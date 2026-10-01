@@ -4,13 +4,14 @@ import {
   type ImportDraft,
   type MacroKey,
   type Macros,
-  isSectionHeading,
   parseIngredientLine,
+  readHeading,
   type DraftField,
   type ParsedIngredient,
   type Recipe,
   RecipeInput,
   type SourcePlatform,
+  withHeadings,
 } from "@cauldron/shared";
 import { Schema } from "effect";
 
@@ -81,9 +82,10 @@ let counter = 0;
 /** A stable key for a new row, unique within the page. */
 export const rowKey = () => `r${Date.now().toString(36)}${(counter++).toString(36)}`;
 
-export const ingredientRow = (text: string, flag: string | null = null): IngredientFormRow =>
-  isSectionHeading(text)
-    ? { key: rowKey(), kind: "heading", text: headingText(text), flag }
+export const ingredientRow = (text: string, flag: string | null = null): IngredientFormRow => {
+  const heading = readHeading(text);
+  return heading !== null
+    ? { key: rowKey(), kind: "heading", text: heading, flag }
     : {
         key: rowKey(),
         kind: "line",
@@ -92,6 +94,14 @@ export const ingredientRow = (text: string, flag: string | null = null): Ingredi
         corrected: false,
         flag,
       };
+};
+
+const headingRow = (text: string): HeadingRow => ({
+  key: rowKey(),
+  kind: "heading",
+  text,
+  flag: null,
+});
 
 export const stepRow = (text: string, flag: string | null = null): StepRow => ({
   key: rowKey(),
@@ -101,14 +111,6 @@ export const stepRow = (text: string, flag: string | null = null): StepRow => ({
   timerSet: false,
   flag,
 });
-
-/** "For the sauce:" reads as the heading "For the sauce". */
-const headingText = (line: string) =>
-  line
-    .trim()
-    .replace(/^[-•*▢□]\s*/, "")
-    .replace(/:$/, "")
-    .trim();
 
 export const emptyRecipeForm = (): RecipeFormValues => ({
   title: "",
@@ -150,14 +152,9 @@ const sameParse = (a: ParsedIngredient, b: ParsedIngredient) =>
   JSON.stringify([b.quantity, b.unit, b.item, b.note, b.optional, b.alt]);
 
 export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
-  const ingredients: Array<IngredientFormRow> = [];
-  let section: string | null = null;
-  for (const line of recipe.ingredients) {
-    if (line.section !== section) {
-      section = line.section;
-      if (section !== null)
-        ingredients.push({ key: rowKey(), kind: "heading", text: section, flag: null });
-    }
+  const ingredients = withHeadings(recipe.ingredients).map((row): IngredientFormRow => {
+    if (row.kind === "heading") return headingRow(row.text);
+    const { line } = row;
     const parsed: ParsedIngredient = {
       quantity: line.quantity,
       unit: line.unit,
@@ -167,15 +164,15 @@ export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
       alt: line.alt,
       original: line.original,
     };
-    ingredients.push({
+    return {
       key: rowKey(),
       kind: "line",
       text: line.original,
       parsed,
       corrected: !sameParse(parsed, parseIngredientLine(line.original)),
       flag: null,
-    });
-  }
+    };
+  });
   return {
     title: recipe.title,
     description: recipe.description ?? "",
@@ -213,23 +210,18 @@ export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
  */
 export const fromDraft = (draft: ImportDraft): RecipeFormValues => {
   const unsure = copy.imports.unsureLine.text;
-  const ingredients: Array<IngredientFormRow> = [];
-  let section: string | null = null;
-  for (const line of draft.ingredients) {
-    if (line.section !== section) {
-      section = line.section;
-      if (section !== null)
-        ingredients.push({ key: rowKey(), kind: "heading", text: section, flag: null });
-    }
-    ingredients.push({
-      key: rowKey(),
-      kind: "line",
-      text: line.line,
-      parsed: parseIngredientLine(line.line),
-      corrected: false,
-      flag: line.unsure ? unsure : null,
-    });
-  }
+  const ingredients = withHeadings(draft.ingredients).map((row): IngredientFormRow =>
+    row.kind === "heading"
+      ? headingRow(row.text)
+      : {
+          key: rowKey(),
+          kind: "line",
+          text: row.line.line,
+          parsed: parseIngredientLine(row.line.line),
+          corrected: false,
+          flag: row.line.unsure ? unsure : null,
+        },
+  );
   return {
     title: draft.title,
     description: draft.description ?? "",

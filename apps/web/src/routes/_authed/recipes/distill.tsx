@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { type FormEvent, useState } from "react";
-import { RecipeEditor, snapshotOf } from "../../../components/editor/RecipeEditor";
+import { RecipeEditor } from "../../../components/editor/RecipeEditor";
 import {
   Button,
   ButtonLink,
@@ -23,6 +23,7 @@ import {
   saveImport,
   startImport,
 } from "../../../lib/imports";
+import { failureOf } from "../../../lib/api-failure";
 import { decodeRecipeForm, fromDraft, type RecipeFormValues } from "../../../lib/recipe-form";
 import { settleRecipe } from "../../../lib/recipes";
 import { colors, fonts } from "../../../styles/tokens.stylex";
@@ -79,11 +80,10 @@ function Start() {
     } catch (error) {
       setStarting(false);
       // A daily or per-minute limit says so in its own words.
-      if (typeof error === "object" && error !== null && "_tag" in error) {
-        if (error._tag === "TooManyRequests" && "message" in error) {
-          setLinkError(String(error.message));
-          return;
-        }
+      const failure = failureOf(error);
+      if (failure.tag === "TooManyRequests") {
+        setLinkError(failure.message);
+        return;
       }
       setFailed(true);
     }
@@ -285,7 +285,6 @@ function Review({ job }: { job: ImportJob }) {
   const toast = useToast();
   // Read once: the draft doesn't change, and edits mustn't be reset.
   const [initial] = useState(() => fromDraft(job.draft!));
-  const [persisted] = useState(() => snapshotOf(initial));
 
   const onSubmit = async (values: RecipeFormValues) => {
     const input = decodeRecipeForm(values);
@@ -297,8 +296,7 @@ function Review({ job }: { job: ImportJob }) {
       await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
     } catch (error) {
       // Already saved (in another tab, say): the server's message says so.
-      const conflict =
-        typeof error === "object" && error !== null && "_tag" in error && error._tag === "Conflict";
+      const conflict = failureOf(error).tag === "Conflict";
       toast(conflict ? copy.imports.alreadySaved.text : copy.editor.couldntSave.text, "error");
     }
   };
@@ -316,11 +314,9 @@ function Review({ job }: { job: ImportJob }) {
       <RecipeEditor
         title={copy.imports.title.text}
         initial={initial}
-        persisted={persisted}
         // The draft stays on the job until it's saved; nothing to keep meanwhile.
-        persist={async () => "idle"}
+        keep="none"
         onSubmit={onSubmit}
-        guard={false}
         intro={
           <>
             <div {...stylex.props(styles.narrow)}>

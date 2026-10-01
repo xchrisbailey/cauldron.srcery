@@ -7,8 +7,10 @@ import {
   PLAN_LIMITS,
   type MealSlot,
   type PlanEntryInput,
+  type PlanRecipe,
   type RecipeId,
-  type RecipeSummary,
+  recipeMinutes,
+  toPlanRecipe,
 } from "@cauldron/shared";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,21 +19,11 @@ import { dayLabel } from "../lib/dates";
 import { addEntry, settlePlan } from "../lib/plan";
 import { libraryQuery, localToday } from "../lib/recipes";
 import { colors, fonts } from "../styles/tokens.stylex";
-import { totalMinutes } from "./RecipeCard";
 import { Button, Dialog, Input, Select, useToast } from "./ui";
 import { control, focusRing } from "./ui/controls";
 
 // Stirring into the week, two ways: from an empty meal (pick a recipe or write
 // a meal), and from a recipe page (pick the day and meal).
-
-/** A recipe as the week needs it. */
-export const stirRecipe = (recipe: RecipeSummary) => ({
-  id: recipe.id,
-  title: recipe.title,
-  servings: recipe.servings,
-  totalMinutes: totalMinutes(recipe),
-  macros: recipe.macros,
-});
 
 /** Searches the recipe box. Shared by the meal picker and the week's recipe panel. */
 export function useRecipeSearch(text: string) {
@@ -54,7 +46,7 @@ export function PickMealDialog({
 }: {
   target: { date: string; slot: MealSlot } | null;
   onClose: () => void;
-  onPick: (choice: { recipe: ReturnType<typeof stirRecipe> } | { title: string }) => void;
+  onPick: (choice: { recipe: PlanRecipe } | { title: string }) => void;
 }) {
   const [text, setText] = useState("");
   const [meal, setMeal] = useState("");
@@ -90,12 +82,12 @@ export function PickMealDialog({
       />
       <ul {...stylex.props(styles.results)}>
         {recipes.map((recipe) => {
-          const minutes = totalMinutes(recipe);
+          const minutes = recipeMinutes(recipe);
           return (
             <li key={recipe.id}>
               <button
                 type="button"
-                onClick={() => onPick({ recipe: stirRecipe(recipe) })}
+                onClick={() => onPick({ recipe: toPlanRecipe(recipe) })}
                 {...stylex.props(styles.result, focusRing.ring)}
               >
                 <span {...stylex.props(styles.resultTitle)}>{recipe.title}</span>

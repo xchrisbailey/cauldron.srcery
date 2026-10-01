@@ -8,6 +8,7 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
+    "test": "vp test",
     "typecheck": "tsc -p .",
     "generate": "drizzle-kit generate",
     "seed": "bun scripts/seed.ts"
@@ -16,6 +17,7 @@
     "@cauldron/shared": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "drizzle-orm": "catalog:",
+    "effect": "catalog:",
     "pg": "8.23.1"
   },
   "devDependencies": {
