@@ -31,6 +31,7 @@ import {
   removeGatherItem,
   updateGatherItem,
 } from "../../lib/gather";
+import { retryWhile } from "../../lib/api-failure";
 import { usePreference } from "../../lib/preference";
 import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { colors, fonts, quantity } from "../../styles/tokens.stylex";
@@ -45,13 +46,6 @@ export const Route = createFileRoute("/_authed/gather")({
 });
 
 const HIDE_KEY = "cauldron:gather-hide-checked";
-
-/** The API refused the change itself (for example, the item is gone); retrying won't help. */
-const refused = (error: unknown) =>
-  typeof error === "object" &&
-  error !== null &&
-  "_tag" in error &&
-  (error._tag === "NotFound" || error._tag === "InvalidRequest");
 
 function Gather() {
   const search = Route.useSearch();
@@ -93,7 +87,7 @@ function List({
     scope: { id: "gather-update" },
     mutationFn: ({ item, update }: { item: GatherItem; update: GatherItemUpdate }) =>
       updateGatherItem(item.id, update),
-    retry: (count, error) => count < 5 && !refused(error),
+    retry: retryWhile(5),
     onMutate: async ({ item, update }) => {
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<Week>(key, (week) =>

@@ -23,6 +23,7 @@ import {
   saveImport,
   startImport,
 } from "../../../lib/imports";
+import { failureOf } from "../../../lib/api-failure";
 import { decodeRecipeForm, fromDraft, type RecipeFormValues } from "../../../lib/recipe-form";
 import { settleRecipe } from "../../../lib/recipes";
 import { colors, fonts } from "../../../styles/tokens.stylex";
@@ -79,11 +80,10 @@ function Start() {
     } catch (error) {
       setStarting(false);
       // A daily or per-minute limit says so in its own words.
-      if (typeof error === "object" && error !== null && "_tag" in error) {
-        if (error._tag === "TooManyRequests" && "message" in error) {
-          setLinkError(String(error.message));
-          return;
-        }
+      const failure = failureOf(error);
+      if (failure.tag === "TooManyRequests") {
+        setLinkError(failure.message);
+        return;
       }
       setFailed(true);
     }
@@ -296,8 +296,7 @@ function Review({ job }: { job: ImportJob }) {
       await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
     } catch (error) {
       // Already saved (in another tab, say): the server's message says so.
-      const conflict =
-        typeof error === "object" && error !== null && "_tag" in error && error._tag === "Conflict";
+      const conflict = failureOf(error).tag === "Conflict";
       toast(conflict ? copy.imports.alreadySaved.text : copy.editor.couldntSave.text, "error");
     }
   };
