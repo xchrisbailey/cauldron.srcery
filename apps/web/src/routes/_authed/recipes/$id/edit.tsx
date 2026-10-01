@@ -2,8 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { copy, type Recipe } from "@cauldron/shared";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { RecipeEditor, snapshotOf } from "../../../../components/editor/RecipeEditor";
+import { useState } from "react";
+import { RecipeEditor } from "../../../../components/editor/RecipeEditor";
 import { ButtonLink, EmptyState, PageHeader, Skeleton } from "../../../../components/ui";
 import { failureOf } from "../../../../lib/api-failure";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
@@ -45,9 +45,8 @@ function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
   const writes = useRecipeWrites();
   // Read once: a background refetch mustn't reset a form being edited.
   const [initial] = useState(() => fromRecipe(recipe));
-  const persisted = useMemo(() => snapshotOf(initial), [initial]);
 
-  const persist = async (values: RecipeFormValues) => {
+  const save = async (values: RecipeFormValues) => {
     const input = decodeRecipeForm(values);
     if (!input) return "invalid" as const;
     try {
@@ -63,9 +62,7 @@ function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
     <RecipeEditor
       title={copy.editor.editTitle.text}
       initial={initial}
-      persisted={persisted}
-      persist={persist}
-      guard
+      keep={{ save }}
       actions={() => (
         <ButtonLink to="/recipes/$id" params={{ id }} variant="secondary">
           {copy.editor.done.text}

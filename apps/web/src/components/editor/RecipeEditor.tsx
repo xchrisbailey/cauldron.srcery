@@ -1,11 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy, MACRO_KEYS, RECIPE_LIMITS } from "@cauldron/shared";
 import { useForm, useStore } from "@tanstack/react-form";
-import { useDebouncer } from "@tanstack/react-pacer";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type SaveStatus, useAutosave } from "../../lib/autosave";
+import { clearDraft, saveDraft } from "../../lib/recipe-draft";
 import {
+  emptyRecipeForm,
   type RecipeFormValues,
   type ReviewField,
   toRecipeInput,
@@ -22,9 +24,7 @@ import { TagInput } from "./TagInput";
 
 // The recipe editor, shared by Conjure (a new recipe) and Edit. Every change
 // is kept as it happens: a new recipe as a draft in this browser until it's
-// saved, an existing one straight to the API. Both are debounced with Pacer.
-
-export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "kept" | "invalid" | "error";
+// saved, an existing one straight to the API. Both go through lib/autosave.
 
 /**
  * What the form says, compared without row keys. The number fields go in as
@@ -40,39 +40,68 @@ export const snapshotOf = (values: RecipeFormValues) =>
     values.macros,
   ]);
 
+const EMPTY = snapshotOf(emptyRecipeForm());
+
+/** A new recipe's draft: kept in this browser, or cleared once it's empty again. */
+const keepDraft = async (values: RecipeFormValues): Promise<SaveStatus> => {
+  if (snapshotOf(values) === EMPTY) {
+    clearDraft();
+    return "idle";
+  }
+  return saveDraft(values) ? "kept" : "idle";
+};
+
+/**
+ * How changes are kept as they happen: through `save` (an existing recipe,
+ * with navigation held while a change is unsaved), as a draft in this browser
+ * (a new recipe), or not at all until Save (an import, whose draft stays on
+ * the job).
+ */
+export type Keep = { save: (values: RecipeFormValues) => Promise<SaveStatus> } | "draft" | "none";
+
+interface Done {
+  /** Stops keeping changes and drops any draft, once the recipe is saved or started over. */
+  discard: () => void;
+}
+
 interface Props {
   title: string;
   initial: RecipeFormValues;
-  /** Called (debounced) with each change; resolves to the status to show. */
-  persist: (values: RecipeFormValues) => Promise<SaveStatus>;
-  /** The snapshot already persisted, so an unchanged form isn't saved again. */
-  persisted: string;
+  keep: Keep;
   /** Header actions beside the save status, e.g. Save or Done. */
-  actions: (form: { submit: () => void; submitting: boolean }) => ReactNode;
+  actions: (form: { submit: () => void; submitting: boolean } & Done) => ReactNode;
   /** Runs on Save with the validated input. */
-  onSubmit?: (values: RecipeFormValues) => Promise<void>;
-  /** Hold navigation while changes are unsaved (existing recipes). */
-  guard: boolean;
+  onSubmit?: (values: RecipeFormValues, form: Done) => Promise<void>;
   /** Shown under the header, before the fields: an import's source and notes. */
   intro?: ReactNode;
 }
 
-export function RecipeEditor({
-  title,
-  initial,
-  persist,
-  persisted,
-  actions,
-  onSubmit,
-  guard,
-  intro,
-}: Props) {
-  const [status, setStatus] = useState<SaveStatus>("idle");
+export function RecipeEditor({ title, initial, keep, actions, onSubmit, intro }: Props) {
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
-  const saved = useRef(persisted);
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const tags = useQuery(tagsQuery());
+
+  const { autosave, status } = useAutosave({
+    initial,
+    key: snapshotOf,
+    wait: 800,
+    persist: async (values) => {
+      const result =
+        keep === "draft"
+          ? await keepDraft(values)
+          : keep === "none"
+            ? "idle"
+            : await keep.save(values);
+      if (result === "invalid") setShowAllErrors(true);
+      return result;
+    },
+  });
+  // Only changes saved to the API hold navigation; a draft is already kept.
+  const guard = typeof keep === "object";
+  const discard = () => {
+    autosave.cancel();
+    if (keep === "draft") clearDraft();
+  };
 
   const form = useForm({
     defaultValues: initial,
@@ -83,7 +112,7 @@ export function RecipeEditor({
         Object.keys(validateRecipeForm(value)).length > 0 ? copy.editor.fixErrors.text : undefined,
     },
     onSubmit: async ({ value }) => {
-      if (onSubmit) await onSubmit(value);
+      if (onSubmit) await onSubmit(value, { discard });
     },
   });
 
@@ -91,64 +120,19 @@ export function RecipeEditor({
   const submitting = useStore(form.store, (state) => state.isSubmitting);
   const submitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const errors = useMemo(() => validateRecipeForm(values), [values]);
-  const snapshot = useMemo(() => snapshotOf(values), [values]);
-  const latest = useRef(snapshot);
-  latest.current = snapshot;
-  const latestValues = useRef(values);
-  latestValues.current = values;
-  /** The status of the last save that finished, shown again when the form matches it. */
-  const settled = useRef<SaveStatus>("idle");
-
-  // Saves run one at a time, in order, so an older save never lands last. If
-  // the form changed while one was running, the newest values go next.
-  const save = (next: RecipeFormValues) => {
-    const run = queue.current.then(async () => {
-      const shot = snapshotOf(next);
-      if (shot !== saved.current) {
-        setStatus("saving");
-        const result = await persist(next);
-        if (result === "saved" || result === "kept") saved.current = shot;
-        if (result === "invalid") setShowAllErrors(true);
-        settled.current = result;
-      }
-      if (latest.current === saved.current) setStatus(settled.current);
-      else if (latest.current !== shot) debouncer.maybeExecute(latestValues.current);
-      else setStatus(settled.current);
-    });
-    queue.current = run.catch(() => undefined);
-    return run;
-  };
-
-  // Unmounting flushes rather than cancels, so the last change is kept.
-  const debouncer = useDebouncer(save, { wait: 800, onUnmount: (d) => d.flush() });
 
   useEffect(() => {
-    if (snapshot === saved.current) {
-      // Back to what's saved (an edit undone): nothing to send.
-      debouncer.cancel();
-      setStatus(settled.current);
-      return;
-    }
-    setStatus("pending");
-    debouncer.maybeExecute(values);
-    // The debouncer is stable; only new text should schedule a save.
-  }, [snapshot]);
-
-  // Closing or reloading the tab keeps the last change too.
-  useEffect(() => {
-    const flush = () => debouncer.flush();
-    window.addEventListener("pagehide", flush);
-    return () => window.removeEventListener("pagehide", flush);
-  }, [debouncer]);
+    autosave.change(values);
+  }, [autosave, values]);
 
   const blocker = useBlocker({
     shouldBlockFn: async () => {
-      if (!guard || latest.current === saved.current) return false;
-      debouncer.flush();
-      await queue.current;
-      return latest.current !== saved.current;
+      if (!guard || !autosave.dirty()) return false;
+      autosave.flush();
+      await autosave.idle();
+      return autosave.dirty();
     },
-    enableBeforeUnload: () => guard && latest.current !== saved.current,
+    enableBeforeUnload: () => guard && autosave.dirty(),
     withResolver: true,
   });
 
@@ -268,7 +252,7 @@ export function RecipeEditor({
         actions={
           <div {...stylex.props(styles.headActions)}>
             <Status status={status} />
-            {actions({ submit: () => void submit(), submitting })}
+            {actions({ submit: () => void submit(), submitting, discard })}
           </div>
         }
       />

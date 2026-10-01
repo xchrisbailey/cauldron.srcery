@@ -7,10 +7,8 @@ import {
   type PlanEntryInput,
   type PlanEntryUpdate,
   type PlanRecipe,
-  type WeekStartDay,
 } from "@cauldron/shared";
 import { queryOptions } from "@tanstack/react-query";
-import { useState } from "react";
 import { callApi } from "./api";
 import type { PlanApi } from "./plan-writes";
 
@@ -153,32 +151,6 @@ export function applyAdd(entries: ReadonlyArray<PlanEntry>, entry: PlanEntry) {
   const siblings = inSlot(entries, entry.date, entry.slot).map((e): string => e.id);
   const order = siblings.toSpliced(Math.min(entry.position, siblings.length), 0, entry.id);
   return sorted(renumber([...entries, entry], entry.date, entry.slot, order));
-}
-
-const WEEK_START_KEY = "cauldron:week-start";
-
-/** The saved first day of the week (Monday unless the viewer chose Sunday). Browser only. */
-export const savedWeekStartDay = (): WeekStartDay => {
-  try {
-    return window.localStorage.getItem(WEEK_START_KEY) === "0" ? 0 : 1;
-  } catch {
-    // Storage is optional.
-    return 1;
-  }
-};
-
-/** Monday or Sunday, a per-viewer preference remembered in this browser. */
-export function useWeekStartDay(initial: WeekStartDay) {
-  const [day, setDay] = useState<WeekStartDay>(initial);
-  const choose = (next: WeekStartDay) => {
-    setDay(next);
-    try {
-      window.localStorage.setItem(WEEK_START_KEY, String(next));
-    } catch {
-      // Storage is optional.
-    }
-  };
-  return [day, choose] as const;
 }
 
 /**

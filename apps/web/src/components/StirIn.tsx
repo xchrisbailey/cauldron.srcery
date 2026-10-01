@@ -15,7 +15,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 import { dayLabel } from "../lib/dates";
-import { savedWeekStartDay } from "../lib/plan";
+import { useWeekStartsOn } from "../lib/week-cursor";
 import { libraryQuery, localToday } from "../lib/recipes";
 import { usePlanWrites } from "../lib/use-plan";
 import { colors, fonts } from "../styles/tokens.stylex";
@@ -131,7 +131,8 @@ export function StirRecipeDialog({
   onClose: () => void;
 }) {
   const toast = useToast();
-  const writes = usePlanWrites(savedWeekStartDay());
+  const [startsOn] = useWeekStartsOn();
+  const writes = usePlanWrites(startsOn);
   const [today, setToday] = useState(localToday);
   const [date, setDate] = useState(today);
   const [slot, setSlot] = useState<MealSlot>("dinner");
