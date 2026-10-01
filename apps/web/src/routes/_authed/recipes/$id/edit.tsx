@@ -5,13 +5,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { RecipeEditor, snapshotOf } from "../../../../components/editor/RecipeEditor";
 import { ButtonLink, EmptyState, PageHeader, Skeleton } from "../../../../components/ui";
+import { failureOf } from "../../../../lib/api-failure";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
 import { recipeQuery, settleRecipe, updateRecipe } from "../../../../lib/recipes";
 
 export const Route = createFileRoute("/_authed/recipes/$id/edit")({ component: Edit });
 
-const isNotFound = (error: unknown) =>
-  typeof error === "object" && error !== null && "_tag" in error && error._tag === "NotFound";
+const isNotFound = (error: unknown) => failureOf(error).tag === "NotFound";
 
 function Edit() {
   const { id } = Route.useParams();

@@ -11,6 +11,7 @@ import {
   toRecipeInput,
   validateRecipeForm,
 } from "../../lib/recipe-form";
+import { messageOr } from "../../lib/api-failure";
 import { estimateMacros, tagsQuery } from "../../lib/recipes";
 import { colors, fonts, type } from "../../styles/tokens.stylex";
 import { Button, Dialog, FormMessage, Input, PageHeader, Textarea } from "../ui";
@@ -193,12 +194,7 @@ export function RecipeEditor({
       }
       setDivineMessage("");
     },
-    onError: (error) =>
-      setDivineMessage(
-        error instanceof Error && "_tag" in error && error._tag === "Unavailable" && error.message
-          ? error.message
-          : copy.editor.divineFailed.text,
-      ),
+    onError: (error) => setDivineMessage(messageOr(error, copy.editor.divineFailed.text)),
   });
   const divineMacros = () => {
     const { input } = toRecipeInput(values);
