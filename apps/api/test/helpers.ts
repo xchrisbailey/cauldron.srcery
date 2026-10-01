@@ -4,6 +4,8 @@ import { AppConfig } from "../src/AppConfig.ts";
 import { Routes } from "../src/App.ts";
 import { Db } from "../src/Db.ts";
 import { Mailer } from "../src/Mailer.ts";
+import { RemoteFetch } from "../src/RemoteFetch.ts";
+import { Storage } from "../src/Storage.ts";
 
 export const WEB_ORIGIN = "http://localhost:3000";
 
@@ -12,10 +14,16 @@ export const WEB_ORIGIN = "http://localhost:3000";
  * Postgres when DATABASE_URL is set, as in CI; in-memory PGlite otherwise) and
  * an in-memory mail outbox.
  */
-export const TestServices = (config: Partial<AppConfig["Service"]> = {}) =>
-  Layer.mergeAll(Db.layerTest, Mailer.layerTest).pipe(
-    Layer.provideMerge(AppConfig.layerTest(config)),
-  );
+export const TestServices = (
+  config: Partial<AppConfig["Service"]> = {},
+  remote: Parameters<typeof RemoteFetch.layerTest>[0] = {},
+) =>
+  Layer.mergeAll(
+    Db.layerTest,
+    Mailer.layerTest,
+    Storage.layerTest,
+    RemoteFetch.layerTest(remote),
+  ).pipe(Layer.provideMerge(AppConfig.layerTest(config)));
 
 /** Builds the full API (HttpApi routes + Better Auth) as an in-process fetch handler. */
 export const makeTestApi = (config: Partial<AppConfig["Service"]> = {}) =>

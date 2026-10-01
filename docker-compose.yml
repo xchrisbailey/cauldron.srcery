@@ -1,6 +1,9 @@
-# Optional local Postgres. Without it the API uses in-process PGlite.
-# docker compose up -d, then set DATABASE_URL in apps/api/.env:
+# Optional local Postgres and MinIO. Without them the API uses in-process
+# PGlite and keeps photos in apps/api/.data/storage.
+# docker compose up -d, then in apps/api/.env:
 # DATABASE_URL=postgres://cauldron:cauldron@localhost:5432/cauldron
+# S3_BUCKET=cauldron  S3_ENDPOINT=http://localhost:9000
+# S3_ACCESS_KEY_ID=cauldron  S3_SECRET_ACCESS_KEY=cauldron-minio
 services:
   postgres:
     image: postgres:17
@@ -18,5 +21,25 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: cauldron
+      MINIO_ROOT_PASSWORD: cauldron-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+  # Creates the bucket and lets the browser PUT presigned uploads from the web origin.
+  minio-setup:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "until mc alias set local http://minio:9000 cauldron cauldron-minio; do sleep 1; done &&
+      mc mb --ignore-existing local/cauldron"
+
 volumes:
   postgres:
+  minio:

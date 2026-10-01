@@ -253,6 +253,21 @@ export const library = {
   summonHelp: plain("Use the arrow keys to choose and Enter to open."),
 } as const;
 
+// Recipe photos (#12). Plain: they're controls and errors.
+export const photos = {
+  add: plain("Add a photo"),
+  replace: plain("Replace photo"),
+  remove: plain("Remove photo"),
+  uploading: plain("Uploading photo…"),
+  alt: (title: string) => plain(`Photo of ${title}`),
+  unsupported: plain("Use a JPEG, PNG, WebP or AVIF photo."),
+  tooLarge: plain("That photo is over 15 MB. Try a smaller one."),
+  tooBig: plain("That photo is too large to process. Try a smaller one."),
+  couldntRead: plain("We couldn't read that photo. Try another one."),
+  couldntFetch: plain("We couldn't fetch a photo from that link."),
+  uploadExpired: plain("That upload has expired. Choose the photo again."),
+} as const;
+
 export const brewing = {
   nextStep: plain("Next step"),
   previousStep: plain("Previous step"),

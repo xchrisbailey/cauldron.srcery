@@ -37,12 +37,16 @@ export class RecipesApi extends HttpApiGroup.make("recipes")
         "Best matches by title, tag and ingredient, for search-as-you-type.",
       ),
     HttpApiEndpoint.get("get", "/:id", { params, success: Recipe, error: NotFoundError }),
-    HttpApiEndpoint.post("create", "/", { payload: RecipeInput, success: Recipe }),
+    HttpApiEndpoint.post("create", "/", {
+      payload: RecipeInput,
+      success: Recipe,
+      error: InvalidRequestError,
+    }),
     HttpApiEndpoint.put("update", "/:id", {
       params,
       payload: RecipeInput,
       success: Recipe,
-      error: NotFoundError,
+      error: [NotFoundError, InvalidRequestError],
     }).annotate(OpenApi.Description, "Replaces the whole recipe, ingredients and steps included."),
     HttpApiEndpoint.delete("banish", "/:id", {
       params,

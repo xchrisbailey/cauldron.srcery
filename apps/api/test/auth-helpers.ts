@@ -14,9 +14,10 @@ export const makeAuthApi = (
   config: Partial<AppConfig["Service"]> = {},
   // oxlint-disable-next-line typescript/no-explicit-any
   routes: Layer.Layer<never, never, any> = Routes,
+  remote: Parameters<typeof TestServices>[1] = {},
 ) => {
   const memoMap = Layer.makeMemoMapUnsafe();
-  const services = TestServices(config);
+  const services = TestServices(config, remote);
   const web = HttpRouter.toWebHandler(
     routes.pipe(Layer.provide(services), Layer.provide(HttpServer.layerServices)) as Layer.Layer<
       never,

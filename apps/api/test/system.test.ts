@@ -8,6 +8,8 @@ import { Routes } from "../src/App.ts";
 import { Db, DbError } from "../src/Db.ts";
 import { ErrorShape } from "../src/http/ErrorShape.ts";
 import { Mailer } from "../src/Mailer.ts";
+import { Storage } from "../src/Storage.ts";
+import { RemoteFetch } from "../src/RemoteFetch.ts";
 import { WEB_ORIGIN, makeTestApi, url } from "./helpers.ts";
 import { NotFoundError } from "@cauldron/api-spec";
 import { NotFound } from "@cauldron/shared";
@@ -122,9 +124,12 @@ describe("health when the database is down", () => {
   const down = HttpRouter.toWebHandler(
     Routes.pipe(
       Layer.provide(
-        Layer.mergeAll(FailingPing, Mailer.layerTest).pipe(
-          Layer.provideMerge(AppConfig.layerTest()),
-        ),
+        Layer.mergeAll(
+          FailingPing,
+          Mailer.layerTest,
+          Storage.layerTest,
+          RemoteFetch.layerTest({}),
+        ).pipe(Layer.provideMerge(AppConfig.layerTest())),
       ),
       Layer.provide(HttpServer.layerServices),
     ),

@@ -3,6 +3,7 @@ export * as copy from "./copy.ts";
 export * from "./errors.ts";
 export * from "./User.ts";
 export * from "./Pagination.ts";
+export * from "./Photo.ts";
 export * from "./Recipe.ts";
 export * from "./ingredients/units.ts";
 export * from "./ingredients/schema.ts";

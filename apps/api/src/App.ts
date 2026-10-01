@@ -8,6 +8,9 @@ import { AuthRoute } from "./http/AuthRoute.ts";
 import { RateLimitLive } from "./http/RateLimit.ts";
 import { RequestId } from "./http/RequestId.ts";
 import { Mailer } from "./Mailer.ts";
+import { PhotoCleanup, Photos } from "./Photos.ts";
+import { RemoteFetch } from "./RemoteFetch.ts";
+import { Storage } from "./Storage.ts";
 
 const Cors = Layer.unwrap(
   Effect.gen(function* () {
@@ -20,10 +23,16 @@ const Cors = Layer.unwrap(
   }),
 );
 
-/** Every route, needing only the external services (config, database, email). */
+/** Every route, needing only the external services (config, database, email, storage, fetch). */
 export const Routes = Layer.mergeAll(ApiRoutes, AuthRoute, RequestId, Cors).pipe(
   Layer.provide([Auth.layer, RateLimitLive]),
 );
 
-/** The external services for a real run. Tests swap in `Db.layerTest` and `Mailer.layerTest`. */
-export const Services = Layer.mergeAll(Db.layer, Mailer.layer);
+/** Background work that runs while the API is up: the hourly photo cleanup. */
+export const Jobs = PhotoCleanup.pipe(Layer.provide(Photos.layer));
+
+/**
+ * The external services for a real run. Tests swap in `Db.layerTest`,
+ * `Mailer.layerTest`, `Storage.layerTest` and `RemoteFetch.layerTest`.
+ */
+export const Services = Layer.mergeAll(Db.layer, Mailer.layer, Storage.layer, RemoteFetch.layer);
