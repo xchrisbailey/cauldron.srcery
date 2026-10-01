@@ -8,7 +8,8 @@
     "dev:oidc": "bun scripts/dev-oidc.ts",
     "start": "bun src/main.ts",
     "test": "vp test",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test:live": "LIVE_IMPORTS=1 vp test run test/live"
   },
   "dependencies": {
     "@cauldron/api-spec": "workspace:*",
