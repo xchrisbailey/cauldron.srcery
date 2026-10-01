@@ -16,6 +16,15 @@ import { fetchFailure, fetchPage } from "./web.ts";
 
 export type SocialSource = Extract<ImportSource, "instagram" | "tiktok">;
 
+const HOSTS: ReadonlyArray<readonly [RegExp, SocialSource]> = [
+  [/(^|\.)instagram\.com$|(^|\.)instagr\.am$/i, "instagram"],
+  [/(^|\.)tiktok\.com$/i, "tiktok"],
+];
+
+/** The platform a host belongs to, or null for any other site. */
+export const socialHost = (host: string): SocialSource | null =>
+  HOSTS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
+
 // The optional first segment is a username ("instagram.com/ada/reel/…"), never
 // a reserved path: "/share/reel/…" is a share link with its own code, which
 // has to be followed to find the post.

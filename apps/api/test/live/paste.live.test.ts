@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { fromText } from "../../src/imports/Importers.ts";
+import { fromText } from "../../src/imports/fromText.ts";
 import { RecipeExtractor } from "../../src/imports/RecipeExtractor.ts";
 
 // The pastes only the model can read, through the real model. On demand

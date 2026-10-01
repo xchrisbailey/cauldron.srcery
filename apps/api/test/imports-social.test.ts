@@ -1,18 +1,14 @@
-import { copy, type ImportDraft } from "@cauldron/shared";
-import { schema } from "@cauldron/db";
-import { eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
-import { Routes } from "../src/App.ts";
-import { Db } from "../src/Db.ts";
-import { ImportWorker } from "../src/Imports.ts";
+import type { ImportDraft } from "@cauldron/shared";
+import { layer } from "@effect/vitest";
+import { Effect } from "effect";
+import { describe, expect, it } from "vite-plus/test";
+import { distill } from "../src/imports/distill.ts";
 import { emptyExtracted } from "../src/imports/Extracted.ts";
 import { type ExtractInput, RecipeExtractor } from "../src/imports/RecipeExtractor.ts";
 import { canonicalPost, fromOpenGraph } from "../src/imports/social.ts";
-import { type AuthApi, cookieOf, makeAuthApi } from "./auth-helpers.ts";
-import { WEB_ORIGIN } from "./helpers.ts";
+import { DistillServices, makeOwner } from "./helpers.ts";
 
-// Instagram and TikTok imports as jobs, with saved oEmbed and page responses
+// Distilling Instagram and TikTok posts, with saved oEmbed and page responses
 // standing in for the platforms.
 
 const json = (value: unknown) => ({
@@ -56,77 +52,34 @@ const fakeModel = RecipeExtractor.layerTest((input) => {
   });
 });
 
-let api: AuthApi;
-let ada: string;
-
-beforeAll(async () => {
-  api = makeAuthApi(
-    {},
-    Layer.merge(Routes, ImportWorker),
-    {
-      [oembed(TIKTOK)]: json({
-        title: CAPTION,
-        author_name: "Noodle Cook",
-        author_unique_id: "noodlecook",
-        thumbnail_url: "https://p16.tiktokcdn.example/cover.jpg",
-      }),
-      // A share link that redirects to the post.
-      "https://vm.tiktok.com/ZMabc123/": html("", `${TIKTOK}?_r=1&u_code=xyz`),
-      [oembed("https://www.tiktok.com/@ricecook/video/7300000000000000001")]: json({
-        title: "garlic butter rice, so good, rice + butter + garlic then cook it all",
-        author_unique_id: "ricecook",
-      }),
-      [oembed("https://www.tiktok.com/@spoken/video/7300000000000000002")]: json({
-        title: "full recipe in the video 👀 #fyp",
-        author_unique_id: "spoken",
-      }),
-      // No oEmbed caption: the page's Open Graph tags have it.
-      "https://www.tiktok.com/@ogonly/video/7300000000000000003": html(
-        `<meta property="og:description" content="${CAPTION.replace(/\n/g, "&#10;")}"><meta property="og:image" content="https://p16.tiktokcdn.example/og.jpg">`,
-      ),
-      "https://www.instagram.com/share/reel/BAGshare1/": html(
-        "",
-        "https://www.instagram.com/accounts/login/?next=%2Freel%2FCxyz123%2F",
-      ),
-      "https://www.instagram.com/reel/Cxyz123/": html(
-        `<meta property="og:description" content="1,204 likes, 33 comments - sunsetcook on May 2, 2026: &quot;golden hour on the terrace 🌅&quot;.">`,
-      ),
-    },
-    fakeModel,
-  );
-  const before = (await api.outbox()).length;
-  await api.post("/v1/auth/sign-up/email", {
-    email: "ada@example.com",
-    password: "correct-horse-1",
-    name: "Ada",
-  });
-  ada = cookieOf(await api.send(api.linkIn((await api.waitForOutbox(before + 1)).at(-1)!)))!;
-});
-afterAll(() => api.dispose());
-
-const call = async (method: string, path: string, body?: unknown) => {
-  const res = await api.send(path, {
-    method,
-    headers: {
-      cookie: ada,
-      origin: WEB_ORIGIN,
-      ...(body === undefined ? {} : { "content-type": "application/json" }),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  const text = await res.text();
-  // oxlint-disable-next-line typescript/no-explicit-any
-  return { status: res.status, body: text ? JSON.parse(text) : (null as any) };
-};
-
-const distill = async (url: string) => {
-  const started = await call("POST", "/v1/imports", { url });
-  for (let i = 0; i < 500; i++) {
-    const res = await call("GET", `/v1/imports/${started.body.id}`);
-    if (!["queued", "running"].includes(res.body.status)) return res.body;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("import never settled");
+const responses = {
+  [oembed(TIKTOK)]: json({
+    title: CAPTION,
+    author_name: "Noodle Cook",
+    author_unique_id: "noodlecook",
+    thumbnail_url: "https://p16.tiktokcdn.example/cover.jpg",
+  }),
+  // A share link that redirects to the post.
+  "https://vm.tiktok.com/ZMabc123/": html("", `${TIKTOK}?_r=1&u_code=xyz`),
+  [oembed("https://www.tiktok.com/@ricecook/video/7300000000000000001")]: json({
+    title: "garlic butter rice, so good, rice + butter + garlic then cook it all",
+    author_unique_id: "ricecook",
+  }),
+  [oembed("https://www.tiktok.com/@spoken/video/7300000000000000002")]: json({
+    title: "full recipe in the video 👀 #fyp",
+    author_unique_id: "spoken",
+  }),
+  // No oEmbed caption: the page's Open Graph tags have it.
+  "https://www.tiktok.com/@ogonly/video/7300000000000000003": html(
+    `<meta property="og:description" content="${CAPTION.replace(/\n/g, "&#10;")}"><meta property="og:image" content="https://p16.tiktokcdn.example/og.jpg">`,
+  ),
+  "https://www.instagram.com/share/reel/BAGshare1/": html(
+    "",
+    "https://www.instagram.com/accounts/login/?next=%2Freel%2FCxyz123%2F",
+  ),
+  "https://www.instagram.com/reel/Cxyz123/": html(
+    `<meta property="og:description" content="1,204 likes, 33 comments - sunsetcook on May 2, 2026: &quot;golden hour on the terrace 🌅&quot;.">`,
+  ),
 };
 
 describe("post links", () => {
@@ -173,80 +126,92 @@ describe("post links", () => {
   });
 });
 
-describe("distilling a social post", () => {
-  it("reads a laid-out caption from oEmbed without the model, crediting the creator", async () => {
-    const before = sent.length;
-    const job = await distill(`${TIKTOK}?is_from_webapp=1`);
-    expect(job.status).toBe("done");
-    expect(job.source).toBe("tiktok");
-    const draft = job.draft as ImportDraft;
-    expect(draft).toMatchObject({
-      title: "Crispy chilli oil noodles 🌶️ my go-to when I'm tired",
-      sourcePlatform: "tiktok",
-      sourceUrl: TIKTOK,
-      sourceAuthor: "@noodlecook",
-      siteName: "TikTok",
+layer(DistillServices(responses, fakeModel))("distilling a social post", (it) => {
+  const read = (url: string) =>
+    Effect.gen(function* () {
+      return yield* distill({ url }, yield* makeOwner());
     });
-    expect(draft.ingredients.map((i) => i.line)).toEqual([
-      "200g wheat noodles",
-      "2 tbsp chilli oil",
-      "1 tbsp soy sauce",
-      "1 spring onion, sliced",
-    ]);
-    expect(draft.steps).toHaveLength(3);
-    expect(draft.tags).toEqual([]);
-    expect(sent.length).toBe(before);
-  });
+  const failure = (url: string) =>
+    Effect.gen(function* () {
+      return yield* Effect.flip(distill({ url }, yield* makeOwner()));
+    });
 
-  it("follows a share link to the post", async () => {
-    const job = await distill("https://vm.tiktok.com/ZMabc123/");
-    expect(job.status).toBe("done");
-    expect(job.draft.sourceUrl).toBe(TIKTOK);
-  });
+  it.effect("reads a laid-out caption from oEmbed without the model, crediting the creator", () =>
+    Effect.gen(function* () {
+      const before = sent.length;
+      const { draft, extractor, raw } = yield* read(`${TIKTOK}?is_from_webapp=1`);
+      expect(draft).toMatchObject({
+        title: "Crispy chilli oil noodles 🌶️ my go-to when I'm tired",
+        sourcePlatform: "tiktok",
+        sourceUrl: TIKTOK,
+        sourceAuthor: "@noodlecook",
+        siteName: "TikTok",
+      } satisfies Partial<ImportDraft>);
+      expect(draft.ingredients.map((i) => i.line)).toEqual([
+        "200g wheat noodles",
+        "2 tbsp chilli oil",
+        "1 tbsp soy sauce",
+        "1 spring onion, sliced",
+      ]);
+      expect(draft.steps).toHaveLength(3);
+      expect(draft.tags).toEqual([]);
+      expect({ extractor, raw }).toEqual({ extractor: "text", raw: CAPTION });
+      expect(sent.length).toBe(before);
+    }),
+  );
 
-  it("sends a messy caption to the model, tuned for captions", async () => {
-    const job = await distill("https://www.tiktok.com/@ricecook/video/7300000000000000001");
-    expect(job.status).toBe("done");
-    expect(sent.at(-1)?.kind).toBe("caption");
-    expect(job.draft).toMatchObject({ title: "Garlic butter rice", sourceAuthor: "@ricecook" });
-  });
+  it.effect("follows a share link to the post", () =>
+    Effect.gen(function* () {
+      const { draft } = yield* read("https://vm.tiktok.com/ZMabc123/");
+      expect(draft.sourceUrl).toBe(TIKTOK);
+    }),
+  );
 
-  it("falls back to the page's Open Graph caption", async () => {
-    const job = await distill("https://www.tiktok.com/@ogonly/video/7300000000000000003");
-    expect(job.status).toBe("done");
-    expect(job.draft.ingredients).toHaveLength(4);
-  });
+  it.effect("sends a messy caption to the model, tuned for captions", () =>
+    Effect.gen(function* () {
+      const { draft, usage } = yield* read(
+        "https://www.tiktok.com/@ricecook/video/7300000000000000001",
+      );
+      expect(sent.at(-1)?.kind).toBe("caption");
+      expect(draft).toMatchObject({ title: "Garlic butter rice", sourceAuthor: "@ricecook" });
+      expect(usage?.model).toBe("fake");
+    }),
+  );
 
-  it("fails with the paste suggestion when the recipe is only in the video, and keeps the caption", async () => {
-    const spoken = await distill("https://www.tiktok.com/@spoken/video/7300000000000000002");
-    expect(spoken.failure).toEqual({ code: "spokenOnly", message: copy.imports.spokenOnly.text });
-    const insta = await distill("https://www.instagram.com/reel/Cxyz123/?igsh=abc");
-    expect(insta.failure.code).toBe("spokenOnly");
-    const row = await api.run(
+  it.effect("falls back to the page's Open Graph caption", () =>
+    Effect.gen(function* () {
+      const { draft } = yield* read("https://www.tiktok.com/@ogonly/video/7300000000000000003");
+      expect(draft.ingredients).toHaveLength(4);
+    }),
+  );
+
+  it.effect(
+    "fails with the paste suggestion when the recipe is only in the video, and keeps the caption",
+    () =>
       Effect.gen(function* () {
-        const db = yield* Db;
-        const [found] = yield* db.use((d) =>
-          d.select().from(schema.importJob).where(eq(schema.importJob.id, spoken.id)),
-        );
-        return found!;
+        const spoken = yield* failure("https://www.tiktok.com/@spoken/video/7300000000000000002");
+        // Kept for #17, which will transcribe these.
+        expect({ code: spoken.code, raw: spoken.raw }).toEqual({
+          code: "spokenOnly",
+          raw: "full recipe in the video 👀 #fyp",
+        });
+        const insta = yield* failure("https://www.instagram.com/reel/Cxyz123/?igsh=abc");
+        expect(insta.code).toBe("spokenOnly");
       }),
-    );
-    // Kept for #17, which will transcribe these.
-    expect(row).toMatchObject({
-      errorCode: "spokenOnly",
-      rawContent: "full recipe in the video 👀 #fyp",
-    });
-  });
+  );
 
-  it("follows an Instagram share link, even to a login page", async () => {
-    // The share code isn't the post's; the redirect says where the post is.
-    expect((await distill("https://www.instagram.com/share/reel/BAGshare1/")).failure.code).toBe(
-      "spokenOnly",
-    );
-  });
+  it.effect("follows an Instagram share link, even to a login page", () =>
+    Effect.gen(function* () {
+      // The share code isn't the post's; the redirect says where the post is.
+      const error = yield* failure("https://www.instagram.com/share/reel/BAGshare1/");
+      expect(error.code).toBe("spokenOnly");
+    }),
+  );
 
-  it("can't read a post it can't reach", async () => {
-    const job = await distill("https://www.tiktok.com/@gone/video/7300000000000000009");
-    expect(job.failure.code).toBe("couldntRead");
-  });
+  it.effect("can't read a post it can't reach", () =>
+    Effect.gen(function* () {
+      const error = yield* failure("https://www.tiktok.com/@gone/video/7300000000000000009");
+      expect(error.code).toBe("couldntRead");
+    }),
+  );
 });

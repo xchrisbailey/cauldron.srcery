@@ -9,13 +9,12 @@ import {
   ImportJob,
   type ImportSource,
   NotFound,
-  RECIPE_LIMITS,
   RecipeId,
   type RecipeInput,
   TooManyRequests,
   type UserId,
 } from "@cauldron/shared";
-import { and, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   Cause,
   Context,
@@ -30,28 +29,19 @@ import {
   Schedule,
   Schema,
 } from "effect";
+import type { AppConfig } from "./AppConfig.ts";
 import { Db } from "./Db.ts";
-import { toDraft } from "./imports/draft.ts";
-import type { ExtractedRecipe } from "./imports/Extracted.ts";
-import { ImportFailed, Importers } from "./imports/Importers.ts";
-import { RecipeExtractor } from "./imports/RecipeExtractor.ts";
+import { classify, distill, normalizeUrl } from "./imports/distill.ts";
+import { ImportQueue, type JobRow } from "./imports/ImportQueue.ts";
+import type { RecipeExtractor } from "./imports/RecipeExtractor.ts";
 import { Photos } from "./Photos.ts";
 import { liveRecipe, Recipes } from "./Recipes.ts";
+import type { RemoteFetch } from "./RemoteFetch.ts";
 
 const { importJob, recipe } = schema;
-type JobRow = typeof importJob.$inferSelect;
 
 /** Imports one person can start in a day. Each may call the model, which costs money. */
 export const DAILY_IMPORT_LIMIT = 100;
-/** A job that runs longer than this fails as timed out. */
-export const JOB_TIMEOUT = Duration.minutes(2);
-/** The cover photo gets this long; past it the draft goes without one. */
-const PHOTO_TIMEOUT = Duration.seconds(20);
-/** An estimate is a nicety: the draft goes out without one rather than waiting long. */
-const MACRO_TIMEOUT = Duration.seconds(30);
-/** Jobs left running this long were orphaned by a stopped worker and are picked up again. */
-const STALE_AFTER = Duration.minutes(5);
-const MAX_ATTEMPTS = 3;
 /** Jobs run at once per API process. */
 const CONCURRENCY = 2;
 const POLL = Duration.seconds(2);
@@ -63,51 +53,15 @@ const failureMessage = (code: ImportFailureCode, source: ImportSource) =>
     ? copy.imports.noRecipeInText.text
     : copy.imports[code].text;
 
-const TRACKING = /^(?:utm_.*|fbclid|gclid|igshid|igsh|mc_cid|mc_eid|ref|ref_src|si|s)$/i;
-
-/**
- * A link without the parts that don't change the page (fragment, tracking
- * parameters, a trailing slash, the host's case), so the same recipe is
- * recognised however it was shared.
- */
-export const normalizeUrl = (raw: string): string => {
-  try {
-    const url = new URL(raw);
-    url.hash = "";
-    // Copied first: deleting while iterating skips keys.
-    for (const key of Array.from(url.searchParams.keys())) {
-      if (TRACKING.test(key)) url.searchParams.delete(key);
-    }
-    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, "");
-    return url.toString();
-  } catch {
-    return raw;
-  }
-};
-
-const SOCIAL: ReadonlyArray<readonly [RegExp, ImportSource]> = [
-  [/(^|\.)instagram\.com$|(^|\.)instagr\.am$/i, "instagram"],
-  [/(^|\.)tiktok\.com$/i, "tiktok"],
-];
-
-/** What kind of source a link is, from its host. */
-export const detectSource = (url: string): ImportSource => {
-  try {
-    const host = new URL(url).hostname;
-    return SOCIAL.find(([pattern]) => pattern.test(host))?.[1] ?? "web";
-  } catch {
-    return "web";
-  }
-};
-
 const decodeDraft = Schema.decodeUnknownOption(ImportDraft);
 
 const make = Effect.gen(function* () {
   const db = yield* Db;
   const recipes = yield* Recipes;
-  const importers = yield* Importers;
   const photos = yield* Photos;
-  const model = yield* RecipeExtractor;
+  const queue = yield* ImportQueue;
+  // What distill reads through: the network, the model, photo storage and config.
+  const seams = yield* Effect.context<RemoteFetch | RecipeExtractor | Photos | AppConfig>();
   // Wakes an idle worker when a job is queued, so it doesn't wait for the next poll.
   const wake = yield* Queue.unbounded<void>();
   // Running jobs by id, so cancelling one interrupts its work.
@@ -174,33 +128,20 @@ const make = Effect.gen(function* () {
   });
 
   const start = Effect.fn("Imports.start")(function* (ownerId: UserId, input: ImportInput) {
-    const since = new Date(Date.now() - Duration.toMillis(Duration.days(1)));
-    const [today] = yield* db.use((d) =>
-      d
-        .select({ n: count() })
-        .from(importJob)
-        .where(and(eq(importJob.ownerId, ownerId), gt(importJob.createdAt, since))),
-    );
-    if (Number(today?.n ?? 0) >= DAILY_IMPORT_LIMIT) {
+    if ((yield* queue.countSince(ownerId, Duration.days(1))) >= DAILY_IMPORT_LIMIT) {
       return yield* new TooManyRequests({
         message: copy.imports.dailyLimit.text,
         retryAfterSeconds: 60 * 60,
       });
     }
     const url = input.url === undefined ? null : input.url;
-    const [row] = yield* db.use((d) =>
-      d
-        .insert(importJob)
-        .values({
-          ownerId,
-          source: url === null ? "text" : detectSource(url),
-          sourceUrl: url,
-          inputText: input.text ?? null,
-        })
-        .returning(),
-    );
+    const row = yield* queue.enqueue(ownerId, {
+      source: url === null ? "text" : classify(url),
+      url,
+      text: input.text ?? null,
+    });
     yield* Queue.offer(wake, undefined);
-    return yield* toJob(row!);
+    return yield* toJob(row);
   });
 
   const get = Effect.fn("Imports.get")(function* (ownerId: UserId, id: ImportId) {
@@ -208,19 +149,7 @@ const make = Effect.gen(function* () {
   });
 
   const cancel = Effect.fn("Imports.cancel")(function* (ownerId: UserId, id: ImportId) {
-    const [row] = yield* db.use((d) =>
-      d
-        .update(importJob)
-        .set({ status: "cancelled", finishedAt: new Date() })
-        .where(
-          and(
-            eq(importJob.id, id),
-            eq(importJob.ownerId, ownerId),
-            inArray(importJob.status, ["queued", "running"]),
-          ),
-        )
-        .returning(),
-    );
+    const row = yield* queue.cancel(ownerId, id);
     // Interrupts the job if this process is running it. Another process's
     // worker sees the status when it finishes and leaves the row alone.
     yield* FiberMap.remove(running, id);
@@ -273,191 +202,49 @@ const make = Effect.gen(function* () {
     );
   });
 
-  /** Takes the oldest queued job, so no other worker can. */
-  const claim = db
-    .use((d) =>
-      d
-        .update(importJob)
-        .set({
-          status: "running",
-          attempts: sql`${importJob.attempts} + 1`,
-          startedAt: new Date(),
-        })
-        .where(
-          eq(
-            importJob.id,
-            sql`(select ${importJob.id} from ${importJob} where ${importJob.status} = 'queued' order by ${importJob.createdAt} limit 1 for update skip locked)`,
-          ),
-        )
-        .returning(),
-    )
-    .pipe(Effect.map((rows) => rows[0]));
-
-  /** Writes a finished job, unless it was cancelled meanwhile. */
-  const finish = (id: string, values: Partial<typeof importJob.$inferInsert>) =>
-    db.use((d) =>
-      d
-        .update(importJob)
-        .set({ ...values, finishedAt: new Date() })
-        .where(and(eq(importJob.id, id), eq(importJob.status, "running"))),
-    );
-
-  /** Whether a job was cancelled, perhaps before its fiber could be interrupted. */
-  const cancelled = (id: string) =>
-    db
-      .use((d) =>
-        d.select({ status: importJob.status }).from(importJob).where(eq(importJob.id, id)),
-      )
-      .pipe(Effect.map((rows) => rows[0]?.status === "cancelled"));
-
-  /** Puts a job a stopping worker was running back in the queue, without counting the attempt. */
-  const requeue = (id: string) =>
-    db
-      .use((d) =>
-        d
-          .update(importJob)
-          .set({ status: "queued", attempts: sql`greatest(${importJob.attempts} - 1, 0)` })
-          .where(and(eq(importJob.id, id), eq(importJob.status, "running"))),
-      )
-      .pipe(Effect.ignore);
-
-  /**
-   * A recipe whose source gave no nutrition gets the model's estimate from its
-   * ingredients, flagged for the cook to check. No model, or a failed or slow
-   * estimate, leaves the macros blank rather than failing the import.
-   */
-  const withMacros = <A extends { readonly recipe: ExtractedRecipe }>(imported: A) =>
-    Effect.gen(function* () {
-      const recipe = imported.recipe;
-      const lines = recipe.ingredients
-        .map((l) => l.line.trim().slice(0, RECIPE_LIMITS.line))
-        .filter((l) => l !== "")
-        .slice(0, RECIPE_LIMITS.ingredients);
-      if (recipe.macros !== undefined || !model.available || lines.length === 0) return imported;
-      const macros = yield* model
-        .estimateMacros({
-          title: recipe.title?.slice(0, RECIPE_LIMITS.title) ?? null,
-          servings:
-            recipe.servings !== null &&
-            recipe.servings >= 1 &&
-            recipe.servings <= RECIPE_LIMITS.servings
-              ? Math.round(recipe.servings)
-              : null,
-          ingredients: lines,
-        })
-        .pipe(
-          Effect.timeoutOrElse({ duration: MACRO_TIMEOUT, orElse: () => Effect.succeed(null) }),
-          Effect.catchCause((cause) =>
-            Effect.logInfo("Import macro estimate skipped", cause).pipe(Effect.as(null)),
-          ),
-        );
-      if (macros === null) return imported;
-      return {
-        ...imported,
-        recipe: { ...recipe, macros, unsure: [...recipe.unsure, "macros" as const] },
-      };
-    });
-
   const work = Effect.fn("Imports.work")(function* (row: JobRow) {
     // A cancel that landed between the claim and now: don't spend a model call.
-    if (yield* cancelled(row.id)) return yield* Effect.interrupt;
-    const { imported, photoKey } = yield* Effect.gen(function* () {
-      const imported = yield* importers.run({
-        source: row.source as ImportSource,
-        url: row.sourceUrl,
-        text: row.inputText,
-      });
-      // The hero image becomes the cover photo. One that won't fetch or decode
-      // in time leaves the draft without a photo rather than failing it. A
-      // photo no recipe ends up using is removed by the photo cleanup.
-      const imageUrl = imported.recipe.imageUrl;
-      const photoKey =
-        imageUrl === null
-          ? null
-          : yield* photos.fromUrl(row.ownerId as UserId, imageUrl).pipe(
-              Effect.map((photo): string | null => photo.id),
-              Effect.timeoutOrElse({ duration: PHOTO_TIMEOUT, orElse: () => Effect.succeed(null) }),
-              Effect.catchCause((cause) =>
-                Effect.logInfo("Import photo skipped", { id: row.id }, cause).pipe(Effect.as(null)),
-              ),
-            );
-      return { imported: yield* withMacros(imported), photoKey };
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: JOB_TIMEOUT,
-        orElse: () => Effect.fail(new ImportFailed({ code: "timeout" })),
-      }),
-    );
-    const link = imported.sourceUrl ?? row.sourceUrl;
-    const draft = toDraft(imported.recipe, {
-      source: row.source as ImportSource,
-      sourceUrl: link === null ? null : normalizeUrl(link),
-      photoKey,
-    });
-    return { imported, draft };
+    if (yield* queue.cancelled(row.id)) return yield* Effect.interrupt;
+    // A job has a link or text, never both (the table checks).
+    const request = row.inputText === null ? { url: row.sourceUrl! } : { text: row.inputText };
+    return yield* distill(request, row.ownerId as UserId).pipe(Effect.provideContext(seams));
   });
 
   /** Runs one claimed job to a result, recording failures as plain codes. */
-  const process = Effect.fn("Imports.process")(function* (row: JobRow) {
-    // Interrupted by a cancel, the row is already cancelled and stays so. By a
-    // shutdown, it goes back in the queue for the next worker.
-    const fiber = yield* FiberMap.run(
-      running,
-      row.id,
-      work(row).pipe(Effect.onInterrupt(() => requeue(row.id))),
-    );
-    const exit = yield* Fiber.await(fiber);
-    if (Exit.isSuccess(exit)) {
-      const { imported, draft } = exit.value;
-      yield* finish(row.id, {
-        status: "done",
-        draft,
-        extractor: imported.extractor,
-        rawContent: imported.raw,
-        model: imported.usage?.model ?? null,
-        inputTokens: imported.usage?.inputTokens ?? null,
-        outputTokens: imported.usage?.outputTokens ?? null,
-      });
-      return;
-    }
-    const cause = exit.cause;
-    // Cancelled: the row already says so.
-    if (Cause.hasInterrupts(cause)) return;
-    const failure = Cause.findErrorOption(cause);
-    // A DbError here is an outage, not a reason to show the cook.
-    if (Option.isSome(failure) && failure.value._tag === "ImportFailed") {
-      yield* finish(row.id, {
-        status: "failed",
-        errorCode: failure.value.code,
-        rawContent: failure.value.raw ?? null,
-      });
-      return;
-    }
-    yield* Effect.logError("Import failed unexpectedly", { id: row.id }, cause);
-    yield* finish(row.id, { status: "failed", errorCode: "unavailable" });
-  });
-
-  /** Requeues jobs a stopped worker left running, and gives up on ones that keep failing. */
-  const recover = Effect.fn("Imports.recover")(function* () {
-    const before = new Date(Date.now() - Duration.toMillis(STALE_AFTER));
-    const stale = and(eq(importJob.status, "running"), lt(importJob.startedAt, before));
-    yield* db.use((d) =>
-      d
-        .update(importJob)
-        .set({ status: "failed", errorCode: "unavailable", finishedAt: new Date() })
-        .where(and(stale, sql`${importJob.attempts} >= ${MAX_ATTEMPTS}`)),
-    );
-    yield* db.use((d) =>
-      d
-        .update(importJob)
-        .set({ status: "queued" })
-        .where(and(stale, lt(importJob.attempts, MAX_ATTEMPTS))),
-    );
-  });
+  const process = Effect.fn("Imports.process")(
+    function* (row: JobRow) {
+      // Interrupted by a cancel, the row is already cancelled and stays so. By a
+      // shutdown, it goes back in the queue for the next worker.
+      const fiber = yield* FiberMap.run(
+        running,
+        row.id,
+        work(row).pipe(Effect.onInterrupt(() => queue.requeue(row.id).pipe(Effect.ignore))),
+      );
+      const exit = yield* Fiber.await(fiber);
+      if (Exit.isSuccess(exit)) {
+        return yield* queue.finish(row.id, { _tag: "Done", distilled: exit.value });
+      }
+      const cause = exit.cause;
+      // Cancelled: the row already says so.
+      if (Cause.hasInterrupts(cause)) return;
+      const failure = Cause.findErrorOption(cause);
+      // A DbError here is an outage, not a reason to show the cook.
+      if (Option.isSome(failure) && failure.value._tag === "ImportFailed") {
+        return yield* queue.finish(row.id, {
+          _tag: "Failed",
+          code: failure.value.code,
+          raw: failure.value.raw,
+        });
+      }
+      yield* Effect.logError("Import failed unexpectedly", cause);
+      yield* queue.finish(row.id, { _tag: "Failed", code: "unavailable" });
+    },
+    (effect, row) => Effect.annotateLogs(effect, { importId: row.id }),
+  );
 
   /** One worker: claim, run, repeat; idle until woken or the next poll. */
   const worker = Effect.gen(function* () {
-    const row = yield* claim;
+    const row = yield* queue.claim();
     if (row) return yield* process(row);
     yield* Queue.take(wake).pipe(
       Effect.timeoutOrElse({ duration: POLL, orElse: () => Effect.void }),
@@ -471,7 +258,7 @@ const make = Effect.gen(function* () {
     Effect.forever,
   );
 
-  return { start, get, cancel, save, recover, worker };
+  return { start, get, cancel, save, recover: queue.recover, worker };
 });
 
 /** Distill jobs: start, poll, cancel and save. Every read and write is scoped to one owner. */
@@ -479,7 +266,7 @@ export class Imports extends Context.Service<Imports, Effect.Success<typeof make
   "cauldron/api/Imports",
 ) {
   static readonly layer = Layer.effect(Imports, make).pipe(
-    Layer.provide([Recipes.layer, Importers.layer, Photos.layer]),
+    Layer.provide([Recipes.layer, Photos.layer, ImportQueue.layer]),
   );
 }
 
