@@ -1,3 +1,4 @@
+import type { UnitCode } from "@cauldron/shared";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -168,7 +169,7 @@ export const recipeIngredient = pgTable(
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
     /** Normalized unit code from the shared unit catalog. */
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
     item: text("item").notNull(),
     /**
      * Normalized merge key from `ingredientKey(item)` in `@cauldron/shared`
@@ -183,7 +184,7 @@ export const recipeIngredient = pgTable(
     /** A second measure, e.g. the "(190g)" in "1 1/2 cups (190g) flour". */
     altQuantityMin: quantity("alt_quantity_min"),
     altQuantityMax: quantity("alt_quantity_max"),
-    altUnit: text("alt_unit"),
+    altUnit: text("alt_unit").$type<UnitCode>(),
     /** The line exactly as written. */
     originalLine: text("original_line").notNull(),
     /** Reserved for the nutrition database the tracker will use (#23). */
@@ -324,7 +325,7 @@ export const gatherItem = pgTable(
     itemKey: text("item_key").notNull(),
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
     /** Store aisle for grouping, e.g. "produce". */
     aisle: text("aisle").$type<Aisle>(),
     checked: boolean("checked").notNull().default(false),
@@ -356,7 +357,7 @@ export const gatherItemSource = pgTable(
     recipeId: uuid("recipe_id").notNull(),
     quantityMin: quantity("quantity_min"),
     quantityMax: quantity("quantity_max"),
-    unit: text("unit"),
+    unit: text("unit").$type<UnitCode>(),
   },
   (t) => [
     foreignKey({
