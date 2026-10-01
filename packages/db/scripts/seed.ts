@@ -1,4 +1,5 @@
 // Seeds a demo account with a few recipes: `bun run --cwd packages/db seed`.
+// SEED_COUNT=500 tops the account up to that many recipes with generated ones.
 // Uses DATABASE_URL when set, otherwise the API's local PGlite data directory
 // (stop the API first; PGlite allows one process at a time).
 import { mkdirSync } from "node:fs";
@@ -12,6 +13,7 @@ import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import pg from "pg";
 import { migrationsFolder, schema } from "../src/index.ts";
 import { seed } from "../src/seed.ts";
+import { seedMany } from "../src/seed-many.ts";
 
 const email = process.env.SEED_EMAIL ?? "demo@cauldron.local";
 const DEFAULT_PASSWORD = "cauldron-demo";
@@ -65,6 +67,15 @@ try {
   }
   const { created, total } = await seed(db, owner!.id);
   console.log(`Seeded ${created} of ${total} recipes for ${email}.`);
+  const target = Number(process.env.SEED_COUNT ?? 0);
+  if (Number.isInteger(target) && target > 0) {
+    const started = performance.now();
+    const many = await seedMany(db, owner!.id, target);
+    const secs = ((performance.now() - started) / 1000).toFixed(1);
+    console.log(`Generated ${many.created} recipes (${many.total} total) in ${secs}s.`);
+  } else if (process.env.SEED_COUNT) {
+    console.warn(`Ignoring SEED_COUNT=${process.env.SEED_COUNT}: expected a positive integer.`);
+  }
 } finally {
   await close();
 }

@@ -1,5 +1,5 @@
-import type { Recipe, RecipeId, RecipeInput } from "@cauldron/shared";
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import type { Recipe, RecipeId, RecipeInput, RecipeSort, TagId } from "@cauldron/shared";
+import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { callApi } from "./api";
 
 // Recipe queries and writes for TanStack Query. Keys start with "recipes" so
@@ -15,6 +15,43 @@ export const recipeQuery = (id: string) =>
   queryOptions({
     queryKey: recipeKeys.detail(id),
     queryFn: () => callApi((c) => c.recipes.get({ params: { id: id as RecipeId } })),
+  });
+
+export interface LibraryFilters {
+  readonly q: string;
+  readonly tag: string | undefined;
+  readonly sort: RecipeSort;
+}
+
+const PAGE = 30;
+
+/** The library, a page at a time on the API's cursor. */
+export const libraryQuery = (filters: LibraryFilters) =>
+  infiniteQueryOptions({
+    queryKey: ["recipes", "list", filters] as const,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      callApi((c) =>
+        c.recipes.list({
+          query: {
+            limit: PAGE,
+            sort: filters.sort,
+            ...(pageParam === undefined ? {} : { cursor: pageParam }),
+            ...(filters.q.trim() === "" ? {} : { q: filters.q.trim() }),
+            ...(filters.tag === undefined ? {} : { tag: filters.tag as TagId }),
+          },
+        }),
+      ),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+
+/** Best matches for the ⌘K palette. */
+export const summonQuery = (q: string) =>
+  queryOptions({
+    queryKey: ["recipes", "search", q] as const,
+    queryFn: () => callApi((c) => c.recipes.search({ query: { q, limit: 8 } })),
+    enabled: q.trim() !== "",
+    staleTime: 30_000,
   });
 
 export const tagsQuery = () =>

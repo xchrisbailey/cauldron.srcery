@@ -226,6 +226,33 @@ export const recipeView = {
   backToRecipes: plain("Back to recipes"),
 } as const;
 
+// The recipe library (#11) and the ⌘K palette. Controls and counts are plain.
+export const library = {
+  search: plain("Search recipes"),
+  searchPlaceholder: plain("Name, ingredient or tag"),
+  sort: plain("Sort"),
+  sortRecent: plain("Newest"),
+  sortTitle: plain("A to Z"),
+  sortLastCooked: plain("Last cooked"),
+  tag: plain("Tag"),
+  allTags: plain("All tags"),
+  view: plain("View"),
+  grid: plain("Grid"),
+  list: plain("List"),
+  noMatches: plain("No recipes match that. Try another word, or clear the filters."),
+  clearFilters: plain("Clear filters"),
+  loadingMore: plain("Loading more recipes"),
+  couldntLoadMore: plain("Couldn't load more recipes."),
+  retry: plain("Try again"),
+  tagOption: (name: string, n: number) => plain(`${name} (${n})`),
+  count: (n: number) => plain(n === 1 ? "1 recipe" : `${n} recipes`),
+  results: plain("Recipes"),
+  actions: plain("Jump to"),
+  openWeek: plain("Open the week"),
+  noResults: plain("Nothing matches. Try another word."),
+  summonHelp: plain("Use the arrow keys to choose and Enter to open."),
+} as const;
+
 export const brewing = {
   nextStep: plain("Next step"),
   previousStep: plain("Previous step"),
