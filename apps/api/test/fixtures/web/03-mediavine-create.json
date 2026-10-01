@@ -1,0 +1,25 @@
+{
+  "extractor": "json-ld",
+  "title": "Sheet Pan Chicken Fajitas",
+  "ingredients": [
+    "1 lb chicken breast, sliced",
+    "2 bell peppers, sliced",
+    "1 red onion, sliced",
+    "2 tbsp fajita seasoning",
+    "8 small flour tortillas"
+  ],
+  "steps": [
+    "Heat the oven to 425 F.",
+    "Toss chicken and vegetables with the seasoning on a sheet pan.",
+    "Roast for 20 minutes, stirring once."
+  ],
+  "sections": {
+    "Heat the oven to 425 F.": "Prep",
+    "Roast for 20 minutes, stirring once.": "Roast"
+  },
+  "servings": 4,
+  "author": "Marcus Lowe",
+  "siteName": "Weeknight Table",
+  "imageUrl": "https://example.com/uploads/fajitas.jpg",
+  "canonicalUrl": "https://example.com/recipes/mediavine-create/"
+}

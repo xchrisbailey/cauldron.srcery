@@ -32,6 +32,7 @@ import {
 import { Db } from "./Db.ts";
 import { toDraft } from "./imports/draft.ts";
 import { ImportFailed, Importers } from "./imports/Importers.ts";
+import { Photos } from "./Photos.ts";
 import { Recipes } from "./Recipes.ts";
 
 const { importJob, recipe } = schema;
@@ -98,6 +99,7 @@ const make = Effect.gen(function* () {
   const db = yield* Db;
   const recipes = yield* Recipes;
   const importers = yield* Importers;
+  const photos = yield* Photos;
   // Wakes an idle worker when a job is queued, so it doesn't wait for the next poll.
   const wake = yield* Queue.unbounded<void>();
   // Running jobs by id, so cancelling one interrupts its work.
@@ -317,11 +319,23 @@ const make = Effect.gen(function* () {
           orElse: () => Effect.fail(new ImportFailed({ code: "timeout" })),
         }),
       );
+    // The hero image becomes the cover photo. One that won't fetch or decode
+    // leaves the draft without a photo rather than failing it.
+    const imageUrl = imported.recipe.imageUrl;
+    const photoKey =
+      imageUrl === null
+        ? null
+        : yield* photos.fromUrl(row.ownerId as UserId, imageUrl).pipe(
+            Effect.map((photo): string | null => photo.id),
+            Effect.catchCause((cause) =>
+              Effect.logInfo("Import photo skipped", { id: row.id }, cause).pipe(Effect.as(null)),
+            ),
+          );
+    const link = imported.sourceUrl ?? row.sourceUrl;
     const draft = toDraft(imported.recipe, {
       source: row.source as ImportSource,
-      sourceUrl:
-        imported.sourceUrl ?? (row.sourceUrl === null ? null : normalizeUrl(row.sourceUrl)),
-      photoKey: null,
+      sourceUrl: link === null ? null : normalizeUrl(link),
+      photoKey,
     });
     return { imported, draft };
   });
@@ -404,7 +418,7 @@ export class Imports extends Context.Service<Imports, Effect.Success<typeof make
   "cauldron/api/Imports",
 ) {
   static readonly layer = Layer.effect(Imports, make).pipe(
-    Layer.provide([Recipes.layer, Importers.layer]),
+    Layer.provide([Recipes.layer, Importers.layer, Photos.layer]),
   );
 }
 

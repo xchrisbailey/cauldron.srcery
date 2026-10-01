@@ -1,0 +1,18 @@
+{
+  "extractor": "json-ld",
+  "title": "Garlic Butter Shrimp",
+  "ingredients": [
+    "1 lb shrimp, peeled",
+    "4 cloves garlic, minced",
+    "3 tbsp butter",
+    "1 tbsp lemon juice"
+  ],
+  "steps": [
+    "Melt the butter and cook the garlic for 30 seconds.",
+    "Add the shrimp and cook 2 minutes a side.",
+    "Finish with lemon juice."
+  ],
+  "servings": 3,
+  "totalMinutes": 15,
+  "siteName": "example.com"
+}

@@ -1,0 +1,6 @@
+{
+  "extractor": "json-ld",
+  "title": "Apple Crisp",
+  "imageUrl": "https://example.com/images/apple-crisp.jpg",
+  "servings": 6
+}

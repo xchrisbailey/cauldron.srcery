@@ -1,0 +1,25 @@
+{
+  "extractor": "json-ld",
+  "title": "Smoky Black Bean Soup",
+  "ingredients": [
+    "2 tbsp olive oil",
+    "1 onion, diced",
+    "2 cans (15 oz) black beans, drained",
+    "1 tsp smoked paprika",
+    "4 cups vegetable broth"
+  ],
+  "steps": [
+    "Soften the onion in the oil over medium heat, about 5 minutes.",
+    "Stir in the beans, paprika and broth.",
+    "Simmer for 30 minutes, then blend half of it."
+  ],
+  "servings": 6,
+  "prepMinutes": 10,
+  "cookMinutes": 35,
+  "totalMinutes": 45,
+  "author": "Priya Raman",
+  "siteName": "Tasty Pantry",
+  "imageUrl": "https://example.com/img/soup-1x1.jpg",
+  "canonicalUrl": "https://example.com/recipes/tasty-recipes",
+  "tags": ["Tex-Mex", "Soup"]
+}

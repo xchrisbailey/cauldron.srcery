@@ -1,0 +1,6 @@
+{
+  "extractor": "json-ld",
+  "title": "Peanut Noodles",
+  "canonicalUrl": "https://example.com/recipes/canonical-tracking?page=2",
+  "servings": 4
+}

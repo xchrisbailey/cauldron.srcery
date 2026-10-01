@@ -1,0 +1,16 @@
+{
+  "extractor": "json-ld",
+  "title": "Cucumber Yogurt Salad",
+  "ingredients": [
+    "2 cucumbers, sliced",
+    "1 cup plain yogurt",
+    "1 clove garlic, grated",
+    "1 tbsp dill"
+  ],
+  "steps": [
+    "Salt the cucumbers and let them drain for 10 minutes.",
+    "Stir the yogurt with garlic and dill.",
+    "Fold in the cucumbers and chill."
+  ],
+  "servings": 4
+}

@@ -1,0 +1,13 @@
+{
+  "extractor": "json-ld",
+  "title": "Grandma’s Oatmeal Cookies",
+  "ingredients": [
+    "1½ cups rolled oats",
+    "¾ cup butter, softened",
+    "1 cup brown sugar & a pinch of salt",
+    "2 tbsp baker’s vanilla",
+    "1 – 2 tsp cinnamon"
+  ],
+  "steps": ["Cream the butter & sugar.", "Stir in the oats; bake at 350°F for 10 minutes."],
+  "servings": 24
+}

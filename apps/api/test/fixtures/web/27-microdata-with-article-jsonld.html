@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Beef Stew</title>
+    <link rel="canonical" href="https://example.com/recipes/microdata-with-article-jsonld" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Beef Stew",
+        "author": {
+          "@type": "Person",
+          "name": "Ignored Byline"
+        }
+      }
+    </script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a href="/">Home</a> <a href="/recipes">Recipes</a> <a href="/about">About</a>
+      <a href="/shop">Shop</a>
+    </nav>
+    <main class="content">
+      <h1>Page heading</h1>
+      <div itemscope itemtype="https://schema.org/Recipe">
+        <h2 itemprop="name">Beef Stew</h2>
+        <span itemprop="author">Carla Mendes</span>
+        <span itemprop="recipeYield">6</span>
+        <ul>
+          <li itemprop="recipeIngredient">2 lb beef chuck</li>
+          <li itemprop="recipeIngredient">3 potatoes</li>
+          <li itemprop="recipeIngredient">4 cups beef stock</li>
+        </ul>
+        <div itemprop="recipeInstructions">
+          Brown the beef.<br />Add the potatoes and stock.<br />Simmer for 2 hours.
+        </div>
+      </div>
+    </main>
+    <div class="advertisement">Advertisement: save 20% on cookware today</div>
+    <aside class="sidebar">
+      <h3>Popular posts</h3>
+      <ul>
+        <li>Ten dinners under twenty minutes</li>
+      </ul>
+    </aside>
+    <div id="comments">
+      <h3>14 Comments</h3>
+      <div class="comment">Jo says: made this twice, love it! Subscribe to my channel.</div>
+    </div>
+    <footer>Copyright 2026 Example Kitchen. All rights reserved.</footer>
+  </body>
+</html>
