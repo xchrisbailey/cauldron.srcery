@@ -68,7 +68,7 @@ export const recipe = pgTable(
     sourceUrl: text("source_url"),
     sourceAuthor: text("source_author"),
     sourceFetchedAt: timestampMs("source_fetched_at"),
-    /** Storage key of the cover photo (#12). */
+    /** Id of the cover photo in `photo` (#12). Duplicates may share one. */
     photoKey: text("photo_key"),
     notes: text("notes"),
     /** The most recent day it was marked as cooked; mirrors the latest `recipe_cook` row. */
@@ -343,4 +343,33 @@ export const gatherItemSource = pgTable(
         and (${t.quantityMax} is null or (${t.quantityMin} is not null and ${t.quantityMax} >= ${t.quantityMin}))`,
     ),
   ],
+);
+
+/**
+ * A processed photo. Its WebP variants live in storage under
+ * `photos/<owner_id>/<id>/<variant>.webp`. Photos no recipe points at are
+ * removed by the cleanup job after a grace period.
+ */
+export const photo = pgTable(
+  "photo",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: timestampMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("photo_owner_idx").on(t.ownerId), index("photo_created_idx").on(t.createdAt)],
+);
+
+/** An upload the client was given a URL for and hasn't finished yet. */
+export const photoUpload = pgTable(
+  "photo_upload",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    contentType: text("content_type").notNull(),
+    createdAt: timestampMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("photo_upload_created_idx").on(t.createdAt)],
 );

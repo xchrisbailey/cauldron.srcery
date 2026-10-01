@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { formatTimer, type RecipeSummary, type Tag } from "@cauldron/shared";
+import { formatTimer, photoUrl, type RecipeSummary, type Tag } from "@cauldron/shared";
 import { Link } from "@tanstack/react-router";
 import { colors, fonts } from "../styles/tokens.stylex";
 import { Mark } from "./Mark";
@@ -23,9 +23,21 @@ export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
       preload="intent"
       {...stylex.props(styles.card, focusRing.ring)}
     >
-      {/* The photo slot; #12 fills it. */}
-      <div aria-hidden="true" {...stylex.props(styles.photo)}>
-        <Mark size={44} />
+      <div {...stylex.props(styles.photo)}>
+        {recipe.photoKey ? (
+          // Decorative here: the card's title names the recipe.
+          <img
+            src={photoUrl(recipe.photoKey, "card")}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            {...stylex.props(styles.image)}
+          />
+        ) : (
+          <span aria-hidden="true">
+            <Mark size={44} />
+          </span>
+        )}
       </div>
       <div {...stylex.props(styles.body)}>
         <h2 {...stylex.props(styles.title)}>{recipe.title}</h2>
@@ -98,6 +110,7 @@ const styles = stylex.create({
     aspectRatio: "4 / 3",
     backgroundColor: `color-mix(in srgb, ${colors.magic} 10%, ${colors.crust})`,
   },
+  image: { width: "100%", height: "100%", objectFit: "cover" },
   body: { display: "flex", flexDirection: "column", gap: 8, padding: 14 },
   title: {
     margin: 0,

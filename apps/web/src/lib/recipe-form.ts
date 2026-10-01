@@ -67,6 +67,8 @@ export interface RecipeFormValues {
   totalMinutes: string;
   sourceUrl: string;
   notes: string;
+  /** The cover photo's id, once uploaded (#12). */
+  photoKey: string | null;
   tags: Array<string>;
   ingredients: Array<IngredientFormRow>;
   steps: Array<StepRow>;
@@ -119,6 +121,7 @@ export const emptyRecipeForm = (): RecipeFormValues => ({
   totalMinutes: "",
   sourceUrl: "",
   notes: "",
+  photoKey: null,
   tags: [],
   ingredients: [ingredientRow("")],
   steps: [stepRow("")],
@@ -169,6 +172,7 @@ export const fromRecipe = (recipe: Recipe): RecipeFormValues => {
     totalMinutes: text(recipe.totalMinutes),
     sourceUrl: recipe.sourceUrl ?? "",
     notes: recipe.notes ?? "",
+    photoKey: recipe.photoKey,
     tags: recipe.tags.map((tag) => tag.name),
     ingredients: ingredients.length > 0 ? ingredients : [ingredientRow("")],
     steps:
@@ -227,6 +231,7 @@ export const toRecipeInput = (values: RecipeFormValues) => {
     sourceUrl: values.sourceUrl.trim() === "" ? null : values.sourceUrl,
     sourceAuthor: values.sourceAuthor,
     notes: values.notes,
+    photoKey: values.photoKey,
     tags: values.tags,
     ingredients,
     steps,

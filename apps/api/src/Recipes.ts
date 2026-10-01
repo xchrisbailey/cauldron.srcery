@@ -41,7 +41,7 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 import { Db, isUniqueViolation } from "./Db.ts";
 
-const { recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
+const { photo, recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
 
 // Every recipe column but the search document, which only SQL reads.
 const { search: _search, ...recipeColumns } = getTableColumns(recipe);
@@ -373,7 +373,23 @@ const make = Effect.gen(function* () {
     yield* db.use((d) => d.execute(refreshRecipeSearch(ownerId, [recipeId])));
   });
 
+  /** A recipe may only point at one of its owner's photos. */
+  const checkPhoto = Effect.fn("Recipes.checkPhoto")(function* (
+    ownerId: UserId,
+    photoKey: string | null | undefined,
+  ) {
+    if (photoKey === null || photoKey === undefined) return;
+    const rows = yield* db.use((d) =>
+      d
+        .select({ id: photo.id })
+        .from(photo)
+        .where(and(eq(photo.id, photoKey), eq(photo.ownerId, ownerId))),
+    );
+    if (rows.length === 0) return yield* invalid();
+  });
+
   const fields = (input: RecipeInput) => ({
+    photoKey: input.photoKey ?? null,
     title: input.title,
     description: orNull(input.description),
     servings: input.servings,
@@ -455,6 +471,7 @@ const make = Effect.gen(function* () {
   });
 
   const create = Effect.fn("Recipes.create")(function* (ownerId: UserId, input: RecipeInput) {
+    yield* checkPhoto(ownerId, input.photoKey);
     return yield* db.transaction(
       Effect.gen(function* () {
         const [row] = yield* db.use((d) =>
@@ -478,6 +495,7 @@ const make = Effect.gen(function* () {
     id: RecipeId,
     input: RecipeInput,
   ) {
+    yield* checkPhoto(ownerId, input.photoKey);
     return yield* db.transaction(
       Effect.gen(function* () {
         const rows = yield* db.use((d) =>

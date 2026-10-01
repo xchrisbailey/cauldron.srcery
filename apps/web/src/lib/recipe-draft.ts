@@ -37,6 +37,7 @@ export const loadDraft = (): RecipeFormValues | null => {
       review: [],
       sourcePlatform: "manual",
       sourceAuthor: null,
+      photoKey: null,
       ...draft,
     } as RecipeFormValues;
   } catch {

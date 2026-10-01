@@ -107,6 +107,8 @@ export const RecipeInput = Schema.Struct({
   sourceUrl: Schema.NullOr(SourceUrl),
   sourceAuthor: OptionalText(RECIPE_LIMITS.author),
   notes: OptionalText(RECIPE_LIMITS.notes),
+  /** The cover photo's id from the photos API (#12). Left out means none. */
+  photoKey: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
   tags: List(TagName, RECIPE_LIMITS.tags),
   ingredients: List(IngredientInput, RECIPE_LIMITS.ingredients),
   steps: List(StepInput, RECIPE_LIMITS.steps),
@@ -169,7 +171,7 @@ const RecipeFields = {
   prepMinutes: Schema.NullOr(Schema.Int),
   cookMinutes: Schema.NullOr(Schema.Int),
   totalMinutes: Schema.NullOr(Schema.Int),
-  /** Storage key of the cover photo (#12). */
+  /** The cover photo's id; show it with `photoUrl(photoKey, variant)`. */
   photoKey: Schema.NullOr(Schema.String),
   tags: Schema.Array(Tag),
   lastCookedOn: Schema.NullOr(LocalDate),

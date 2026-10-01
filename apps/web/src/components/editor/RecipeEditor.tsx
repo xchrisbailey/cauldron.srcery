@@ -15,6 +15,7 @@ import { tagsQuery } from "../../lib/recipes";
 import { colors, fonts, type } from "../../styles/tokens.stylex";
 import { Button, Dialog, FormMessage, Input, PageHeader, Textarea } from "../ui";
 import { IngredientRows } from "./IngredientRows";
+import { PhotoField } from "./PhotoField";
 import { StepRows } from "./StepRows";
 import { TagInput } from "./TagInput";
 
@@ -239,6 +240,11 @@ export function RecipeEditor({
           xstyle={styles.titleInput}
         />
       </div>
+      <PhotoField
+        photoKey={values.photoKey}
+        title={values.title}
+        onChange={(photoKey) => form.setFieldValue("photoKey", photoKey)}
+      />
       {text("description", copy.editor.description.text, { multiline: true })}
 
       <div {...stylex.props(styles.facts)}>

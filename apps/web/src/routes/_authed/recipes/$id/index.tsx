@@ -5,6 +5,7 @@ import {
   formatQuantity,
   formatTimer,
   type Ingredient,
+  photoUrl,
   type Recipe,
   type Tag,
   type UnitSystemChoice,
@@ -213,6 +214,16 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           </div>
         }
       />
+
+      {recipe.photoKey ? (
+        <img
+          src={photoUrl(recipe.photoKey, "full")}
+          srcSet={`${photoUrl(recipe.photoKey, "card")} 800w, ${photoUrl(recipe.photoKey, "full")} 1920w`}
+          sizes="(max-width: 767px) 100vw, 1040px"
+          alt={copy.photos.alt(recipe.title).text}
+          {...stylex.props(styles.hero)}
+        />
+      ) : null}
 
       {recipe.description ? (
         <p {...stylex.props(styles.description)}>{recipe.description}</p>
@@ -478,6 +489,14 @@ const styles = stylex.create({
   loading: { display: "grid", gap: 12, maxWidth: 720 },
   page: { display: "flex", flexDirection: "column", gap: 16, maxWidth: 1040 },
   actions: { display: "flex", flexWrap: "wrap", gap: 8 },
+  hero: {
+    width: "100%",
+    maxHeight: { default: 420, "@media print": 260 },
+    aspectRatio: "16 / 9",
+    objectFit: "cover",
+    borderRadius: 14,
+    backgroundColor: colors.mantle,
+  },
   description: {
     margin: 0,
     maxWidth: "62ch",
