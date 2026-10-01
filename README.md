@@ -40,6 +40,7 @@ To load a demo account with a few recipes (stop the API first when using PGlite)
 
 ```bash
 bun run --cwd packages/db seed   # demo@cauldron.local / cauldron-demo
+SEED_COUNT=500 bun run --cwd packages/db seed   # also generate up to 500 recipes
 ```
 
 ## Environment
