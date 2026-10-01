@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   date,
   foreignKey,
   index,
@@ -39,6 +40,9 @@ const quantity = (name: string) => numeric(name, { precision: 12, scale: 4, mode
 // unique (id, owner_id) and children reference the pair, so a child row can
 // never point at another user's recipe, tag or gather item.
 
+/** Postgres full text search document. Written only by SQL (see `recipeSearchDocument` in the API). */
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
+
 export const sourcePlatform = pgEnum("source_platform", [
   "web",
   "instagram",
@@ -67,6 +71,13 @@ export const recipe = pgTable(
     /** Storage key of the cover photo (#12). */
     photoKey: text("photo_key"),
     notes: text("notes"),
+    /** The most recent day it was marked as cooked; mirrors the latest `recipe_cook` row. */
+    lastCookedOn: date("last_cooked_on", { mode: "string" }),
+    /**
+     * Title, tags, ingredient items and description, weighted in that order.
+     * Recomputed by the API whenever any of them change.
+     */
+    search: tsvector("search"),
     ...timestamps(),
     deletedAt: timestampMs("deleted_at"),
   },
@@ -77,7 +88,36 @@ export const recipe = pgTable(
     index("recipe_owner_created_idx")
       .on(t.ownerId, t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} is null`),
+    // Sorting a user's live recipes by title and by last cooked.
+    index("recipe_owner_title_idx")
+      .on(t.ownerId, sql`lower(${t.title})`, t.id)
+      .where(sql`${t.deletedAt} is null`),
+    // Never-cooked recipes sort last: the API orders by this same expression.
+    index("recipe_owner_cooked_idx")
+      .on(t.ownerId, sql`(coalesce(${t.lastCookedOn}, '0001-01-01'::date)) desc`, t.id.desc())
+      .where(sql`${t.deletedAt} is null`),
+    index("recipe_search_idx").using("gin", t.search),
     check("recipe_servings_positive", sql`${t.servings} is null or ${t.servings} > 0`),
+  ],
+);
+
+/** Each time a recipe was cooked. `recipe.last_cooked_on` holds the latest. */
+export const recipeCook = pgTable(
+  "recipe_cook",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    recipeId: uuid("recipe_id").notNull(),
+    cookedOn: date("cooked_on", { mode: "string" }).notNull(),
+    createdAt: timestampMs("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.recipeId, t.ownerId],
+      foreignColumns: [recipe.id, recipe.ownerId],
+      name: "recipe_cook_recipe_owner_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("recipe_cook_recipe_day_idx").on(t.recipeId, t.cookedOn.desc()),
   ],
 );
 

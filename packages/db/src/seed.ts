@@ -2,6 +2,7 @@ import { ingredientKey, parseIngredientLine } from "@cauldron/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema/index.ts";
+import { refreshRecipeSearch } from "./search.ts";
 import { seedRecipes } from "./seed-recipes.ts";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -93,6 +94,7 @@ export const seed = async (db: Db, ownerId: string) => {
           )[0]!.id;
         await tx.insert(schema.recipeTag).values({ ownerId, recipeId, tagId });
       }
+      await tx.execute(refreshRecipeSearch(ownerId, [recipeId]));
     });
     created++;
   }

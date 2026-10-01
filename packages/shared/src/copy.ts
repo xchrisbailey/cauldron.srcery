@@ -105,9 +105,25 @@ export const recipes = {
     verb: voice("Banish"),
     confirm: plain(`Banish ${title}? This can't be undone.`),
   }),
+  /** Title of a duplicated recipe. */
+  copyOf: (title: string) => plain(`${title} (copy)`),
+  tagNameTaken: plain("You already have a tag with that name."),
   couldntReadPage: plain("Couldn't read that page. Paste the recipe text instead."),
   /** Under the search field until #11 lists results. */
   summonHint: plain("Search by recipe name, ingredient or tag."),
+} as const;
+
+// Messages for recipe fields that fail the shared schemas. The editor shows
+// these through Standard Schema, so they're plain and say how to fix it.
+export const validation = {
+  required: plain("Fill this in."),
+  tooLong: (max: number) => plain(`Keep it to ${max} characters or fewer.`),
+  tooMany: (max: number) => plain(`Use ${max} or fewer.`),
+  wholeNumber: (min: number, max: number) => plain(`Use a whole number from ${min} to ${max}.`),
+  link: plain("Enter a link starting with https://"),
+  date: plain("Use a real date, like 2026-10-01."),
+  quantity: plain("Use an amount from 0 up to 99,999,999."),
+  range: plain("The second amount in a range can't be smaller than the first."),
 } as const;
 
 export const brewing = {

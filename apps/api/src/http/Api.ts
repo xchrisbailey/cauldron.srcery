@@ -5,6 +5,8 @@ import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
 import { AppConfig } from "../AppConfig.ts";
 import { Db, redactDbError } from "../Db.ts";
 import { AuthorizationLive } from "./Authorization.ts";
+import { Recipes } from "../Recipes.ts";
+import { RecipesHandlers, TagsHandlers } from "./Recipes.ts";
 
 const SystemHandlers = HttpApiBuilder.group(
   Api,
@@ -51,8 +53,8 @@ const Docs = Layer.unwrap(
 
 export const ApiRoutes = Layer.mergeAll(
   HttpApiBuilder.layer(Api, { openapiPath: "/v1/openapi.json" }).pipe(
-    Layer.provide([SystemHandlers, AccountHandlers]),
-    Layer.provide(AuthorizationLive),
+    Layer.provide([SystemHandlers, AccountHandlers, RecipesHandlers, TagsHandlers]),
+    Layer.provide([AuthorizationLive, Recipes.layer]),
   ),
   Docs,
 );

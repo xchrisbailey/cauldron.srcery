@@ -32,6 +32,33 @@ describe("OpenAPI document", () => {
     }
   });
 
+  it("documents the recipe and tag routes with their schemas", async () => {
+    const spec = await fetchSpec();
+    for (const [path, method] of [
+      ["/v1/recipes", "get"],
+      ["/v1/recipes", "post"],
+      ["/v1/recipes/search", "get"],
+      ["/v1/recipes/{id}", "get"],
+      ["/v1/recipes/{id}", "put"],
+      ["/v1/recipes/{id}", "delete"],
+      ["/v1/recipes/{id}/restore", "post"],
+      ["/v1/recipes/{id}/duplicate", "post"],
+      ["/v1/recipes/{id}/cooked", "post"],
+      ["/v1/tags", "get"],
+      ["/v1/tags/{id}", "patch"],
+    ] as const) {
+      const operation = spec.paths[path]?.[method] as
+        | { responses: Record<string, { content?: unknown }>; requestBody?: unknown }
+        | undefined;
+      expect(operation, `${method} ${path}`).toBeDefined();
+      expect(operation!.responses["200"]?.content, `${method} ${path} 200`).toBeDefined();
+      expect(Object.keys(operation!.responses), `${method} ${path}`).toContain("401");
+      if (method === "post" && path !== "/v1/recipes/{id}/restore" && !path.endsWith("duplicate")) {
+        expect(operation!.requestBody, `${method} ${path} body`).toBeDefined();
+      }
+    }
+  });
+
   it("documents the error shape for guarded routes", async () => {
     const spec = await fetchSpec();
     const me = spec.paths["/v1/account/me"]?.["get"] as { responses: Record<string, unknown> };
