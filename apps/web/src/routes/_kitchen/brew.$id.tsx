@@ -4,6 +4,8 @@ import {
   displayMeasure,
   type Ingredient,
   type Recipe,
+  Scale,
+  type ScaleSearch,
   stepIngredients,
   type UnitSystemChoice,
 } from "@cauldron/shared";
@@ -31,12 +33,8 @@ import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 // when done, and the screen stays awake. Controls are plain: hands are busy.
 
 export const Route = createFileRoute("/_kitchen/brew/$id")({
-  validateSearch: (search: Record<string, unknown>): { servings?: number; multiplier?: number } => {
-    const n = Number(search.servings);
-    if (Number.isInteger(n) && n >= 1 && n <= 1000) return { servings: n };
-    const m = Number(search.multiplier);
-    return Number.isFinite(m) && m > 0 && m <= 100 ? { multiplier: m } : {};
-  },
+  validateSearch: (search: Record<string, unknown>): ScaleSearch =>
+    Scale.toSearch(Scale.fromSearch(search)),
   component: Brew,
 });
 
@@ -131,10 +129,7 @@ function Brewing({ recipe }: { recipe: Recipe }) {
   const count = steps.length;
   const index = Math.min(at, Math.max(0, count - 1));
   const step = steps[index];
-  const factor =
-    search.servings !== undefined && recipe.servings !== null
-      ? search.servings / recipe.servings
-      : (search.multiplier ?? 1);
+  const factor = Scale.factor(Scale.fromSearch(search), recipe.servings);
   const matched = useMemo(
     () => stepIngredients(steps, recipe.ingredients),
     [steps, recipe.ingredients],

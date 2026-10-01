@@ -1,5 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
-import { formatTimer, photoUrl, type RecipeSummary, type Tag } from "@cauldron/shared";
+import {
+  formatTimer,
+  photoUrl,
+  recipeMinutes,
+  type RecipeSummary,
+  type Tag,
+} from "@cauldron/shared";
 import { Link } from "@tanstack/react-router";
 import { colors, fonts } from "../styles/tokens.stylex";
 import { Mark } from "./Mark";
@@ -7,15 +13,8 @@ import { focusRing } from "./ui/controls";
 
 // A recipe in the library: a card in the grid, or a row in the compact list.
 
-/** Total time, or prep plus cook when the total isn't set. */
-export const totalMinutes = (recipe: RecipeSummary) =>
-  recipe.totalMinutes ??
-  (recipe.prepMinutes !== null || recipe.cookMinutes !== null
-    ? (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)
-    : null);
-
 export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
-  const minutes = totalMinutes(recipe);
+  const minutes = recipeMinutes(recipe);
   return (
     <Link
       to="/recipes/$id"
@@ -55,7 +54,7 @@ export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
 }
 
 export function RecipeRow({ recipe }: { recipe: RecipeSummary }) {
-  const minutes = totalMinutes(recipe);
+  const minutes = recipeMinutes(recipe);
   return (
     <Link
       to="/recipes/$id"
