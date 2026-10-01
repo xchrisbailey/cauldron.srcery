@@ -11,6 +11,7 @@ export * from "./ingredients/schema.ts";
 export * from "./ingredients/parse.ts";
 export * from "./ingredients/scale.ts";
 export * from "./ingredients/key.ts";
+export * from "./ingredients/sections.ts";
 export * from "./timers.ts";
 export * from "./MealPlan.ts";
 export * from "./dates.ts";

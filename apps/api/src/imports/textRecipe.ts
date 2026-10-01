@@ -1,4 +1,9 @@
-import { detectTimer, isSectionHeading, parseIngredientLine } from "@cauldron/shared";
+import {
+  detectTimer,
+  isSectionHeading,
+  parseIngredientLine,
+  readIngredientBlock,
+} from "@cauldron/shared";
 import {
   emptyExtracted,
   type ExtractedLine,
@@ -146,21 +151,11 @@ const splitSteps = (lines: ReadonlyArray<string>): Array<string> => {
     .filter((s) => s !== "");
 };
 
-const toIngredients = (lines: ReadonlyArray<string>, unsure: boolean): Array<ExtractedLine> => {
-  const out: Array<ExtractedLine> = [];
-  let section: string | null = null;
-  for (const raw of lines) {
+const toIngredients = (lines: ReadonlyArray<string>, unsure: boolean): Array<ExtractedLine> =>
+  readIngredientBlock(
     // Bullets, and the emoji captions use as bullets (✨ ▪️ ✔️).
-    const line = raw.replace(/^[\s\-•*▢□◦‣–—\p{Extended_Pictographic}️‍]+/u, "").trim();
-    if (line === "") continue;
-    if (isSectionHeading(line) && parseIngredientLine(line).quantity === null) {
-      section = bare(line).replace(/:$/, "").trim() || null;
-      continue;
-    }
-    out.push({ line, section, unsure });
-  }
-  return out;
-};
+    lines.map((raw) => raw.replace(/^[\s\-•*▢□◦‣–—\p{Extended_Pictographic}️‍]+/u, "")),
+  ).map(({ original, section }) => ({ line: original, section, unsure }));
 
 const toSteps = (lines: ReadonlyArray<string>, unsure: boolean): Array<ExtractedStep> => {
   const out: Array<ExtractedStep> = [];

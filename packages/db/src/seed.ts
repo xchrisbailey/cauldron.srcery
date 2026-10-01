@@ -1,4 +1,4 @@
-import { ingredientKey, parseIngredientLine } from "@cauldron/shared";
+import { ingredientKey, readIngredientBlock } from "@cauldron/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema/index.ts";
@@ -42,33 +42,23 @@ export const seed = async (db: Db, ownerId: string) => {
         .returning({ id: schema.recipe.id });
       const recipeId = recipe!.id;
 
-      let section: string | null = null;
-      let position = 0;
-      const ingredients = [];
-      for (const line of r.ingredients) {
-        if (line.startsWith("## ")) {
-          section = line.slice(3);
-          continue;
-        }
-        const parsed = parseIngredientLine(line);
-        ingredients.push({
-          ownerId,
-          recipeId,
-          position: position++,
-          section,
-          quantityMin: parsed.quantity?.min ?? null,
-          quantityMax: parsed.quantity?.max ?? null,
-          unit: parsed.unit,
-          item: parsed.item,
-          itemKey: ingredientKey(parsed.item),
-          note: parsed.note,
-          optional: parsed.optional,
-          altQuantityMin: parsed.alt?.quantity.min ?? null,
-          altQuantityMax: parsed.alt?.quantity.max ?? null,
-          altUnit: parsed.alt?.unit ?? null,
-          originalLine: parsed.original,
-        });
-      }
+      const ingredients = readIngredientBlock(r.ingredients).map((parsed, position) => ({
+        ownerId,
+        recipeId,
+        position,
+        section: parsed.section,
+        quantityMin: parsed.quantity?.min ?? null,
+        quantityMax: parsed.quantity?.max ?? null,
+        unit: parsed.unit,
+        item: parsed.item,
+        itemKey: ingredientKey(parsed.item),
+        note: parsed.note,
+        optional: parsed.optional,
+        altQuantityMin: parsed.alt?.quantity.min ?? null,
+        altQuantityMax: parsed.alt?.quantity.max ?? null,
+        altUnit: parsed.alt?.unit ?? null,
+        originalLine: parsed.original,
+      }));
       await tx.insert(schema.recipeIngredient).values(ingredients);
 
       await tx.insert(schema.recipeStep).values(
