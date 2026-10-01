@@ -2,12 +2,17 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   aisleFor,
   AISLES,
+  type ExistingGatherRow,
+  type GatheredRow,
   gatherLines,
   type GatherLine,
+  gatherWeek,
   ingredientKey,
   measureGroup,
   mergeKeyOf,
   parseIngredientLine,
+  type PlannedEntry,
+  reconcile,
   sortRows,
 } from "../src/index.ts";
 
@@ -275,6 +280,209 @@ describe("gatherLines naming and order", () => {
     ];
     sortRows(input);
     expect(input[0]!.item).toBe("b");
+  });
+});
+
+describe("gatherWeek", () => {
+  const planned = (
+    recipeId: string,
+    recipeServings: number | null,
+    servings: number | null,
+    ...texts: ReadonlyArray<string>
+  ): PlannedEntry => ({
+    recipeId,
+    recipeServings,
+    servings,
+    ingredients: texts.map((t) => {
+      const { recipeId: _, ...rest } = line(recipeId, t);
+      return rest;
+    }),
+  });
+
+  it("scales each entry by its servings against the recipe's", () => {
+    const rows = gatherWeek([planned("a", 4, 8, "1 cup flour", "1-2 eggs")]);
+    expect(find(rows, "flour")[0]!.quantity).toEqual({ min: 2, max: null });
+    expect(find(rows, "egg")[0]!.quantity).toEqual({ min: 2, max: 4 });
+  });
+
+  it("leaves an entry unscaled when either serving count is unknown", () => {
+    const rows = gatherWeek([
+      planned("a", null, 8, "1 cup flour"),
+      planned("b", 4, null, "100 g sugar"),
+    ]);
+    expect(find(rows, "flour")[0]!.quantity).toEqual({ min: 1, max: null });
+    expect(find(rows, "sugar")[0]!.quantity).toEqual({ min: 100, max: null });
+  });
+
+  it("sums a recipe planned twice into one source, and keeps amount-less lines bare", () => {
+    const rows = gatherWeek([
+      planned("a", 2, 2, "1 cup milk", "salt"),
+      planned("a", 2, 4, "1 cup milk", "salt"),
+    ]);
+    const milk = find(rows, "milk")[0]!;
+    expect(milk.quantity).toEqual({ min: 3, max: null });
+    expect(milk.sources).toEqual([{ recipeId: "a", quantity: { min: 3, max: null }, unit: "cup" }]);
+    expect(find(rows, "salt")[0]!.quantity).toBeNull();
+  });
+
+  it("returns nothing for an empty week", () => {
+    expect(gatherWeek([])).toEqual([]);
+  });
+});
+
+describe("reconcile", () => {
+  /** Storage's rounding: numeric(12, 4). */
+  const round = (n: number) => Math.round(n * 10_000) / 10_000;
+
+  /** A row as the list holds it after a previous sync. */
+  const held = (
+    id: string,
+    row: GatheredRow,
+    extra: Partial<ExistingGatherRow> = {},
+  ): ExistingGatherRow => ({
+    id,
+    item: row.item,
+    itemKey: row.itemKey,
+    quantity: row.quantity,
+    unit: row.unit,
+    aisle: row.aisle,
+    checked: false,
+    sources: row.sources,
+    ...extra,
+  });
+
+  it("changes nothing when the week is the same", () => {
+    const rows = gather(["a", "200 g spaghetti"], ["a", "2 eggs"], ["b", "2 eggs"]);
+    const existing = rows.map((r, i) => held(`id${i}`, r, { checked: i === 0 }));
+    expect(reconcile(existing, rows, round)).toEqual({ inserts: [], updates: [], removals: [] });
+  });
+
+  it("adds rows that are new and removes leftovers", () => {
+    const [eggs] = gather(["a", "2 eggs"]);
+    const [lettuce] = gather(["b", "2 lettuce"]);
+    const [rice] = gather(["c", "1 cup rice"]);
+    const { inserts, updates, removals } = reconcile(
+      [held("eggs", eggs!), held("lettuce", lettuce!)],
+      [eggs!, rice!],
+      round,
+    );
+    expect(inserts).toEqual([rice]);
+    expect(updates).toEqual([]);
+    expect(removals).toEqual(["lettuce"]);
+  });
+
+  it("unchecks a checked row when the week needs more", () => {
+    const [before] = gather(["a", "1 cup flour"]);
+    const [after] = gather(["a", "2 cups flour"]);
+    const { updates } = reconcile([held("flour", before!, { checked: true })], [after!], round);
+    expect(updates).toEqual([
+      { id: "flour", row: after, changed: true, uncheck: true, sources: true },
+    ]);
+  });
+
+  it("unchecks when another recipe adds to a checked row", () => {
+    const [before] = gather(["a", "2 eggs"]);
+    const [after] = gather(["a", "2 eggs"], ["b", "3 eggs"]);
+    const { updates } = reconcile([held("eggs", before!, { checked: true })], [after!], round);
+    expect(updates).toEqual([
+      { id: "eggs", row: after, changed: true, uncheck: true, sources: true },
+    ]);
+  });
+
+  it("counts more through a unit change: 1 cup to 20 tbsp is more", () => {
+    const [before] = gather(["a", "1 cup milk"]);
+    const [after] = gather(["a", "20 tbsp milk"]);
+    const { updates } = reconcile([held("milk", before!, { checked: true })], [after!], round);
+    expect(updates[0]).toMatchObject({ changed: true, uncheck: true });
+  });
+
+  it("keeps the check when the week needs less", () => {
+    const [before] = gather(["a", "2 cups flour"]);
+    const [after] = gather(["a", "1.5 cups flour"]);
+    const { updates } = reconcile([held("flour", before!, { checked: true })], [after!], round);
+    expect(updates).toEqual([
+      { id: "flour", row: after, changed: true, uncheck: false, sources: true },
+    ]);
+  });
+
+  it("never unchecks a row that isn't checked", () => {
+    const [before] = gather(["a", "1 cup flour"]);
+    const [after] = gather(["a", "2 cups flour"]);
+    const { updates } = reconcile([held("flour", before!)], [after!], round);
+    expect(updates[0]).toMatchObject({ changed: true, uncheck: false });
+  });
+
+  it("updates a row whose name, unit or aisle changed but whose amount didn't", () => {
+    const [row] = gather(["a", "2 eggs"]);
+    for (const extra of [{ item: "large eggs" }, { aisle: null }, { aisle: "pantry" }]) {
+      const { updates } = reconcile(
+        [held("eggs", row!, { checked: true, ...extra })],
+        [row!],
+        round,
+      );
+      expect(updates).toEqual([{ id: "eggs", row, changed: true, uncheck: false, sources: false }]);
+    }
+    const [cups] = gather(["a", "1 cup milk"]);
+    const { updates } = reconcile([held("milk", cups!, { unit: "ml" })], [cups!], round);
+    expect(updates[0]).toMatchObject({ changed: true, sources: false });
+  });
+
+  it("rewrites only the sources when the total holds but who needs it moved", () => {
+    const [before] = gather(["a", "2 eggs"], ["b", "2 eggs"]);
+    const [after] = gather(["c", "4 eggs"]);
+    const { updates } = reconcile([held("eggs", before!, { checked: true })], [after!], round);
+    expect(updates).toEqual([
+      { id: "eggs", row: after, changed: false, uncheck: false, sources: true },
+    ]);
+  });
+
+  it("matches sources whatever order they were read in", () => {
+    const [row] = gather(["a", "2 eggs"], ["b", "3 eggs"]);
+    const existing = held("eggs", row!, { sources: [...row!.sources].reverse() });
+    expect(reconcile([existing], [row!], round).updates).toEqual([]);
+  });
+
+  it("keeps the first row for a merge key and removes any that repeat it", () => {
+    const [eggs] = gather(["a", "2 eggs"]);
+    const { inserts, updates, removals } = reconcile(
+      [held("first", eggs!, { checked: true }), held("again", eggs!), held("third", eggs!)],
+      [eggs!],
+      round,
+    );
+    expect(inserts).toEqual([]);
+    expect(updates).toEqual([]);
+    expect(removals).toEqual(["again", "third"]);
+  });
+
+  it("keys rows by measure, so cups and grams of one item are two rows", () => {
+    const rows = gather(["a", "1 cup flour"], ["b", "200 g flour"]);
+    const [cups] = rows.filter((r) => r.unit === "cup");
+    const { inserts, removals } = reconcile([held("cups", cups!)], rows, round);
+    expect(inserts.map((r) => r.unit)).toEqual(["g"]);
+    expect(removals).toEqual([]);
+  });
+
+  it("compares amounts as stored, so a third doesn't flap on every sync", () => {
+    const rows = gatherWeek([
+      {
+        recipeId: "a",
+        recipeServings: 6,
+        servings: 2,
+        ingredients: [
+          { item: "flour", itemKey: "flour", quantity: { min: 1, max: null }, unit: "cup" },
+          { item: "onion", itemKey: "onion", quantity: { min: 1, max: null }, unit: null },
+        ],
+      },
+    ]);
+    const first = reconcile([], rows, round);
+    expect(first.inserts.map((r) => r.quantity)).toEqual([
+      { min: 0.3333, max: null },
+      { min: 0.3333, max: null },
+    ]);
+    expect(first.inserts[0]!.sources[0]!.quantity).toEqual({ min: 0.3333, max: null });
+    // Stored rounded down, checked: the next sync wants 1/3 again and leaves it be.
+    const existing = first.inserts.map((r, i) => held(`id${i}`, r, { checked: true }));
+    expect(reconcile(existing, rows, round)).toEqual({ inserts: [], updates: [], removals: [] });
   });
 });
 

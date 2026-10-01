@@ -7,20 +7,16 @@ import {
   GatherItemId,
   type GatherItemInput,
   type GatherItemUpdate,
-  type GatherLine,
-  gatherLines,
+  gatherWeek,
   type GatheredRow,
   ingredientKey,
   InvalidRequest,
-  mergeKeyOf,
   NotFound,
   parseIngredientLine,
-  type Quantity,
+  type PlannedEntry,
   RecipeId,
-  servingFactor,
+  reconcile,
   sortRows,
-  UNITS,
-  type UnitCode,
   type UserId,
 } from "@cauldron/shared";
 import { and, asc, between, eq, inArray, isNotNull, sql } from "drizzle-orm";
@@ -34,32 +30,11 @@ const { gatherItem, gatherItemSource, mealPlanEntry, pantryItem, recipe, recipeI
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
 const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
 
-/** The most of a measure, in ml or g for volumes and masses, for spotting "needs more". */
-const most = (q: Quantity | null, unit: UnitCode | null) =>
-  q === null ? 0 : (q.max ?? q.min) * (unit === null ? 1 : UNITS[unit].factor);
-
-type ItemRow = typeof gatherItem.$inferSelect;
-type SourceRow = typeof gatherItemSource.$inferSelect;
-
-const sourcesKey = (
-  sources: ReadonlyArray<{
-    recipeId: string;
-    quantityMin: number | null;
-    quantityMax: number | null;
-    unit: string | null;
-  }>,
-) =>
-  JSON.stringify(
-    [...sources]
-      .map((s) => [s.recipeId, s.quantityMin, s.quantityMax, s.unit])
-      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
-  );
-
 const make = Effect.gen(function* () {
   const db = yield* Db;
 
-  /** Lines from the week's planned recipes, each scaled by its entry's servings. */
-  const plannedLines = Effect.fn("Gather.plannedLines")(function* (
+  /** The week's planned recipes, each with its servings and ingredients. */
+  const plannedEntries = Effect.fn("Gather.plannedEntries")(function* (
     ownerId: UserId,
     weekStart: string,
   ) {
@@ -85,7 +60,7 @@ const make = Effect.gen(function* () {
         ),
     );
     const recipeIds = [...new Set(entries.map((e) => e.recipeId))];
-    if (recipeIds.length === 0) return { lines: [], recipeCount: 0 };
+    if (recipeIds.length === 0) return { entries: [], recipeCount: 0 };
     const ingredients = yield* db.use((d) =>
       d
         .select({
@@ -103,24 +78,18 @@ const make = Effect.gen(function* () {
         .orderBy(asc(recipeIngredient.recipeId), asc(recipeIngredient.position)),
     );
     const byRecipe = Map.groupBy(ingredients, (i) => i.recipeId);
-    const lines: Array<GatherLine> = [];
-    for (const entry of entries) {
-      const factor = servingFactor(entry.recipeServings, entry.servings);
-      for (const i of byRecipe.get(entry.recipeId) ?? []) {
-        const q = quantity.fromRow(i);
-        lines.push({
-          recipeId: entry.recipeId,
+    return {
+      entries: entries.map((entry): PlannedEntry => ({
+        ...entry,
+        ingredients: (byRecipe.get(entry.recipeId) ?? []).map((i) => ({
           item: i.item,
           itemKey: i.itemKey,
-          quantity:
-            q === null
-              ? null
-              : { min: q.min * factor, max: q.max === null ? null : q.max * factor },
+          quantity: quantity.fromRow(i),
           unit: i.unit,
-        });
-      }
-    }
-    return { lines, recipeCount: recipeIds.length };
+        })),
+      })),
+      recipeCount: recipeIds.length,
+    };
   });
 
   const writeSources = (ownerId: UserId, gatherItemId: string, row: GatheredRow) =>
@@ -141,10 +110,9 @@ const make = Effect.gen(function* () {
           .pipe(Effect.asVoid);
 
   /**
-   * Brings the gathered rows in line with the week's plan: rows still needed
-   * are updated in place (keeping their check, unless the week now needs more),
-   * new ones are added, and ones no longer needed are removed. Items added by
-   * hand are never touched. A lock per owner and week keeps two syncs apart.
+   * Brings the gathered rows in line with the week's plan (see `reconcile`).
+   * Items added by hand are never touched. A lock per owner and week keeps two
+   * syncs apart.
    */
   const sync = Effect.fn("Gather.sync")(function* (ownerId: UserId, weekStart: string) {
     return yield* db.transaction(
@@ -154,8 +122,7 @@ const make = Effect.gen(function* () {
             sql`select pg_advisory_xact_lock(hashtext(${`gather/${ownerId}/${weekStart}`}))`,
           ),
         );
-        const { lines, recipeCount } = yield* plannedLines(ownerId, weekStart);
-        const rows = gatherLines(lines);
+        const { entries, recipeCount } = yield* plannedEntries(ownerId, weekStart);
         const existing = yield* db.use((d) =>
           d
             .select()
@@ -168,7 +135,7 @@ const make = Effect.gen(function* () {
               ),
             ),
         );
-        const existingSources: ReadonlyArray<SourceRow> =
+        const existingSources =
           existing.length === 0
             ? []
             : yield* db.use((d) =>
@@ -186,47 +153,44 @@ const make = Effect.gen(function* () {
                   ),
               );
         const sourcesOf = Map.groupBy(existingSources, (s) => s.gatherItemId);
-        const byKey = new Map<string, ItemRow>();
-        const stale: Array<string> = [];
-        for (const row of existing) {
-          const key = mergeKeyOf(row.itemKey, quantity.fromRow(row), row.unit);
-          if (byKey.has(key)) stale.push(row.id);
-          else byKey.set(key, row);
+        const { inserts, updates, removals } = reconcile(
+          existing.map((row) => ({
+            id: row.id,
+            item: row.item,
+            itemKey: row.itemKey,
+            quantity: quantity.fromRow(row),
+            unit: row.unit,
+            aisle: row.aisle,
+            checked: row.checked,
+            sources: (sourcesOf.get(row.id) ?? []).map((s) => ({
+              recipeId: s.recipeId,
+              quantity: quantity.fromRow(s),
+              unit: s.unit,
+            })),
+          })),
+          gatherWeek(entries),
+          quantity.round,
+        );
+
+        for (const row of inserts) {
+          const [inserted] = yield* db.use((d) =>
+            d
+              .insert(gatherItem)
+              .values({
+                ownerId,
+                weekStart,
+                item: row.item,
+                itemKey: row.itemKey,
+                unit: row.unit,
+                aisle: row.aisle,
+                ...quantity.toRow(row.quantity),
+              })
+              .returning({ id: gatherItem.id }),
+          );
+          yield* writeSources(ownerId, inserted!.id, row);
         }
-        for (const row of rows) {
-          const amount = quantity.toRow(row.quantity);
-          const found = byKey.get(row.mergeKey);
-          if (!found) {
-            const [inserted] = yield* db.use((d) =>
-              d
-                .insert(gatherItem)
-                .values({
-                  ownerId,
-                  weekStart,
-                  item: row.item,
-                  itemKey: row.itemKey,
-                  unit: row.unit,
-                  aisle: row.aisle,
-                  ...amount,
-                })
-                .returning({ id: gatherItem.id }),
-            );
-            yield* writeSources(ownerId, inserted!.id, row);
-            continue;
-          }
-          byKey.delete(row.mergeKey);
-          // Both sides as stored (rounded to numeric(12, 4)), so a 1/3 that
-          // rounds down doesn't read as "more" on every sync.
-          const grew =
-            most(quantity.fromRow(amount), row.unit) >
-            most(quantity.fromRow(found), found.unit) * (1 + 1e-9);
-          const changed =
-            found.item !== row.item ||
-            found.quantityMin !== amount.quantityMin ||
-            found.quantityMax !== amount.quantityMax ||
-            found.unit !== row.unit ||
-            found.aisle !== row.aisle;
-          if (changed || (grew && found.checked)) {
+        for (const { id, row, changed, uncheck, sources } of updates) {
+          if (changed || uncheck) {
             yield* db.use((d) =>
               d
                 .update(gatherItem)
@@ -234,32 +198,24 @@ const make = Effect.gen(function* () {
                   item: row.item,
                   unit: row.unit,
                   aisle: row.aisle,
-                  ...amount,
-                  ...(grew ? { checked: false } : {}),
+                  ...quantity.toRow(row.quantity),
+                  ...(uncheck ? { checked: false } : {}),
                 })
-                .where(eq(gatherItem.id, found.id)),
+                .where(eq(gatherItem.id, id)),
             );
           }
-          const want = sourcesKey(
-            row.sources.map((s) => ({
-              recipeId: s.recipeId,
-              unit: s.unit,
-              ...quantity.toRow(s.quantity),
-            })),
-          );
-          if (want !== sourcesKey(sourcesOf.get(found.id) ?? [])) {
+          if (sources) {
             yield* db.use((d) =>
-              d.delete(gatherItemSource).where(eq(gatherItemSource.gatherItemId, found.id)),
+              d.delete(gatherItemSource).where(eq(gatherItemSource.gatherItemId, id)),
             );
-            yield* writeSources(ownerId, found.id, row);
+            yield* writeSources(ownerId, id, row);
           }
         }
-        stale.push(...[...byKey.values()].map((row) => row.id));
-        if (stale.length > 0) {
+        if (removals.length > 0) {
           yield* db.use((d) =>
             d
               .delete(gatherItem)
-              .where(and(eq(gatherItem.ownerId, ownerId), inArray(gatherItem.id, stale))),
+              .where(and(eq(gatherItem.ownerId, ownerId), inArray(gatherItem.id, removals))),
           );
         }
         return recipeCount;
