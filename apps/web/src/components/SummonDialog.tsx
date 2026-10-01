@@ -1,12 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
-import { copy, formatTimer } from "@cauldron/shared";
+import { copy, formatTimer, recipeMinutes } from "@cauldron/shared";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type KeyboardEvent, useEffect, useId, useState } from "react";
 import { summonQuery } from "../lib/recipes";
 import { colors, fonts } from "../styles/tokens.stylex";
-import { totalMinutes } from "./RecipeCard";
 import { Dialog } from "./ui";
 import { control } from "./ui/controls";
 
@@ -40,7 +39,7 @@ export function SummonDialog({ open, onClose }: { open: boolean; onClose: () => 
     q === ""
       ? []
       : (results.data ?? []).map((recipe) => {
-          const minutes = totalMinutes(recipe);
+          const minutes = recipeMinutes(recipe);
           return {
             id: `${id}-r-${recipe.id}`,
             label: recipe.title,
