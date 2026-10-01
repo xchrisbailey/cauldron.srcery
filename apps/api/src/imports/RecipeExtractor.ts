@@ -1,6 +1,7 @@
 import { DraftField } from "@cauldron/shared";
 import { chat, type ChatMiddleware } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
+import { createGeminiChat } from "@tanstack/ai-gemini";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { emptyExtracted, type ExtractedRecipe, type Usage } from "./Extracted.ts";
@@ -132,24 +133,35 @@ export const fromModel = (model: ModelRecipe): ExtractedRecipe => ({
   unsure: model.unsure,
 });
 
-export type Provider =
-  | {
-      readonly name: "anthropic";
-      readonly model: string;
-      readonly apiKey: Redacted.Redacted<string>;
-    }
-  | { readonly name: "openai"; readonly model: string; readonly apiKey: Redacted.Redacted<string> };
+export type ProviderName = "gemini" | "anthropic" | "openai";
 
-const adapterFor = (provider: Provider) =>
-  provider.name === "anthropic"
-    ? createAnthropicChat(
+export interface Provider {
+  readonly name: ProviderName;
+  readonly model: string;
+  readonly apiKey: Redacted.Redacted<string>;
+}
+
+/** Each provider's key and default model, in the order a key picks one when AI_PROVIDER is unset. */
+const PROVIDERS: Record<ProviderName, { readonly key: string; readonly model: string }> = {
+  gemini: { key: "GEMINI_API_KEY", model: "gemini-3.5-flash-lite" },
+  anthropic: { key: "ANTHROPIC_API_KEY", model: "claude-sonnet-5" },
+  openai: { key: "OPENAI_API_KEY", model: "gpt-5.5" },
+};
+
+const adapterFor = (provider: Provider) => {
+  const apiKey = Redacted.value(provider.apiKey);
+  switch (provider.name) {
+    case "gemini":
+      return createGeminiChat(provider.model as Parameters<typeof createGeminiChat>[0], apiKey);
+    case "anthropic":
+      return createAnthropicChat(
         provider.model as Parameters<typeof createAnthropicChat>[0],
-        Redacted.value(provider.apiKey),
-      )
-    : createOpenaiChat(
-        provider.model as Parameters<typeof createOpenaiChat>[0],
-        Redacted.value(provider.apiKey),
+        apiKey,
       );
+    case "openai":
+      return createOpenaiChat(provider.model as Parameters<typeof createOpenaiChat>[0], apiKey);
+  }
+};
 
 export class RecipeExtractor extends Context.Service<
   RecipeExtractor,
@@ -222,35 +234,33 @@ export class RecipeExtractor extends Context.Service<
   );
 
   /**
-   * AI_PROVIDER picks the adapter (anthropic or openai; by default whichever
-   * key is set) and AI_MODEL the model. Without a key, imports still work for
-   * sources that need no model (JSON-LD pages, clearly laid out text).
+   * AI_PROVIDER picks the adapter (gemini, anthropic or openai; by default the
+   * first of those whose key is set) and AI_MODEL the model. Without a key,
+   * imports still work for sources that need no model (JSON-LD pages, clearly
+   * laid out text).
    */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
-      const anthropicKey = yield* Config.option(Config.Redacted("ANTHROPIC_API_KEY"));
-      const openaiKey = yield* Config.option(Config.Redacted("OPENAI_API_KEY"));
-      const chosen = yield* Config.option(Config.Literals(["anthropic", "openai"], "AI_PROVIDER"));
+      const names = Object.keys(PROVIDERS) as Array<ProviderName>;
+      const keys = {} as Record<ProviderName, Option.Option<Redacted.Redacted<string>>>;
+      for (const name of names) {
+        keys[name] = yield* Config.option(Config.Redacted(PROVIDERS[name].key));
+      }
+      const chosen = yield* Config.option(Config.Literals(names, "AI_PROVIDER"));
       const model = yield* Config.option(Config.String("AI_MODEL"));
-      const name = Option.getOrElse(chosen, () =>
-        Option.isSome(anthropicKey) ? "anthropic" : ("openai" as const),
-      );
-      const apiKey = name === "anthropic" ? anthropicKey : openaiKey;
-      if (Option.isNone(apiKey)) {
-        if (Option.isSome(chosen)) {
-          return yield* Effect.die(
-            `AI_PROVIDER is ${name}, but ${name === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"} isn't set.`,
-          );
-        }
+      const name = Option.getOrUndefined(chosen) ?? names.find((n) => Option.isSome(keys[n]));
+      if (name === undefined) {
         yield* Effect.logInfo("No model configured: Distill uses structured data and text only.");
         return RecipeExtractor.layerNone;
+      }
+      const apiKey = keys[name];
+      if (Option.isNone(apiKey)) {
+        return yield* Effect.die(`AI_PROVIDER is ${name}, but ${PROVIDERS[name].key} isn't set.`);
       }
       return RecipeExtractor.layerModel({
         name,
         apiKey: apiKey.value,
-        model: Option.getOrElse(model, () =>
-          name === "anthropic" ? "claude-sonnet-5" : "gpt-5.5",
-        ),
+        model: Option.getOrElse(model, () => PROVIDERS[name].model),
       });
     }),
   );
