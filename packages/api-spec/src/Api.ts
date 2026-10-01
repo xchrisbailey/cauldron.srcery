@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
 import { Authorization } from "./Authorization.ts";
 import { UnavailableError } from "./errors.ts";
+import { RecipesApi, TagsApi } from "./Recipes.ts";
 
 export class Health extends Schema.Class<Health>("Health")({
   status: Schema.Literal("ok"),
@@ -38,5 +39,7 @@ export class AccountApi extends HttpApiGroup.make("account")
 export class Api extends HttpApi.make("cauldron")
   .add(SystemApi)
   .add(AccountApi)
+  .add(RecipesApi)
+  .add(TagsApi)
   .prefix("/v1")
   .annotateMerge(OpenApi.annotations({ title: "Cauldron API" })) {}

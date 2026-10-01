@@ -105,6 +105,9 @@ export const recipes = {
     verb: voice("Banish"),
     confirm: plain(`Banish ${title}? This can't be undone.`),
   }),
+  /** Title of a duplicated recipe. */
+  copyOf: (title: string) => plain(`${title} (copy)`),
+  tagNameTaken: plain("You already have a tag with that name."),
   couldntReadPage: plain("Couldn't read that page. Paste the recipe text instead."),
   /** Under the search field until #11 lists results. */
   summonHint: plain("Search by recipe name, ingredient or tag."),
