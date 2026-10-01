@@ -92,8 +92,9 @@ export const recipe = pgTable(
     index("recipe_owner_title_idx")
       .on(t.ownerId, sql`lower(${t.title})`, t.id)
       .where(sql`${t.deletedAt} is null`),
+    // Never-cooked recipes sort last: the API orders by this same expression.
     index("recipe_owner_cooked_idx")
-      .on(t.ownerId, t.lastCookedOn.desc().nullsLast(), t.id.desc())
+      .on(t.ownerId, sql`(coalesce(${t.lastCookedOn}, '0001-01-01'::date)) desc`, t.id.desc())
       .where(sql`${t.deletedAt} is null`),
     index("recipe_search_idx").using("gin", t.search),
     check("recipe_servings_positive", sql`${t.servings} is null or ${t.servings} > 0`),
@@ -116,7 +117,7 @@ export const recipeCook = pgTable(
       foreignColumns: [recipe.id, recipe.ownerId],
       name: "recipe_cook_recipe_owner_fk",
     }).onDelete("cascade"),
-    index("recipe_cook_recipe_idx").on(t.recipeId, t.cookedOn.desc()),
+    uniqueIndex("recipe_cook_recipe_day_idx").on(t.recipeId, t.cookedOn.desc()),
   ],
 );
 

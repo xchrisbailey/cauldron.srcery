@@ -113,6 +113,19 @@ export const recipes = {
   summonHint: plain("Search by recipe name, ingredient or tag."),
 } as const;
 
+// Messages for recipe fields that fail the shared schemas. The editor shows
+// these through Standard Schema, so they're plain and say how to fix it.
+export const validation = {
+  required: plain("Fill this in."),
+  tooLong: (max: number) => plain(`Keep it to ${max} characters or fewer.`),
+  tooMany: (max: number) => plain(`Use ${max} or fewer.`),
+  wholeNumber: (min: number, max: number) => plain(`Use a whole number from ${min} to ${max}.`),
+  link: plain("Enter a link starting with https://"),
+  date: plain("Use a real date, like 2026-10-01."),
+  quantity: plain("Use an amount from 0 up to 99,999,999."),
+  range: plain("The second amount in a range can't be smaller than the first."),
+} as const;
+
 export const brewing = {
   nextStep: plain("Next step"),
   previousStep: plain("Previous step"),

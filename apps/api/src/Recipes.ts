@@ -5,6 +5,7 @@ import {
   DEFAULT_PAGE_LIMIT,
   ingredientKey,
   InvalidRequest,
+  isRealDate,
   NotFound,
   Recipe,
   RECIPE_LIMITS,
@@ -24,13 +25,29 @@ import {
   type UnitCode,
   type UserId,
 } from "@cauldron/shared";
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Db, isUniqueViolation } from "./Db.ts";
 
 const { recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
 
-type RecipeRow = typeof recipe.$inferSelect;
+// Every recipe column but the search document, which only SQL reads.
+const { search: _search, ...recipeColumns } = getTableColumns(recipe);
+type RecipeRow = Omit<typeof recipe.$inferSelect, "search">;
+/** A listed row with the title's sort key, lowercased by Postgres so the cursor matches the comparison. */
+type ListedRow = RecipeRow & { readonly titleKey: string };
 type IngredientRow = typeof recipeIngredient.$inferSelect;
 type StepRow = typeof recipeStep.$inferSelect;
 
@@ -132,22 +149,23 @@ const sortKey = (sort: RecipeSort) => {
   switch (sort) {
     case "recent":
       return {
-        key: (row: RecipeRow) => row.createdAt.toISOString(),
+        key: (row: ListedRow) => row.createdAt.toISOString(),
         orderBy: [desc(recipe.createdAt), desc(recipe.id)],
         after: (k: string, id: string) =>
           sql`(${recipe.createdAt} < ${k}::timestamptz or (${recipe.createdAt} = ${k}::timestamptz and ${recipe.id} < ${id}))`,
       };
     case "title":
       return {
-        key: (row: RecipeRow) => row.title.toLowerCase(),
+        key: (row: ListedRow) => row.titleKey,
         orderBy: [asc(sql`lower(${recipe.title})`), asc(recipe.id)],
         after: (k: string, id: string) =>
           sql`(lower(${recipe.title}) > ${k} or (lower(${recipe.title}) = ${k} and ${recipe.id} > ${id}))`,
       };
     case "lastCooked": {
-      const cooked = sql`coalesce(${recipe.lastCookedOn}, ${NEVER_COOKED}::date)`;
+      // The same expression as recipe_owner_cooked_idx, so the index serves it.
+      const cooked = sql`coalesce(${recipe.lastCookedOn}, '0001-01-01'::date)`;
       return {
-        key: (row: RecipeRow) => row.lastCookedOn ?? NEVER_COOKED,
+        key: (row: ListedRow) => row.lastCookedOn ?? NEVER_COOKED,
         orderBy: [desc(cooked), desc(recipe.id)],
         after: (k: string, id: string) =>
           sql`(${cooked} < ${k}::date or (${cooked} = ${k}::date and ${recipe.id} < ${id}))`,
@@ -159,12 +177,14 @@ const sortKey = (sort: RecipeSort) => {
 // The cursor's key is compared in SQL, so check it has the right shape first.
 const validKey = (sort: RecipeSort, k: string) => {
   switch (sort) {
-    case "recent":
-      return !Number.isNaN(new Date(k).getTime());
+    case "recent": {
+      const date = new Date(k);
+      return !Number.isNaN(date.getTime()) && date.toISOString() === k;
+    }
     case "title":
       return k.length <= RECIPE_LIMITS.title * 2;
     case "lastCooked":
-      return /^\d{4}-\d{2}-\d{2}$/.test(k);
+      return isRealDate(k);
   }
 };
 
@@ -173,7 +193,10 @@ const validKey = (sort: RecipeSort, k: string) => {
 const make = Effect.gen(function* () {
   const db = yield* Db;
 
-  const tagsFor = Effect.fn("Recipes.tagsFor")(function* (recipeIds: ReadonlyArray<string>) {
+  const tagsFor = Effect.fn("Recipes.tagsFor")(function* (
+    ownerId: string,
+    recipeIds: ReadonlyArray<string>,
+  ) {
     const byRecipe = new Map<string, Array<Tag>>();
     if (recipeIds.length === 0) return byRecipe;
     const rows = yield* db.use((d) =>
@@ -181,7 +204,7 @@ const make = Effect.gen(function* () {
         .select({ recipeId: recipeTag.recipeId, id: tag.id, name: tag.name, kind: tag.kind })
         .from(recipeTag)
         .innerJoin(tag, eq(tag.id, recipeTag.tagId))
-        .where(inArray(recipeTag.recipeId, [...recipeIds]))
+        .where(and(eq(recipeTag.ownerId, ownerId), inArray(recipeTag.recipeId, [...recipeIds])))
         .orderBy(asc(sql`lower(${tag.name})`)),
     );
     for (const row of rows) {
@@ -192,8 +215,14 @@ const make = Effect.gen(function* () {
     return byRecipe;
   });
 
-  const summaries = Effect.fn("Recipes.summaries")(function* (rows: ReadonlyArray<RecipeRow>) {
-    const tags = yield* tagsFor(rows.map((row) => row.id));
+  const summaries = Effect.fn("Recipes.summaries")(function* (
+    ownerId: UserId,
+    rows: ReadonlyArray<RecipeRow>,
+  ) {
+    const tags = yield* tagsFor(
+      ownerId,
+      rows.map((row) => row.id),
+    );
     return rows.map((row) => new RecipeSummary(summaryFields(row, tags.get(row.id) ?? [])));
   });
 
@@ -204,7 +233,7 @@ const make = Effect.gen(function* () {
   ) {
     const rows = yield* db.use((d) =>
       d
-        .select()
+        .select(recipeColumns)
         .from(recipe)
         .where(
           and(
@@ -226,17 +255,19 @@ const make = Effect.gen(function* () {
         d
           .select()
           .from(recipeIngredient)
-          .where(eq(recipeIngredient.recipeId, row.id))
+          .where(
+            and(eq(recipeIngredient.ownerId, row.ownerId), eq(recipeIngredient.recipeId, row.id)),
+          )
           .orderBy(asc(recipeIngredient.position)),
       ),
       db.use((d) =>
         d
           .select()
           .from(recipeStep)
-          .where(eq(recipeStep.recipeId, row.id))
+          .where(and(eq(recipeStep.ownerId, row.ownerId), eq(recipeStep.recipeId, row.id)))
           .orderBy(asc(recipeStep.position)),
       ),
-      tagsFor([row.id]),
+      tagsFor(row.ownerId, [row.id]),
     ]);
     return new Recipe({
       ...summaryFields(row, tags.get(row.id) ?? []),
@@ -281,9 +312,21 @@ const make = Effect.gen(function* () {
     recipeId: string,
     input: Pick<RecipeInput, "ingredients" | "steps" | "tags">,
   ) {
-    yield* db.use((d) => d.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, recipeId)));
-    yield* db.use((d) => d.delete(recipeStep).where(eq(recipeStep.recipeId, recipeId)));
-    yield* db.use((d) => d.delete(recipeTag).where(eq(recipeTag.recipeId, recipeId)));
+    yield* db.use((d) =>
+      d
+        .delete(recipeIngredient)
+        .where(and(eq(recipeIngredient.ownerId, ownerId), eq(recipeIngredient.recipeId, recipeId))),
+    );
+    yield* db.use((d) =>
+      d
+        .delete(recipeStep)
+        .where(and(eq(recipeStep.ownerId, ownerId), eq(recipeStep.recipeId, recipeId))),
+    );
+    yield* db.use((d) =>
+      d
+        .delete(recipeTag)
+        .where(and(eq(recipeTag.ownerId, ownerId), eq(recipeTag.recipeId, recipeId))),
+    );
     if (input.ingredients.length > 0) {
       yield* db.use((d) =>
         d.insert(recipeIngredient).values(
@@ -327,7 +370,7 @@ const make = Effect.gen(function* () {
         d.insert(recipeTag).values(tagIds.map((tagId) => ({ ownerId, recipeId, tagId }))),
       );
     }
-    yield* db.use((d) => d.execute(refreshRecipeSearch([recipeId])));
+    yield* db.use((d) => d.execute(refreshRecipeSearch(ownerId, [recipeId])));
   });
 
   const fields = (input: RecipeInput) => ({
@@ -357,7 +400,7 @@ const make = Effect.gen(function* () {
     }
     const rows = yield* db.use((d) =>
       d
-        .select()
+        .select({ ...recipeColumns, titleKey: sql<string>`lower(${recipe.title})` })
         .from(recipe)
         .where(
           and(
@@ -383,7 +426,7 @@ const make = Effect.gen(function* () {
             i: last.id,
           }).pipe(Effect.orDie)
         : null;
-    return { items: yield* summaries(page), nextCursor };
+    return { items: yield* summaries(ownerId, page), nextCursor };
   });
 
   const search = Effect.fn("Recipes.search")(function* (ownerId: UserId, query: RecipeSearchQuery) {
@@ -393,7 +436,7 @@ const make = Effect.gen(function* () {
     const tsquery = sql`to_tsquery('english', ${prefix})`;
     const rows = yield* db.use((d) =>
       d
-        .select()
+        .select(recipeColumns)
         .from(recipe)
         .where(and(eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt), condition))
         .orderBy(
@@ -404,7 +447,7 @@ const make = Effect.gen(function* () {
         )
         .limit(query.limit ?? 10),
     );
-    return yield* summaries(rows);
+    return yield* summaries(ownerId, rows);
   });
 
   const get = Effect.fn("Recipes.get")(function* (ownerId: UserId, id: RecipeId) {
@@ -457,7 +500,7 @@ const make = Effect.gen(function* () {
         .update(recipe)
         .set({ deletedAt: new Date() })
         .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNull(recipe.deletedAt)))
-        .returning(),
+        .returning(recipeColumns),
     );
     if (!rows[0]) return yield* notFound();
     return yield* load(rows[0]);
@@ -469,7 +512,7 @@ const make = Effect.gen(function* () {
         .update(recipe)
         .set({ deletedAt: null })
         .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId), isNotNull(recipe.deletedAt)))
-        .returning(),
+        .returning(recipeColumns),
     );
     // Restoring a recipe that isn't banished is a no-op.
     return yield* load(rows[0] ?? (yield* findRow(ownerId, id)));
@@ -488,7 +531,6 @@ const make = Effect.gen(function* () {
           updatedAt: _updatedAt,
           deletedAt: _deletedAt,
           lastCookedOn: _lastCookedOn,
-          search: _search,
           ...copied
         } = sourceRow;
         const [row] = yield* db.use((d) =>
@@ -518,7 +560,13 @@ const make = Effect.gen(function* () {
     return yield* db.transaction(
       Effect.gen(function* () {
         yield* findRow(ownerId, id);
-        yield* db.use((d) => d.insert(recipeCook).values({ ownerId, recipeId: id, cookedOn: on }));
+        // Cooking it twice on one day is one entry.
+        yield* db.use((d) =>
+          d
+            .insert(recipeCook)
+            .values({ ownerId, recipeId: id, cookedOn: on })
+            .onConflictDoNothing(),
+        );
         const [row] = yield* db.use((d) =>
           d
             .update(recipe)
@@ -526,7 +574,7 @@ const make = Effect.gen(function* () {
               lastCookedOn: sql`greatest(${recipe.lastCookedOn}, ${on}::date)`,
             })
             .where(and(eq(recipe.id, id), eq(recipe.ownerId, ownerId)))
-            .returning(),
+            .returning(recipeColumns),
         );
         return yield* load(row!);
       }),
@@ -589,10 +637,20 @@ const make = Effect.gen(function* () {
           );
         if (rows.length === 0) return yield* notFound();
         const tagged = yield* db.use((d) =>
-          d.select({ id: recipeTag.recipeId }).from(recipeTag).where(eq(recipeTag.tagId, id)),
+          d
+            .select({ id: recipeTag.recipeId })
+            .from(recipeTag)
+            .where(and(eq(recipeTag.ownerId, ownerId), eq(recipeTag.tagId, id))),
         );
         if (tagged.length > 0) {
-          yield* db.use((d) => d.execute(refreshRecipeSearch(tagged.map((row) => row.id))));
+          yield* db.use((d) =>
+            d.execute(
+              refreshRecipeSearch(
+                ownerId,
+                tagged.map((row) => row.id),
+              ),
+            ),
+          );
         }
         const [row] = yield* tagCounts(ownerId, eq(tag.id, id));
         return toTagWithCount(row!);

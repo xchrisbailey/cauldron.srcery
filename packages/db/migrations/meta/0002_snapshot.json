@@ -1,5 +1,5 @@
 {
-  "id": "abc54651-1cfc-4e1a-a9b9-ba67ed85d4ed",
+  "id": "9784b927-8a32-4bbd-acc6-bfe82ff5f22e",
   "prevId": "aa1a96c9-576c-428d-860b-8a2427985b35",
   "version": "7",
   "dialect": "postgresql",
@@ -1017,9 +1017,9 @@
               "nulls": "last"
             },
             {
-              "expression": "last_cooked_on",
-              "isExpression": false,
-              "asc": false,
+              "expression": "(coalesce(\"last_cooked_on\", '0001-01-01'::date)) desc",
+              "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -1124,8 +1124,8 @@
         }
       },
       "indexes": {
-        "recipe_cook_recipe_idx": {
-          "name": "recipe_cook_recipe_idx",
+        "recipe_cook_recipe_day_idx": {
+          "name": "recipe_cook_recipe_day_idx",
           "columns": [
             {
               "expression": "recipe_id",
@@ -1140,7 +1140,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}

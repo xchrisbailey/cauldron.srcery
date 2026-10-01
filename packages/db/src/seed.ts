@@ -94,7 +94,7 @@ export const seed = async (db: Db, ownerId: string) => {
           )[0]!.id;
         await tx.insert(schema.recipeTag).values({ ownerId, recipeId, tagId });
       }
-      await tx.execute(refreshRecipeSearch([recipeId]));
+      await tx.execute(refreshRecipeSearch(ownerId, [recipeId]));
     });
     created++;
   }

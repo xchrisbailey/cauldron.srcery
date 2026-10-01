@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { validation } from "./copy.ts";
 import { AltMeasure, Quantity, UnitCode } from "./ingredients/schema.ts";
 import { PageQuery } from "./Pagination.ts";
 
@@ -33,14 +34,30 @@ export const RECIPE_LIMITS = {
 } as const;
 
 /** Trimmed, non-empty text of at most `max` characters. */
-const Text = (max: number) => Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(max));
+const Text = (max: number) =>
+  Schema.Trim.check(
+    Schema.isNonEmpty({ message: validation.required.text }),
+    Schema.isMaxLength(max, { message: validation.tooLong(max).text }),
+  );
 
 /** Optional trimmed text. The server stores a blank string as null. */
-const OptionalText = (max: number) => Schema.NullOr(Schema.Trim.check(Schema.isMaxLength(max)));
+const OptionalText = (max: number) =>
+  Schema.NullOr(
+    Schema.Trim.check(Schema.isMaxLength(max, { message: validation.tooLong(max).text })),
+  );
 
-const Minutes = Schema.NullOr(
-  Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: RECIPE_LIMITS.minutes })),
-);
+const WholeNumber = (minimum: number, maximum: number) =>
+  Schema.Int.annotate({ message: validation.wholeNumber(minimum, maximum).text }).check(
+    Schema.isBetween(
+      { minimum, maximum },
+      { message: validation.wholeNumber(minimum, maximum).text },
+    ),
+  );
+
+const List = <S extends Schema.Top>(item: S, max: number) =>
+  Schema.Array(item).check(Schema.isMaxLength(max, { message: validation.tooMany(max).text }));
+
+const Minutes = Schema.NullOr(WholeNumber(0, RECIPE_LIMITS.minutes));
 
 export const SourcePlatform = Schema.Literals(["web", "instagram", "tiktok", "manual", "text"]);
 export type SourcePlatform = typeof SourcePlatform.Type;
@@ -50,8 +67,8 @@ export type TagKind = typeof TagKind.Type;
 
 /** A web link: http or https only. */
 export const SourceUrl = Schema.Trim.check(
-  Schema.isMaxLength(RECIPE_LIMITS.url),
-  Schema.isPattern(/^https?:\/\/[^\s/]+\S*$/i, { message: "Enter a link starting with https://" }),
+  Schema.isMaxLength(RECIPE_LIMITS.url, { message: validation.tooLong(RECIPE_LIMITS.url).text }),
+  Schema.isPattern(/^https?:\/\/[^\s/]+\S*$/i, { message: validation.link.text }),
 );
 
 export const TagName = Text(RECIPE_LIMITS.tag);
@@ -74,9 +91,7 @@ export type IngredientInput = typeof IngredientInput.Type;
 export const StepInput = Schema.Struct({
   section: OptionalText(RECIPE_LIMITS.section),
   text: Text(RECIPE_LIMITS.step),
-  timerSeconds: Schema.NullOr(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: RECIPE_LIMITS.timerSeconds })),
-  ),
+  timerSeconds: Schema.NullOr(WholeNumber(1, RECIPE_LIMITS.timerSeconds)),
 });
 export type StepInput = typeof StepInput.Type;
 
@@ -84,9 +99,7 @@ export type StepInput = typeof StepInput.Type;
 export const RecipeInput = Schema.Struct({
   title: Text(RECIPE_LIMITS.title),
   description: OptionalText(RECIPE_LIMITS.description),
-  servings: Schema.NullOr(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: RECIPE_LIMITS.servings })),
-  ),
+  servings: Schema.NullOr(WholeNumber(1, RECIPE_LIMITS.servings)),
   prepMinutes: Minutes,
   cookMinutes: Minutes,
   totalMinutes: Minutes,
@@ -94,9 +107,9 @@ export const RecipeInput = Schema.Struct({
   sourceUrl: Schema.NullOr(SourceUrl),
   sourceAuthor: OptionalText(RECIPE_LIMITS.author),
   notes: OptionalText(RECIPE_LIMITS.notes),
-  tags: Schema.Array(TagName).check(Schema.isMaxLength(RECIPE_LIMITS.tags)),
-  ingredients: Schema.Array(IngredientInput).check(Schema.isMaxLength(RECIPE_LIMITS.ingredients)),
-  steps: Schema.Array(StepInput).check(Schema.isMaxLength(RECIPE_LIMITS.steps)),
+  tags: List(TagName, RECIPE_LIMITS.tags),
+  ingredients: List(IngredientInput, RECIPE_LIMITS.ingredients),
+  steps: List(StepInput, RECIPE_LIMITS.steps),
 });
 export type RecipeInput = typeof RecipeInput.Type;
 
@@ -135,11 +148,16 @@ export const Step = Schema.Struct({
 });
 export type Step = typeof Step.Type;
 
+/** Whether `YYYY-MM-DD` names a day that exists (no February 31st). */
+export const isRealDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
 /** A calendar day, `YYYY-MM-DD`. */
 export const LocalDate = Schema.String.check(
-  Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, {
-    message: "Use a date like 2026-10-01",
-  }),
+  Schema.makeFilter<string>((value) => (isRealDate(value) ? undefined : validation.date.text)),
 );
 export type LocalDate = typeof LocalDate.Type;
 

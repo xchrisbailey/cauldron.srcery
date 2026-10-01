@@ -1,13 +1,22 @@
 import { Schema } from "effect";
+import { validation } from "../copy.ts";
 import { UNIT_CODES } from "./units.ts";
+
+/** Fits the numeric(12, 4) quantity columns. */
+export const MAX_QUANTITY = 99_999_999;
+
+const Amount = Schema.Finite.check(
+  Schema.isGreaterThanOrEqualTo(0, { message: validation.quantity.text }),
+  Schema.isLessThanOrEqualTo(MAX_QUANTITY, { message: validation.quantity.text }),
+);
 
 /** A quantity: a single amount (`max` null) or a range from `min` to `max` (`max >= min`). */
 export const Quantity = Schema.Struct({
-  min: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
-  max: Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+  min: Amount,
+  max: Schema.NullOr(Amount),
 }).check(
   Schema.makeFilter<{ readonly min: number; readonly max: number | null }>((q) =>
-    q.max === null || q.max >= q.min ? undefined : "max must be greater than or equal to min",
+    q.max === null || q.max >= q.min ? undefined : validation.range.text,
   ),
 );
 export type Quantity = typeof Quantity.Type;

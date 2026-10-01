@@ -10,14 +10,14 @@ ALTER TABLE "recipe" ADD COLUMN "last_cooked_on" date;--> statement-breakpoint
 ALTER TABLE "recipe" ADD COLUMN "search" "tsvector";--> statement-breakpoint
 ALTER TABLE "recipe_cook" ADD CONSTRAINT "recipe_cook_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe_cook" ADD CONSTRAINT "recipe_cook_recipe_owner_fk" FOREIGN KEY ("recipe_id","owner_id") REFERENCES "public"."recipe"("id","owner_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "recipe_cook_recipe_idx" ON "recipe_cook" USING btree ("recipe_id","cooked_on" DESC NULLS LAST);--> statement-breakpoint
+CREATE UNIQUE INDEX "recipe_cook_recipe_day_idx" ON "recipe_cook" USING btree ("recipe_id","cooked_on" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "recipe_owner_title_idx" ON "recipe" USING btree ("owner_id",lower("title"),"id") WHERE "recipe"."deleted_at" is null;--> statement-breakpoint
-CREATE INDEX "recipe_owner_cooked_idx" ON "recipe" USING btree ("owner_id","last_cooked_on" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "recipe"."deleted_at" is null;--> statement-breakpoint
+CREATE INDEX "recipe_owner_cooked_idx" ON "recipe" USING btree ("owner_id",(coalesce("last_cooked_on", '0001-01-01'::date)) desc,"id" DESC NULLS LAST) WHERE "recipe"."deleted_at" is null;--> statement-breakpoint
 CREATE INDEX "recipe_search_idx" ON "recipe" USING gin ("search");--> statement-breakpoint
 -- Hand-written: the search document for one recipe. The API (and the seed)
 -- set recipe.search from it after writing a recipe, its ingredients or tags.
 CREATE FUNCTION "recipe_search_document"("recipe_id" uuid) RETURNS tsvector
-LANGUAGE sql STABLE AS $$
+LANGUAGE sql STABLE SET search_path = public AS $$
   SELECT
     setweight(to_tsvector('english', coalesce(r.title, '')), 'A')
     || setweight(to_tsvector('english', coalesce(

@@ -116,6 +116,16 @@ describe("recipes", () => {
     expect(badUrl.status).toBe(400);
     const badId = await call(ada, "GET", "/v1/recipes/not-a-uuid");
     expect(badId.status).toBe(400);
+    // Bigger than the quantity column holds: a 400, not a database error.
+    const [line] = lines("2 cups flour");
+    const huge = await call(
+      ada,
+      "POST",
+      "/v1/recipes",
+      input({ ingredients: [{ ...line!, quantity: { min: 1e12, max: null } }] }),
+    );
+    expect(huge.status).toBe(400);
+    expect(huge.body.error.code).toBe("invalid_request");
   });
 
   it("stores blank optional text as null and trims", async () => {
@@ -170,6 +180,11 @@ describe("recipes", () => {
     expect(search.body).toEqual([]);
     const tags = await call(bob, "GET", "/v1/tags");
     expect(tags.body).toEqual([]);
+    // Filtering by Ada's tag id finds nothing for Bob.
+    const adaTags = await call(ada, "GET", "/v1/tags");
+    const byAdasTag = await call(bob, "GET", `/v1/recipes?tag=${adaTags.body[0].id}`);
+    expect(byAdasTag.status).toBe(200);
+    expect(byAdasTag.body.items).toEqual([]);
     // Ada's recipe is untouched.
     const mine = await call(ada, "GET", `/v1/recipes/${created.id}`);
     expect(mine.body.title).toBe("Ada's secret soup");
@@ -216,6 +231,13 @@ describe("recipes", () => {
     expect(earlier.body.lastCookedOn).toBe("2026-09-20");
     const bad = await call(ada, "POST", `/v1/recipes/${created.id}/cooked`, { on: "yesterday" });
     expect(bad.status).toBe(400);
+    const impossible = await call(ada, "POST", `/v1/recipes/${created.id}/cooked`, {
+      on: "2026-02-31",
+    });
+    expect(impossible.status).toBe(400);
+    // The same day twice is one entry, and still fine.
+    const again = await call(ada, "POST", `/v1/recipes/${created.id}/cooked`, { on: "2026-09-20" });
+    expect(again.status).toBe(200);
   });
 });
 
@@ -270,8 +292,28 @@ describe("listing", () => {
     await call(cookie, "POST", `/v1/recipes/${banana.id}/cooked`, { on: "2026-09-02" });
     await call(cookie, "POST", `/v1/recipes/${apple.id}/cooked`, { on: "2026-09-01" });
     const titles = await pages("sort=lastCooked");
+    // Never-cooked recipes follow, newest id first, each exactly once.
     expect(titles.slice(0, 2)).toEqual(["banana bread", "Apple crumble"]);
-    expect(titles).toHaveLength(4);
+    expect(titles.slice(2).sort()).toEqual(["Date squares", "carrot cake"]);
+    expect(new Set(titles).size).toBe(4);
+  });
+
+  it("pages through titles that tie when lowercased", async () => {
+    const tied = await signUpVerified("tied@example.com");
+    for (const title of ["Soup", "soup", "SOUP", "Stew"]) await create(tied, { title });
+    const seen: Array<string> = [];
+    let cursor: string | null = null;
+    do {
+      const res: Res = await call(
+        tied,
+        "GET",
+        `/v1/recipes?limit=1&sort=title${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      );
+      seen.push(...res.body.items.map((r: { id: string }) => r.id));
+      cursor = res.body.nextCursor;
+    } while (cursor);
+    expect(seen).toHaveLength(4);
+    expect(new Set(seen).size).toBe(4);
   });
 
   it("filters by tag", async () => {
@@ -289,6 +331,18 @@ describe("listing", () => {
     const junk = await call(cookie, "GET", "/v1/recipes?cursor=bm9wZQ");
     expect(junk.status).toBe(400);
     expect(junk.body.error.code).toBe("invalid_request");
+    // Well-formed cursors with keys Postgres can't read are a 400 too.
+    const forge = (s: string, k: string) =>
+      Buffer.from(JSON.stringify({ s, k, i: "00000000-0000-4000-8000-000000000000" })).toString(
+        "base64url",
+      );
+    for (const [sort, key] of [
+      ["recent", "Tue Oct 1 2026"],
+      ["lastCooked", "2026-02-31"],
+    ] as const) {
+      const res = await call(cookie, "GET", `/v1/recipes?sort=${sort}&cursor=${forge(sort, key)}`);
+      expect(res.status, sort).toBe(400);
+    }
   });
 });
 
