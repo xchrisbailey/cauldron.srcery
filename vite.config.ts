@@ -1,6 +1,7 @@
 import { defineConfig } from "vite-plus";
 
-const generated = ["**/dist/**", "**/routeTree.gen.ts", "packages/db/migrations/**"];
+// Vendored agent skills keep their upstream formatting: skills-lock.json hashes them.
+const generated = ["**/dist/**", "**/routeTree.gen.ts", "packages/db/migrations/**", ".agents/**"];
 
 export default defineConfig({
   fmt: {
