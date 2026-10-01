@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { type FormEvent, useState } from "react";
-import { RecipeEditor, snapshotOf } from "../../../components/editor/RecipeEditor";
+import { RecipeEditor } from "../../../components/editor/RecipeEditor";
 import {
   Button,
   ButtonLink,
@@ -285,7 +285,6 @@ function Review({ job }: { job: ImportJob }) {
   const toast = useToast();
   // Read once: the draft doesn't change, and edits mustn't be reset.
   const [initial] = useState(() => fromDraft(job.draft!));
-  const [persisted] = useState(() => snapshotOf(initial));
 
   const onSubmit = async (values: RecipeFormValues) => {
     const input = decodeRecipeForm(values);
@@ -316,11 +315,9 @@ function Review({ job }: { job: ImportJob }) {
       <RecipeEditor
         title={copy.imports.title.text}
         initial={initial}
-        persisted={persisted}
         // The draft stays on the job until it's saved; nothing to keep meanwhile.
-        persist={async () => "idle"}
+        keep="none"
         onSubmit={onSubmit}
-        guard={false}
         intro={
           <>
             <div {...stylex.props(styles.narrow)}>
