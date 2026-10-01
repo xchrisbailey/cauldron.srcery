@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as KitchenRouteImport } from './routes/_kitchen'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
 import { Route as AuthedGatherRouteImport } from './routes/_authed/gather'
@@ -22,11 +23,16 @@ import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes/index'
 import { Route as AuthedRecipesDistillRouteImport } from './routes/_authed/recipes/distill'
 import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
+import { Route as KitchenBrewIdRouteImport } from './routes/_kitchen/brew.$id'
 import { Route as AuthedRecipesIdIndexRouteImport } from './routes/_authed/recipes/$id/index'
 import { Route as AuthedRecipesIdEditRouteImport } from './routes/_authed/recipes/$id/edit'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KitchenRoute = KitchenRouteImport.update({
+  id: '/_kitchen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PublicRoute = PublicRouteImport.update({
@@ -88,6 +94,11 @@ const AuthedRecipesNewRoute = AuthedRecipesNewRouteImport.update({
   path: '/recipes/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const KitchenBrewIdRoute = KitchenBrewIdRouteImport.update({
+  id: '/brew/$id',
+  path: '/brew/$id',
+  getParentRoute: () => KitchenRoute,
+} as any)
 const AuthedRecipesIdIndexRoute = AuthedRecipesIdIndexRouteImport.update({
   id: '/recipes/$id/',
   path: '/recipes/$id/',
@@ -110,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes/': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/recipes/$id/': typeof AuthedRecipesIdIndexRoute
@@ -125,6 +137,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/recipes/$id': typeof AuthedRecipesIdIndexRoute
@@ -132,6 +145,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
+  '/_kitchen': typeof KitchenRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_authed/account': typeof AuthedAccountRoute
   '/_authed/gather': typeof AuthedGatherRoute
@@ -143,6 +157,7 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/_authed/recipes/distill': typeof AuthedRecipesDistillRoute
   '/_authed/recipes/new': typeof AuthedRecipesNewRoute
+  '/_kitchen/brew/$id': typeof KitchenBrewIdRoute
   '/_authed/recipes/': typeof AuthedRecipesIndexRoute
   '/_authed/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/_authed/recipes/$id/': typeof AuthedRecipesIdIndexRoute
@@ -160,6 +175,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/brew/$id'
     | '/recipes/'
     | '/recipes/$id/edit'
     | '/recipes/$id/'
@@ -175,12 +191,14 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/brew/$id'
     | '/recipes'
     | '/recipes/$id/edit'
     | '/recipes/$id'
   id:
     | '__root__'
     | '/_authed'
+    | '/_kitchen'
     | '/_public'
     | '/_authed/account'
     | '/_authed/gather'
@@ -192,6 +210,7 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/_authed/recipes/distill'
     | '/_authed/recipes/new'
+    | '/_kitchen/brew/$id'
     | '/_authed/recipes/'
     | '/_authed/recipes/$id/edit'
     | '/_authed/recipes/$id/'
@@ -199,6 +218,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
+  KitchenRoute: typeof KitchenRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
 }
 
@@ -209,6 +229,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_kitchen': {
+      id: '/_kitchen'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof KitchenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_public': {
@@ -295,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRecipesNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_kitchen/brew/$id': {
+      id: '/_kitchen/brew/$id'
+      path: '/brew/$id'
+      fullPath: '/brew/$id'
+      preLoaderRoute: typeof KitchenBrewIdRouteImport
+      parentRoute: typeof KitchenRoute
+    }
     '/_authed/recipes/$id/': {
       id: '/_authed/recipes/$id/'
       path: '/recipes/$id'
@@ -337,6 +371,17 @@ const AuthedRouteChildren: AuthedRouteChildren = {
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface KitchenRouteChildren {
+  KitchenBrewIdRoute: typeof KitchenBrewIdRoute
+}
+
+const KitchenRouteChildren: KitchenRouteChildren = {
+  KitchenBrewIdRoute: KitchenBrewIdRoute,
+}
+
+const KitchenRouteWithChildren =
+  KitchenRoute._addFileChildren(KitchenRouteChildren)
+
 interface PublicRouteChildren {
   PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
   PublicResetPasswordRoute: typeof PublicResetPasswordRoute
@@ -358,6 +403,7 @@ const PublicRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
+  KitchenRoute: KitchenRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport

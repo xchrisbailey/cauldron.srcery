@@ -314,9 +314,29 @@ export const imports = {
   ),
 } as const;
 
+// Start brewing (#20). The controls stay plain: hands are busy. Brewed is voice.
 export const brewing = {
   nextStep: plain("Next step"),
   previousStep: plain("Previous step"),
+  stepOf: (n: number, of: number) => plain(`${n} of ${of}`),
+  leave: plain("Back to the recipe"),
+  forThisStep: plain("For this step"),
+  startTimer: plain("Start timer"),
+  pause: plain("Pause"),
+  resume: plain("Resume"),
+  reset: plain("Reset"),
+  timeUp: plain("Time's up"),
+  timerFor: (n: number) => plain(`Step ${n}`),
+  timerDone: (title: string, n: number) => plain(`${title}: the step ${n} timer is done.`),
+  timers: plain("Timers"),
+  wakeOn: plain("Screen stays on while you brew"),
+  wakeOff: plain("This browser can't keep the screen on, so it may sleep."),
+  keys: plain("Arrow keys move between steps. Space starts or pauses the timer."),
+  noSteps: plain("This recipe has no method steps yet. Add some, then start brewing."),
+  editRecipe: plain("Edit recipe"),
+  brewed: voice("Brewed"),
+  brewedToast: voice("Brewed. Marked as cooked today."),
+  couldntSave: plain("Couldn't mark it cooked. Check your connection and try again."),
 } as const;
 
 // The week (#18). Stirring in is voice; days, meals, controls and the literal

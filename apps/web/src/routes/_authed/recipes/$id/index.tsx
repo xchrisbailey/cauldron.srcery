@@ -213,6 +213,14 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             <Button variant="secondary" onClick={brewed} disabled={busy}>
               {copy.recipeView.markBrewed.text}
             </Button>
+            <ButtonLink
+              to="/brew/$id"
+              params={{ id: recipe.id }}
+              search={servings !== null ? { servings } : {}}
+              variant="secondary"
+            >
+              {copy.recipes.startBrewing.text}
+            </ButtonLink>
             <Button onClick={() => setStirring(true)}>{copy.week.stirIntoWeek.text}</Button>
           </div>
         }

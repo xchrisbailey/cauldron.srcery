@@ -1,19 +1,10 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { AppShell } from "../components/AppShell";
-import { getSession } from "../lib/session";
+import { requireSignIn } from "../lib/guard";
 
-// Every route under _authed needs a signed-in user; others are sent to sign in
-// and brought back afterwards.
+// Every route under _authed needs a signed-in user and sits in the app shell.
 export const Route = createFileRoute("/_authed")({
-  beforeLoad: async ({ location }) => {
-    const session = await getSession();
-    // A failed verification link lands here signed out, with `error` set; send it
-    // to sign-in, which offers a new link, instead of bouncing back here after.
-    const error = (location.search as { error?: string }).error;
-    if (!session && error) throw redirect({ to: "/sign-in", search: { error } });
-    if (!session) throw redirect({ to: "/sign-in", search: { redirect: location.href } });
-    return { session };
-  },
+  beforeLoad: requireSignIn,
   component: () => (
     <AppShell>
       <Outlet />
