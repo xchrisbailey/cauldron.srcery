@@ -2,6 +2,7 @@ import type { ImportSource } from "@cauldron/shared";
 import { Effect, Option, Redacted, Schema } from "effect";
 import { RemoteFetch } from "../RemoteFetch.ts";
 import { fromText } from "./fromText.ts";
+import { RecipeExtractor } from "./RecipeExtractor.ts";
 import { parseDocument } from "./html.ts";
 import { failed, ImportFailed, type Imported } from "./result.ts";
 import { fetchFailure, fetchPage } from "./web.ts";
@@ -15,8 +16,11 @@ import { fetchFailure, fetchPage } from "./web.ts";
 
 export type SocialSource = Extract<ImportSource, "instagram" | "tiktok">;
 
+// The optional first segment is a username ("instagram.com/ada/reel/…"), never
+// a reserved path: "/share/reel/…" is a share link with its own code, which
+// has to be followed to find the post.
 const INSTAGRAM_POST =
-  /^https?:\/\/(?:www\.|m\.)?instagram\.com\/(?:[\w.]+\/)?(p|reels?|tv)\/([\w-]+)/i;
+  /^https?:\/\/(?:www\.|m\.)?instagram\.com\/(?:(?!share\/|stories\/|explore\/|accounts\/)[\w.]+\/)?(p|reels?|tv)\/([\w-]+)/i;
 const TIKTOK_POST = /^https?:\/\/(?:www\.|m\.)?tiktok\.com\/@([\w.-]+)\/(video|photo)\/(\d+)/i;
 
 /** The post's own link, without tracking or share parameters, or null for a share link. */
@@ -90,18 +94,26 @@ const meta = (document: ReturnType<typeof parseDocument>, key: string) => {
 
 // Instagram's description reads `123 likes, 4 comments - ada on March 1, 2026: "caption".`
 // and its title `Ada on Instagram: "caption"`.
+const CAPTION_MAX = 8000;
 const QUOTED = /:\s*["“]([\s\S]+)["”]\s*\.?\s*$/;
 const INSTAGRAM_HANDLE = /\d[\d,.]*\s*[KM]?\s+(?:likes?|comments?)[^-]*-\s*([\w.]+)\s+on\s/i;
 
 /** What a post page's Open Graph tags say about it. */
-export const fromOpenGraph = (html: string): Capture | null => {
+export const fromOpenGraph = (html: string, source: SocialSource): Capture | null => {
   const document = parseDocument(html);
-  const description = meta(document, "og:description") ?? meta(document, "description");
-  const title = meta(document, "og:title");
+  // Captions are a few thousand characters at most; the cap also bounds the regexes.
+  const cap = (text: string | null) => text?.slice(0, CAPTION_MAX) ?? null;
+  const description = cap(meta(document, "og:description") ?? meta(document, "description"));
+  const title = cap(meta(document, "og:title"));
   const raw = description ?? title;
   if (!raw) return null;
-  const quoted = QUOTED.exec(raw)?.[1] ?? (title ? QUOTED.exec(title)?.[1] : undefined);
-  const handle = description ? INSTAGRAM_HANDLE.exec(description)?.[1] : undefined;
+  // Only Instagram wraps the caption in quotes after its counts; a TikTok
+  // caption's own quotes are part of it.
+  const instagram = source === "instagram";
+  const quoted = instagram
+    ? (QUOTED.exec(raw)?.[1] ?? (title ? QUOTED.exec(title)?.[1] : undefined))
+    : undefined;
+  const handle = instagram && description ? INSTAGRAM_HANDLE.exec(description)?.[1] : undefined;
   return {
     caption: (quoted ?? raw).trim() || null,
     author: handle ? `@${handle}` : null,
@@ -114,11 +126,14 @@ export interface SocialConfig {
   readonly instagramToken: Redacted.Redacted<string> | undefined;
 }
 
+/** Meta retires Graph API versions about two years after release; bump it then. */
+const GRAPH_VERSION = "v21.0";
+
 const oEmbedUrl = (source: SocialSource, post: string, config: SocialConfig) => {
   if (source === "tiktok") return `https://www.tiktok.com/oembed?url=${encodeURIComponent(post)}`;
   if (!config.instagramToken) return null;
   const token = encodeURIComponent(Redacted.value(config.instagramToken));
-  return `https://graph.facebook.com/v21.0/instagram_oembed?url=${encodeURIComponent(post)}&access_token=${token}`;
+  return `https://graph.facebook.com/${GRAPH_VERSION}/instagram_oembed?url=${encodeURIComponent(post)}&access_token=${token}`;
 };
 
 /** Finds the post behind a link (share links redirect) and reads its caption. */
@@ -133,7 +148,12 @@ export const capturePost = Effect.fn("Social.capture")(function* (
   if (post === null) {
     // A share link ("vm.tiktok.com/…", "instagram.com/share/…"): follow it.
     page = yield* fetchPage(url);
-    post = canonicalPost(source, page.url);
+    // A logged-out visit can land on "/accounts/login/?next=/reel/ID/".
+    const landed = new URL(page.url);
+    const next = landed.searchParams.get("next");
+    post =
+      canonicalPost(source, page.url) ??
+      (next ? canonicalPost(source, new URL(next, landed).toString()) : null);
     if (post === null) return yield* failed("couldntRead");
   }
   const endpoint = oEmbedUrl(source, post, config);
@@ -142,13 +162,20 @@ export const capturePost = Effect.fn("Social.capture")(function* (
         Effect.map((res) => fromOEmbed(new TextDecoder().decode(res.bytes))),
         // A missing or private post fails here too; the page may still say more.
         Effect.catchTag("FetchError", (error) =>
-          error.reason === "blocked" ? Effect.fail(fetchFailure(error)) : Effect.succeed(null),
+          error.reason === "blocked"
+            ? Effect.fail(fetchFailure(error))
+            : // Never the URL: Instagram's carries the token.
+              Effect.logWarning("oEmbed failed", {
+                source,
+                reason: error.reason,
+                detail: error.detail,
+              }).pipe(Effect.as(null)),
         ),
       )
     : null;
   if (embedded?.caption) return { post, capture: embedded };
   page ??= yield* fetchPage(post);
-  const graph = fromOpenGraph(page.html);
+  const graph = fromOpenGraph(page.html, source);
   const capture: Capture = {
     caption: graph?.caption ?? null,
     author: embedded?.author ?? graph?.author ?? null,
@@ -168,11 +195,14 @@ export const fromSocial = Effect.fn("Social.fromSocial")(function* (
   // No caption at all: whatever the recipe is, it's in the video (#17).
   if (!capture.caption) return yield* failed("spokenOnly");
   const caption = capture.caption;
+  // Only the model can tell a caption without a recipe from one it can't lay
+  // out; without one, it's "no recipe found", not "spoken in the video".
+  const { available } = yield* RecipeExtractor;
   const read = yield* fromText(caption, "caption").pipe(
     Effect.catchTag("ImportFailed", (failure) =>
       Effect.fail(
         new ImportFailed({
-          code: failure.code === "noRecipe" ? "spokenOnly" : failure.code,
+          code: failure.code === "noRecipe" && available ? "spokenOnly" : failure.code,
           raw: caption,
         }),
       ),

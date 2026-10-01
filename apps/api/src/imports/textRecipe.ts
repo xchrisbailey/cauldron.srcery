@@ -112,9 +112,10 @@ const clean = (line: string) => line.replace(HASHTAGS, " ").replace(/\s+/g, " ")
 const TRAILER =
   /^(?:love\b|cheers\b|thanks\b|regards\b|best\s*,|xx?o?\b|enjoy\b|did\s+you\s+make|tag\s+me|follow\s+me|let\s+me\s+know|leave\s+a\s+(?:comment|review))/i;
 
-// Calls to action that close a caption: "Save this for later!", "Follow @x for more".
+// Calls to action that close a caption: "Save this for later!", "Follow @x for
+// more". Each needs its social tail, so "Save it in an airtight tin" stays.
 const CALL_TO_ACTION =
-  /^(?:save\s+(?:this|it)\b|follow\s+(?:@|me\b|us\b)|like\s*(?:,|and|&)|share\s+(?:this|it|with)\b|tag\s+(?:a|your|someone)\b|turn\s+on\s+(?:post\s+)?notifications|comment\s+["“'‘]?\w+["”'’]?\s+(?:for|and)\b)/i;
+  /^(?:save\s+(?:this|it)\s+(?:for\s+later|recipe|post|reel)\b|follow\s+(?:@\S+|me|us)\s*(?:for\b|[!.]|$)|like\s*(?:,|and|&)\s*(?:save|share|follow)\b|share\s+(?:this|it)\s+with\s+(?:a\s+friend|someone|your)\b|tag\s+(?:a|your|someone)\b.*(?:friend|who|bestie)|turn\s+on\s+(?:post\s+)?notifications|comment\s+["“'‘]?\w+["”'’]?\s+(?:for|and)\b)/i;
 const isCallToAction = (line: string) => CALL_TO_ACTION.test(bare(line));
 
 /** Splits a method block into steps: numbered steps, then blank lines, then one per line. */

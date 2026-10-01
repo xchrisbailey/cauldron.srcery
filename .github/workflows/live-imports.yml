@@ -15,9 +15,6 @@ permissions:
 jobs:
   live:
     runs-on: ubuntu-latest
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      INSTAGRAM_OEMBED_TOKEN: ${{ secrets.INSTAGRAM_OEMBED_TOKEN }}
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
@@ -28,6 +25,10 @@ jobs:
           node-version: 24
       - name: Install
         run: bun install --frozen-lockfile
+      # Secrets on this step only, out of reach of install scripts.
       - name: Live imports
         working-directory: apps/api
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INSTAGRAM_OEMBED_TOKEN: ${{ secrets.INSTAGRAM_OEMBED_TOKEN }}
         run: bun run test:live

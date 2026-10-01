@@ -84,6 +84,10 @@ beforeAll(async () => {
       "https://www.tiktok.com/@ogonly/video/7300000000000000003": html(
         `<meta property="og:description" content="${CAPTION.replace(/\n/g, "&#10;")}"><meta property="og:image" content="https://p16.tiktokcdn.example/og.jpg">`,
       ),
+      "https://www.instagram.com/share/reel/BAGshare1/": html(
+        "",
+        "https://www.instagram.com/accounts/login/?next=%2Freel%2FCxyz123%2F",
+      ),
       "https://www.instagram.com/reel/Cxyz123/": html(
         `<meta property="og:description" content="1,204 likes, 33 comments - sunsetcook on May 2, 2026: &quot;golden hour on the terrace 🌅&quot;.">`,
       ),
@@ -138,6 +142,11 @@ describe("post links", () => {
     );
     expect(canonicalPost("tiktok", `${TIKTOK}?is_from_webapp=1&sender_device=pc`)).toBe(TIKTOK);
     expect(canonicalPost("tiktok", "https://vm.tiktok.com/ZMabc123/")).toBeNull();
+    // Share links carry their own code: they're followed, not read as posts.
+    expect(
+      canonicalPost("instagram", "https://www.instagram.com/share/reel/BAGxyz123/"),
+    ).toBeNull();
+    expect(canonicalPost("instagram", "https://www.instagram.com/share/p/BAGxyz123/")).toBeNull();
     expect(canonicalPost("instagram", "https://www.instagram.com/sunsetcook/")).toBeNull();
   });
 
@@ -145,12 +154,22 @@ describe("post links", () => {
     expect(
       fromOpenGraph(
         `<meta property="og:description" content="12K likes, 80 comments - ada.cooks on March 1, 2026: &quot;Lemon pasta. Ingredients: pasta, lemon&quot;.">`,
+        "instagram",
       ),
     ).toEqual({
       caption: "Lemon pasta. Ingredients: pasta, lemon",
       author: "@ada.cooks",
       imageUrl: null,
     });
+  });
+
+  it("keeps a TikTok caption's own quotes", () => {
+    expect(
+      fromOpenGraph(
+        `<meta property="og:description" content="Pasta night. Top tip: &quot;salt the water&quot;">`,
+        "tiktok",
+      )?.caption,
+    ).toBe('Pasta night. Top tip: "salt the water"');
   });
 });
 
@@ -217,6 +236,13 @@ describe("distilling a social post", () => {
       errorCode: "spokenOnly",
       rawContent: "full recipe in the video 👀 #fyp",
     });
+  });
+
+  it("follows an Instagram share link, even to a login page", async () => {
+    // The share code isn't the post's; the redirect says where the post is.
+    expect((await distill("https://www.instagram.com/share/reel/BAGshare1/")).failure.code).toBe(
+      "spokenOnly",
+    );
   });
 
   it("can't read a post it can't reach", async () => {
