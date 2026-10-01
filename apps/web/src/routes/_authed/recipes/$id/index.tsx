@@ -491,7 +491,7 @@ const styles = stylex.create({
   actions: { display: "flex", flexWrap: "wrap", gap: 8 },
   hero: {
     width: "100%",
-    maxHeight: { default: 420, "@media print": 260 },
+    maxHeight: 420,
     aspectRatio: "16 / 9",
     objectFit: "cover",
     borderRadius: 14,
@@ -574,7 +574,6 @@ const styles = stylex.create({
     gridTemplateColumns: {
       default: "minmax(240px, 320px) minmax(0, 1fr)",
       [phone]: "minmax(0, 1fr)",
-      "@media print": "minmax(200px, 280px) minmax(0, 1fr)",
     },
     gap: { default: 40, [phone]: 28 },
     marginTop: 8,

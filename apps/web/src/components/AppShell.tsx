@@ -53,14 +53,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div {...stylex.props(styles.app)}>
+    <div data-print="single" {...stylex.props(styles.app)}>
       <a href="#main" {...stylex.props(styles.skip, focusRing.ring)}>
         {copy.ui.skipToContent.text}
       </a>
-      <aside {...stylex.props(styles.sidebar)}>
+      <aside data-print="hide" {...stylex.props(styles.sidebar)}>
         <Sidebar pathname={pathname} onSummon={summon} />
       </aside>
-      <header {...stylex.props(styles.topbar)}>
+      <header data-print="hide" {...stylex.props(styles.topbar)}>
         <Link to="/recipes" aria-label={copy.ui.appName.text} {...stylex.props(focusRing.ring)}>
           <Lockup />
         </Link>
@@ -160,6 +160,9 @@ function Sidebar({ pathname, onSummon }: { pathname: string; onSummon: () => voi
   );
 }
 
+// Don't add "@media print" next to this in a StyleX value: StyleX rewrites
+// the set into "(min-width) and (not (print))", which never matches, and the
+// desktop layout is lost. Print rules live in app.css on data-print.
 const desktop = "@media (min-width: 768px)";
 const SIDEBAR = 216;
 
@@ -170,7 +173,6 @@ const styles = stylex.create({
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       [desktop]: `${SIDEBAR}px minmax(0, 1fr)`,
-      "@media print": "minmax(0, 1fr)",
     },
     gridTemplateRows: { default: "auto 1fr", [desktop]: "1fr" },
   },
@@ -188,7 +190,7 @@ const styles = stylex.create({
     textDecoration: "none",
   },
   sidebar: {
-    display: { default: "none", [desktop]: "block", "@media print": "none" },
+    display: { default: "none", [desktop]: "block" },
     position: "sticky",
     top: 0,
     height: "100dvh",
@@ -300,7 +302,7 @@ const styles = stylex.create({
   // Pushes the account link and the footer to the bottom of the sidebar.
   account: { marginTop: "auto" },
   topbar: {
-    display: { default: "flex", [desktop]: "none", "@media print": "none" },
+    display: { default: "flex", [desktop]: "none" },
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
