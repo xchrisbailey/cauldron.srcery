@@ -274,7 +274,7 @@ export const decodeRecipeForm = (values: RecipeFormValues): RecipeInput | null =
 // ---------------------------------------------------------------------------
 // Pasting
 
-const BULLET = /^\s*(?:[-•*▢□◦‣]|\d+[.)]|step\s+\d+[.:)]?)\s*/i;
+const BULLET = /^\s*(?:[-•*▢□◦‣]|\d+[.)](?=\s)|step\s+\d+[.:)]?)\s*/i;
 
 /** Splits a pasted ingredient block into lines, dropping blanks and bullets. */
 export const splitIngredientPaste = (pasted: string): Array<string> =>

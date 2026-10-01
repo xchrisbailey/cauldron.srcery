@@ -89,6 +89,7 @@ export function IngredientRows({ rows, onChange, errors }: Props) {
 
   const onKeyDown = (index: number) => (e: KeyboardEvent<HTMLInputElement>) => {
     const row = rows[index]!;
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter") {
       e.preventDefault();
       insertAfter(index, [ingredientRow("")]);

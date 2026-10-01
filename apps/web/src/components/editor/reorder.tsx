@@ -33,7 +33,10 @@ export function useReorder(count: number, move: (from: number, to: number) => vo
     onKeyDown: (e: KeyboardEvent) => {
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         e.preventDefault();
+        // React moves the row's own node when it goes down, which drops focus.
+        const handle = e.currentTarget as HTMLElement;
         moveTo(index, e.key === "ArrowUp" ? index - 1 : index + 1);
+        requestAnimationFrame(() => handle.focus());
       }
     },
   });

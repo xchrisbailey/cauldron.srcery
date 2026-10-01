@@ -68,6 +68,7 @@ export function StepRows({ rows, onChange, errors }: Props) {
 
   const onKeyDown = (index: number) => (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const row = rows[index]!;
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       insertAfter(index, [stepRow("")]);
@@ -98,81 +99,87 @@ export function StepRows({ rows, onChange, errors }: Props) {
   };
 
   return (
-    <ol {...stylex.props(styles.list)}>
-      {rows.map((row, index) => {
-        const error = errors[`steps[${index}]`];
-        const label = copy.editor.step(index + 1).text;
-        const errorId = error ? `step-error-${row.key}` : undefined;
-        return (
-          <li
-            key={row.key}
-            {...reorder.rowProps(index)}
-            {...stylex.props(
-              styles.row,
-              row.flag !== null && styles.flagged,
-              reorder.over === index && styles.dropTarget,
-            )}
-          >
-            <div {...stylex.props(styles.side)}>
-              <span aria-hidden="true" {...stylex.props(styles.number)}>
-                {index + 1}
-              </span>
-              <DragHandle
-                label={`${copy.editor.move.text}: ${label}`}
-                {...reorder.handleProps(index)}
-              />
-            </div>
-            <div {...stylex.props(styles.body)}>
-              <div {...stylex.props(styles.line)}>
-                <textarea
-                  ref={(el) => {
-                    if (el) inputs.current.set(row.key, el);
-                    else inputs.current.delete(row.key);
-                  }}
-                  aria-label={label}
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={errorId}
-                  rows={2}
-                  value={row.text}
-                  onChange={(e) => setText(index, e.target.value)}
-                  onKeyDown={onKeyDown(index)}
-                  onPaste={onPaste(index)}
-                  {...stylex.props(control.field, styles.textarea, error ? control.invalid : null)}
+    <div {...stylex.props(styles.wrap)}>
+      <ol {...stylex.props(styles.list)}>
+        {rows.map((row, index) => {
+          const error = errors[`steps[${index}]`];
+          const label = copy.editor.step(index + 1).text;
+          const errorId = error ? `step-error-${row.key}` : undefined;
+          return (
+            <li
+              key={row.key}
+              {...reorder.rowProps(index)}
+              {...stylex.props(
+                styles.row,
+                row.flag !== null && styles.flagged,
+                reorder.over === index && styles.dropTarget,
+              )}
+            >
+              <div {...stylex.props(styles.side)}>
+                <span aria-hidden="true" {...stylex.props(styles.number)}>
+                  {index + 1}
+                </span>
+                <DragHandle
+                  label={`${copy.editor.move.text}: ${label}`}
+                  {...reorder.handleProps(index)}
                 />
-                <IconButton
-                  label={`${copy.editor.remove.text}: ${label}`}
-                  onClick={() => remove(index)}
-                >
-                  <CloseGlyph />
-                </IconButton>
               </div>
-              <Timer
-                row={row}
-                editing={editingTimer === row.key}
-                onEdit={() => setEditingTimer(editingTimer === row.key ? null : row.key)}
-                onSet={(timerSeconds) => update(index, { ...row, timerSeconds, timerSet: true })}
-              />
-              {row.flag ? (
-                <p {...stylex.props(styles.note)}>
-                  {copy.editor.needsALook.text}: {row.flag}
-                </p>
-              ) : null}
-              {error ? (
-                <p id={errorId} {...stylex.props(styles.error)}>
-                  {error}
-                </p>
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-      <li {...stylex.props(styles.actions)}>
+              <div {...stylex.props(styles.body)}>
+                <div {...stylex.props(styles.line)}>
+                  <textarea
+                    ref={(el) => {
+                      if (el) inputs.current.set(row.key, el);
+                      else inputs.current.delete(row.key);
+                    }}
+                    aria-label={label}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={errorId}
+                    rows={2}
+                    value={row.text}
+                    onChange={(e) => setText(index, e.target.value)}
+                    onKeyDown={onKeyDown(index)}
+                    onPaste={onPaste(index)}
+                    {...stylex.props(
+                      control.field,
+                      styles.textarea,
+                      error ? control.invalid : null,
+                    )}
+                  />
+                  <IconButton
+                    label={`${copy.editor.remove.text}: ${label}`}
+                    onClick={() => remove(index)}
+                  >
+                    <CloseGlyph />
+                  </IconButton>
+                </div>
+                <Timer
+                  row={row}
+                  editing={editingTimer === row.key}
+                  onEdit={() => setEditingTimer(editingTimer === row.key ? null : row.key)}
+                  onSet={(timerSeconds) => update(index, { ...row, timerSeconds, timerSet: true })}
+                />
+                {row.flag ? (
+                  <p {...stylex.props(styles.note)}>
+                    {copy.editor.needsALook.text}: {row.flag}
+                  </p>
+                ) : null}
+                {error ? (
+                  <p id={errorId} {...stylex.props(styles.error)}>
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <div {...stylex.props(styles.actions)}>
         <Button variant="secondary" onClick={() => insertAfter(rows.length - 1, [stepRow("")])}>
           {copy.editor.addStep.text}
         </Button>
         <Announcer message={reorder.announcement} />
-      </li>
-    </ol>
+      </div>
+    </div>
   );
 }
 
@@ -192,7 +199,9 @@ function Timer({
   return (
     <div {...stylex.props(styles.timerRow)}>
       {row.timerSeconds !== null ? (
-        <span {...stylex.props(styles.timer)}>⏲ {formatTimer(row.timerSeconds)}</span>
+        <span {...stylex.props(styles.timer)}>
+          <span aria-hidden="true">⏲</span> {formatTimer(row.timerSeconds)}
+        </span>
       ) : null}
       <button
         type="button"
@@ -235,6 +244,7 @@ function Timer({
 }
 
 const styles = stylex.create({
+  wrap: { display: "flex", flexDirection: "column", gap: 8 },
   list: {
     listStyle: "none",
     margin: 0,

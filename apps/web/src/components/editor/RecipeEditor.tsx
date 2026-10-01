@@ -71,12 +71,10 @@ export function RecipeEditor({
   const form = useForm({
     defaultValues: initial,
     validators: {
-      onSubmit: ({ value }) => {
-        const errors = validateRecipeForm(value);
-        return Object.keys(errors).length > 0
-          ? { form: copy.editor.fixErrors.text, fields: errors }
-          : undefined;
-      },
+      // A form-level error only: the editor shows field errors itself, and
+      // field errors set here would never clear without registered fields.
+      onSubmit: ({ value }) =>
+        Object.keys(validateRecipeForm(value)).length > 0 ? copy.editor.fixErrors.text : undefined,
     },
     onSubmit: async ({ value }) => {
       if (onSubmit) await onSubmit(value);
@@ -90,33 +88,52 @@ export function RecipeEditor({
   const snapshot = useMemo(() => snapshotOf(values), [values]);
   const latest = useRef(snapshot);
   latest.current = snapshot;
+  const latestValues = useRef(values);
+  latestValues.current = values;
+  /** The status of the last save that finished, shown again when the form matches it. */
+  const settled = useRef<SaveStatus>("idle");
 
-  // Saves run one at a time, in order, so an older save never lands last.
+  // Saves run one at a time, in order, so an older save never lands last. If
+  // the form changed while one was running, the newest values go next.
   const save = (next: RecipeFormValues) => {
     const run = queue.current.then(async () => {
       const shot = snapshotOf(next);
-      if (shot === saved.current) return setStatus("saved");
-      setStatus("saving");
-      const result = await persist(next);
-      if (result === "saved" || result === "kept") saved.current = shot;
-      if (result === "invalid") setShowAllErrors(true);
-      setStatus(result === "saved" && latest.current !== shot ? "pending" : result);
+      if (shot !== saved.current) {
+        setStatus("saving");
+        const result = await persist(next);
+        if (result === "saved" || result === "kept") saved.current = shot;
+        if (result === "invalid") setShowAllErrors(true);
+        settled.current = result;
+      }
+      if (latest.current === saved.current) setStatus(settled.current);
+      else if (latest.current !== shot) debouncer.maybeExecute(latestValues.current);
+      else setStatus(settled.current);
     });
     queue.current = run.catch(() => undefined);
     return run;
   };
 
-  const debouncer = useDebouncer(save, { wait: 800 });
+  // Unmounting flushes rather than cancels, so the last change is kept.
+  const debouncer = useDebouncer(save, { wait: 800, onUnmount: (d) => d.flush() });
 
   useEffect(() => {
-    if (snapshot === saved.current) return;
+    if (snapshot === saved.current) {
+      // Back to what's saved (an edit undone): nothing to send.
+      debouncer.cancel();
+      setStatus(settled.current);
+      return;
+    }
     setStatus("pending");
     debouncer.maybeExecute(values);
     // The debouncer is stable; only new text should schedule a save.
   }, [snapshot]);
 
-  // A draft is kept on the way out, too.
-  useEffect(() => () => debouncer.flush(), [debouncer]);
+  // Closing or reloading the tab keeps the last change too.
+  useEffect(() => {
+    const flush = () => debouncer.flush();
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, [debouncer]);
 
   const blocker = useBlocker({
     shouldBlockFn: async () => {
@@ -128,6 +145,18 @@ export function RecipeEditor({
     enableBeforeUnload: () => guard && latest.current !== saved.current,
     withResolver: true,
   });
+
+  // After a failed save, take the cook to the first field that needs a fix.
+  const submit = async () => {
+    await form.handleSubmit();
+    if (Object.keys(validateRecipeForm(form.state.values)).length > 0) {
+      // After React has rendered the error states.
+      setTimeout(
+        () => document.querySelector<HTMLElement>("form [aria-invalid='true']")?.focus(),
+        50,
+      );
+    }
+  };
 
   const review = new Set(values.review);
   const setField = <K extends keyof RecipeFormValues>(name: K, value: RecipeFormValues[K]) => {
@@ -179,7 +208,7 @@ export function RecipeEditor({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        void form.handleSubmit();
+        void submit();
       }}
       noValidate
       {...stylex.props(styles.form)}
@@ -189,7 +218,7 @@ export function RecipeEditor({
         actions={
           <div {...stylex.props(styles.headActions)}>
             <Status status={status} />
-            {actions({ submit: () => void form.handleSubmit(), submitting })}
+            {actions({ submit: () => void submit(), submitting })}
           </div>
         }
       />
@@ -287,7 +316,8 @@ export function Status({ status }: { status: SaveStatus }) {
             : status === "invalid"
               ? copy.editor.fixErrors.text
               : "";
-  const hot = status === "pending" || status === "saving" || status === "error";
+  const hot =
+    status === "pending" || status === "saving" || status === "error" || status === "invalid";
   return (
     <span role="status" {...stylex.props(styles.status)}>
       {label ? (

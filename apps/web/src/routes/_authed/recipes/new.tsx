@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { copy } from "@cauldron/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RecipeEditor, snapshotOf } from "../../../components/editor/RecipeEditor";
-import { Button, Dialog, useToast } from "../../../components/ui";
+import { Button, Dialog, Skeleton, useToast } from "../../../components/ui";
 import { clearDraft, loadDraft, saveDraft } from "../../../lib/recipe-draft";
 import { decodeRecipeForm, emptyRecipeForm, type RecipeFormValues } from "../../../lib/recipe-form";
 import { createRecipe, settleRecipe } from "../../../lib/recipes";
@@ -24,11 +24,24 @@ function Conjure() {
   const [initial, setInitial] = useState<RecipeFormValues | null>(null);
   const [generation, setGeneration] = useState(0);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  // Bumped when this draft is finished (saved or cleared), so the editor's
+  // flush on the way out can't write it back.
+  const draftGeneration = useRef(0);
   useEffect(() => setInitial(loadDraft() ?? emptyRecipeForm()), []);
 
-  if (!initial) return null;
+  if (!initial) {
+    return (
+      <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.loading)}>
+        <Skeleton height={40} />
+        <Skeleton width="60%" />
+        <Skeleton width="80%" />
+      </div>
+    );
+  }
 
+  const draftAtRender = draftGeneration.current;
   const persist = async (values: RecipeFormValues) => {
+    if (draftAtRender !== draftGeneration.current) return "idle" as const;
     if (snapshotOf(values) === EMPTY) {
       clearDraft();
       return "idle" as const;
@@ -41,6 +54,7 @@ function Conjure() {
     if (!input) return;
     try {
       const recipe = await createRecipe(input);
+      draftGeneration.current++;
       clearDraft();
       settleRecipe(queryClient, recipe);
       await navigate({ to: "/recipes/$id/edit", params: { id: recipe.id }, replace: true });
@@ -50,6 +64,7 @@ function Conjure() {
   };
 
   const startOver = () => {
+    draftGeneration.current++;
     clearDraft();
     setInitial(emptyRecipeForm());
     setGeneration((n) => n + 1);
@@ -97,6 +112,7 @@ function Conjure() {
 }
 
 const styles = stylex.create({
+  loading: { display: "grid", gap: 12, maxWidth: 560 },
   body: { margin: 0, color: colors.subtext },
   actions: { display: "flex", flexWrap: "wrap", gap: 8 },
 });

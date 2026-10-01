@@ -32,6 +32,7 @@ export function TagInput({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       add(draft);
@@ -59,7 +60,11 @@ export function TagInput({
             <button
               type="button"
               aria-label={copy.editor.removeTag(tag).text}
-              onClick={() => onChange(tags.filter((t) => t !== tag))}
+              onClick={() => {
+                onChange(tags.filter((t) => t !== tag));
+                // The chip's button goes away; keep focus in the field.
+                document.getElementById(id)?.focus();
+              }}
               {...stylex.props(styles.remove, focusRing.ring)}
             >
               <CloseGlyph />
@@ -73,10 +78,16 @@ export function TagInput({
           aria-describedby={`${id}-hint`}
           aria-invalid={error ? true : undefined}
           onChange={(e) => {
-            // Picking a suggestion from the list fills the whole value at once.
+            // Picking a suggestion from the list fills the value without a typed
+            // character, so typing "pasta bake" never stops at "pasta".
             const value = e.target.value;
-            if (suggestions.includes(value)) add(value);
-            else setDraft(value);
+            const inputType = (e.nativeEvent as InputEvent).inputType;
+            const picked = inputType === undefined || inputType === "insertReplacementText";
+            if (picked && suggestions.some((s) => s.toLowerCase() === value.toLowerCase())) {
+              add(value);
+            } else {
+              setDraft(value);
+            }
           }}
           onKeyDown={onKeyDown}
           onBlur={() => draft.trim() !== "" && add(draft)}

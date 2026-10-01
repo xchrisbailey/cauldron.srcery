@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
-import { copy } from "@cauldron/shared";
+import { copy, type Recipe } from "@cauldron/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { RecipeEditor, snapshotOf } from "../../../../components/editor/RecipeEditor";
-import { ButtonLink, EmptyState, PageHeader, Skeleton, useToast } from "../../../../components/ui";
+import { ButtonLink, EmptyState, PageHeader, Skeleton } from "../../../../components/ui";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
 import { recipeQuery, settleRecipe, updateRecipe } from "../../../../lib/recipes";
 
@@ -37,12 +37,13 @@ function Edit() {
     );
   }
   // Keyed by id so moving between recipes starts a fresh form.
-  return <Editor key={id} id={id} initial={fromRecipe(recipe.data)} />;
+  return <Editor key={id} id={id} recipe={recipe.data} />;
 }
 
-function Editor({ id, initial }: { id: string; initial: RecipeFormValues }) {
+function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
   const queryClient = useQueryClient();
-  const toast = useToast();
+  // Read once: a background refetch mustn't reset a form being edited.
+  const [initial] = useState(() => fromRecipe(recipe));
   const persisted = useMemo(() => snapshotOf(initial), [initial]);
 
   const persist = async (values: RecipeFormValues) => {
@@ -52,7 +53,7 @@ function Editor({ id, initial }: { id: string; initial: RecipeFormValues }) {
       settleRecipe(queryClient, await updateRecipe(id, input));
       return "saved" as const;
     } catch {
-      toast(copy.editor.couldntSave.text, "error");
+      // The status line says so; a toast every few seconds offline is noise.
       return "error" as const;
     }
   };
