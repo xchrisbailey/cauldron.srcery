@@ -27,14 +27,14 @@ const bare = (line: string) => line.replace(DECORATION, "").trim();
 const INGREDIENTS_HEADING =
   /^(?:the\s+)?(?:ingredients?(?:\s+list)?|what\s+you(?:'|’)?ll\s+need|what\s+you\s+need|you(?:'|’)?ll\s+need|you\s+will\s+need|shopping\s+list|for\s+the\s+recipe)$/i;
 const METHOD_HEADING =
-  /^(?:the\s+)?(?:method|directions?|instructions?|steps?|preparation|prep(?:aration)?\s+steps?|how\s+to\s+(?:make|cook)(?:\s+(?:it|this|them))?|to\s+make|recipe\s+steps?)$/i;
+  /^(?:the\s+)?(?:method|directions?|instructions?|steps?|preparation|prep(?:aration)?\s+steps?|how\s+to(?:\s+(?:make|cook)(?:\s+(?:it|this|them))?)?|to\s+make|recipe\s+steps?)$/i;
 const NOTES_HEADING =
   /^(?:notes?|tips?|cook(?:'|’)?s\s+notes?|recipe\s+notes?|storage|to\s+store|make\s+ahead|substitutions?|variations?)$/i;
 
 // "Ingredients: 2 eggs, flour" puts content on the heading line itself.
 const INLINE_HEADING = /^([^:：]{3,40})[:：]\s*(.+)$/;
 
-const BULLET = /^\s*(?:[-•*▢□◦‣–—]|\d{1,2}[.)](?=\s)|step\s*\d{1,2}\s*[.:)-]?)\s*/i;
+const BULLET = /^\s*(?:[-•*▢□◦‣–—]|\d{1,2}[.)](?=\s)|\d{1,2}️?⃣|step\s*\d{1,2}\s*[.:)-]?)\s*/i;
 const HASHTAGS = /(?:^|\s)#[\p{L}\p{N}_]+/gu;
 
 const SERVINGS =
@@ -112,14 +112,19 @@ const clean = (line: string) => line.replace(HASHTAGS, " ").replace(/\s+/g, " ")
 const TRAILER =
   /^(?:love\b|cheers\b|thanks\b|regards\b|best\s*,|xx?o?\b|enjoy\b|did\s+you\s+make|tag\s+me|follow\s+me|let\s+me\s+know|leave\s+a\s+(?:comment|review))/i;
 
+// Calls to action that close a caption: "Save this for later!", "Follow @x for more".
+const CALL_TO_ACTION =
+  /^(?:save\s+(?:this|it)\b|follow\s+(?:@|me\b|us\b)|like\s*(?:,|and|&)|share\s+(?:this|it|with)\b|tag\s+(?:a|your|someone)\b|turn\s+on\s+(?:post\s+)?notifications|comment\s+["“'‘]?\w+["”'’]?\s+(?:for|and)\b)/i;
+const isCallToAction = (line: string) => CALL_TO_ACTION.test(bare(line));
+
 /** Splits a method block into steps: numbered steps, then blank lines, then one per line. */
 const splitSteps = (lines: ReadonlyArray<string>): Array<string> => {
   const steps: Array<string> = [];
-  const numbered = lines.filter((l) => /^\s*(?:\d{1,2}[.)]|step\s*\d)/i.test(l)).length;
+  const numbered = lines.filter((l) => /^\s*(?:\d{1,2}[.)]|\d{1,2}️?⃣|step\s*\d)/i.test(l)).length;
   if (numbered >= 2) {
     for (const line of lines) {
       if (line.trim() === "") continue;
-      if (/^\s*(?:\d{1,2}[.)]|step\s*\d)/i.test(line) || steps.length === 0) {
+      if (/^\s*(?:\d{1,2}[.)]|\d{1,2}️?⃣|step\s*\d)/i.test(line) || steps.length === 0) {
         steps.push(line.replace(BULLET, "").trim());
       } else {
         steps[steps.length - 1] = `${steps[steps.length - 1]} ${line.trim()}`;
@@ -144,7 +149,8 @@ const toIngredients = (lines: ReadonlyArray<string>, unsure: boolean): Array<Ext
   const out: Array<ExtractedLine> = [];
   let section: string | null = null;
   for (const raw of lines) {
-    const line = raw.replace(/^\s*[-•*▢□◦‣–—]\s*/, "").trim();
+    // Bullets, and the emoji captions use as bullets (✨ ▪️ ✔️).
+    const line = raw.replace(/^[\s\-•*▢□◦‣–—\p{Extended_Pictographic}️‍]+/u, "").trim();
     if (line === "") continue;
     if (isSectionHeading(line) && parseIngredientLine(line).quantity === null) {
       section = bare(line).replace(/:$/, "").trim() || null;
@@ -232,6 +238,7 @@ const readSections = (lines: ReadonlyArray<string>): TextReading | null => {
   let sawMethod = false;
   for (const raw of lines) {
     const line = clean(raw);
+    if (isCallToAction(line)) continue;
     const heading = headingOf(line);
     if (heading) {
       block = heading;
@@ -277,7 +284,13 @@ const readSections = (lines: ReadonlyArray<string>): TextReading | null => {
   if (ingredients.length === 0 || steps.length === 0) return null;
   const notes = blocks.notes.join("\n").trim();
   return {
-    clarity: sawMethod && title !== null ? "clear" : "rough",
+    // One long comma-separated "ingredient" is a list run together, not a line.
+    clarity:
+      sawMethod &&
+      title !== null &&
+      !(ingredients.length === 1 && /,.*,/.test(ingredients[0]!.line))
+        ? "clear"
+        : "rough",
     recipe: {
       ...emptyExtracted,
       ...meta,

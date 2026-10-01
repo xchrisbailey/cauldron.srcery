@@ -6,6 +6,8 @@ import type { ExtractedRecipe, Usage } from "./Extracted.ts";
 
 export class ImportFailed extends Schema.TaggedError<ImportFailed>()("ImportFailed", {
   code: ImportFailureCode,
+  /** What was read before it failed (a caption with no recipe), kept on the job for #17. */
+  raw: Schema.optional(Schema.String),
 }) {}
 
 export interface Imported {
