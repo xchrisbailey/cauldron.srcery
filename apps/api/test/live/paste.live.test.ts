@@ -5,13 +5,15 @@ import { fromText } from "../../src/imports/Importers.ts";
 import { RecipeExtractor } from "../../src/imports/RecipeExtractor.ts";
 
 // The pastes only the model can read, through the real model. On demand
-// only, since it costs money: `bun run test:live` in apps/api with
-// ANTHROPIC_API_KEY (or OPENAI_API_KEY) set.
+// only, since it can cost money: `bun run test:live` in apps/api with
+// GEMINI_API_KEY (or ANTHROPIC_API_KEY or OPENAI_API_KEY) set.
 
 // Needs a model key; a run without one skips it.
 const live =
   process.env.LIVE_IMPORTS === "1" &&
-  Boolean(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+  Boolean(
+    process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY,
+  );
 const dir = new URL("../fixtures/paste/", import.meta.url);
 
 const fixtures = readdirSync(dir)
