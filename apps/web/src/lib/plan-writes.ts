@@ -116,7 +116,7 @@ export function makePlanWrites({ cache, api, startsOn, notify }: PlanWritesDeps)
     options: MutationObserverOptions<T, unknown, void, Saved> & { mutationFn: () => Promise<T> },
   ): Promise<boolean> => {
     running.set(cache, (running.get(cache) ?? 0) + 1);
-    return new MutationObserver(cache, {
+    const observer = new MutationObserver(cache, {
       mutationKey: planMutationKey,
       retry,
       onError: (error, _vars, saved) => {
@@ -124,13 +124,18 @@ export function makePlanWrites({ cache, api, startsOn, notify }: PlanWritesDeps)
         failed(error);
       },
       ...options,
-    })
+    });
+    return observer
       .mutate()
       .then(
         () => true,
         () => false,
       )
-      .finally(() => settle(cache));
+      .finally(() => {
+        // Detach, so the finished mutation can be collected after gcTime.
+        observer.reset();
+        settle(cache);
+      });
   };
 
   const withId = (input: PlanEntryInput) => ({
