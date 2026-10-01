@@ -1,13 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy } from "@cauldron/shared";
-import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { RecipeEditor, snapshotOf } from "../../../components/editor/RecipeEditor";
 import { Button, Dialog, Skeleton, useToast } from "../../../components/ui";
 import { clearDraft, loadDraft, saveDraft } from "../../../lib/recipe-draft";
 import { decodeRecipeForm, emptyRecipeForm, type RecipeFormValues } from "../../../lib/recipe-form";
-import { createRecipe, settleRecipe } from "../../../lib/recipes";
+import { useRecipeWrites } from "../../../lib/use-recipe-writes";
 import { colors } from "../../../styles/tokens.stylex";
 
 export const Route = createFileRoute("/_authed/recipes/new")({ component: Conjure });
@@ -18,7 +17,7 @@ const EMPTY = snapshotOf(emptyRecipeForm());
 // reaches the API on Save. Imports (#13) will open this editor prefilled.
 function Conjure() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const writes = useRecipeWrites();
   const toast = useToast();
   // The draft lives in this browser, so it's read after hydration.
   const [initial, setInitial] = useState<RecipeFormValues | null>(null);
@@ -53,10 +52,9 @@ function Conjure() {
     const input = decodeRecipeForm(values);
     if (!input) return;
     try {
-      const recipe = await createRecipe(input);
+      const recipe = await writes.create(input);
       draftGeneration.current++;
       clearDraft();
-      settleRecipe(queryClient, recipe);
       await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
     } catch {
       toast(copy.editor.couldntSave.text, "error");

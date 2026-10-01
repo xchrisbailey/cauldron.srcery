@@ -12,7 +12,7 @@ import {
   type Tag,
   type UnitSystemChoice,
 } from "@cauldron/shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -28,15 +28,8 @@ import { StirRecipeDialog } from "../../../../components/StirIn";
 import { failureOf } from "../../../../lib/api-failure";
 import { useUnitChoice } from "../../../../lib/units";
 import { focusRing } from "../../../../components/ui/controls";
-import {
-  banishRecipe,
-  duplicateRecipe,
-  localToday,
-  markCooked,
-  recipeQuery,
-  restoreRecipe,
-  settleRecipe,
-} from "../../../../lib/recipes";
+import { recipeQuery } from "../../../../lib/recipes";
+import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
 import { colors, fonts, quantity, type } from "../../../../styles/tokens.stylex";
 
 export const Route = createFileRoute("/_authed/recipes/$id/")({ component: RecipePage });
@@ -89,8 +82,8 @@ const hostOf = (url: string) => {
 
 function RecipeView({ recipe }: { recipe: Recipe }) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const toast = useToast();
+  const writes = useRecipeWrites();
   // By servings when the recipe has them, otherwise by a multiplier.
   const [scale, setScale] = useState(() => Scale.initialScale(recipe));
   const [units, setUnits] = useUnitChoice();
@@ -124,38 +117,19 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
   const banish = () =>
     run(async () => {
       setConfirmingBanish(false);
-      await banishRecipe(recipe.id);
-      // A banished recipe reads as not found: drop it, and refresh lists and tags.
-      queryClient.removeQueries({ queryKey: recipeQuery(recipe.id).queryKey });
-      void queryClient.invalidateQueries({ queryKey: ["recipes"] });
-      void queryClient.invalidateQueries({ queryKey: ["tags"] });
-      await navigate({ to: "/recipes" });
-      toast(copy.recipeView.banished(recipe.title).text, "info", {
-        label: copy.recipeView.undo.text,
-        onClick: () => {
-          void restoreRecipe(recipe.id).then(
-            (restored) => {
-              settleRecipe(queryClient, restored);
-              toast(copy.recipeView.restored.text);
-            },
-            () => toast(copy.errors.internal.text, "error"),
-          );
-        },
-      });
+      if (await writes.banish(recipe)) await navigate({ to: "/recipes" });
     });
 
   const duplicate = () =>
     run(async () => {
-      const copyOf = await duplicateRecipe(recipe.id);
-      settleRecipe(queryClient, copyOf);
+      const copyOf = await writes.duplicate(recipe.id);
       await navigate({ to: "/recipes/$id/edit", params: { id: copyOf.id } });
       toast(copy.recipeView.duplicated.text);
     });
 
   const brewed = () =>
     run(async () => {
-      settleRecipe(queryClient, await markCooked(recipe.id, localToday()));
-      toast(copy.recipeView.brewedToday.text);
+      await writes.brewed(recipe.id);
     });
 
   const lineCount = recipe.ingredients.length;

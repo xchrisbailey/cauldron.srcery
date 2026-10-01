@@ -352,7 +352,6 @@ export const brewing = {
   noSteps: plain("This recipe has no method steps yet. Add some, then start brewing."),
   editRecipe: plain("Edit recipe"),
   brewed: voice("Brewed"),
-  brewedToast: voice("Brewed. Marked as cooked today."),
   couldntSave: plain("Couldn't mark it cooked. Check your connection and try again."),
 } as const;
 

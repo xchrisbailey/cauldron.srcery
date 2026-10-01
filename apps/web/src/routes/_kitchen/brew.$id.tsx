@@ -10,12 +10,13 @@ import {
   type UnitSystemChoice,
 } from "@cauldron/shared";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink, EmptyState, Skeleton, useToast } from "../../components/ui";
 import { focusRing } from "../../components/ui/controls";
-import { localToday, markCooked, recipeQuery, settleRecipe } from "../../lib/recipes";
+import { recipeQuery } from "../../lib/recipes";
+import { useRecipeWrites } from "../../lib/use-recipe-writes";
 import {
   chime,
   clock,
@@ -115,8 +116,8 @@ function StepText({ text }: { text: string }) {
 function Brewing({ recipe }: { recipe: Recipe }) {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const toast = useToast();
+  const writes = useRecipeWrites();
   const wake = useWakeLock();
   const [at, setIndex] = useState(0);
   const [units] = useUnitChoice();
@@ -187,11 +188,9 @@ function Brewing({ recipe }: { recipe: Recipe }) {
     if (Date.now() - movedAt.current < 700) return;
     setBusy(true);
     try {
-      settleRecipe(queryClient, await markCooked(recipe.id, localToday()));
-      toast(copy.brewing.brewedToast.text);
-      await navigate({ to: "/recipes/$id", params: { id: recipe.id } });
-    } catch {
-      toast(copy.brewing.couldntSave.text, "error");
+      if (await writes.brewed(recipe.id)) {
+        await navigate({ to: "/recipes/$id", params: { id: recipe.id } });
+      }
     } finally {
       setBusy(false);
     }
