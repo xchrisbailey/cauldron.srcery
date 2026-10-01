@@ -42,9 +42,21 @@ function Field({
   );
 }
 
-type Labelled = { label: string; hint?: string | undefined; error?: string | undefined };
+type Labelled = {
+  label: string;
+  hint?: string | undefined;
+  error?: string | undefined;
+  /** Extra StyleX styles for the control itself, e.g. Geist Mono for quantities. */
+  xstyle?: stylex.StyleXStyles;
+};
 
-export function Input({ label, hint, error, ...props }: ComponentProps<"input"> & Labelled) {
+export function Input({
+  label,
+  hint,
+  error,
+  xstyle,
+  ...props
+}: ComponentProps<"input"> & Labelled) {
   return (
     <Field label={label} hint={hint} error={error}>
       {({ id, describedBy }) => (
@@ -53,14 +65,20 @@ export function Input({ label, hint, error, ...props }: ComponentProps<"input"> 
           aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
           {...props}
-          {...stylex.props(control.field, error ? control.invalid : null)}
+          {...stylex.props(control.field, error ? control.invalid : null, xstyle)}
         />
       )}
     </Field>
   );
 }
 
-export function Textarea({ label, hint, error, ...props }: ComponentProps<"textarea"> & Labelled) {
+export function Textarea({
+  label,
+  hint,
+  error,
+  xstyle,
+  ...props
+}: ComponentProps<"textarea"> & Labelled) {
   return (
     <Field label={label} hint={hint} error={error}>
       {({ id, describedBy }) => (
@@ -69,7 +87,7 @@ export function Textarea({ label, hint, error, ...props }: ComponentProps<"texta
           aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
           {...props}
-          {...stylex.props(control.field, control.textarea, error ? control.invalid : null)}
+          {...stylex.props(control.field, control.textarea, error ? control.invalid : null, xstyle)}
         />
       )}
     </Field>

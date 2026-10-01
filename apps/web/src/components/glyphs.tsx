@@ -90,3 +90,9 @@ export const PersonGlyph = () => (
     />
   </Glyph>
 );
+
+export const CloseGlyph = () => (
+  <Glyph>
+    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </Glyph>
+);

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { copy } from "@cauldron/shared";
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import { colors } from "../../styles/tokens.stylex";
+import { CloseGlyph } from "../glyphs";
 import { IconButton } from "./Button";
 
 // Modal surfaces on the native <dialog>, which brings the focus trap, Escape to
@@ -73,20 +74,6 @@ export function Dialog(props: ModalProps) {
 /** A panel that slides in from the left edge; the phone menu. */
 export function Sheet(props: ModalProps) {
   return <Modal {...props} surface="sheet" />;
-}
-
-function CloseGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        d="M4 4l8 8M12 4l-8 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
 }
 
 const enter = stylex.keyframes({
