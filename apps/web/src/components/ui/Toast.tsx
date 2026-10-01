@@ -10,21 +10,30 @@ import {
   useState,
 } from "react";
 import { colors } from "../../styles/tokens.stylex";
-import { IconButton } from "./Button";
+import { Button, IconButton } from "./Button";
 
 // Short-lived notes in the corner ("Set", "Couldn't save"). The region is
 // always in the page so screen readers announce what lands in it.
 
 type Tone = "info" | "error";
+/** A button in the toast, such as Undo. Pressing it also dismisses the toast. */
+export interface ToastAction {
+  readonly label: string;
+  readonly onClick: () => void;
+}
+
 interface Toast {
   readonly id: number;
   readonly message: string;
   readonly tone: Tone;
+  readonly action: ToastAction | undefined;
 }
 
-const ToastContext = createContext<(message: string, tone?: Tone) => void>(() => {});
+const ToastContext = createContext<(message: string, tone?: Tone, action?: ToastAction) => void>(
+  () => {},
+);
 
-/** Shows a toast: `useToast()("Set")`. */
+/** Shows a toast: `useToast()("Set")`, or with an action: `toast("Banished", "info", { label: "Undo", onClick })`. */
 export const useToast = () => useContext(ToastContext);
 
 const LIFETIME_MS = 5000;
@@ -43,14 +52,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((all) => all.filter((t) => t.id !== id));
   }, []);
   const show = useCallback(
-    (message: string, tone: Tone = "info") => {
+    (message: string, tone: Tone = "info", action?: ToastAction) => {
       const id = next.current++;
-      setToasts((all) => [...all, { id, message, tone }]);
+      setToasts((all) => [...all, { id, message, tone, action }]);
       // Errors stay until dismissed, so there's time to read and act on them.
       if (tone === "info")
         timers.current.set(
           id,
-          setTimeout(() => dismiss(id), LIFETIME_MS),
+          // An action gets longer, so there's time to reach Undo.
+          setTimeout(() => dismiss(id), action ? LIFETIME_MS * 2 : LIFETIME_MS),
         );
     },
     [dismiss],
@@ -58,10 +68,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div role="status" aria-live="polite" {...stylex.props(styles.region)}>
+      <div role="status" aria-live="polite" data-print="hide" {...stylex.props(styles.region)}>
         {toasts.map((t) => (
           <div key={t.id} {...stylex.props(styles.toast, t.tone === "error" && styles.error)}>
             <span {...stylex.props(styles.message)}>{t.message}</span>
+            {t.action ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  dismiss(t.id);
+                  t.action?.onClick();
+                }}
+              >
+                {t.action.label}
+              </Button>
+            ) : null}
             <IconButton label={copy.ui.close.text} onClick={() => dismiss(t.id)}>
               ×
             </IconButton>

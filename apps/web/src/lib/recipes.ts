@@ -30,6 +30,18 @@ export const createRecipe = (input: RecipeInput) =>
 export const updateRecipe = (id: string, input: RecipeInput) =>
   callApi((c) => c.recipes.update({ params: { id: id as RecipeId }, payload: input }));
 
+const asId = (id: string) => ({ params: { id: id as RecipeId } });
+
+export const banishRecipe = (id: string) => callApi((c) => c.recipes.banish(asId(id)));
+export const restoreRecipe = (id: string) => callApi((c) => c.recipes.restore(asId(id)));
+export const duplicateRecipe = (id: string) => callApi((c) => c.recipes.duplicate(asId(id)));
+export const markCooked = (id: string, on: string) =>
+  callApi((c) => c.recipes.cooked({ ...asId(id), payload: { on } }));
+
+/** Today in the cook's own calendar, `YYYY-MM-DD`. */
+export const localToday = (now = new Date()) =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
 /** After a write: cache the recipe and refresh lists and tags. */
 export const settleRecipe = (queryClient: QueryClient, recipe: Recipe) => {
   queryClient.setQueryData(recipeKeys.detail(recipe.id), recipe);

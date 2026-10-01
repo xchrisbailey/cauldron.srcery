@@ -66,7 +66,7 @@ function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
       persist={persist}
       guard
       actions={() => (
-        <ButtonLink to="/recipes" variant="secondary">
+        <ButtonLink to="/recipes/$id" params={{ id }} variant="secondary">
           {copy.editor.done.text}
         </ButtonLink>
       )}

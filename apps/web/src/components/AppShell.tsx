@@ -167,7 +167,11 @@ const styles = stylex.create({
   app: {
     minHeight: "100dvh",
     display: "grid",
-    gridTemplateColumns: { default: "minmax(0, 1fr)", [desktop]: `${SIDEBAR}px minmax(0, 1fr)` },
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      [desktop]: `${SIDEBAR}px minmax(0, 1fr)`,
+      "@media print": "minmax(0, 1fr)",
+    },
     gridTemplateRows: { default: "auto 1fr", [desktop]: "1fr" },
   },
   skip: {
@@ -184,7 +188,7 @@ const styles = stylex.create({
     textDecoration: "none",
   },
   sidebar: {
-    display: { default: "none", [desktop]: "block" },
+    display: { default: "none", [desktop]: "block", "@media print": "none" },
     position: "sticky",
     top: 0,
     height: "100dvh",
@@ -296,7 +300,7 @@ const styles = stylex.create({
   // Pushes the account link and the footer to the bottom of the sidebar.
   account: { marginTop: "auto" },
   topbar: {
-    display: { default: "flex", [desktop]: "none" },
+    display: { default: "flex", [desktop]: "none", "@media print": "none" },
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,

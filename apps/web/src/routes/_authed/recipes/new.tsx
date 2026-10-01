@@ -57,7 +57,7 @@ function Conjure() {
       draftGeneration.current++;
       clearDraft();
       settleRecipe(queryClient, recipe);
-      await navigate({ to: "/recipes/$id/edit", params: { id: recipe.id }, replace: true });
+      await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
     } catch {
       toast(copy.editor.couldntSave.text, "error");
     }
