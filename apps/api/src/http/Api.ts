@@ -9,6 +9,8 @@ import { Recipes } from "../Recipes.ts";
 import { RecipesHandlers, TagsHandlers } from "./Recipes.ts";
 import { PhotosHandlers } from "./Photos.ts";
 import { Photos } from "../Photos.ts";
+import { Imports } from "../Imports.ts";
+import { ImportsHandlers } from "./Imports.ts";
 
 const SystemHandlers = HttpApiBuilder.group(
   Api,
@@ -55,8 +57,15 @@ const Docs = Layer.unwrap(
 
 export const ApiRoutes = Layer.mergeAll(
   HttpApiBuilder.layer(Api, { openapiPath: "/v1/openapi.json" }).pipe(
-    Layer.provide([SystemHandlers, AccountHandlers, RecipesHandlers, TagsHandlers, PhotosHandlers]),
-    Layer.provide([AuthorizationLive, Recipes.layer, Photos.layer]),
+    Layer.provide([
+      SystemHandlers,
+      AccountHandlers,
+      RecipesHandlers,
+      TagsHandlers,
+      PhotosHandlers,
+      ImportsHandlers,
+    ]),
+    Layer.provide([AuthorizationLive, Recipes.layer, Photos.layer, Imports.layer]),
   ),
   Docs,
 );

@@ -108,7 +108,6 @@ export const recipes = {
   /** Title of a duplicated recipe. */
   copyOf: (title: string) => plain(`${title} (copy)`),
   tagNameTaken: plain("You already have a tag with that name."),
-  couldntReadPage: plain("Couldn't read that page. Paste the recipe text instead."),
   /** Under the search field until #11 lists results. */
   summonHint: plain("Search by recipe name, ingredient or tag."),
 } as const;
@@ -266,6 +265,51 @@ export const photos = {
   couldntRead: plain("We couldn't read that photo. Try another one."),
   couldntFetch: plain("We couldn't fetch a photo from that link."),
   uploadExpired: plain("That upload has expired. Choose the photo again."),
+} as const;
+
+// Distill (#13 to #16): importing a recipe from a link or pasted text. The
+// action is voice; labels, statuses and every failure are plain.
+export const imports = {
+  title: voice("Distill a recipe"),
+  distill: voice("Distill"),
+  distilling: voice("Distilling…"),
+  link: plain("Link"),
+  linkPlaceholder: plain("https://"),
+  linkHint: plain("A recipe page, or an Instagram or TikTok post."),
+  orPaste: plain("Or paste the recipe"),
+  pasteHint: plain("Paste it from anywhere: a notes app, an email, a caption."),
+  pastePlaceholder: plain("Title, ingredients and method"),
+  stop: plain("Stop"),
+  stopped: plain("Stopped."),
+  another: voice("Distill another"),
+  review: plain("Check the highlighted fields, then save."),
+  source: plain("Source"),
+  duplicate: (title: string) => plain(`You already have a recipe from this link: ${title}.`),
+  openDuplicate: plain("Open it"),
+  saveAnyway: plain("Saving makes a second copy."),
+  pasteInstead: plain("Paste the text instead"),
+  tryAgain: plain("Try again"),
+  couldntStart: plain("Couldn't start distilling. Check your connection and try again."),
+  alreadySaved: plain("That draft is already saved."),
+  notReady: plain("That draft isn't ready to save."),
+  // Failures. Each one suggests what to do next.
+  couldntRead: plain("Couldn't read that page. Paste the recipe text instead."),
+  noRecipe: plain("We couldn't find a recipe there. Paste the recipe text instead."),
+  noRecipeInText: plain(
+    "We couldn't find a recipe in that text. Check it has the ingredients and the method.",
+  ),
+  spokenOnly: plain(
+    "That post's caption doesn't have the recipe. It may only be spoken in the video, so paste the recipe text instead.",
+  ),
+  tooLarge: plain("That page is too large to read. Paste the recipe text instead."),
+  blocked: plain("We can't open that link. Paste the recipe text instead."),
+  timeout: plain("That took too long. Try again, or paste the recipe text instead."),
+  unavailable: plain(
+    "Distilling isn't available right now. Try again in a moment, or conjure the recipe by hand.",
+  ),
+  dailyLimit: plain(
+    "That's a lot of distilling for one day. Try again tomorrow, or conjure the recipe by hand.",
+  ),
 } as const;
 
 export const brewing = {

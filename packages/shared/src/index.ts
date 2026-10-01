@@ -5,6 +5,7 @@ export * from "./User.ts";
 export * from "./Pagination.ts";
 export * from "./Photo.ts";
 export * from "./Recipe.ts";
+export * from "./Import.ts";
 export * from "./ingredients/units.ts";
 export * from "./ingredients/schema.ts";
 export * from "./ingredients/parse.ts";
