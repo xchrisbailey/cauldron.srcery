@@ -7,6 +7,8 @@ import {
   type Ingredient,
   photoUrl,
   type Recipe,
+  recipeMinutes,
+  Scale,
   type Tag,
   type UnitSystemChoice,
 } from "@cauldron/shared";
@@ -70,10 +72,6 @@ function RecipePage() {
   return <RecipeView key={id} recipe={recipe.data} />;
 }
 
-// ---------------------------------------------------------------------------
-// Scaling: by servings when the recipe has them, otherwise by a multiplier.
-
-const MULTIPLIERS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8];
 const factorLabel = (factor: number) => formatQuantity({ min: factor, max: null }, null);
 
 const minutes = (value: number) => formatTimer(value * 60);
@@ -93,31 +91,17 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [servings, setServings] = useState(recipe.servings);
-  const [multiplier, setMultiplier] = useState(1);
+  // By servings when the recipe has them, otherwise by a multiplier.
+  const [scale, setScale] = useState(() => Scale.initialScale(recipe));
   const [units, setUnits] = useUnitChoice();
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [confirmingBanish, setConfirmingBanish] = useState(false);
   const [stirring, setStirring] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const factor =
-    recipe.servings !== null && servings !== null ? servings / recipe.servings : multiplier;
-  const total =
-    recipe.totalMinutes ??
-    (recipe.prepMinutes !== null || recipe.cookMinutes !== null
-      ? (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)
-      : null);
-
-  const step = (direction: 1 | -1) => {
-    if (servings !== null) {
-      return setServings((n) => Math.min(1000, Math.max(1, (n ?? 1) + direction)));
-    }
-    setMultiplier((m) => {
-      const index = MULTIPLIERS.indexOf(m) + direction;
-      return MULTIPLIERS[Math.min(MULTIPLIERS.length - 1, Math.max(0, index))]!;
-    });
-  };
+  const factor = Scale.factor(scale, recipe.servings);
+  const total = recipeMinutes(recipe);
+  const step = (direction: 1 | -1) => setScale((s) => Scale.step(s, direction));
 
   const toggle = (index: number) =>
     setChecked((prev) => {
@@ -193,7 +177,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             <ButtonLink
               to="/brew/$id"
               params={{ id: recipe.id }}
-              search={servings !== null ? { servings } : multiplier !== 1 ? { multiplier } : {}}
+              search={Scale.toSearch(scale)}
               variant="secondary"
             >
               {copy.recipes.startBrewing.text}
@@ -237,7 +221,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           <button
             type="button"
             aria-label={copy.recipeView.fewer.text}
-            disabled={servings !== null ? servings <= 1 : multiplier <= MULTIPLIERS[0]!}
+            disabled={!Scale.canStep(scale, -1)}
             onClick={() => step(-1)}
             data-print="hide"
             {...stylex.props(styles.stepButton, focusRing.ring)}
@@ -245,18 +229,14 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             −
           </button>
           <output aria-live="polite" {...stylex.props(styles.stepValue)}>
-            {servings !== null
-              ? copy.recipeView.serves(servings).text
-              : copy.recipeView.scale(factorLabel(multiplier)).text}
+            {scale.by === "servings"
+              ? copy.recipeView.serves(scale.servings).text
+              : copy.recipeView.scale(factorLabel(scale.multiplier)).text}
           </output>
           <button
             type="button"
             aria-label={copy.recipeView.more.text}
-            disabled={
-              servings !== null
-                ? servings >= 1000
-                : multiplier >= MULTIPLIERS[MULTIPLIERS.length - 1]!
-            }
+            disabled={!Scale.canStep(scale, 1)}
             onClick={() => step(1)}
             data-print="hide"
             {...stylex.props(styles.stepButton, focusRing.ring)}

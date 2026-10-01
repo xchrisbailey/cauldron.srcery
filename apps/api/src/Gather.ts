@@ -18,6 +18,7 @@ import {
   parseIngredientLine,
   type Quantity,
   RecipeId,
+  servingFactor,
   sortRows,
   UNITS,
   type UnitCode,
@@ -118,10 +119,7 @@ const make = Effect.gen(function* () {
     const byRecipe = Map.groupBy(ingredients, (i) => i.recipeId);
     const lines: Array<GatherLine> = [];
     for (const entry of entries) {
-      const factor =
-        entry.servings !== null && entry.recipeServings !== null
-          ? entry.servings / entry.recipeServings
-          : 1;
+      const factor = servingFactor(entry.recipeServings, entry.servings);
       for (const i of byRecipe.get(entry.recipeId) ?? []) {
         const q = quantityOf(i.quantityMin, i.quantityMax);
         lines.push({

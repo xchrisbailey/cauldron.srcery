@@ -9,6 +9,7 @@ import {
   type PlanEntry,
   PlanEntryId,
   RecipeId,
+  toPlanRecipe,
   type LocalDate,
   type MealSlot,
   type PlanBatchInput,
@@ -82,15 +83,13 @@ const make = Effect.gen(function* () {
             recipe:
               row.recipeId === null
                 ? null
-                : {
+                : toPlanRecipe({
                     id: RecipeId.make(row.recipeId),
                     title: row.recipeTitle!,
                     servings: row.recipeServings,
-                    totalMinutes:
-                      row.totalMinutes ??
-                      (row.prepMinutes !== null || row.cookMinutes !== null
-                        ? (row.prepMinutes ?? 0) + (row.cookMinutes ?? 0)
-                        : null),
+                    totalMinutes: row.totalMinutes,
+                    prepMinutes: row.prepMinutes,
+                    cookMinutes: row.cookMinutes,
                     photoKey: row.photoKey,
                     macros: {
                       calories: row.calories,
@@ -98,7 +97,7 @@ const make = Effect.gen(function* () {
                       carbs: row.carbs,
                       fat: row.fat,
                     },
-                  },
+                  }),
             servings: row.servings,
             position: row.position,
             brewed: row.recipeId !== null && Boolean(row.brewed),

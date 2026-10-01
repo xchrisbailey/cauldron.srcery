@@ -1,14 +1,12 @@
 import {
   addDays,
   MEAL_SLOTS,
-  type Macros,
   type MealSlot,
-  noMacros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
   type PlanEntryUpdate,
-  type RecipeId,
+  type PlanRecipe,
 } from "@cauldron/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { callApi } from "./api";
@@ -126,13 +124,7 @@ const pendingIds = new Set<string>();
  */
 export const pendingEntry = (
   input: PlanEntryInput,
-  recipe: {
-    id: string;
-    title: string;
-    servings: number | null;
-    totalMinutes: number | null;
-    macros?: Macros;
-  } | null,
+  recipe: PlanRecipe | null,
   position: number,
 ): PlanEntry => {
   const id = input.id ?? (crypto.randomUUID() as PlanEntryId);
@@ -142,16 +134,7 @@ export const pendingEntry = (
     date: input.date,
     slot: input.slot,
     title: recipe?.title ?? input.title ?? "",
-    recipe: recipe
-      ? {
-          id: recipe.id as RecipeId,
-          title: recipe.title,
-          servings: recipe.servings,
-          totalMinutes: recipe.totalMinutes,
-          photoKey: null,
-          macros: recipe.macros ?? noMacros,
-        }
-      : null,
+    recipe,
     servings: input.servings ?? null,
     position,
     brewed: false,
