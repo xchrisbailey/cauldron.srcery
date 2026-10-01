@@ -353,7 +353,8 @@ const make = Effect.gen(function* () {
     // Cancelled: the row already says so.
     if (Cause.hasInterrupts(cause)) return;
     const failure = Cause.findErrorOption(cause);
-    if (Option.isSome(failure)) {
+    // A DbError here is an outage, not a reason to show the cook.
+    if (Option.isSome(failure) && failure.value._tag === "ImportFailed") {
       yield* finish(row.id, { status: "failed", errorCode: failure.value.code });
       return;
     }
