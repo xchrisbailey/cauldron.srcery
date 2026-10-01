@@ -32,6 +32,7 @@ import {
 import { Db } from "./Db.ts";
 import { toDraft } from "./imports/draft.ts";
 import { ImportFailed, Importers } from "./imports/Importers.ts";
+import { Photos } from "./Photos.ts";
 import { Recipes } from "./Recipes.ts";
 
 const { importJob, recipe } = schema;
@@ -41,6 +42,8 @@ type JobRow = typeof importJob.$inferSelect;
 export const DAILY_IMPORT_LIMIT = 100;
 /** A job that runs longer than this fails as timed out. */
 export const JOB_TIMEOUT = Duration.minutes(2);
+/** The cover photo gets this long; past it the draft goes without one. */
+const PHOTO_TIMEOUT = Duration.seconds(20);
 /** Jobs left running this long were orphaned by a stopped worker and are picked up again. */
 const STALE_AFTER = Duration.minutes(5);
 const MAX_ATTEMPTS = 3;
@@ -98,6 +101,7 @@ const make = Effect.gen(function* () {
   const db = yield* Db;
   const recipes = yield* Recipes;
   const importers = yield* Importers;
+  const photos = yield* Photos;
   // Wakes an idle worker when a job is queued, so it doesn't wait for the next poll.
   const wake = yield* Queue.unbounded<void>();
   // Running jobs by id, so cancelling one interrupts its work.
@@ -234,8 +238,14 @@ const make = Effect.gen(function* () {
     // Where it came from is the job's to say, not the client's.
     const draft = Option.getOrNull(decodeDraft(row.draft));
     const link = input.sourceUrl ?? draft?.sourceUrl ?? row.sourceUrl;
+    // A draft's photo is cleaned up if it waits a day unsaved; save without it then.
+    const photoKey =
+      input.photoKey !== null && !(yield* photos.owns(ownerId, input.photoKey))
+        ? null
+        : input.photoKey;
     const sourced: RecipeInput = {
       ...input,
+      photoKey,
       sourcePlatform: row.source as ImportSource,
       sourceUrl: link === null ? null : normalizeUrl(link),
     };
@@ -309,19 +319,38 @@ const make = Effect.gen(function* () {
   const work = Effect.fn("Imports.work")(function* (row: JobRow) {
     // A cancel that landed between the claim and now: don't spend a model call.
     if (yield* cancelled(row.id)) return yield* Effect.interrupt;
-    const imported = yield* importers
-      .run({ source: row.source as ImportSource, url: row.sourceUrl, text: row.inputText })
-      .pipe(
-        Effect.timeoutOrElse({
-          duration: JOB_TIMEOUT,
-          orElse: () => Effect.fail(new ImportFailed({ code: "timeout" })),
-        }),
-      );
+    const { imported, photoKey } = yield* Effect.gen(function* () {
+      const imported = yield* importers.run({
+        source: row.source as ImportSource,
+        url: row.sourceUrl,
+        text: row.inputText,
+      });
+      // The hero image becomes the cover photo. One that won't fetch or decode
+      // in time leaves the draft without a photo rather than failing it. A
+      // photo no recipe ends up using is removed by the photo cleanup.
+      const imageUrl = imported.recipe.imageUrl;
+      const photoKey =
+        imageUrl === null
+          ? null
+          : yield* photos.fromUrl(row.ownerId as UserId, imageUrl).pipe(
+              Effect.map((photo): string | null => photo.id),
+              Effect.timeoutOrElse({ duration: PHOTO_TIMEOUT, orElse: () => Effect.succeed(null) }),
+              Effect.catchCause((cause) =>
+                Effect.logInfo("Import photo skipped", { id: row.id }, cause).pipe(Effect.as(null)),
+              ),
+            );
+      return { imported, photoKey };
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: JOB_TIMEOUT,
+        orElse: () => Effect.fail(new ImportFailed({ code: "timeout" })),
+      }),
+    );
+    const link = imported.sourceUrl ?? row.sourceUrl;
     const draft = toDraft(imported.recipe, {
       source: row.source as ImportSource,
-      sourceUrl:
-        imported.sourceUrl ?? (row.sourceUrl === null ? null : normalizeUrl(row.sourceUrl)),
-      photoKey: null,
+      sourceUrl: link === null ? null : normalizeUrl(link),
+      photoKey,
     });
     return { imported, draft };
   });
@@ -404,7 +433,7 @@ export class Imports extends Context.Service<Imports, Effect.Success<typeof make
   "cauldron/api/Imports",
 ) {
   static readonly layer = Layer.effect(Imports, make).pipe(
-    Layer.provide([Recipes.layer, Importers.layer]),
+    Layer.provide([Recipes.layer, Importers.layer, Photos.layer]),
   );
 }
 

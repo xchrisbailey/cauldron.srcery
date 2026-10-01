@@ -1,0 +1,24 @@
+{
+  "extractor": "model",
+  "siteName": "Autumn Oven",
+  "author": "Greta Voss",
+  "imageUrl": "https://example.com/img/pumpkin-bread.jpg",
+  "canonicalUrl": "https://example.com/recipes/blog-article-pumpkin-bread",
+  "textIncludes": [
+    "1 can (15 oz) pumpkin puree",
+    "2 tsp pumpkin pie spice",
+    "Whisk the pumpkin, sugar, oil and eggs.",
+    "bake for 60 minutes"
+  ],
+  "textExcludes": [
+    "Advertisement",
+    "free shipping",
+    "Join our newsletter",
+    "Related: Zucchini",
+    "About the author",
+    "Can I use butter",
+    "9 Comments",
+    "Privacy policy",
+    "Home Recipes About"
+  ]
+}

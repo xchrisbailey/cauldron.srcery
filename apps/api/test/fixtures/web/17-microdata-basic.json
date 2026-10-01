@@ -1,0 +1,15 @@
+{
+  "extractor": "microdata",
+  "title": "Classic Meatloaf",
+  "ingredients": ["1 1/2 lb ground beef", "1 cup breadcrumbs", "2 eggs", "1/2 cup ketchup"],
+  "steps": [
+    "Mix the beef, breadcrumbs and eggs.",
+    "Shape into a loaf and brush with ketchup.",
+    "Bake at 350 F for 1 hour."
+  ],
+  "servings": 6,
+  "author": "Ruth Adler",
+  "siteName": "Home Table",
+  "imageUrl": "https://example.com/photos/meatloaf.jpg",
+  "canonicalUrl": "https://example.com/recipes/microdata-basic"
+}

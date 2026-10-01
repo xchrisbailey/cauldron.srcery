@@ -1,0 +1,20 @@
+{
+  "extractor": "json-ld",
+  "title": "Tomato Basil Pasta",
+  "ingredients": [
+    "12 oz spaghetti",
+    "2 cups cherry tomatoes, halved",
+    "1/2 cup basil leaves",
+    "3 tbsp olive oil",
+    "salt"
+  ],
+  "steps": [
+    "Boil the spaghetti in salted water until al dente.",
+    "Warm the tomatoes in the olive oil until they burst.",
+    "Toss with the pasta and basil."
+  ],
+  "servings": 4,
+  "prepMinutes": 5,
+  "cookMinutes": 20,
+  "siteName": "Pasta Notes"
+}

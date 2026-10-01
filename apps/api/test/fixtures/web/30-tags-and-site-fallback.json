@@ -1,0 +1,7 @@
+{
+  "extractor": "json-ld",
+  "title": "Kimchi Pancakes",
+  "siteName": "Banchan Blog",
+  "tags": ["Korean", "Snack", "Appetizer"],
+  "servings": 2
+}

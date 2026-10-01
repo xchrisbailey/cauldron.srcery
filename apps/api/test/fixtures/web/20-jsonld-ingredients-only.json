@@ -1,0 +1,14 @@
+{
+  "extractor": "model",
+  "title": "Pico de Gallo",
+  "siteName": "Fresh Table",
+  "servings": 2,
+  "textIncludes": ["Dice everything small"],
+  "textExcludes": [
+    "Advertisement",
+    "Popular posts",
+    "14 Comments",
+    "Copyright 2026",
+    "Recipes About Shop"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "extractor": "model",
+  "textIncludes": [
+    "Quick Guacamole",
+    "3 ripe avocados",
+    "1/2 tsp salt",
+    "Mash the avocados with the lime juice.",
+    "Stir in the onion and salt."
+  ],
+  "textExcludes": [
+    "Menu",
+    "Search",
+    "Share on Pinterest",
+    "Contact us",
+    "analytics-token-xyz",
+    "color:red"
+  ]
+}

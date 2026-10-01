@@ -1,0 +1,20 @@
+{
+  "extractor": "model",
+  "siteName": "Spice Route",
+  "textIncludes": [
+    "1 lb chicken thighs, cubed",
+    "1/2 cup cream",
+    "Marinate the chicken in the yogurt",
+    "simmer for 15 minutes"
+  ],
+  "textExcludes": [
+    "Trending now",
+    "Butter chicken in the slow cooker",
+    "Your email",
+    "Sign up",
+    "32 Responses",
+    "Added extra cardamom",
+    "Too salty",
+    "registered trademark"
+  ]
+}
