@@ -3,7 +3,6 @@ import {
   addDays,
   copy,
   formatTimer,
-  isRealDate,
   MEAL_SLOTS,
   type MealSlot,
   noMacros,
@@ -11,10 +10,8 @@ import {
   type PlanEntry,
   type PlanEntryUpdate,
   servingsOf,
-  startOfWeek,
   tallyMacros,
   weekDays,
-  type WeekStartDay,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -48,12 +45,10 @@ import {
   dropAt,
   dropMove,
   planMutationKey,
-  savedWeekStartDay,
-  useWeekStartDay,
   weekQuery,
 } from "../../lib/plan";
 import { gatherQuery, summarize } from "../../lib/gather";
-import { localToday } from "../../lib/recipes";
+import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { type StirRecipe, usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
 
@@ -64,8 +59,7 @@ import { colors, fonts } from "../../styles/tokens.stylex";
 // rolls back if the API refuses it.
 
 export const Route = createFileRoute("/_authed/week")({
-  validateSearch: (search: Record<string, unknown>): { week?: string } =>
-    typeof search.week === "string" && isRealDate(search.week) ? { week: search.week } : {},
+  validateSearch: weekSearch,
   component: Week,
 });
 
@@ -114,12 +108,10 @@ const readRecipe = (data: string): StirRecipe | null => {
 type Target = { date: string; slot: MealSlot };
 
 function Week() {
-  // Today and the first day of the week are the viewer's own, so they're only
-  // known in the browser.
-  const [viewer, setViewer] = useState<{ today: string; startsOn: WeekStartDay } | null>(null);
-  useEffect(() => setViewer({ today: localToday(), startsOn: savedWeekStartDay() }), []);
-  if (viewer === null) return <WeekSkeleton />;
-  return <Planner today={viewer.today} initialStartsOn={viewer.startsOn} />;
+  const search = Route.useSearch();
+  const cursor = useWeekCursor(search.week);
+  if (cursor === null) return <WeekSkeleton />;
+  return <Planner cursor={cursor} />;
 }
 
 function WeekSkeleton() {
@@ -131,14 +123,14 @@ function WeekSkeleton() {
   );
 }
 
-function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: WeekStartDay }) {
-  const search = Route.useSearch();
+function Planner({
+  cursor: { today, startsOn, setStartsOn, start, thisWeek, searchFor },
+}: {
+  cursor: WeekCursor;
+}) {
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [startsOn, setStartsOn] = useWeekStartDay(initialStartsOn);
-  const start = startOfWeek(search.week ?? today, startsOn);
-  const thisWeek = startOfWeek(today, startsOn);
   const days = useMemo(() => weekDays(start), [start]);
   const week = useQuery(weekQuery(start));
   const writes = usePlanWrites(startsOn);
@@ -152,8 +144,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
   const chosenDay = chosen !== null && days.includes(chosen) ? chosen : null;
   const phoneDay = chosenDay ?? (days.includes(today) ? today : days[0]!);
 
-  const goTo = (weekStart: string) =>
-    void navigate({ search: weekStart === thisWeek ? {} : { week: weekStart } });
+  const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
 
   const copyLast = useMutation({
     mutationKey: planMutationKey,
@@ -419,7 +410,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         </>
       )}
 
-      <GatherBar start={start} thisWeek={thisWeek} />
+      <GatherBar start={start} search={searchFor(start)} />
 
       <label {...stylex.props(styles.startsOn)}>
         {copy.week.weekStarts.text}
@@ -543,7 +534,7 @@ function EntryCard({
 }
 
 /** The week's Gather list in a line, with the way to it. */
-function GatherBar({ start, thisWeek }: { start: string; thisWeek: string }) {
+function GatherBar({ start, search }: { start: string; search: { week?: string } }) {
   const list = useQuery(gatherQuery(start));
   if (!list.data || list.data.items.length === 0) return null;
   const counts = summarize(list.data);
@@ -556,11 +547,7 @@ function GatherBar({ start, thisWeek }: { start: string; thisWeek: string }) {
         {copy.gather.summary(counts.items, counts.recipes).text}
         {counts.inPantry > 0 ? ` ${copy.gather.inPantryCount(counts.inPantry).text}` : ""}
       </p>
-      <ButtonLink
-        to="/gather"
-        search={start === thisWeek ? {} : { week: start }}
-        variant="secondary"
-      >
+      <ButtonLink to="/gather" search={search} variant="secondary">
         {copy.gather.gather.text}
       </ButtonLink>
     </div>
