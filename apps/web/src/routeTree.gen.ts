@@ -10,108 +10,160 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
+import { Route as AuthedGatherRouteImport } from './routes/_authed/gather'
+import { Route as AuthedWeekRouteImport } from './routes/_authed/week'
+import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
+import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
+import { Route as PublicSignInRouteImport } from './routes/_public/sign-in'
+import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
+import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes/index'
+import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignUpRoute = SignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedIndexRoute = AuthedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedGatherRoute = AuthedGatherRouteImport.update({
+  id: '/gather',
+  path: '/gather',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedWeekRoute = AuthedWeekRouteImport.update({
+  id: '/week',
+  path: '/week',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicForgotPasswordRoute = PublicForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicSignInRoute = PublicSignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicSignUpRoute = PublicSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthedRecipesIndexRoute = AuthedRecipesIndexRouteImport.update({
+  id: '/recipes/',
+  path: '/recipes/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRecipesNewRoute = AuthedRecipesNewRouteImport.update({
+  id: '/recipes/new',
+  path: '/recipes/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthedIndexRoute
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
+  '/': typeof PublicIndexRoute
   '/account': typeof AuthedAccountRoute
+  '/gather': typeof AuthedGatherRoute
+  '/week': typeof AuthedWeekRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
+  '/reset-password': typeof PublicResetPasswordRoute
+  '/sign-in': typeof PublicSignInRoute
+  '/sign-up': typeof PublicSignUpRoute
+  '/recipes/new': typeof AuthedRecipesNewRoute
+  '/recipes/': typeof AuthedRecipesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
+  '/': typeof PublicIndexRoute
   '/account': typeof AuthedAccountRoute
-  '/': typeof AuthedIndexRoute
+  '/gather': typeof AuthedGatherRoute
+  '/week': typeof AuthedWeekRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
+  '/reset-password': typeof PublicResetPasswordRoute
+  '/sign-in': typeof PublicSignInRoute
+  '/sign-up': typeof PublicSignUpRoute
+  '/recipes/new': typeof AuthedRecipesNewRoute
+  '/recipes': typeof AuthedRecipesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
-  '/forgot-password': typeof ForgotPasswordRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
+  '/_public': typeof PublicRouteWithChildren
   '/_authed/account': typeof AuthedAccountRoute
-  '/_authed/': typeof AuthedIndexRoute
+  '/_authed/gather': typeof AuthedGatherRoute
+  '/_authed/week': typeof AuthedWeekRoute
+  '/_public/forgot-password': typeof PublicForgotPasswordRoute
+  '/_public/reset-password': typeof PublicResetPasswordRoute
+  '/_public/sign-in': typeof PublicSignInRoute
+  '/_public/sign-up': typeof PublicSignUpRoute
+  '/_public/': typeof PublicIndexRoute
+  '/_authed/recipes/new': typeof AuthedRecipesNewRoute
+  '/_authed/recipes/': typeof AuthedRecipesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
+    | '/gather'
+    | '/week'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
-    | '/account'
+    | '/recipes/new'
+    | '/recipes/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
+    | '/account'
+    | '/gather'
+    | '/week'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
-    | '/account'
-    | '/'
+    | '/recipes/new'
+    | '/recipes'
   id:
     | '__root__'
     | '/_authed'
-    | '/forgot-password'
-    | '/reset-password'
-    | '/sign-in'
-    | '/sign-up'
+    | '/_public'
     | '/_authed/account'
-    | '/_authed/'
+    | '/_authed/gather'
+    | '/_authed/week'
+    | '/_public/forgot-password'
+    | '/_public/reset-password'
+    | '/_public/sign-in'
+    | '/_public/sign-up'
+    | '/_public/'
+    | '/_authed/recipes/new'
+    | '/_authed/recipes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
-  ForgotPasswordRoute: typeof ForgotPasswordRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
-  SignInRoute: typeof SignInRoute
-  SignUpRoute: typeof SignUpRoute
+  PublicRoute: typeof PublicRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -123,40 +175,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-up': {
-      id: '/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof SignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authed/': {
-      id: '/_authed/'
-      path: '/'
+    '/_public': {
+      id: '/_public'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthedIndexRouteImport
-      parentRoute: typeof AuthedRoute
+      preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/account': {
       id: '/_authed/account'
@@ -165,28 +189,113 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAccountRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/gather': {
+      id: '/_authed/gather'
+      path: '/gather'
+      fullPath: '/gather'
+      preLoaderRoute: typeof AuthedGatherRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/week': {
+      id: '/_authed/week'
+      path: '/week'
+      fullPath: '/week'
+      preLoaderRoute: typeof AuthedWeekRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_public/': {
+      id: '/_public/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/forgot-password': {
+      id: '/_public/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof PublicForgotPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/reset-password': {
+      id: '/_public/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof PublicResetPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/sign-in': {
+      id: '/_public/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof PublicSignInRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/sign-up': {
+      id: '/_public/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof PublicSignUpRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_authed/recipes/': {
+      id: '/_authed/recipes/'
+      path: '/recipes'
+      fullPath: '/recipes/'
+      preLoaderRoute: typeof AuthedRecipesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/recipes/new': {
+      id: '/_authed/recipes/new'
+      path: '/recipes/new'
+      fullPath: '/recipes/new'
+      preLoaderRoute: typeof AuthedRecipesNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
-  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedGatherRoute: typeof AuthedGatherRoute
+  AuthedWeekRoute: typeof AuthedWeekRoute
+  AuthedRecipesNewRoute: typeof AuthedRecipesNewRoute
+  AuthedRecipesIndexRoute: typeof AuthedRecipesIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
-  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedGatherRoute: AuthedGatherRoute,
+  AuthedWeekRoute: AuthedWeekRoute,
+  AuthedRecipesNewRoute: AuthedRecipesNewRoute,
+  AuthedRecipesIndexRoute: AuthedRecipesIndexRoute,
 }
 
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface PublicRouteChildren {
+  PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
+  PublicResetPasswordRoute: typeof PublicResetPasswordRoute
+  PublicSignInRoute: typeof PublicSignInRoute
+  PublicSignUpRoute: typeof PublicSignUpRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicForgotPasswordRoute: PublicForgotPasswordRoute,
+  PublicResetPasswordRoute: PublicResetPasswordRoute,
+  PublicSignInRoute: PublicSignInRoute,
+  PublicSignUpRoute: PublicSignUpRoute,
+  PublicIndexRoute: PublicIndexRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
-  ForgotPasswordRoute: ForgotPasswordRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
-  SignInRoute: SignInRoute,
-  SignUpRoute: SignUpRoute,
+  PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -3,12 +3,12 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState } from "react";
-import { SocialSignIn } from "../components/SocialSignIn";
-import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../components/ui";
-import { authClient, errorCode } from "../lib/auth-client";
-import { getSession } from "../lib/session";
+import { SocialSignIn } from "../../components/SocialSignIn";
+import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
+import { authClient, errorCode } from "../../lib/auth-client";
+import { getSession } from "../../lib/session";
 
-export const Route = createFileRoute("/sign-up")({
+export const Route = createFileRoute("/_public/sign-up")({
   beforeLoad: async () => {
     if (await getSession()) throw redirect({ to: "/" });
   },

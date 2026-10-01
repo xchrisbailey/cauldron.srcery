@@ -6,6 +6,9 @@
  * Mocha is the default. Latte follows the system's light mode unless the theme
  * toggle has pinned one (data-theme on <html>, set before paint by the inline
  * script in __root.tsx).
+ *
+ * Latte's subtext is Catppuccin's Subtext 1 rather than Subtext 0 (#6c6f85),
+ * which falls under 4.5:1 on mantle and fails WCAG AA for small text.
  */
 :root {
   --ctp-base: #1e1e2e;
@@ -38,7 +41,7 @@
     --ctp-surface1: #bcc0cc;
     --ctp-overlay0: #9ca0b0;
     --ctp-overlay1: #8c8fa1;
-    --ctp-subtext: #6c6f85;
+    --ctp-subtext: #5c5f77;
     --ctp-text: #4c4f69;
     --ctp-mauve: #8839ef;
     --ctp-peach: #fe640b;
@@ -61,7 +64,7 @@
   --ctp-surface1: #bcc0cc;
   --ctp-overlay0: #9ca0b0;
   --ctp-overlay1: #8c8fa1;
-  --ctp-subtext: #6c6f85;
+  --ctp-subtext: #5c5f77;
   --ctp-text: #4c4f69;
   --ctp-mauve: #8839ef;
   --ctp-peach: #fe640b;
