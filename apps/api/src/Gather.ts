@@ -2,7 +2,6 @@ import { quantity, schema } from "@cauldron/db";
 import {
   addDays,
   aisleFor,
-  type Aisle,
   copy,
   type GatherItem,
   GatherItemId,
@@ -18,6 +17,7 @@ import {
   parseIngredientLine,
   type Quantity,
   RecipeId,
+  servingFactor,
   sortRows,
   UNITS,
   type UnitCode,
@@ -108,10 +108,7 @@ const make = Effect.gen(function* () {
     const byRecipe = Map.groupBy(ingredients, (i) => i.recipeId);
     const lines: Array<GatherLine> = [];
     for (const entry of entries) {
-      const factor =
-        entry.servings !== null && entry.recipeServings !== null
-          ? entry.servings / entry.recipeServings
-          : 1;
+      const factor = servingFactor(entry.recipeServings, entry.servings);
       for (const i of byRecipe.get(entry.recipeId) ?? []) {
         const q = quantity.fromRow(i);
         lines.push({
@@ -338,7 +335,7 @@ const make = Effect.gen(function* () {
       itemKey: row.itemKey,
       quantity: quantity.fromRow(row),
       unit: row.unit,
-      aisle: (row.aisle ?? aisleFor(row.itemKey)) as Aisle,
+      aisle: row.aisle ?? aisleFor(row.itemKey),
       checked: row.checked,
       manual: row.manual,
       inPantry: Boolean(row.inPantry),

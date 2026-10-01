@@ -1,5 +1,6 @@
 import { copy, type Photo, PHOTO_MAX_BYTES, PHOTO_TYPES } from "@cauldron/shared";
 import { callApi } from "./api";
+import { messageOr } from "./api-failure";
 
 // Uploading a recipe photo: ask the API where to put it, PUT the file there
 // (storage directly, or the API), then have the API make the variants.
@@ -15,14 +16,7 @@ class PhotoRejected extends Error {}
 
 /** The plain message to show for a failed upload; transport errors get the generic one. */
 export const photoError = (error: unknown) =>
-  error instanceof PhotoRejected
-    ? error.message
-    : typeof error === "object" &&
-        error !== null &&
-        "_tag" in error &&
-        error._tag === "InvalidRequest"
-      ? String((error as unknown as { message: string }).message)
-      : copy.photos.couldntRead.text;
+  error instanceof PhotoRejected ? error.message : messageOr(error, copy.photos.couldntRead.text);
 
 export const uploadPhoto = async (file: File): Promise<Photo> => {
   if (!isPhotoType(file.type)) throw new PhotoRejected(copy.photos.unsupported.text);

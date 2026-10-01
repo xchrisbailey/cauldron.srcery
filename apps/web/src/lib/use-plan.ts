@@ -1,10 +1,10 @@
 import {
   copy,
-  type Macros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
   type PlanEntryUpdate,
+  type PlanRecipe,
   startOfWeek,
   type WeekStartDay,
 } from "@cauldron/shared";
@@ -25,31 +25,17 @@ import {
   settlePlan,
   updateEntry,
 } from "./plan";
+import { failureOf, messageOr, retryWhile } from "./api-failure";
 
 type Week = ReadonlyArray<PlanEntry>;
 
-export interface StirRecipe {
-  readonly id: string;
-  readonly title: string;
-  readonly servings: number | null;
-  readonly totalMinutes: number | null;
-  readonly macros: Macros;
-}
-
-type AddVars = { input: PlanEntryInput & { id: PlanEntryId }; recipe: StirRecipe | null };
+type AddVars = { input: PlanEntryInput & { id: PlanEntryId }; recipe: PlanRecipe | null };
 type ManyVars = {
   inputs: ReadonlyArray<PlanEntryInput & { id: PlanEntryId }>;
-  recipe: StirRecipe;
+  recipe: PlanRecipe;
 };
 
-const tagOf = (error: unknown) =>
-  typeof error === "object" && error !== null && "_tag" in error ? error._tag : undefined;
-
-/** The API refused the request itself; retrying won't help. */
-const refused = (error: unknown) =>
-  tagOf(error) === "InvalidRequest" || tagOf(error) === "NotFound";
-
-const retry = (count: number, error: unknown) => !refused(error) && count < 2;
+const retry = retryWhile(2);
 
 /**
  * Optimistic plan writes: the cached week changes at once, rolls back if the
@@ -77,13 +63,7 @@ export function usePlanWrites(startsOn: WeekStartDay) {
   };
 
   // An InvalidRequest carries a plain message saying why ("That meal is full").
-  const failed = (error: unknown) =>
-    toast(
-      tagOf(error) === "InvalidRequest" && error instanceof Error && error.message
-        ? error.message
-        : copy.week.couldntSave.text,
-      "error",
-    );
+  const failed = (error: unknown) => toast(messageOr(error, copy.week.couldntSave.text), "error");
 
   const add = useMutation({
     mutationKey: planMutationKey,
@@ -135,14 +115,14 @@ export function usePlanWrites(startsOn: WeekStartDay) {
   });
 
   /** Stir one recipe into several days at once: all of them land, or none do. */
-  const spread = (inputs: ReadonlyArray<PlanEntryInput>, recipe: StirRecipe) =>
+  const spread = (inputs: ReadonlyArray<PlanEntryInput>, recipe: PlanRecipe) =>
     addMany.mutate({
       inputs: inputs.map((input) => ({ ...input, id: crypto.randomUUID() as PlanEntryId })),
       recipe,
     });
 
   /** Stir in a recipe (with `recipeId`) or a free-text meal (with `title`). */
-  const stir = (input: PlanEntryInput, recipe: StirRecipe | null) =>
+  const stir = (input: PlanEntryInput, recipe: PlanRecipe | null) =>
     add.mutate({ input: { ...input, id: crypto.randomUUID() as PlanEntryId }, recipe });
 
   const update = useMutation({
@@ -180,7 +160,7 @@ export function usePlanWrites(startsOn: WeekStartDay) {
     // A retried remove that already landed finds nothing to remove: that's done too.
     mutationFn: (entry: PlanEntry) =>
       removeEntry(entry.id).catch((error: unknown) => {
-        if (tagOf(error) === "NotFound") return entry;
+        if (failureOf(error).tag === "NotFound") return entry;
         throw error;
       }),
     retry,

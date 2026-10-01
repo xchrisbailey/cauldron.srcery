@@ -17,6 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { MealSlot, SourcePlatform, TagKind, type Aisle } from "@cauldron/shared";
 import { user } from "./auth.ts";
 import { timestampMs, timestamps } from "./columns.ts";
 
@@ -44,15 +45,9 @@ const quantity = (name: string) => numeric(name, { precision: 12, scale: 4, mode
 /** Postgres full text search document. Written only by SQL (see `recipeSearchDocument` in the API). */
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
-export const sourcePlatform = pgEnum("source_platform", [
-  "web",
-  "instagram",
-  "tiktok",
-  "manual",
-  "text",
-]);
-export const mealSlot = pgEnum("meal_slot", ["breakfast", "lunch", "dinner", "snack"]);
-export const tagKind = pgEnum("tag_kind", ["cuisine", "meal", "diet", "other"]);
+export const sourcePlatform = pgEnum("source_platform", SourcePlatform.literals);
+export const mealSlot = pgEnum("meal_slot", MealSlot.literals);
+export const tagKind = pgEnum("tag_kind", TagKind.literals);
 
 /**
  * A processed photo. Its WebP variants live in storage under
@@ -332,7 +327,7 @@ export const gatherItem = pgTable(
     quantityMax: quantity("quantity_max"),
     unit: text("unit").$type<UnitCode>(),
     /** Store aisle for grouping, e.g. "produce". */
-    aisle: text("aisle"),
+    aisle: text("aisle").$type<Aisle>(),
     checked: boolean("checked").notNull().default(false),
     /** Added by hand rather than gathered from the week's recipes. */
     manual: boolean("manual").notNull().default(false),

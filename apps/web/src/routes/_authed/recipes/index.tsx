@@ -16,6 +16,7 @@ import {
   Skeleton,
 } from "../../../components/ui";
 import { control } from "../../../components/ui/controls";
+import { usePreference } from "../../../lib/preference";
 import { libraryQuery, tagsQuery } from "../../../lib/recipes";
 import { SearchFlag } from "../../../lib/search";
 import { colors, fonts } from "../../../styles/tokens.stylex";
@@ -36,30 +37,15 @@ export const Route = createFileRoute("/_authed/recipes/")({
 });
 
 type View = "grid" | "list";
-const VIEW_KEY = "cauldron:library-view";
 const CARD_MIN = 220;
 const GAP = 16;
 
+const decodeView = (raw: string | null): View => (raw === "list" ? "list" : "grid");
+
 /** Grid or list is a per-viewer preference, remembered in this browser. */
 function useView() {
-  const [view, setView] = useState<View>("grid");
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(VIEW_KEY);
-      if (saved === "grid" || saved === "list") setView(saved);
-    } catch {
-      // Storage is optional.
-    }
-  }, []);
-  const choose = (next: View) => {
-    setView(next);
-    try {
-      window.localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // Storage is optional.
-    }
-  };
-  return [view, choose] as const;
+  const [view, setView] = usePreference("cauldron:library-view", decodeView, "grid");
+  return [view, setView] as const;
 }
 
 function Recipes() {

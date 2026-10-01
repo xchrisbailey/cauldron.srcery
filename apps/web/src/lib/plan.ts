@@ -1,18 +1,14 @@
 import {
   addDays,
   MEAL_SLOTS,
-  type Macros,
   type MealSlot,
-  noMacros,
   type PlanEntry,
   type PlanEntryId,
   type PlanEntryInput,
   type PlanEntryUpdate,
-  type RecipeId,
-  type WeekStartDay,
+  type PlanRecipe,
 } from "@cauldron/shared";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { callApi } from "./api";
 
 // The week for TanStack Query. Writes update the cached week straight away
@@ -128,13 +124,7 @@ const pendingIds = new Set<string>();
  */
 export const pendingEntry = (
   input: PlanEntryInput,
-  recipe: {
-    id: string;
-    title: string;
-    servings: number | null;
-    totalMinutes: number | null;
-    macros?: Macros;
-  } | null,
+  recipe: PlanRecipe | null,
   position: number,
 ): PlanEntry => {
   const id = input.id ?? (crypto.randomUUID() as PlanEntryId);
@@ -144,16 +134,7 @@ export const pendingEntry = (
     date: input.date,
     slot: input.slot,
     title: recipe?.title ?? input.title ?? "",
-    recipe: recipe
-      ? {
-          id: recipe.id as RecipeId,
-          title: recipe.title,
-          servings: recipe.servings,
-          totalMinutes: recipe.totalMinutes,
-          photoKey: null,
-          macros: recipe.macros ?? noMacros,
-        }
-      : null,
+    recipe,
     servings: input.servings ?? null,
     position,
     brewed: false,
@@ -185,32 +166,6 @@ export const settlePlan = (queryClient: QueryClient) => {
   void queryClient.invalidateQueries({ queryKey: planKeys.all });
   void queryClient.invalidateQueries({ queryKey: ["gather"] });
 };
-
-const WEEK_START_KEY = "cauldron:week-start";
-
-/** The saved first day of the week (Monday unless the viewer chose Sunday). Browser only. */
-export const savedWeekStartDay = (): WeekStartDay => {
-  try {
-    return window.localStorage.getItem(WEEK_START_KEY) === "0" ? 0 : 1;
-  } catch {
-    // Storage is optional.
-    return 1;
-  }
-};
-
-/** Monday or Sunday, a per-viewer preference remembered in this browser. */
-export function useWeekStartDay(initial: WeekStartDay) {
-  const [day, setDay] = useState<WeekStartDay>(initial);
-  const choose = (next: WeekStartDay) => {
-    setDay(next);
-    try {
-      window.localStorage.setItem(WEEK_START_KEY, String(next));
-    } catch {
-      // Storage is optional.
-    }
-  };
-  return [day, choose] as const;
-}
 
 /**
  * Where a meal dragged onto a slot lands: before `beforeId` when it was dropped
