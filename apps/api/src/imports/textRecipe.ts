@@ -43,6 +43,10 @@ const SERVINGS_AFTER = /^(\d{1,3})(?:\s*(?:-|–|to)\s*\d{1,3})?\s+(?:servings?|
 const TIME =
   /^(prep(?:aration)?|cook(?:ing)?|bake|baking|total|ready\s+in)(?:\s+time)?\s*[:：-]?\s*(.+)$/i;
 
+// What is left of a time line once the label is gone: only a duration.
+const DURATION =
+  /^(?:about\s+|approx\.?\s+)?[\d½¼¾.,\s\-–]+(?:\s*(?:hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|and|to)\b[\d½¼¾.,\s\-–]*)*$/i;
+
 /** Minutes in a duration like "1 hr 20 mins", or null. */
 export const parseMinutes = (text: string): number | null => {
   const seconds = detectTimer(text);
@@ -70,7 +74,8 @@ const readMeta = (line: string, meta: Meta): boolean => {
       continue;
     }
     const time = TIME.exec(text);
-    const minutes = time ? parseMinutes(time[2]!) : null;
+    // "Bake at 200C for 10 minutes." is a step; "Bake: 10 minutes" is metadata.
+    const minutes = time && DURATION.test(time[2]!) ? parseMinutes(time[2]!) : null;
     if (time && minutes !== null) {
       const kind = time[1]!.toLowerCase();
       if (kind.startsWith("prep")) meta.prepMinutes ??= minutes;
@@ -103,6 +108,10 @@ const looksLikeIngredient = (line: string) => {
 
 const clean = (line: string) => line.replace(HASHTAGS, " ").replace(/\s+/g, " ").trim();
 
+// Sign-offs and blog calls to action after the last step.
+const TRAILER =
+  /^(?:love\b|cheers\b|thanks\b|regards\b|best\s*,|xx?o?\b|enjoy\b|did\s+you\s+make|tag\s+me|follow\s+me|let\s+me\s+know|leave\s+a\s+(?:comment|review))/i;
+
 /** Splits a method block into steps: numbered steps, then blank lines, then one per line. */
 const splitSteps = (lines: ReadonlyArray<string>): Array<string> => {
   const steps: Array<string> = [];
@@ -121,13 +130,13 @@ const splitSteps = (lines: ReadonlyArray<string>): Array<string> => {
   const joined = lines.join("\n").trim();
   const chunks = /\n\s*\n/.test(joined) ? joined.split(/\n\s*\n/) : joined.split("\n");
   return chunks
-    .map((chunk) =>
-      chunk
-        .split("\n")
-        .map((l) => l.replace(BULLET, "").trim())
-        .join(" ")
-        .trim(),
-    )
+    .flatMap((chunk) => {
+      const parts = chunk.split("\n").map((l) => l.replace(BULLET, "").trim());
+      // A paragraph of whole sentences, one per line, is several steps; a
+      // line that continues in lower case is a hard-wrapped one.
+      const sentences = parts.length > 1 && parts.every((l) => /^[\p{Lu}\d].*[.!?]$/u.test(l));
+      return sentences ? parts : [parts.join(" ").trim()];
+    })
     .filter((s) => s !== "");
 };
 
@@ -165,9 +174,30 @@ const toSteps = (lines: ReadonlyArray<string>, unsure: boolean): Array<Extracted
   return out;
 };
 
+// Lines above the recipe that aren't part of it: email headers, page chrome.
+const HEADER_LINE = /^(?:from|to|cc|bcc|date|sent)\s*:/i;
+// Page chrome is a whole short line ("Home » Recipes", "Home Recipes About
+// Shop", "Print", "Posted on May 3"), never the start of a real title like
+// "Home-style chili".
+const PAGE_JUNK =
+  /^(?:(?:home|menu|print|share|pin|save|subscribe|advertisement|sponsored)(?:\s*[»>›/|].*)?|home(?:\s+\p{Lu}[\p{L}&]*){3,}|skip\s+to\b.*|jump\s+to\b.*|posted\s+(?:on|by)\b.*|sign\s+up\b.*|\d+\s+comments?)$/iu;
+// Chat exports start each message with "[12:41, 3/9/2026] Sam:". Chatter
+// around the recipe ("ok here is the recipe") is never its title.
+const CHAT_PREFIX = /^\[[^\]]{4,40}\]\s*[^:]{1,30}:\s*/;
+// Only when the line reads as talk (ends in punctuation or mentions the
+// recipe), so "So easy lemon cake" stays a title.
+const CHATTER =
+  /^(?:ok(?:ay)?|hi|hey|hello|here(?:'|’)?s|here\s+is|so|thanks|sure)\b(?=.*(?:[:.!?,]$|\brecipe\b))/i;
+
 /** A title is a short first line that isn't metadata or a heading. */
 const pickTitle = (intro: ReadonlyArray<string>, meta: Meta) => {
-  const lines = intro.map(clean).filter((l) => l !== "");
+  const lines = intro
+    .map((l) =>
+      clean(l)
+        .replace(CHAT_PREFIX, "")
+        .replace(/^subject\s*:\s*/i, ""),
+    )
+    .filter((l) => l !== "" && !HEADER_LINE.test(l) && !PAGE_JUNK.test(l) && !CHATTER.test(l));
   let title: string | null = null;
   const rest: Array<string> = [];
   for (const line of lines) {
@@ -240,7 +270,10 @@ const readSections = (lines: ReadonlyArray<string>): TextReading | null => {
   }
   const { title, description } = pickTitle(blocks.intro, meta);
   const ingredients = toIngredients(ingredientLines, false);
-  const steps = toSteps(methodLines, false);
+  const steps = toSteps(
+    methodLines.filter((l) => !TRAILER.test(l.trim())),
+    false,
+  );
   if (ingredients.length === 0 || steps.length === 0) return null;
   const notes = blocks.notes.join("\n").trim();
   return {
