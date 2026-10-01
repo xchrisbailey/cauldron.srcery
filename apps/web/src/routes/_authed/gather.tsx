@@ -5,15 +5,12 @@ import {
   type GatherItem,
   type GatherItemUpdate,
   type GatherList,
-  isRealDate,
   measureParts,
   RECIPE_LIMITS,
-  startOfWeek,
-  type WeekStartDay,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { CloseGlyph } from "../../components/glyphs";
 import { WeekRange } from "../../components/WeekRange";
 import {
@@ -34,8 +31,8 @@ import {
   removeGatherItem,
   updateGatherItem,
 } from "../../lib/gather";
-import { savedWeekStartDay } from "../../lib/plan";
-import { localToday } from "../../lib/recipes";
+import { usePreference } from "../../lib/preference";
+import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 
 // The Gather list (#19): the week's shopping, merged and grouped by aisle.
@@ -43,8 +40,7 @@ import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 // background, so a patchy signal in the shop doesn't lose a tick.
 
 export const Route = createFileRoute("/_authed/gather")({
-  validateSearch: (search: Record<string, unknown>): { week?: string } =>
-    typeof search.week === "string" && isRealDate(search.week) ? { week: search.week } : {},
+  validateSearch: weekSearch,
   component: Gather,
 });
 
@@ -58,49 +54,37 @@ const refused = (error: unknown) =>
   (error._tag === "NotFound" || error._tag === "InvalidRequest");
 
 function Gather() {
-  const [viewer, setViewer] = useState<{
-    today: string;
-    startsOn: WeekStartDay;
-    hide: boolean;
-  } | null>(null);
-  useEffect(() => {
-    let hide = false;
-    try {
-      hide = window.localStorage.getItem(HIDE_KEY) === "1";
-    } catch {
-      // Storage is optional.
-    }
-    setViewer({ today: localToday(), startsOn: savedWeekStartDay(), hide });
-  }, []);
-  if (viewer === null) return <Skeleton height={320} />;
-  return <List {...viewer} />;
+  const search = Route.useSearch();
+  const cursor = useWeekCursor(search.week);
+  const [hideChecked, setHideChecked, hideLoaded] = usePreference(
+    HIDE_KEY,
+    (raw) => raw === "1",
+    false,
+    (hide) => (hide ? "1" : "0"),
+  );
+  if (cursor === null || !hideLoaded) return <Skeleton height={320} />;
+  return <List cursor={cursor} hideChecked={hideChecked} toggleHide={setHideChecked} />;
 }
 
 type Week = GatherList;
 
-function List({ today, startsOn, hide }: { today: string; startsOn: WeekStartDay; hide: boolean }) {
-  const search = Route.useSearch();
+function List({
+  cursor: { start, thisWeek, searchFor },
+  hideChecked,
+  toggleHide,
+}: {
+  cursor: WeekCursor;
+  hideChecked: boolean;
+  toggleHide: (hide: boolean) => void;
+}) {
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
   const toast = useToast();
-  const thisWeek = startOfWeek(today, startsOn);
-  const start = search.week ?? thisWeek;
   const list = useQuery(gatherQuery(start));
-  const [hideChecked, setHideChecked] = useState(hide);
   const [line, setLine] = useState("");
   const key = gatherKeys.week(start);
 
-  const goTo = (weekStart: string) =>
-    void navigate({ search: weekStart === thisWeek ? {} : { week: weekStart } });
-
-  const toggleHide = (next: boolean) => {
-    setHideChecked(next);
-    try {
-      window.localStorage.setItem(HIDE_KEY, next ? "1" : "0");
-    } catch {
-      // Storage is optional.
-    }
-  };
+  const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
 
   // Each change sets a value rather than toggling, and changes run one at a
   // time in the order they were made, so retries can't land out of order.
@@ -222,11 +206,7 @@ function List({ today, startsOn, hide }: { today: string; startsOn: WeekStartDay
         <EmptyState
           message={copy.gather.empty.text}
           actions={
-            <ButtonLink
-              to="/week"
-              search={start === thisWeek ? {} : { week: start }}
-              variant="secondary"
-            >
+            <ButtonLink to="/week" search={searchFor(start)} variant="secondary">
               {copy.nav.week.text}
             </ButtonLink>
           }
