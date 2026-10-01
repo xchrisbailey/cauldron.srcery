@@ -15,6 +15,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { failureOf, messageOr, retryWhile } from "./api-failure";
+import { gatherKeys } from "./gather";
 import {
   applyAdd,
   applyRemove,
@@ -82,7 +83,7 @@ const settle = (cache: QueryClient) => {
   running.set(cache, left);
   if (left > 0) return;
   void cache.invalidateQueries({ queryKey: planKeys.all });
-  void cache.invalidateQueries({ queryKey: ["gather"] });
+  void cache.invalidateQueries({ queryKey: gatherKeys.all });
 };
 
 export function makePlanWrites({ cache, api, startsOn, notify }: PlanWritesDeps) {

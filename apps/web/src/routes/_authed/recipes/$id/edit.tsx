@@ -1,13 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy, type Recipe } from "@cauldron/shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { RecipeEditor } from "../../../../components/editor/RecipeEditor";
 import { ButtonLink, EmptyState, PageHeader, Skeleton } from "../../../../components/ui";
 import { failureOf } from "../../../../lib/api-failure";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
-import { recipeQuery, settleRecipe, updateRecipe } from "../../../../lib/recipes";
+import { recipeQuery } from "../../../../lib/recipes";
+import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
 
 export const Route = createFileRoute("/_authed/recipes/$id/edit")({ component: Edit });
 
@@ -41,7 +42,7 @@ function Edit() {
 }
 
 function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
-  const queryClient = useQueryClient();
+  const writes = useRecipeWrites();
   // Read once: a background refetch mustn't reset a form being edited.
   const [initial] = useState(() => fromRecipe(recipe));
 
@@ -49,7 +50,7 @@ function Editor({ id, recipe }: { id: string; recipe: Recipe }) {
     const input = decodeRecipeForm(values);
     if (!input) return "invalid" as const;
     try {
-      settleRecipe(queryClient, await updateRecipe(id, input));
+      await writes.update(id, input);
       return "saved" as const;
     } catch {
       // The status line says so; a toast every few seconds offline is noise.

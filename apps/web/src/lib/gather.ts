@@ -3,7 +3,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { callApi } from "./api";
 
 // The Gather list for TanStack Query. Keys start with "gather", which every
-// plan write invalidates, so changes to the week show up here.
+// plan write and recipe edit invalidates, so changes to the week show up here.
 
 export const gatherKeys = {
   all: ["gather"] as const,

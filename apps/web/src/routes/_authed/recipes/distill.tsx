@@ -16,16 +16,10 @@ import {
   useToast,
 } from "../../../components/ui";
 import { focusRing } from "../../../components/ui/controls";
-import {
-  cancelImport,
-  importKeys,
-  importQuery,
-  saveImport,
-  startImport,
-} from "../../../lib/imports";
+import { cancelImport, importKeys, importQuery, startImport } from "../../../lib/imports";
 import { failureOf } from "../../../lib/api-failure";
 import { decodeRecipeForm, fromDraft, type RecipeFormValues } from "../../../lib/recipe-form";
-import { settleRecipe } from "../../../lib/recipes";
+import { useRecipeWrites } from "../../../lib/use-recipe-writes";
 import { colors, fonts } from "../../../styles/tokens.stylex";
 
 // Distill (#13): a link or pasted text goes in on the left, and the draft
@@ -281,7 +275,7 @@ function Working({ job }: { job: ImportJob }) {
 
 function Review({ job }: { job: ImportJob }) {
   const navigate = Route.useNavigate();
-  const queryClient = useQueryClient();
+  const writes = useRecipeWrites();
   const toast = useToast();
   // Read once: the draft doesn't change, and edits mustn't be reset.
   const [initial] = useState(() => fromDraft(job.draft!));
@@ -290,9 +284,7 @@ function Review({ job }: { job: ImportJob }) {
     const input = decodeRecipeForm(values);
     if (!input) return;
     try {
-      const recipe = await saveImport(job.id, input);
-      settleRecipe(queryClient, recipe);
-      void queryClient.invalidateQueries({ queryKey: importKeys.detail(job.id) });
+      const recipe = await writes.saveImport(job.id, input);
       await navigate({ to: "/recipes/$id", params: { id: recipe.id }, replace: true });
     } catch (error) {
       // Already saved (in another tab, say): the server's message says so.
