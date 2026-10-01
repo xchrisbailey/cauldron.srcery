@@ -57,3 +57,25 @@ describe("pasted recipe corpus", () => {
     });
   }
 });
+
+describe("titles that look like page chrome or chatter", () => {
+  it.each([
+    "Home-style chili",
+    "So easy lemon cake",
+    "Printable granola bars",
+    "Okra and tomato stew",
+  ])("keeps %s as the title", (title) => {
+    const reading = readRecipeText(`${title}\n\nIngredients\n1 cup flour\n\nMethod\nMix it.`);
+    expect(reading?.recipe.title).toBe(title);
+  });
+
+  it.each(["Home » Recipes » Dinner", "Print", "Posted on May 3, 2026", "ok here is the recipe:"])(
+    "skips %s",
+    (junk) => {
+      const reading = readRecipeText(
+        `${junk}\nDal\n\nIngredients\n1 cup lentils\n\nMethod\nSimmer.`,
+      );
+      expect(reading?.recipe.title).toBe("Dal");
+    },
+  );
+});

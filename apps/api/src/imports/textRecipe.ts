@@ -176,12 +176,18 @@ const toSteps = (lines: ReadonlyArray<string>, unsure: boolean): Array<Extracted
 
 // Lines above the recipe that aren't part of it: email headers, page chrome.
 const HEADER_LINE = /^(?:from|to|cc|bcc|date|sent)\s*:/i;
+// Page chrome is a whole short line ("Home » Recipes", "Home Recipes About
+// Shop", "Print", "Posted on May 3"), never the start of a real title like
+// "Home-style chili".
 const PAGE_JUNK =
-  /^(?:skip\s+to|home\b|menu\b|jump\s+to|print\b|advertisement|sponsored|posted\b|share\b|pin\b|save\b|subscribe|sign\s+up|\d+\s+comments?)/i;
+  /^(?:(?:home|menu|print|share|pin|save|subscribe|advertisement|sponsored)(?:\s*[»>›/|].*)?|home(?:\s+\p{Lu}[\p{L}&]*){3,}|skip\s+to\b.*|jump\s+to\b.*|posted\s+(?:on|by)\b.*|sign\s+up\b.*|\d+\s+comments?)$/iu;
 // Chat exports start each message with "[12:41, 3/9/2026] Sam:". Chatter
 // around the recipe ("ok here is the recipe") is never its title.
 const CHAT_PREFIX = /^\[[^\]]{4,40}\]\s*[^:]{1,30}:\s*/;
-const CHATTER = /^(?:ok(?:ay)?|hi|hey|hello|here(?:'|’)?s|here\s+is|so|thanks|sure)\b/i;
+// Only when the line reads as talk (ends in punctuation or mentions the
+// recipe), so "So easy lemon cake" stays a title.
+const CHATTER =
+  /^(?:ok(?:ay)?|hi|hey|hello|here(?:'|’)?s|here\s+is|so|thanks|sure)\b(?=.*(?:[:.!?,]$|\brecipe\b))/i;
 
 /** A title is a short first line that isn't metadata or a heading. */
 const pickTitle = (intro: ReadonlyArray<string>, meta: Meta) => {
