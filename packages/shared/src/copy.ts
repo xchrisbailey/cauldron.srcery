@@ -103,7 +103,7 @@ export const recipes = {
   /** "Banish" is the voice; the rest is the literal, plain confirmation. */
   banishConfirm: (title: string) => ({
     verb: voice("Banish"),
-    confirm: plain(`Banish ${title}? This can't be undone.`),
+    confirm: plain(`Banish ${title}? You can undo it straight after.`),
   }),
   /** Title of a duplicated recipe. */
   copyOf: (title: string) => plain(`${title} (copy)`),
@@ -189,6 +189,41 @@ export const editor = {
   fixErrors: plain("Some fields need a fix before this can be saved."),
   /** For a quantity typed into the correction fields. */
   badQuantity: plain("Use a number, a fraction like 1 1/2, or a range like 2-3."),
+} as const;
+
+// The recipe page (#10). Quantities, steps and controls are plain.
+export const recipeView = {
+  ingredients: plain("Ingredients"),
+  method: plain("Method"),
+  checked: (n: number, of: number) => plain(`${n} of ${of}`),
+  serves: (n: number) => plain(`serves ${n}`),
+  scale: (factor: string) => plain(`×${factor}`),
+  fewer: plain("Fewer servings"),
+  more: plain("More servings"),
+  servingsFor: plain("Servings"),
+  units: plain("Units"),
+  asWritten: plain("As written"),
+  metric: plain("Metric"),
+  us: plain("US"),
+  total: plain("total"),
+  prep: plain("prep"),
+  cook: plain("cook"),
+  from: (source: string) => plain(`From ${source}`),
+  by: (author: string) => plain(`by ${author}`),
+  edit: plain("Edit"),
+  duplicate: plain("Duplicate"),
+  duplicated: plain("Copy made. You're editing it now."),
+  print: plain("Print"),
+  markBrewed: voice("Brewed it today"),
+  brewedToday: voice("Brewed. Marked as cooked today."),
+  lastCooked: (date: string) => plain(`Last cooked ${date}`),
+  banished: (title: string) => plain(`Banished ${title}.`),
+  optional: plain("optional"),
+  undo: plain("Undo"),
+  restored: plain("Restored."),
+  cancel: plain("Cancel"),
+  notFound: plain("We couldn't find that recipe. It may have been banished."),
+  backToRecipes: plain("Back to recipes"),
 } as const;
 
 export const brewing = {

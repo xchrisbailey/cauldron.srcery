@@ -77,3 +77,29 @@
   --ctp-red: #d20f39;
   color-scheme: light;
 }
+
+/* Paper is light: print in Latte whatever the screen theme. Keep in step with the Latte block above. */
+@media print {
+  :root,
+  :root[data-theme] {
+    --ctp-base: #eff1f5;
+    --ctp-mantle: #e6e9ef;
+    --ctp-crust: #dce0e8;
+    --ctp-surface0: #ccd0da;
+    --ctp-surface1: #bcc0cc;
+    --ctp-overlay0: #9ca0b0;
+    --ctp-overlay1: #8c8fa1;
+    --ctp-subtext: #5c5f77;
+    --ctp-text: #4c4f69;
+    --ctp-mauve: #8839ef;
+    --ctp-peach: #fe640b;
+    --ctp-yellow: #df8e1d;
+    --ctp-green: #40a02b;
+    --ctp-pink: #ea76cb;
+    --ctp-lavender: #7287fd;
+    --ctp-blue: #1e66f5;
+    --ctp-teal: #179299;
+    --ctp-red: #d20f39;
+    color-scheme: light;
+  }
+}
