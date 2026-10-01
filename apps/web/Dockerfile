@@ -13,7 +13,10 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY tsconfig.base.json tsconfig.json vite.config.ts ./
 COPY packages ./packages
 COPY apps/web ./apps/web
-RUN bun run --cwd apps/web build
+# Bun 1.4.2's FTL JIT miscompiles StyleX's media query parser once a build
+# parses enough of them ("Invalid media query syntax" in random files). The
+# image has no Node, so the build runs on Bun; drop this once Bun is fixed.
+RUN BUN_JSC_useFTLJIT=0 bun run --cwd apps/web build
 
 # The Start server bundle keeps its dependencies external, so the runtime
 # stage carries web's production dependencies alongside the build output.
