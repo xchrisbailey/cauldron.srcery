@@ -22,6 +22,7 @@ import {
   Skeleton,
   useToast,
 } from "../../../../components/ui";
+import { StirRecipeDialog } from "../../../../components/StirIn";
 import { focusRing } from "../../../../components/ui/controls";
 import {
   banishRecipe,
@@ -120,6 +121,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
   const [units, setUnits] = useUnitChoice();
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [confirmingBanish, setConfirmingBanish] = useState(false);
+  const [stirring, setStirring] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const factor =
@@ -211,6 +213,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             <Button variant="secondary" onClick={brewed} disabled={busy}>
               {copy.recipeView.markBrewed.text}
             </Button>
+            <Button onClick={() => setStirring(true)}>{copy.week.stirIntoWeek.text}</Button>
           </div>
         }
       />
@@ -397,6 +400,8 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
           {banishCopy.verb.text}
         </Button>
       </footer>
+
+      <StirRecipeDialog recipe={recipe} open={stirring} onClose={() => setStirring(false)} />
 
       <Dialog
         open={confirmingBanish}

@@ -319,9 +319,66 @@ export const brewing = {
   previousStep: plain("Previous step"),
 } as const;
 
+// The week (#18). Stirring in is voice; days, meals, controls and the literal
+// part of the clear confirmation are plain.
 export const week = {
   title: plain("The week"),
   empty: voice("The cauldron's cold. Stir in a recipe to start the week."),
+  slots: {
+    breakfast: plain("Breakfast"),
+    lunch: plain("Lunch"),
+    dinner: plain("Dinner"),
+    snack: plain("Snack"),
+  },
+  previousWeek: plain("Previous week"),
+  nextWeek: plain("Next week"),
+  thisWeek: plain("This week"),
+  today: plain("today"),
+  days: plain("Days"),
+  copyLastWeek: plain("Copy last week"),
+  copiedLastWeek: plain("Copied last week's meals."),
+  nothingToCopy: plain("Last week has nothing planned."),
+  /** "Clear" is a plain verb here: it removes things. */
+  clearWeek: plain("Clear week"),
+  clearConfirm: (range: string) =>
+    plain(`Clear every meal planned for ${range}? This can't be undone.`),
+  cleared: plain("Cleared the week."),
+  cancel: plain("Cancel"),
+  stirIn: voice("Stir in"),
+  stirInto: (day: string, slot: string) => voice(`Stir into ${day}, ${slot.toLowerCase()}`),
+  stirIntoWeek: voice("Stir into the week"),
+  stirred: (day: string) => voice(`Stirred into ${day}.`),
+  /** The meal-picker: search the recipe box, or write a meal that isn't a recipe. */
+  searchRecipes: plain("Search your recipes"),
+  noMatches: plain("No recipes match that."),
+  orWrite: plain("Or write a meal"),
+  writePlaceholder: plain("Leftovers, eating out…"),
+  add: plain("Add"),
+  day: plain("Day"),
+  slot: plain("Meal"),
+  servings: plain("Servings"),
+  sameServings: (n: number | null) => plain(n === null ? "As the recipe" : `As the recipe (${n})`),
+  edit: (title: string) => plain(`Change ${title}`),
+  open: plain("Open recipe"),
+  remove: plain("Remove"),
+  removed: (title: string) => plain(`Removed ${title}.`),
+  undo: plain("Undo"),
+  save: plain("Save"),
+  brewed: voice("✓ brewed"),
+  leftovers: plain("not a recipe"),
+  recipesPanel: plain("Recipes"),
+  dragHint: plain("Drag a recipe onto a meal, or press + on a meal to stir one in."),
+  moveHint: plain("Drag a meal to move it to another day."),
+  weekStarts: plain("Week starts on"),
+  monday: plain("Monday"),
+  sunday: plain("Sunday"),
+  couldntSave: plain("Couldn't save that change. Check your connection and try again."),
+  couldntLoad: plain("Couldn't load the week."),
+  retry: plain("Try again"),
+  slotFull: plain("That meal is full. Remove something first."),
+  moveUp: plain("Move up"),
+  moveDown: plain("Move down"),
+  meal: plain("Meal"),
 } as const;
 
 export const gather = {

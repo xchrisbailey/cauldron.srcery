@@ -5,6 +5,7 @@ import { Authorization } from "./Authorization.ts";
 import { UnavailableError } from "./errors.ts";
 import { ImportsApi } from "./Imports.ts";
 import { PhotosApi } from "./Photos.ts";
+import { PlanApi } from "./Plan.ts";
 import { RecipesApi, TagsApi } from "./Recipes.ts";
 
 export class Health extends Schema.Class<Health>("Health")({
@@ -45,5 +46,6 @@ export class Api extends HttpApi.make("cauldron")
   .add(TagsApi)
   .add(PhotosApi)
   .add(ImportsApi)
+  .add(PlanApi)
   .prefix("/v1")
   .annotateMerge(OpenApi.annotations({ title: "Cauldron API" })) {}
