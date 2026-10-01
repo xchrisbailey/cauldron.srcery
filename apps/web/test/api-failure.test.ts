@@ -8,6 +8,7 @@ import {
   UnavailableError,
 } from "@cauldron/api-spec";
 import { Schema } from "effect";
+import { HttpClientError, HttpClientRequest } from "effect/http";
 import { describe, expect, it } from "vite-plus/test";
 import { failureOf, messageOr, refused, retryWhile } from "../src/lib/api-failure.ts";
 
@@ -35,6 +36,21 @@ describe("failureOf", () => {
     expect(failureOf(unavailable).tag).toBe("Unavailable");
     expect(failureOf(unauthorized).tag).toBe("Unauthorized");
     expect(failureOf(forbidden).tag).toBe("Forbidden");
+  });
+
+  it("calls the client's transport error a network failure", () => {
+    const request = HttpClientRequest.get("/v1/plan");
+    const offline = new HttpClientError.HttpClientError({
+      reason: new HttpClientError.TransportError({
+        request,
+        cause: new TypeError("Failed to fetch"),
+      }),
+    });
+    expect(failureOf(offline).tag).toBe("Network");
+    const unreadable = new HttpClientError.HttpClientError({
+      reason: new HttpClientError.EncodeError({ request }),
+    });
+    expect(failureOf(unreadable).tag).toBe("Defect");
   });
 
   it("calls a fetch TypeError a network failure", () => {
