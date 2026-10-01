@@ -1,12 +1,12 @@
-import type { ImportDraft, MacroEstimateInput } from "@cauldron/shared";
-import { Effect, Layer } from "effect";
+import type { MacroEstimateInput } from "@cauldron/shared";
+import { layer } from "@effect/vitest";
+import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
-import { Routes } from "../src/App.ts";
-import { ImportWorker } from "../src/Imports.ts";
+import { distill } from "../src/imports/distill.ts";
 import { emptyExtracted } from "../src/imports/Extracted.ts";
 import { fromModelMacros, RecipeExtractor } from "../src/imports/RecipeExtractor.ts";
 import { type AuthApi, cookieOf, makeAuthApi } from "./auth-helpers.ts";
-import { WEB_ORIGIN } from "./helpers.ts";
+import { DistillServices, makeOwner, WEB_ORIGIN } from "./helpers.ts";
 
 // Macro estimates from the model: on demand from the editor, and on import
 // when the source publishes no nutrition.
@@ -65,30 +65,10 @@ describe("with a model", () => {
   let call: ReturnType<typeof caller>;
 
   beforeAll(async () => {
-    api = makeAuthApi(
-      {},
-      Layer.merge(Routes, ImportWorker),
-      {
-        "https://cook.example/chili": page(ld({})),
-        "https://cook.example/chili-facts": page(
-          ld({ nutrition: { calories: "390 kcal", proteinContent: "18 g" } }),
-        ),
-      },
-      fakeModel,
-    );
+    api = makeAuthApi({}, undefined, {}, fakeModel);
     call = caller(api, await signUp(api, "ada@example.com"));
   });
   afterAll(() => api.dispose());
-
-  const distill = async (url: string) => {
-    const started = await call("POST", "/v1/imports", { url });
-    for (let i = 0; i < 500; i++) {
-      const res = await call("GET", `/v1/imports/${started.body.id}`);
-      if (!["queued", "running"].includes(res.body.status)) return res.body;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    throw new Error("import never settled");
-  };
 
   it("estimates macros from ingredient lines", async () => {
     const before = asked.length;
@@ -112,24 +92,47 @@ describe("with a model", () => {
     });
     expect(res.status).toBe(400);
   });
+});
 
-  it("fills a draft's missing macros with an estimate, flagged to check", async () => {
-    const job = await distill("https://cook.example/chili");
-    expect(job.status).toBe("done");
-    const draft = job.draft as ImportDraft;
-    expect(draft.macros).toEqual(ESTIMATE);
-    expect(draft.unsure).toContain("macros");
-    expect(asked.at(-1)).toMatchObject({ servings: 4, title: "Bean chili" });
-  });
+const pages = {
+  "https://cook.example/chili": page(ld({})),
+  "https://cook.example/chili-facts": page(
+    ld({ nutrition: { calories: "390 kcal", proteinContent: "18 g" } }),
+  ),
+};
 
-  it("keeps the page's own nutrition and doesn't ask the model", async () => {
-    const before = asked.length;
-    const job = await distill("https://cook.example/chili-facts");
-    const draft = job.draft as ImportDraft;
-    expect(draft.macros).toEqual({ calories: 390, protein: 18, carbs: null, fat: null });
-    expect(draft.unsure).not.toContain("macros");
-    expect(asked.length).toBe(before);
-  });
+layer(DistillServices(pages, fakeModel))("estimating on import", (it) => {
+  it.effect("fills a draft's missing macros with an estimate, flagged to check", () =>
+    Effect.gen(function* () {
+      const { draft } = yield* distill({ url: "https://cook.example/chili" }, yield* makeOwner());
+      expect(draft.macros).toEqual(ESTIMATE);
+      expect(draft.unsure).toContain("macros");
+      expect(asked.at(-1)).toMatchObject({ servings: 4, title: "Bean chili" });
+    }),
+  );
+
+  it.effect("keeps the page's own nutrition and doesn't ask the model", () =>
+    Effect.gen(function* () {
+      const before = asked.length;
+      const { draft } = yield* distill(
+        { url: "https://cook.example/chili-facts" },
+        yield* makeOwner(),
+      );
+      expect(draft.macros).toEqual({ calories: 390, protein: 18, carbs: null, fat: null });
+      expect(draft.unsure).not.toContain("macros");
+      expect(asked.length).toBe(before);
+    }),
+  );
+});
+
+layer(DistillServices(pages))("estimating on import without a model", (it) => {
+  it.effect("leaves the macros blank", () =>
+    Effect.gen(function* () {
+      const { draft } = yield* distill({ url: "https://cook.example/chili" }, yield* makeOwner());
+      expect(draft.macros).toBeUndefined();
+      expect(draft.unsure).not.toContain("macros");
+    }),
+  );
 });
 
 describe("without a model", () => {
