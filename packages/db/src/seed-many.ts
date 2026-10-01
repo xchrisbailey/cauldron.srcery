@@ -1,10 +1,14 @@
-import { ingredientKey, parseIngredientLine } from "@cauldron/shared";
+import { parseIngredientLine, RecipeInput } from "@cauldron/shared";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { Schema } from "effect";
+import { ingredient } from "./codec.ts";
 import * as schema from "./schema/index.ts";
 import { refreshRecipeSearch } from "./search.ts";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
+
+const decodeRecipe = Schema.decodeUnknownSync(RecipeInput);
 
 const BATCH_SIZE = 50;
 const DAY_MS = 86_400_000;
@@ -213,8 +217,8 @@ export const seedMany = async (db: Db, ownerId: string, count: number) => {
           ? new Date(createdAt.getTime() + Math.floor(rng() * (now - createdAt.getTime())))
           : null;
       const title = `${pick(adjectives)} ${pick(mains)} ${pick(dishes)}`;
-      recipes.push({
-        ownerId,
+      // Built as the API would receive it, and validated the same way.
+      const input = decodeRecipe({
         title,
         description: `A ${title.toLowerCase()} for an easy evening.`,
         servings: int(2, 8),
@@ -222,21 +226,38 @@ export const seedMany = async (db: Db, ownerId: string, count: number) => {
         cookMinutes: cook,
         totalMinutes: prep + cook,
         sourcePlatform: "manual",
-        createdAt,
-        updatedAt: createdAt,
-        lastCookedOn: lastCooked ? lastCooked.toISOString().slice(0, 10) : null,
-      });
-      return {
-        ingredients: sample(ingredientLines, int(5, 12)),
+        sourceUrl: null,
+        sourceAuthor: null,
+        notes: null,
+        photoKey: null,
+        ingredients: sample(ingredientLines, int(5, 12)).map((line) => ({
+          section: null,
+          ...parseIngredientLine(line),
+        })),
         steps: sample(stepTemplates, int(3, 6)).map((t) => {
           const minutes = int(2, 45);
           return {
+            section: null,
             text: t.text.replace("{n}", String(minutes)),
             timerSeconds: t.timed ? minutes * 60 : null,
           };
         }),
-        tags: sample(tagSet, int(1, 3)),
-      };
+        tags: sample(tagSet, int(1, 3)).map((t) => t.name),
+      });
+      recipes.push({
+        ownerId,
+        title: input.title,
+        description: input.description,
+        servings: input.servings,
+        prepMinutes: input.prepMinutes,
+        cookMinutes: input.cookMinutes,
+        totalMinutes: input.totalMinutes,
+        sourcePlatform: input.sourcePlatform,
+        createdAt,
+        updatedAt: createdAt,
+        lastCookedOn: lastCooked ? lastCooked.toISOString().slice(0, 10) : null,
+      });
+      return input;
     });
 
     await db.transaction(async (tx) => {
@@ -249,26 +270,9 @@ export const seedMany = async (db: Db, ownerId: string, count: number) => {
       const tagRows: Array<typeof schema.recipeTag.$inferInsert> = [];
       generated.forEach((g, i) => {
         const recipeId = rows[i]!.id;
-        g.ingredients.forEach((line, position) => {
-          const parsed = parseIngredientLine(line);
-          ingredientRows.push({
-            ownerId,
-            recipeId,
-            position,
-            section: null,
-            quantityMin: parsed.quantity?.min ?? null,
-            quantityMax: parsed.quantity?.max ?? null,
-            unit: parsed.unit,
-            item: parsed.item,
-            itemKey: ingredientKey(parsed.item),
-            note: parsed.note,
-            optional: parsed.optional,
-            altQuantityMin: parsed.alt?.quantity.min ?? null,
-            altQuantityMax: parsed.alt?.quantity.max ?? null,
-            altUnit: parsed.alt?.unit ?? null,
-            originalLine: parsed.original,
-          });
-        });
+        g.ingredients.forEach((line, position) =>
+          ingredientRows.push({ ownerId, recipeId, position, ...ingredient.toRow(line) }),
+        );
         g.steps.forEach((s, position) =>
           stepRows.push({
             ownerId,
@@ -278,8 +282,8 @@ export const seedMany = async (db: Db, ownerId: string, count: number) => {
             timerSeconds: s.timerSeconds,
           }),
         );
-        for (const t of g.tags) {
-          tagRows.push({ ownerId, recipeId, tagId: tagIds.get(t.name.toLowerCase())! });
+        for (const name of g.tags) {
+          tagRows.push({ ownerId, recipeId, tagId: tagIds.get(name.toLowerCase())! });
         }
       });
       await tx.insert(schema.recipeIngredient).values(ingredientRows);

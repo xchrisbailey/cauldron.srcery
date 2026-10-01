@@ -15,7 +15,7 @@ import {
   TooManyRequests,
   type UserId,
 } from "@cauldron/shared";
-import { and, count, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import {
   Cause,
   Context,
@@ -36,7 +36,7 @@ import type { ExtractedRecipe } from "./imports/Extracted.ts";
 import { ImportFailed, Importers } from "./imports/Importers.ts";
 import { RecipeExtractor } from "./imports/RecipeExtractor.ts";
 import { Photos } from "./Photos.ts";
-import { Recipes } from "./Recipes.ts";
+import { liveRecipe, Recipes } from "./Recipes.ts";
 
 const { importJob, recipe } = schema;
 type JobRow = typeof importJob.$inferSelect;
@@ -138,8 +138,7 @@ const make = Effect.gen(function* () {
         .from(recipe)
         .where(
           and(
-            eq(recipe.ownerId, row.ownerId),
-            isNull(recipe.deletedAt),
+            liveRecipe(row.ownerId),
             inArray(recipe.sourceUrl, candidates),
             // The recipe this job saved isn't a duplicate of itself.
             row.recipeId === null ? undefined : sql`${recipe.id} <> ${row.recipeId}`,
