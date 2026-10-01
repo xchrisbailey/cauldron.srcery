@@ -2,7 +2,6 @@ import { schema } from "@cauldron/db";
 import {
   addDays,
   aisleFor,
-  type Aisle,
   copy,
   type GatherItem,
   GatherItemId,
@@ -350,7 +349,7 @@ const make = Effect.gen(function* () {
       itemKey: row.itemKey,
       quantity: quantityOf(row.quantityMin, row.quantityMax),
       unit: row.unit as UnitCode | null,
-      aisle: (row.aisle ?? aisleFor(row.itemKey)) as Aisle,
+      aisle: row.aisle ?? aisleFor(row.itemKey),
       checked: row.checked,
       manual: row.manual,
       inPantry: Boolean(row.inPantry),
