@@ -1,5 +1,5 @@
 import { Api } from "@cauldron/api-spec";
-import { Effect } from "effect";
+import { Cause, Effect, Option } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { HttpApiClient } from "effect/http-api";
 
@@ -15,10 +15,16 @@ const baseUrl = () =>
     ? (process.env.API_ORIGIN ?? "http://localhost:3001")
     : window.location.origin;
 
-export const callApi = <A, E>(
+// Rejects with the typed error itself (a domain error, or a transport error),
+// or the squashed defect; read it with `failureOf` (api-failure.ts).
+export const callApi = async <A, E>(
   f: (client: HttpApiClient.ForApi<typeof Api>) => Effect.Effect<A, E>,
-) =>
-  Effect.gen(function* () {
+): Promise<A> => {
+  const exit = await Effect.gen(function* () {
     const client = yield* HttpApiClient.make(Api, { baseUrl: baseUrl() });
     return yield* f(client);
-  }).pipe(Effect.provide(FetchHttpClient.layer), Effect.runPromise);
+  }).pipe(Effect.provide(FetchHttpClient.layer), Effect.runPromiseExit);
+  if (exit._tag === "Success") return exit.value;
+  const typed = Cause.findErrorOption(exit.cause);
+  throw Option.isSome(typed) ? typed.value : Cause.squash(exit.cause);
+};

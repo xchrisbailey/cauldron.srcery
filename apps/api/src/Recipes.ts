@@ -1,9 +1,7 @@
-import { refreshRecipeSearch, schema } from "@cauldron/db";
+import { ingredient, macros, refreshRecipeSearch, schema } from "@cauldron/db";
 import {
   Conflict,
   copy,
-  DEFAULT_PAGE_LIMIT,
-  ingredientKey,
   InvalidRequest,
   isRealDate,
   NotFound,
@@ -14,7 +12,6 @@ import {
   Tag,
   TagId,
   TagWithCount,
-  type Ingredient,
   type LocalDate,
   type RecipeInput,
   type RecipeListQuery,
@@ -22,7 +19,6 @@ import {
   type RecipeSort,
   type Step,
   type TagUpdate,
-  type UnitCode,
   type UserId,
 } from "@cauldron/shared";
 import {
@@ -42,6 +38,7 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 import { Db, isUniqueViolation } from "./Db.ts";
 import { Photos } from "./Photos.ts";
+import { newestFirst, paginate, type SortKey } from "./Pagination.ts";
 
 const { recipe, recipeCook, recipeIngredient, recipeStep, recipeTag, tag } = schema;
 
@@ -50,7 +47,6 @@ const { search: _search, ...recipeColumns } = getTableColumns(recipe);
 type RecipeRow = Omit<typeof recipe.$inferSelect, "search">;
 /** A listed row with the title's sort key, lowercased by Postgres so the cursor matches the comparison. */
 type ListedRow = RecipeRow & { readonly titleKey: string };
-type IngredientRow = typeof recipeIngredient.$inferSelect;
 type StepRow = typeof recipeStep.$inferSelect;
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
@@ -62,25 +58,6 @@ const orNull = (value: string | null): string | null =>
 
 // ---------------------------------------------------------------------------
 // Rows to domain
-
-const toIngredient = (row: IngredientRow): Ingredient => ({
-  section: row.section,
-  quantity:
-    row.quantityMin === null ? null : { min: row.quantityMin, max: row.quantityMax ?? null },
-  unit: row.unit as UnitCode | null,
-  item: row.item,
-  note: row.note,
-  optional: row.optional,
-  alt:
-    row.altQuantityMin === null || row.altUnit === null
-      ? null
-      : {
-          quantity: { min: row.altQuantityMin, max: row.altQuantityMax ?? null },
-          unit: row.altUnit as UnitCode,
-        },
-  original: row.originalLine,
-  itemKey: row.itemKey,
-});
 
 const toStep = (row: StepRow): Step => ({
   section: row.section,
@@ -100,12 +77,7 @@ const summaryFields = (row: RecipeRow, tags: ReadonlyArray<Tag>) => ({
   cookMinutes: row.cookMinutes,
   totalMinutes: row.totalMinutes,
   photoKey: row.photoKey,
-  macros: {
-    calories: row.calories,
-    protein: row.proteinGrams,
-    carbs: row.carbsGrams,
-    fat: row.fatGrams,
-  },
+  macros: macros.fromRow(row),
   tags,
   lastCookedOn: row.lastCookedOn,
   createdAt: row.createdAt,
@@ -139,62 +111,35 @@ const searchCondition = (q: string): SQL | undefined => {
 };
 
 // ---------------------------------------------------------------------------
-// Keyset cursors for the three sorts
-
-const Cursor = Schema.Struct({
-  s: Schema.Literals(["recent", "title", "lastCooked"]),
-  k: Schema.String,
-  i: Schema.String.check(Schema.isUUID()),
-});
-const CursorFromString = Schema.StringFromBase64Url.pipe(
-  Schema.decodeTo(Schema.fromJsonString(Cursor)),
-);
+// Keyset sort keys for the three sorts
 
 /** For sorting by last cooked: never-cooked recipes sort after every real date. */
 const NEVER_COOKED = "0001-01-01";
 
-const sortKey = (sort: RecipeSort) => {
-  switch (sort) {
-    case "recent":
-      return {
-        key: (row: ListedRow) => row.createdAt.toISOString(),
-        orderBy: [desc(recipe.createdAt), desc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(${recipe.createdAt} < ${k}::timestamptz or (${recipe.createdAt} = ${k}::timestamptz and ${recipe.id} < ${id}))`,
-      };
-    case "title":
-      return {
-        key: (row: ListedRow) => row.titleKey,
-        orderBy: [asc(sql`lower(${recipe.title})`), asc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(lower(${recipe.title}) > ${k} or (lower(${recipe.title}) = ${k} and ${recipe.id} > ${id}))`,
-      };
-    case "lastCooked": {
-      // The same expression as recipe_owner_cooked_idx, so the index serves it.
-      const cooked = sql`coalesce(${recipe.lastCookedOn}, '0001-01-01'::date)`;
-      return {
-        key: (row: ListedRow) => row.lastCookedOn ?? NEVER_COOKED,
-        orderBy: [desc(cooked), desc(recipe.id)],
-        after: (k: string, id: string) =>
-          sql`(${cooked} < ${k}::date or (${cooked} = ${k}::date and ${recipe.id} < ${id}))`,
-      };
-    }
-  }
+// The same expression as recipe_owner_cooked_idx, so the index serves it.
+const cooked = sql`coalesce(${recipe.lastCookedOn}, '0001-01-01'::date)`;
+
+const sortKeys: { readonly [S in RecipeSort]: SortKey<ListedRow> } = {
+  recent: newestFirst(recipe),
+  title: {
+    name: "title",
+    key: (row) => row.titleKey,
+    valid: (k) => k.length <= RECIPE_LIMITS.title * 2,
+    orderBy: [asc(sql`lower(${recipe.title})`), asc(recipe.id)],
+    after: (k, id) =>
+      sql`(lower(${recipe.title}) > ${k} or (lower(${recipe.title}) = ${k} and ${recipe.id} > ${id}))`,
+  },
+  lastCooked: {
+    name: "lastCooked",
+    key: (row) => row.lastCookedOn ?? NEVER_COOKED,
+    valid: isRealDate,
+    orderBy: [desc(cooked), desc(recipe.id)],
+    after: (k, id) =>
+      sql`(${cooked} < ${k}::date or (${cooked} = ${k}::date and ${recipe.id} < ${id}))`,
+  },
 };
 
-// The cursor's key is compared in SQL, so check it has the right shape first.
-const validKey = (sort: RecipeSort, k: string) => {
-  switch (sort) {
-    case "recent": {
-      const date = new Date(k);
-      return !Number.isNaN(date.getTime()) && date.toISOString() === k;
-    }
-    case "title":
-      return k.length <= RECIPE_LIMITS.title * 2;
-    case "lastCooked":
-      return isRealDate(k);
-  }
-};
+const RecipeCursorId = Schema.String.check(Schema.isUUID());
 
 // ---------------------------------------------------------------------------
 
@@ -291,7 +236,7 @@ const make = Effect.gen(function* () {
       sourceUrl: row.sourceUrl,
       sourceAuthor: row.sourceAuthor,
       notes: row.notes,
-      ingredients: ingredients.map(toIngredient),
+      ingredients: ingredients.map(ingredient.fromRow),
       steps: steps.map(toStep),
       deletedAt: row.deletedAt,
     });
@@ -350,18 +295,7 @@ const make = Effect.gen(function* () {
             ownerId,
             recipeId,
             position,
-            section: orNull(line.section),
-            quantityMin: line.quantity?.min ?? null,
-            quantityMax: line.quantity?.max ?? null,
-            unit: line.unit,
-            item: line.item,
-            itemKey: ingredientKey(line.item),
-            note: orNull(line.note),
-            optional: line.optional,
-            altQuantityMin: line.alt?.quantity.min ?? null,
-            altQuantityMax: line.alt?.quantity.max ?? null,
-            altUnit: line.alt?.unit ?? null,
-            originalLine: line.original,
+            ...ingredient.toRow(line),
           })),
         ),
       );
@@ -411,56 +345,34 @@ const make = Effect.gen(function* () {
     sourceAuthor: orNull(input.sourceAuthor),
     notes: orNull(input.notes),
     // Left out, an update keeps the recipe's macros.
-    ...(input.macros === undefined
-      ? {}
-      : {
-          calories: input.macros.calories,
-          proteinGrams: input.macros.protein,
-          carbsGrams: input.macros.carbs,
-          fatGrams: input.macros.fat,
-        }),
+    ...(input.macros === undefined ? {} : macros.toRow(input.macros)),
   });
 
   const list = Effect.fn("Recipes.list")(function* (ownerId: UserId, query: RecipeListQuery) {
-    const sort = query.sort ?? "recent";
-    const order = sortKey(sort);
-    const limit = query.limit ?? DEFAULT_PAGE_LIMIT;
-    let after: SQL | undefined;
-    if (query.cursor !== undefined) {
-      const cursor = yield* Schema.decodeEffect(CursorFromString)(query.cursor).pipe(
-        Effect.mapError(invalid),
-      );
-      if (cursor.s !== sort || !validKey(sort, cursor.k)) return yield* invalid();
-      after = order.after(cursor.k, cursor.i);
-    }
-    const rows = yield* db.use((d) =>
-      d
-        .select({ ...recipeColumns, titleKey: sql<string>`lower(${recipe.title})` })
-        .from(recipe)
-        .where(
-          and(
-            liveRecipe(ownerId),
-            query.tag === undefined
-              ? undefined
-              : sql`exists (select 1 from ${recipeTag} where ${recipeTag.recipeId} = ${recipe.id} and ${recipeTag.tagId} = ${query.tag})`,
-            query.q === undefined ? undefined : searchCondition(query.q),
-            after,
-          ),
-        )
-        .orderBy(...order.orderBy)
-        .limit(limit + 1),
-    );
-    const page = rows.slice(0, limit);
-    const last = page[page.length - 1];
-    const nextCursor =
-      rows.length > limit && last
-        ? yield* Schema.encodeEffect(CursorFromString)({
-            s: sort,
-            k: order.key(last),
-            i: last.id,
-          }).pipe(Effect.orDie)
-        : null;
-    return { items: yield* summaries(ownerId, page), nextCursor };
+    const page = yield* paginate({
+      query,
+      sort: sortKeys[query.sort ?? "recent"],
+      idSchema: RecipeCursorId,
+      run: ({ where, orderBy, limit }) =>
+        db.use((d) =>
+          d
+            .select({ ...recipeColumns, titleKey: sql<string>`lower(${recipe.title})` })
+            .from(recipe)
+            .where(
+              and(
+                liveRecipe(ownerId),
+                query.tag === undefined
+                  ? undefined
+                  : sql`exists (select 1 from ${recipeTag} where ${recipeTag.recipeId} = ${recipe.id} and ${recipeTag.tagId} = ${query.tag})`,
+                query.q === undefined ? undefined : searchCondition(query.q),
+                where,
+              ),
+            )
+            .orderBy(...orderBy)
+            .limit(limit),
+        ),
+    });
+    return { items: yield* summaries(ownerId, page.items), nextCursor: page.nextCursor };
   });
 
   const search = Effect.fn("Recipes.search")(function* (ownerId: UserId, query: RecipeSearchQuery) {

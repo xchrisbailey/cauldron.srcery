@@ -4,16 +4,19 @@ import {
   displayMeasure,
   type Ingredient,
   type Recipe,
+  Scale,
+  type ScaleSearch,
   stepIngredients,
   type UnitSystemChoice,
 } from "@cauldron/shared";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink, EmptyState, Skeleton, useToast } from "../../components/ui";
 import { focusRing } from "../../components/ui/controls";
-import { localToday, markCooked, recipeQuery, settleRecipe } from "../../lib/recipes";
+import { recipeQuery } from "../../lib/recipes";
+import { useRecipeWrites } from "../../lib/use-recipe-writes";
 import {
   chime,
   clock,
@@ -31,12 +34,8 @@ import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 // when done, and the screen stays awake. Controls are plain: hands are busy.
 
 export const Route = createFileRoute("/_kitchen/brew/$id")({
-  validateSearch: (search: Record<string, unknown>): { servings?: number; multiplier?: number } => {
-    const n = Number(search.servings);
-    if (Number.isInteger(n) && n >= 1 && n <= 1000) return { servings: n };
-    const m = Number(search.multiplier);
-    return Number.isFinite(m) && m > 0 && m <= 100 ? { multiplier: m } : {};
-  },
+  validateSearch: (search: Record<string, unknown>): ScaleSearch =>
+    Scale.toSearch(Scale.fromSearch(search)),
   component: Brew,
 });
 
@@ -117,8 +116,8 @@ function StepText({ text }: { text: string }) {
 function Brewing({ recipe }: { recipe: Recipe }) {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const toast = useToast();
+  const writes = useRecipeWrites();
   const wake = useWakeLock();
   const [at, setIndex] = useState(0);
   const [units] = useUnitChoice();
@@ -131,10 +130,7 @@ function Brewing({ recipe }: { recipe: Recipe }) {
   const count = steps.length;
   const index = Math.min(at, Math.max(0, count - 1));
   const step = steps[index];
-  const factor =
-    search.servings !== undefined && recipe.servings !== null
-      ? search.servings / recipe.servings
-      : (search.multiplier ?? 1);
+  const factor = Scale.factor(Scale.fromSearch(search), recipe.servings);
   const matched = useMemo(
     () => stepIngredients(steps, recipe.ingredients),
     [steps, recipe.ingredients],
@@ -192,11 +188,9 @@ function Brewing({ recipe }: { recipe: Recipe }) {
     if (Date.now() - movedAt.current < 700) return;
     setBusy(true);
     try {
-      settleRecipe(queryClient, await markCooked(recipe.id, localToday()));
-      toast(copy.brewing.brewedToast.text);
-      await navigate({ to: "/recipes/$id", params: { id: recipe.id } });
-    } catch {
-      toast(copy.brewing.couldntSave.text, "error");
+      if (await writes.brewed(recipe.id)) {
+        await navigate({ to: "/recipes/$id", params: { id: recipe.id } });
+      }
     } finally {
       setBusy(false);
     }

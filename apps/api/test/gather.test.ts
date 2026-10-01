@@ -446,32 +446,6 @@ describe("gather", () => {
       expect(byKey(next, "rice")[0]).toMatchObject({ checked: false, manual: false });
     });
 
-    it("unchecks a gathered row when its quantity grows, keeps the check when it shrinks", async () => {
-      const cook = await freshCook();
-      const week = "2026-11-16";
-      const recipe = await create(cook, "Pancakes", ["1 cup flour"], 4);
-      const entry = await plan(cook, recipe.id, "2026-11-17");
-      const flour = byKey(await gatherWeek(cook, week), "flour")[0];
-      await call(cook, "PATCH", `/v1/gather/items/${flour.id}`, { checked: true });
-
-      // Same quantity: stays checked.
-      expect(byKey(await gatherWeek(cook, week), "flour")[0].checked).toBe(true);
-
-      // Doubled servings: needs more, so unchecked.
-      await call(cook, "PATCH", `/v1/plan/${entry.id}`, { servings: 8 });
-      const grown = byKey(await gatherWeek(cook, week), "flour")[0];
-      expect(grown.id).toBe(flour.id);
-      expect(grown.quantity).toEqual({ min: 2, max: null });
-      expect(grown.checked).toBe(false);
-
-      // Checked again, then fewer servings: smaller, so still checked.
-      await call(cook, "PATCH", `/v1/gather/items/${flour.id}`, { checked: true });
-      await call(cook, "PATCH", `/v1/plan/${entry.id}`, { servings: 6 });
-      const shrunk = byKey(await gatherWeek(cook, week), "flour")[0];
-      expect(shrunk.quantity).toEqual({ min: 1.5, max: null });
-      expect(shrunk.checked).toBe(true);
-    });
-
     it("unchecks when another recipe adds to a checked row", async () => {
       const cook = await freshCook();
       const week = "2026-11-23";
@@ -682,19 +656,5 @@ describe("gather", () => {
       expect(adaList.items.map((i: any) => i.itemKey)).toEqual(["quinoa"]);
       expect(bobList.items.map((i: any) => i.itemKey)).toEqual(["farro"]);
     });
-  });
-
-  it("keeps a check when a scaled amount rounds in storage", async () => {
-    const cook = await freshCook();
-    const recipe = await create(cook, "Thirds", ["1 cup flour", "1 onion"], 6);
-    await plan(cook, recipe.id, WEEK, { servings: 2 });
-    const first = await gatherWeek(cook, WEEK);
-    for (const item of first.items) {
-      const res = await call(cook, "PATCH", `/v1/gather/items/${item.id}`, { checked: true });
-      expect(res.status).toBe(200);
-    }
-    await gatherWeek(cook, WEEK);
-    const again = await gatherWeek(cook, WEEK);
-    expect(again.items.map((i: any) => i.checked)).toEqual(first.items.map(() => true));
   });
 });

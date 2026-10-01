@@ -18,7 +18,7 @@ export interface SeedRecipe {
     readonly name: string;
     readonly kind: "cuisine" | "meal" | "diet" | "other";
   }>;
-  /** Lines starting with "## " are section headings. */
+  /** Headings ("## To serve") start a section, as `readHeading` reads them. */
   readonly ingredients: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<{ readonly text: string; readonly timerSeconds?: number }>;
   readonly notes?: string;

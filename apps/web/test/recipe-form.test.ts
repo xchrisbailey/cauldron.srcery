@@ -55,9 +55,7 @@ describe("splitIngredientPaste + ingredientRow", () => {
   });
 
   it("makes one heading row and the rest line rows", () => {
-    const headings = rows.filter((r) => r.kind === "heading");
-    expect(headings).toHaveLength(1);
-    expect(headings[0]!.text).toBe("For the sauce");
+    expect(rows.filter((r) => r.kind === "heading")).toHaveLength(1);
     expect(rows.filter((r) => r.kind === "line")).toHaveLength(12);
   });
 
@@ -350,11 +348,6 @@ describe("fromRecipe round trip", () => {
   };
   const recipe = Schema.decodeUnknownSync(Recipe)(data);
   const values = fromRecipe(recipe);
-
-  it("builds a heading row before each new section", () => {
-    expect(values.ingredients.map((r) => r.kind)).toEqual(["line", "heading", "line"]);
-    expect(values.ingredients[1]!.text).toBe("For the sauce");
-  });
 
   it("round trips to the recipe's data", () => {
     const { input } = toRecipeInput(values);

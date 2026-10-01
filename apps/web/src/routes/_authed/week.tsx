@@ -3,26 +3,25 @@ import {
   addDays,
   copy,
   formatTimer,
-  isRealDate,
   MEAL_SLOTS,
   type MealSlot,
-  noMacros,
   PLAN_LIMITS,
   type PlanEntry,
   type PlanEntryUpdate,
+  PlanRecipe,
   servingsOf,
-  startOfWeek,
   tallyMacros,
+  toPlanRecipe,
   weekDays,
-  type WeekStartDay,
 } from "@cauldron/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { BagGlyph, PlusGlyph } from "../../components/glyphs";
 import { MacroTally } from "../../components/MacroTally";
 import { type Spreading, SpreadDialog } from "../../components/SpreadDialog";
-import { PickMealDialog, stirRecipe, useRecipeSearch } from "../../components/StirIn";
+import { PickMealDialog, useRecipeSearch } from "../../components/StirIn";
 import { WeekRange } from "../../components/WeekRange";
 import {
   Button,
@@ -34,27 +33,13 @@ import {
   PageHeader,
   Select,
   Skeleton,
-  useToast,
 } from "../../components/ui";
 import { control, focusRing } from "../../components/ui/controls";
 import { dayLabel, dayOfMonth, weekdayName, weekRangeLabel } from "../../lib/dates";
-import {
-  clearWeek,
-  copyWeek,
-  inSlot,
-  isPending,
-  planKeys,
-  settlePlan,
-  dropAt,
-  dropMove,
-  planMutationKey,
-  savedWeekStartDay,
-  useWeekStartDay,
-  weekQuery,
-} from "../../lib/plan";
+import { inSlot, isPending, dropAt, dropMove, weekQuery } from "../../lib/plan";
 import { gatherQuery, summarize } from "../../lib/gather";
-import { localToday } from "../../lib/recipes";
-import { type StirRecipe, usePlanWrites } from "../../lib/use-plan";
+import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
+import { usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
 
 // The week (#18): a seven-day calendar of breakfast, lunch, dinner and snack,
@@ -64,62 +49,27 @@ import { colors, fonts } from "../../styles/tokens.stylex";
 // rolls back if the API refuses it.
 
 export const Route = createFileRoute("/_authed/week")({
-  validateSearch: (search: Record<string, unknown>): { week?: string } =>
-    typeof search.week === "string" && isRealDate(search.week) ? { week: search.week } : {},
+  validateSearch: weekSearch,
   component: Week,
 });
 
 const RECIPE_TYPE = "application/x-cauldron-recipe";
 const ENTRY_TYPE = "application/x-cauldron-entry";
 
-const num = (value: unknown) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
-
 /** A recipe dragged in from the panel. Anything else with the same type is ignored. */
-const readRecipe = (data: string): StirRecipe | null => {
-  if (data === "") return null;
-  try {
-    const value: unknown = JSON.parse(data);
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "id" in value &&
-      "title" in value &&
-      typeof value.id === "string" &&
-      typeof value.title === "string"
-    ) {
-      const v = value as Partial<StirRecipe>;
-      return {
-        id: v.id!,
-        title: v.title!,
-        servings: typeof v.servings === "number" ? v.servings : null,
-        totalMinutes: typeof v.totalMinutes === "number" ? v.totalMinutes : null,
-        macros:
-          typeof v.macros === "object" && v.macros !== null
-            ? {
-                calories: num(v.macros.calories),
-                protein: num(v.macros.protein),
-                carbs: num(v.macros.carbs),
-                fat: num(v.macros.fat),
-              }
-            : noMacros,
-      };
-    }
-  } catch {
-    // Not ours.
-  }
-  return null;
+const decodeRecipe = Schema.decodeUnknownOption(Schema.fromJsonString(PlanRecipe));
+const readRecipe = (data: string): PlanRecipe | null => {
+  const decoded = decodeRecipe(data);
+  return decoded._tag === "Some" ? decoded.value : null;
 };
 
 type Target = { date: string; slot: MealSlot };
 
 function Week() {
-  // Today and the first day of the week are the viewer's own, so they're only
-  // known in the browser.
-  const [viewer, setViewer] = useState<{ today: string; startsOn: WeekStartDay } | null>(null);
-  useEffect(() => setViewer({ today: localToday(), startsOn: savedWeekStartDay() }), []);
-  if (viewer === null) return <WeekSkeleton />;
-  return <Planner today={viewer.today} initialStartsOn={viewer.startsOn} />;
+  const search = Route.useSearch();
+  const cursor = useWeekCursor(search.week);
+  if (cursor === null) return <WeekSkeleton />;
+  return <Planner cursor={cursor} />;
 }
 
 function WeekSkeleton() {
@@ -131,14 +81,12 @@ function WeekSkeleton() {
   );
 }
 
-function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: WeekStartDay }) {
-  const search = Route.useSearch();
+function Planner({
+  cursor: { today, startsOn, setStartsOn, start, thisWeek, searchFor },
+}: {
+  cursor: WeekCursor;
+}) {
   const navigate = useNavigate({ from: Route.fullPath });
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const [startsOn, setStartsOn] = useWeekStartDay(initialStartsOn);
-  const start = startOfWeek(search.week ?? today, startsOn);
-  const thisWeek = startOfWeek(today, startsOn);
   const days = useMemo(() => weekDays(start), [start]);
   const week = useQuery(weekQuery(start));
   const writes = usePlanWrites(startsOn);
@@ -152,46 +100,16 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
   const chosenDay = chosen !== null && days.includes(chosen) ? chosen : null;
   const phoneDay = chosenDay ?? (days.includes(today) ? today : days[0]!);
 
-  const goTo = (weekStart: string) =>
-    void navigate({ search: weekStart === thisWeek ? {} : { week: weekStart } });
-
-  const copyLast = useMutation({
-    mutationKey: planMutationKey,
-    mutationFn: () => copyWeek(addDays(start, -7), start),
-    onMutate: () => queryClient.cancelQueries({ queryKey: planKeys.week(start) }),
-    onSuccess: (entries) => {
-      queryClient.setQueryData(planKeys.week(start), entries);
-      toast(
-        entries.length > (week.data?.length ?? 0)
-          ? copy.week.copiedLastWeek.text
-          : copy.week.nothingToCopy.text,
-      );
-    },
-    onError: () => toast(copy.week.couldntSave.text, "error"),
-    onSettled: () => settlePlan(queryClient),
-  });
-
-  const clear = useMutation({
-    mutationKey: planMutationKey,
-    mutationFn: () => clearWeek(start),
-    onMutate: async () => {
-      setClearing(false);
-      await queryClient.cancelQueries({ queryKey: planKeys.week(start) });
-      queryClient.setQueryData(planKeys.week(start), []);
-    },
-    onSuccess: () => toast(copy.week.cleared.text),
-    onError: () => toast(copy.week.couldntSave.text, "error"),
-    onSettled: () => settlePlan(queryClient),
-  });
+  const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
 
   /** A recipe goes through the days picker, so its servings can feed more than one day. */
-  const stir = (target: Target, recipe: StirRecipe, position?: number) =>
+  const stir = (target: Target, recipe: PlanRecipe, position?: number) =>
     setSpreading({ ...target, recipe, ...(position === undefined ? {} : { position }) });
 
-  const pick = (choice: { recipe: StirRecipe } | { title: string }) => {
+  const pick = (choice: { recipe: PlanRecipe } | { title: string }) => {
     if (!picking) return;
     if ("recipe" in choice) stir(picking, choice.recipe);
-    else writes.stir({ ...picking, title: choice.title }, null);
+    else void writes.stir({ ...picking, title: choice.title }, null);
     setPicking(null);
   };
 
@@ -217,7 +135,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
     const moving = entries.find((s) => s.id === entryId);
     if (!moving || isPending(moving)) return;
     const update = dropMove(entries, entryId, target, before?.id);
-    if (update) writes.update.mutate({ entry: moving, update });
+    if (update) void writes.update(moving, update);
   };
 
   const slotProps = (target: Target) => ({
@@ -249,8 +167,8 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
           <>
             <Button
               variant="secondary"
-              onClick={() => copyLast.mutate()}
-              disabled={copyLast.isPending || week.isPending}
+              onClick={() => void writes.copyLastWeek(start)}
+              disabled={writes.copying || week.isPending}
             >
               {copy.week.copyLastWeek.text}
             </Button>
@@ -419,7 +337,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         </>
       )}
 
-      <GatherBar start={start} thisWeek={thisWeek} />
+      <GatherBar start={start} search={searchFor(start)} />
 
       <label {...stylex.props(styles.startsOn)}>
         {copy.week.weekStarts.text}
@@ -441,7 +359,7 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         onClose={() => setSpreading(null)}
         onStir={(inputs, recipe) => {
           setSpreading(null);
-          writes.spread(inputs, recipe);
+          void writes.spread(inputs, recipe);
         }}
       />
       <EntryDialog
@@ -451,11 +369,11 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
         onClose={() => setEditing(null)}
         onSave={(entry, update) => {
           setEditing(null);
-          if (Object.keys(update).length > 0) writes.update.mutate({ entry, update });
+          if (Object.keys(update).length > 0) void writes.update(entry, update);
         }}
         onRemove={(entry) => {
           setEditing(null);
-          writes.remove.mutate(entry);
+          void writes.remove(entry);
         }}
       />
       <Dialog open={clearing} onClose={() => setClearing(false)} title={copy.week.clearWeek.text}>
@@ -466,7 +384,13 @@ function Planner({ today, initialStartsOn }: { today: string; initialStartsOn: W
           <Button variant="secondary" data-autofocus onClick={() => setClearing(false)}>
             {copy.week.cancel.text}
           </Button>
-          <Button variant="danger" onClick={() => clear.mutate()}>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setClearing(false);
+              void writes.clear(start);
+            }}
+          >
             {copy.week.clearWeek.text}
           </Button>
         </div>
@@ -543,7 +467,7 @@ function EntryCard({
 }
 
 /** The week's Gather list in a line, with the way to it. */
-function GatherBar({ start, thisWeek }: { start: string; thisWeek: string }) {
+function GatherBar({ start, search }: { start: string; search: { week?: string } }) {
   const list = useQuery(gatherQuery(start));
   if (!list.data || list.data.items.length === 0) return null;
   const counts = summarize(list.data);
@@ -556,11 +480,7 @@ function GatherBar({ start, thisWeek }: { start: string; thisWeek: string }) {
         {copy.gather.summary(counts.items, counts.recipes).text}
         {counts.inPantry > 0 ? ` ${copy.gather.inPantryCount(counts.inPantry).text}` : ""}
       </p>
-      <ButtonLink
-        to="/gather"
-        search={start === thisWeek ? {} : { week: start }}
-        variant="secondary"
-      >
+      <ButtonLink to="/gather" search={search} variant="secondary">
         {copy.gather.gather.text}
       </ButtonLink>
     </div>
@@ -590,7 +510,7 @@ function RecipePanel() {
             key={recipe.id}
             draggable
             onDragStart={(e) => {
-              e.dataTransfer.setData(RECIPE_TYPE, JSON.stringify(stirRecipe(recipe)));
+              e.dataTransfer.setData(RECIPE_TYPE, JSON.stringify(toPlanRecipe(recipe)));
               e.dataTransfer.effectAllowed = "copy";
             }}
             {...stylex.props(styles.panelItem)}
