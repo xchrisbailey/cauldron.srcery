@@ -200,10 +200,16 @@ export class RemoteFetch extends Context.Service<
     }),
   );
 
-  /** Serves fixed responses by URL, so importer and photo tests never touch the network. */
+  /**
+   * Serves fixed responses by URL, so importer and photo tests never touch
+   * the network. `url` stands in for where redirects ended up.
+   */
   static readonly layerTest = (
     responses: Readonly<
-      Record<string, { readonly bytes: Uint8Array; readonly contentType: string }>
+      Record<
+        string,
+        { readonly bytes: Uint8Array; readonly contentType: string; readonly url?: string }
+      >
     >,
   ) =>
     Layer.succeed(
@@ -215,7 +221,7 @@ export class RemoteFetch extends Context.Service<
           if (found.bytes.byteLength > options.maxBytes) {
             return yield* new FetchError({ reason: "tooLarge" });
           }
-          return { ...found, url };
+          return { bytes: found.bytes, contentType: found.contentType, url: found.url ?? url };
         }),
       }),
     );

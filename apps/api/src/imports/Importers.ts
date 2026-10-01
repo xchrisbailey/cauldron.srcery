@@ -1,9 +1,11 @@
 import type { ImportSource } from "@cauldron/shared";
 import { Context, Effect, Layer } from "effect";
+import { AppConfig } from "../AppConfig.ts";
 import type { RemoteFetch } from "../RemoteFetch.ts";
 import { fromText } from "./fromText.ts";
 import type { RecipeExtractor } from "./RecipeExtractor.ts";
 import { failed, type ImportFailed, type Imported } from "./result.ts";
+import { fromSocial } from "./social.ts";
 import { fromWeb } from "./web.ts";
 
 // One importer per source type, behind one interface. Each tries its
@@ -27,6 +29,8 @@ export class Importers extends Context.Service<
     Importers,
     Effect.gen(function* () {
       const context = yield* Effect.context<RecipeExtractor | RemoteFetch>();
+      const { instagramOEmbedToken } = yield* AppConfig;
+      const social = { instagramToken: instagramOEmbedToken };
       return Importers.of({
         run: Effect.fn("Importers.run")(function* (request) {
           if (request.text !== null) {
@@ -34,8 +38,9 @@ export class Importers extends Context.Service<
             return { ...read, raw: null, sourceUrl: null };
           }
           if (request.url === null) return yield* failed("couldntRead");
-          // Instagram and TikTok are read by the social importer (#16).
-          if (request.source !== "web") return yield* failed("couldntRead");
+          if (request.source === "instagram" || request.source === "tiktok") {
+            return yield* fromSocial(request.source, request.url, social);
+          }
           return yield* fromWeb(request.url);
         }, Effect.provideContext(context)),
       });

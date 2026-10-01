@@ -55,6 +55,8 @@ export class AppConfig extends Context.Service<
     readonly social: SocialProviders;
     /** Optional generic OIDC provider, used in dev and tests in place of Google/Apple. Never in production. */
     readonly devOAuth: OAuthProviderConfig | undefined;
+    /** A Meta app token ("app-id|client-token") for Instagram's oEmbed (#16). Optional. */
+    readonly instagramOEmbedToken: Redacted.Redacted<string> | undefined;
   }
 >()("cauldron/api/AppConfig") {
   // Reads the environment once at boot and fails fast on anything missing.
@@ -92,6 +94,7 @@ export class AppConfig extends Context.Service<
         }),
       );
       const appleBundle = yield* Config.option(Config.String("APPLE_APP_BUNDLE_IDENTIFIER"));
+      const instagramToken = yield* Config.option(Config.Redacted("INSTAGRAM_OEMBED_TOKEN"));
       return AppConfig.of({
         port,
         publicUrl,
@@ -115,6 +118,7 @@ export class AppConfig extends Context.Service<
             discoveryUrl,
           }),
         }),
+        instagramOEmbedToken: Option.getOrUndefined(instagramToken),
       });
     }),
   );
@@ -132,6 +136,7 @@ export class AppConfig extends Context.Service<
         commit: undefined,
         social: {},
         devOAuth: undefined,
+        instagramOEmbedToken: undefined,
         ...overrides,
       }),
     );

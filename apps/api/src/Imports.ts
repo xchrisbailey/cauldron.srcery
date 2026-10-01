@@ -384,7 +384,11 @@ const make = Effect.gen(function* () {
     const failure = Cause.findErrorOption(cause);
     // A DbError here is an outage, not a reason to show the cook.
     if (Option.isSome(failure) && failure.value._tag === "ImportFailed") {
-      yield* finish(row.id, { status: "failed", errorCode: failure.value.code });
+      yield* finish(row.id, {
+        status: "failed",
+        errorCode: failure.value.code,
+        rawContent: failure.value.raw ?? null,
+      });
       return;
     }
     yield* Effect.logError("Import failed unexpectedly", { id: row.id }, cause);

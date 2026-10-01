@@ -79,3 +79,24 @@ describe("titles that look like page chrome or chatter", () => {
     },
   );
 });
+
+describe("calls to action", () => {
+  it("keeps recipe lines that start like one", () => {
+    const reading = readRecipeText(`Shortbread
+
+Ingredients
+200g flour
+100g butter
+
+Method
+Rub the butter into the flour.
+Save this dough for a second batch if you like.
+
+Notes
+Save it in an airtight tin for 3 days.`);
+    expect(reading?.recipe.steps.map((s) => s.text)).toContain(
+      "Save this dough for a second batch if you like.",
+    );
+    expect(reading?.recipe.notes).toBe("Save it in an airtight tin for 3 days.");
+  });
+});
