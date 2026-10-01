@@ -3,10 +3,10 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState } from "react";
-import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../components/ui";
-import { authClient } from "../lib/auth-client";
+import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
+import { authClient } from "../../lib/auth-client";
 
-export const Route = createFileRoute("/forgot-password")({ component: ForgotPassword });
+export const Route = createFileRoute("/_public/forgot-password")({ component: ForgotPassword });
 
 function ForgotPassword() {
   const [sent, setSent] = useState(false);

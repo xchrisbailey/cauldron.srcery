@@ -2,9 +2,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { lazy, type ReactNode, Suspense } from "react";
 import { copy } from "@cauldron/shared";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { PublicShell } from "../components/PublicShell";
+import { ButtonLink, EmptyState, ToastProvider } from "../components/ui";
 import { themeScript } from "../lib/theme";
 import appCss from "../styles/app.css?url";
 import { chrome, colors, fonts, type } from "../styles/tokens.stylex";
@@ -29,16 +30,38 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     scripts: [{ children: themeScript }],
   }),
   component: RootComponent,
+  notFoundComponent: NotFound,
 });
+
+// Kept out of production bundles entirely.
+const Devtools = import.meta.env.DEV ? lazy(() => import("../components/Devtools")) : () => null;
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <RootDocument>
       <QueryClientProvider client={queryClient}>
-        <Outlet />
+        <ToastProvider>
+          <Outlet />
+        </ToastProvider>
+        <Suspense fallback={null}>
+          <Devtools />
+        </Suspense>
       </QueryClientProvider>
     </RootDocument>
+  );
+}
+
+function NotFound() {
+  return (
+    <PublicShell>
+      <div {...stylex.props(styles.notFound)}>
+        <EmptyState
+          message={copy.errors.notFound.text}
+          actions={<ButtonLink to="/">{copy.ui.goHome.text}</ButtonLink>}
+        />
+      </div>
+    </PublicShell>
   );
 }
 
@@ -50,9 +73,6 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body {...stylex.props(styles.body)}>
-        <div {...stylex.props(styles.toggle)}>
-          <ThemeToggle />
-        </div>
         {children}
         <Scripts />
       </body>
@@ -71,5 +91,5 @@ const styles = stylex.create({
     lineHeight: type.bodyLeading,
     WebkitFontSmoothing: "antialiased",
   },
-  toggle: { position: "fixed", top: 12, right: 12 },
+  notFound: { width: "100%", maxWidth: 720 },
 });

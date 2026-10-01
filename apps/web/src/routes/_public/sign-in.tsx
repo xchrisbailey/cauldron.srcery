@@ -2,13 +2,13 @@ import { copy, EmailInput, SignInInput, authErrorMessage } from "@cauldron/share
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { SearchFlag } from "../lib/search";
-import { safeRedirect } from "../lib/safe-redirect";
+import { SearchFlag } from "../../lib/search";
+import { safeRedirect } from "../../lib/safe-redirect";
 import { useState } from "react";
-import { SocialSignIn } from "../components/SocialSignIn";
-import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../components/ui";
-import { authClient, errorCode } from "../lib/auth-client";
-import { getSession } from "../lib/session";
+import { SocialSignIn } from "../../components/SocialSignIn";
+import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
+import { authClient, errorCode } from "../../lib/auth-client";
+import { getSession } from "../../lib/session";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
@@ -19,7 +19,7 @@ const Search = Schema.toStandardSchemaV1(
   }),
 );
 
-export const Route = createFileRoute("/sign-in")({
+export const Route = createFileRoute("/_public/sign-in")({
   validateSearch: Search,
   beforeLoad: async ({ search }) => {
     if (await getSession()) throw redirect({ href: safeRedirect(search.redirect) });

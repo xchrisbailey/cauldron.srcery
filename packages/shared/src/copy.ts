@@ -106,6 +106,8 @@ export const recipes = {
     confirm: plain(`Banish ${title}? This can't be undone.`),
   }),
   couldntReadPage: plain("Couldn't read that page. Paste the recipe text instead."),
+  /** Under the search field until #11 lists results. */
+  summonHint: plain("Search by recipe name, ingredient or tag."),
 } as const;
 
 export const brewing = {
@@ -120,6 +122,7 @@ export const week = {
 
 export const gather = {
   title: voice("Gather list"),
+  empty: voice("Nothing to gather yet. Stir recipes into the week and the list fills itself."),
 } as const;
 
 export const nav = {
@@ -134,6 +137,17 @@ export const ui = {
   appName: plain("Cauldron"),
   byline: plain("by srcery"),
   footer: voice("Cauldron, stirred at srcery.computer"),
+  /** The lockup's wordmark, set in lowercase. */
+  wordmark: plain("cauldron"),
+  tagline: voice(
+    "A recipe box and weekly meal planner. Conjure recipes, distill them from a link, and stir them into the week.",
+  ),
+  menu: plain("Menu"),
+  close: plain("Close"),
+  loading: plain("Loading"),
+  skipToContent: plain("Skip to content"),
+  mainNav: plain("Main"),
+  goHome: plain("Back to Cauldron"),
   switchToLight: plain("Switch to light theme"),
   switchToDark: plain("Switch to dark theme"),
 } as const;

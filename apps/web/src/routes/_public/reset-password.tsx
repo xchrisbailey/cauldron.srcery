@@ -3,14 +3,14 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState } from "react";
-import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../components/ui";
-import { authClient, errorCode } from "../lib/auth-client";
+import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
+import { authClient, errorCode } from "../../lib/auth-client";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({ token: Schema.optional(Schema.String), error: Schema.optional(Schema.String) }),
 );
 
-export const Route = createFileRoute("/reset-password")({
+export const Route = createFileRoute("/_public/reset-password")({
   validateSearch: Search,
   component: ResetPassword,
 });

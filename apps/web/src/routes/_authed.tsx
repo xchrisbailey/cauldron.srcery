@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { AppShell } from "../components/AppShell";
 import { getSession } from "../lib/session";
 
 // Every route under _authed needs a signed-in user; others are sent to sign in
@@ -13,5 +14,9 @@ export const Route = createFileRoute("/_authed")({
     if (!session) throw redirect({ to: "/sign-in", search: { redirect: location.href } });
     return { session };
   },
-  component: Outlet,
+  component: () => (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  ),
 });
