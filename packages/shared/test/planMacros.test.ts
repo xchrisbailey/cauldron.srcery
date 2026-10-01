@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   hasMacros,
+  type Macros,
   noMacros,
   oneADay,
   type PlanEntry,
@@ -9,7 +10,7 @@ import {
   tallyMacros,
 } from "../src/index.ts";
 
-const recipe = (macros: PlanEntry["recipe"] extends infer R ? NonNullable<R>["macros"] : never) =>
+const recipe = (macros: Macros) =>
   ({
     id: "8f0c2a4e-1b6d-4c1e-9a53-0d2f6b7a9c11" as RecipeId,
     title: "Chili",
