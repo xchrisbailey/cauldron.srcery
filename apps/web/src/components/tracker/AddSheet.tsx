@@ -6,13 +6,14 @@ import { focusRing } from "../ui/controls";
 import { colors, fonts } from "../../styles/tokens.stylex";
 import { DescribeIt } from "./DescribeIt";
 import { RecipePicker } from "./LogRecipe";
+import { Recents } from "./Recents";
 import { emptyDraft, type MacroDraft, MacroFields, readDraft } from "./MacroFields";
 
-// What the diary's add button opens, for one meal slot: describe it in words
-// (#114, the main way), pick a recipe (#115), or quick add by numbers, the
-// plain fallback.
+// What the diary's add button opens, for one meal slot: recents and
+// favourites to log again in one tap (#116), describe it in words (#114),
+// pick a recipe (#115), or quick add by numbers, the plain fallback.
 
-const TABS = ["describe", "recipe", "quick"] as const;
+const TABS = ["recents", "describe", "recipe", "quick"] as const;
 type Tab = (typeof TABS)[number];
 
 export function AddSheet({
@@ -49,7 +50,7 @@ function Ways({
   slot: MealSlot;
   onLog: (inputs: ReadonlyArray<DiaryEntryInput>) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("describe");
+  const [tab, setTab] = useState<Tab>("recents");
   return (
     <div {...stylex.props(styles.sections)}>
       <div
@@ -71,7 +72,9 @@ function Ways({
         ))}
       </div>
       <div role="tabpanel">
-        {tab === "describe" ? (
+        {tab === "recents" ? (
+          <Recents date={date} slot={slot} onLog={onLog} />
+        ) : tab === "describe" ? (
           <DescribeIt date={date} slot={slot} onLog={onLog} />
         ) : tab === "recipe" ? (
           <RecipePicker date={date} slot={slot} onLog={onLog} />
