@@ -30,7 +30,12 @@ export const AuthorizationLive = Layer.effect(
         }
         const headers = new Headers(request.headers as Record<string, string>);
         // getSession resolves null when signed out; a rejection is an outage, not a 401.
-        const session = yield* Effect.promise(() => auth.api.getSession({ headers }));
+        // The signed session_data cookie would otherwise satisfy getSession for up to
+        // cookieCache.maxAge without touching the database, so a replayed cookie would
+        // outlive sign-out and account deletion. Always check the session row.
+        const session = yield* Effect.promise(() =>
+          auth.api.getSession({ headers, query: { disableCookieCache: true } }),
+        );
         if (!session) {
           return yield* new Unauthorized({ message: copy.errors.unauthorized.text });
         }
