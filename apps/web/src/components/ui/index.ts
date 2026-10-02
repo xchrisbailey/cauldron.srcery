@@ -1,4 +1,4 @@
-export { Button, ButtonLink, IconButton } from "./Button";
+export { Button, ButtonLink, IconButton, IconButtonLink } from "./Button";
 export { Dialog, Sheet } from "./Dialog";
 export { EmptyState } from "./EmptyState";
 export { Input, Select, Textarea, TextField } from "./fields";

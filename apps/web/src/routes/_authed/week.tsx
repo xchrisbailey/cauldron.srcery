@@ -14,8 +14,8 @@ import {
   toPlanRecipe,
   weekDays,
 } from "@cauldron/shared";
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { BagGlyph, PlusGlyph } from "../../components/glyphs";
@@ -86,7 +86,7 @@ function Planner({
 }: {
   cursor: WeekCursor;
 }) {
-  const navigate = useNavigate({ from: Route.fullPath });
+  const queryClient = useQueryClient();
   const days = useMemo(() => weekDays(start), [start]);
   const week = useQuery(weekQuery(start));
   const writes = usePlanWrites(startsOn);
@@ -100,7 +100,11 @@ function Planner({
   const chosenDay = chosen !== null && days.includes(chosen) ? chosen : null;
   const phoneDay = chosenDay ?? (days.includes(today) ? today : days[0]!);
 
-  const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
+  // The week and its Gather bar, so neither pops in after the switch.
+  const prefetchWeek = (weekStart: string) => {
+    void queryClient.prefetchQuery(weekQuery(weekStart));
+    void queryClient.prefetchQuery(gatherQuery(weekStart));
+  };
 
   /** A recipe goes through the days picker, so its servings can feed more than one day. */
   const stir = (target: Target, recipe: PlanRecipe, position?: number) =>
@@ -183,7 +187,7 @@ function Planner({
         }
       />
 
-      <WeekRange start={start} thisWeek={thisWeek} onGo={goTo} />
+      <WeekRange start={start} thisWeek={thisWeek} searchFor={searchFor} prefetch={prefetchWeek} />
 
       {week.isError ? (
         <EmptyState
