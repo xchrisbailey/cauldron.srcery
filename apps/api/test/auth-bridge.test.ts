@@ -1,17 +1,21 @@
 import { schema } from "@cauldron/db";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
+import { symmetricDecrypt } from "better-auth/crypto";
 import { OAuth2Server } from "oauth2-mock-server";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Db } from "../src/Db.ts";
 import { makeAuthApi } from "./auth-helpers.ts";
 import { sessionCookie, url, WEB_ORIGIN } from "./helpers.ts";
 
+// AppConfig.layerTest's auth secret.
+const TEST_SECRET = "test-secret-test-secret-test-secret";
+
 describe("Better Auth bridge", () => {
   const oidc = new OAuth2Server();
   let api: ReturnType<typeof makeAuthApi>;
   // What the provider's token endpoint actually issued, as the plain values.
-  let issued: { access_token?: string; id_token?: string } = {};
+  let issued: { access_token?: string; id_token?: string; refresh_token?: string } = {};
 
   beforeAll(async () => {
     await oidc.issuer.keys.generate("RS256");
@@ -150,7 +154,17 @@ describe("Better Auth bridge", () => {
     expect(stored?.accessToken).toBeTruthy();
     expect(stored?.accessToken).not.toBe(issued.access_token);
     expect(stored?.accessToken).not.toMatch(/^eyJ/);
-    // Better Auth 1.7.6 encrypts the access and refresh tokens only; the ID token is stored as issued.
-    expect(stored?.idToken).toBeTruthy();
+    // The stored value is the issued token, encrypted with the auth secret.
+    expect(await symmetricDecrypt({ key: TEST_SECRET, data: stored!.accessToken! })).toBe(
+      issued.access_token,
+    );
+    if (issued.refresh_token) {
+      expect(stored?.refreshToken).not.toBe(issued.refresh_token);
+      expect(await symmetricDecrypt({ key: TEST_SECRET, data: stored!.refreshToken! })).toBe(
+        issued.refresh_token,
+      );
+    }
+    // Better Auth doesn't encrypt the ID token, so we don't store it at all.
+    expect(stored?.idToken).toBeNull();
   });
 });
