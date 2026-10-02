@@ -24,6 +24,7 @@ import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes
 import { Route as AuthedRecipesDistillRouteImport } from './routes/_authed/recipes/distill'
 import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
 import { Route as AuthedTrackerIndexRouteImport } from './routes/_authed/tracker/index'
+import { Route as AuthedTrackerCheckInRouteImport } from './routes/_authed/tracker/check-in'
 import { Route as AuthedTrackerTargetsRouteImport } from './routes/_authed/tracker/targets'
 import { Route as AuthedTrackerWeightRouteImport } from './routes/_authed/tracker/weight'
 import { Route as KitchenBrewIdRouteImport } from './routes/_kitchen/brew.$id'
@@ -102,6 +103,11 @@ const AuthedTrackerIndexRoute = AuthedTrackerIndexRouteImport.update({
   path: '/tracker/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedTrackerCheckInRoute = AuthedTrackerCheckInRouteImport.update({
+  id: '/tracker/check-in',
+  path: '/tracker/check-in',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedTrackerTargetsRoute = AuthedTrackerTargetsRouteImport.update({
   id: '/tracker/targets',
   path: '/tracker/targets',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/tracker/check-in': typeof AuthedTrackerCheckInRoute
   '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/tracker/weight': typeof AuthedTrackerWeightRoute
   '/brew/$id': typeof KitchenBrewIdRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/tracker/check-in': typeof AuthedTrackerCheckInRoute
   '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/tracker/weight': typeof AuthedTrackerWeightRoute
   '/brew/$id': typeof KitchenBrewIdRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/_authed/recipes/distill': typeof AuthedRecipesDistillRoute
   '/_authed/recipes/new': typeof AuthedRecipesNewRoute
+  '/_authed/tracker/check-in': typeof AuthedTrackerCheckInRoute
   '/_authed/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/_authed/tracker/weight': typeof AuthedTrackerWeightRoute
   '/_kitchen/brew/$id': typeof KitchenBrewIdRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/tracker/check-in'
     | '/tracker/targets'
     | '/tracker/weight'
     | '/brew/$id'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/tracker/check-in'
     | '/tracker/targets'
     | '/tracker/weight'
     | '/brew/$id'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/_authed/recipes/distill'
     | '/_authed/recipes/new'
+    | '/_authed/tracker/check-in'
     | '/_authed/tracker/targets'
     | '/_authed/tracker/weight'
     | '/_kitchen/brew/$id'
@@ -365,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedTrackerIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/tracker/check-in': {
+      id: '/_authed/tracker/check-in'
+      path: '/tracker/check-in'
+      fullPath: '/tracker/check-in'
+      preLoaderRoute: typeof AuthedTrackerCheckInRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/tracker/targets': {
       id: '/_authed/tracker/targets'
       path: '/tracker/targets'
@@ -409,6 +428,7 @@ interface AuthedRouteChildren {
   AuthedWeekRoute: typeof AuthedWeekRoute
   AuthedRecipesDistillRoute: typeof AuthedRecipesDistillRoute
   AuthedRecipesNewRoute: typeof AuthedRecipesNewRoute
+  AuthedTrackerCheckInRoute: typeof AuthedTrackerCheckInRoute
   AuthedTrackerTargetsRoute: typeof AuthedTrackerTargetsRoute
   AuthedTrackerWeightRoute: typeof AuthedTrackerWeightRoute
   AuthedRecipesIndexRoute: typeof AuthedRecipesIndexRoute
@@ -423,6 +443,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedWeekRoute: AuthedWeekRoute,
   AuthedRecipesDistillRoute: AuthedRecipesDistillRoute,
   AuthedRecipesNewRoute: AuthedRecipesNewRoute,
+  AuthedTrackerCheckInRoute: AuthedTrackerCheckInRoute,
   AuthedTrackerTargetsRoute: AuthedTrackerTargetsRoute,
   AuthedTrackerWeightRoute: AuthedTrackerWeightRoute,
   AuthedRecipesIndexRoute: AuthedRecipesIndexRoute,

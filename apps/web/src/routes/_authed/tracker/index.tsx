@@ -32,7 +32,8 @@ import { dayLabel } from "../../../lib/dates";
 import { useDiaryWrites } from "../../../lib/diary-writes";
 import { pageTitle } from "../../../lib/page-title";
 import { localToday } from "../../../lib/recipes";
-import { dayQuery, settingsQuery } from "../../../lib/tracker";
+import { isCheckInDue } from "../../../lib/check-in";
+import { dayQuery, settingsQuery, weighInsQuery } from "../../../lib/tracker";
 import { colors, fonts } from "../../../styles/tokens.stylex";
 
 // The diary (#113): one day at a time, eaten against target on top, then
@@ -115,6 +116,8 @@ function Diary({ today, date }: { today: string; date: string }) {
           </>
         }
       />
+
+      {date === today ? <CheckInBanner today={today} /> : null}
 
       <nav aria-label={copy.tracker.diary.pickDay.text} {...stylex.props(styles.dayNav)}>
         <Link
@@ -232,6 +235,22 @@ function Diary({ today, date }: { today: string; date: string }) {
   );
 }
 
+/** Offered once a week, when there's a week of weigh-ins to go on. */
+function CheckInBanner({ today }: { today: string }) {
+  const settings = useQuery(settingsQuery());
+  const weighIns = useQuery(weighInsQuery(addDays(today, -365), today));
+  if (!settings.data || !weighIns.data) return null;
+  if (!isCheckInDue({ settings: settings.data, weighIns: weighIns.data, today })) return null;
+  return (
+    <aside {...stylex.props(styles.banner)}>
+      <p {...stylex.props(styles.bannerText)}>{copy.tracker.checkIn.banner.text}</p>
+      <ButtonLink to="/tracker/check-in" variant="secondary">
+        {copy.tracker.checkIn.bannerAction.text}
+      </ButtonLink>
+    </aside>
+  );
+}
+
 const kcal = (n: number) =>
   `${Math.round(n).toLocaleString()} ${copy.tracker.macros.calories.text}`;
 
@@ -330,6 +349,20 @@ const styles = stylex.create({
     maxWidth: 760,
     width: "100%",
   },
+  banner: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingBlock: 12,
+    paddingInline: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.heat,
+  },
+  bannerText: { margin: 0, fontSize: 14, color: colors.ink, flexGrow: 1, flexBasis: 240 },
   dayNav: { display: "flex", alignItems: "center", gap: 8 },
   step: {
     display: "inline-flex",
