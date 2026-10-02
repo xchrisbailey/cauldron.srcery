@@ -17,6 +17,7 @@ import { PlusGlyph } from "../../../components/glyphs";
 import { AddSheet } from "../../../components/tracker/AddSheet";
 import { CopyDayDialog, useCopyDay } from "../../../components/tracker/CopyDay";
 import { DayHeader } from "../../../components/tracker/DayHeader";
+import { WeighInAside } from "../../../components/tracker/WeighInAside";
 import { EntrySheet } from "../../../components/tracker/EntrySheet";
 import {
   Button,
@@ -31,7 +32,7 @@ import { dayLabel } from "../../../lib/dates";
 import { useDiaryWrites } from "../../../lib/diary-writes";
 import { pageTitle } from "../../../lib/page-title";
 import { localToday } from "../../../lib/recipes";
-import { dayQuery } from "../../../lib/tracker";
+import { dayQuery, settingsQuery } from "../../../lib/tracker";
 import { colors, fonts } from "../../../styles/tokens.stylex";
 
 // The diary (#113): one day at a time, eaten against target on top, then
@@ -79,6 +80,8 @@ const searchFor = (date: string, today: string): { day?: string } =>
 function Diary({ today, date }: { today: string; date: string }) {
   const queryClient = useQueryClient();
   const day = useQuery(dayQuery(date));
+  const settings = useQuery(settingsQuery());
+  const weightUnit = settings.data?.profile?.weightUnit ?? "kg";
   const writes = useDiaryWrites();
   const [adding, setAdding] = useState<MealSlot | null>(null);
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
@@ -103,6 +106,9 @@ function Diary({ today, date }: { today: string; date: string }) {
             <Button variant="secondary" onClick={() => setCopying(true)}>
               {copy.tracker.copyDay.open.text}
             </Button>
+            <ButtonLink to="/tracker/weight" variant="secondary">
+              {copy.tracker.weight.link.text}
+            </ButtonLink>
             <ButtonLink to="/tracker/targets" variant="secondary">
               {copy.tracker.header.targets.text}
             </ButtonLink>
@@ -160,7 +166,19 @@ function Diary({ today, date }: { today: string; date: string }) {
         </>
       ) : (
         <>
-          <DayHeader totals={day.data.totals} targets={day.data.targets} />
+          <DayHeader
+            totals={day.data.totals}
+            targets={day.data.targets}
+            aside={
+              <WeighInAside
+                key={date}
+                date={date}
+                today={today}
+                weighIn={day.data.weighIn}
+                unit={weightUnit}
+              />
+            }
+          />
           {entries.length === 0 ? (
             <div {...stylex.props(styles.emptyRow)}>
               <p {...stylex.props(styles.empty)}>{copy.tracker.diary.empty.text}</p>

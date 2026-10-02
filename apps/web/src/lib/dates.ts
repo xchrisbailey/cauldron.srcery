@@ -16,6 +16,14 @@ export const dayOfMonth = (day: string) => String(at(day).getDate());
 export const dayLabel = (day: string, width: "long" | "short") =>
   at(day).toLocaleDateString(undefined, { weekday: width, month: "short", day: "numeric" });
 
+/** "Oct 1", or "Oct 1, 2025" when `withYear`. */
+export const shortDate = (day: string, withYear = false) =>
+  at(day).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(withYear ? { year: "numeric" } : {}),
+  });
+
 /** "Sep 28 – Oct 4" for the week starting `start`. */
 export const weekRangeLabel = (start: string) => {
   const opts = { month: "short", day: "numeric" } as const;
