@@ -23,6 +23,7 @@ import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes/index'
 import { Route as AuthedRecipesDistillRouteImport } from './routes/_authed/recipes/distill'
 import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
+import { Route as AuthedTrackerIndexRouteImport } from './routes/_authed/tracker/index'
 import { Route as AuthedTrackerTargetsRouteImport } from './routes/_authed/tracker/targets'
 import { Route as KitchenBrewIdRouteImport } from './routes/_kitchen/brew.$id'
 import { Route as AuthedRecipesIdIndexRouteImport } from './routes/_authed/recipes/$id/index'
@@ -95,6 +96,11 @@ const AuthedRecipesNewRoute = AuthedRecipesNewRouteImport.update({
   path: '/recipes/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedTrackerIndexRoute = AuthedTrackerIndexRouteImport.update({
+  id: '/tracker/',
+  path: '/tracker/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedTrackerTargetsRoute = AuthedTrackerTargetsRouteImport.update({
   id: '/tracker/targets',
   path: '/tracker/targets',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes/': typeof AuthedRecipesIndexRoute
+  '/tracker/': typeof AuthedTrackerIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/recipes/$id/': typeof AuthedRecipesIdIndexRoute
 }
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes': typeof AuthedRecipesIndexRoute
+  '/tracker': typeof AuthedTrackerIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/recipes/$id': typeof AuthedRecipesIdIndexRoute
 }
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authed/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/_kitchen/brew/$id': typeof KitchenBrewIdRoute
   '/_authed/recipes/': typeof AuthedRecipesIndexRoute
+  '/_authed/tracker/': typeof AuthedTrackerIndexRoute
   '/_authed/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
   '/_authed/recipes/$id/': typeof AuthedRecipesIdIndexRoute
 }
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/tracker/targets'
     | '/brew/$id'
     | '/recipes/'
+    | '/tracker/'
     | '/recipes/$id/edit'
     | '/recipes/$id/'
   fileRoutesByTo: FileRoutesByTo
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/tracker/targets'
     | '/brew/$id'
     | '/recipes'
+    | '/tracker'
     | '/recipes/$id/edit'
     | '/recipes/$id'
   id:
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/_authed/tracker/targets'
     | '/_kitchen/brew/$id'
     | '/_authed/recipes/'
+    | '/_authed/tracker/'
     | '/_authed/recipes/$id/edit'
     | '/_authed/recipes/$id/'
   fileRoutesById: FileRoutesById
@@ -334,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRecipesNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/tracker/': {
+      id: '/_authed/tracker/'
+      path: '/tracker'
+      fullPath: '/tracker/'
+      preLoaderRoute: typeof AuthedTrackerIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/tracker/targets': {
       id: '/_authed/tracker/targets'
       path: '/tracker/targets'
@@ -373,6 +392,7 @@ interface AuthedRouteChildren {
   AuthedRecipesNewRoute: typeof AuthedRecipesNewRoute
   AuthedTrackerTargetsRoute: typeof AuthedTrackerTargetsRoute
   AuthedRecipesIndexRoute: typeof AuthedRecipesIndexRoute
+  AuthedTrackerIndexRoute: typeof AuthedTrackerIndexRoute
   AuthedRecipesIdEditRoute: typeof AuthedRecipesIdEditRoute
   AuthedRecipesIdIndexRoute: typeof AuthedRecipesIdIndexRoute
 }
@@ -385,6 +405,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedRecipesNewRoute: AuthedRecipesNewRoute,
   AuthedTrackerTargetsRoute: AuthedTrackerTargetsRoute,
   AuthedRecipesIndexRoute: AuthedRecipesIndexRoute,
+  AuthedTrackerIndexRoute: AuthedTrackerIndexRoute,
   AuthedRecipesIdEditRoute: AuthedRecipesIdEditRoute,
   AuthedRecipesIdIndexRoute: AuthedRecipesIdIndexRoute,
 }
