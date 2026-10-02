@@ -1,5 +1,6 @@
 import { copy, EmailInput, SignInInput, authErrorMessage } from "@cauldron/shared";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { SearchFlag } from "../../lib/search";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_public/sign-in")({
 function SignIn() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -48,6 +50,8 @@ function SignIn() {
         setNeedsVerification(code === "EMAIL_NOT_VERIFIED");
         return setError(authErrorMessage(code));
       }
+      // Whatever an earlier session left in the cache belongs to someone else.
+      queryClient.clear();
       await navigate({ href: to });
     },
   });
