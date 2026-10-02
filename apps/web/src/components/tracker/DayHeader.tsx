@@ -146,15 +146,16 @@ const styles = stylex.create({
   aside: { flexShrink: 0 },
   macros: {
     display: "grid",
-    gridTemplateColumns: { default: "repeat(3, 1fr)", [phone]: "1fr" },
-    gap: { default: 16, [phone]: 12 },
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: { default: 16, [phone]: 10 },
   },
   meter: { display: "flex", flexDirection: "column", gap: 6, flexGrow: 1, minWidth: 0 },
   meterHead: {
     display: "flex",
-    alignItems: "baseline",
+    flexDirection: { default: "row", [phone]: "column" },
+    alignItems: { default: "baseline", [phone]: "flex-start" },
     justifyContent: "space-between",
-    gap: 8,
+    gap: { default: 8, [phone]: 2 },
   },
   label: {
     display: "inline-flex",
@@ -171,12 +172,12 @@ const styles = stylex.create({
   figures: {
     fontFamily: fonts.mono,
     fontVariantNumeric: "tabular-nums",
-    fontSize: 14,
+    fontSize: { default: 14, [phone]: 13 },
     fontWeight: 500,
     color: colors.ink,
     whiteSpace: "nowrap",
   },
-  figuresBig: { fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" },
+  figuresBig: { fontSize: { default: 24, [phone]: 22 }, fontWeight: 600, letterSpacing: "-0.02em" },
   of: { color: colors.subtext, fontWeight: 400 },
   unit: { fontSize: 12, fontWeight: 400, color: colors.overlay1 },
   track: {
