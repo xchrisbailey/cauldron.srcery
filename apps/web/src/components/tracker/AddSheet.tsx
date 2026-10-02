@@ -3,6 +3,7 @@ import { copy, type DiaryEntryInput, type MealSlot, TRACKER_LIMITS } from "@caul
 import { type FormEvent, useEffect, useState } from "react";
 import { Button, Dialog, FormMessage, Input } from "../ui";
 import { colors, fonts } from "../../styles/tokens.stylex";
+import { DescribeIt } from "./DescribeIt";
 import { emptyDraft, type MacroDraft, MacroFields, readDraft } from "./MacroFields";
 
 // What the diary's add button opens, for one meal slot. Quick add by numbers
@@ -28,7 +29,13 @@ export function AddSheet({
       title={copy.tracker.entry.addTitle(slotName).text}
     >
       {slot === null ? null : (
-        <QuickAdd key={`${date}/${slot}`} date={date} slot={slot} onLog={onLog} />
+        <div key={`${date}/${slot}`} {...stylex.props(styles.sections)}>
+          <DescribeIt date={date} slot={slot} onLog={onLog} />
+          <details {...stylex.props(styles.more)}>
+            <summary {...stylex.props(styles.summary)}>{copy.tracker.entry.quickAdd.text}</summary>
+            <QuickAdd date={date} slot={slot} onLog={onLog} />
+          </details>
+        </div>
       )}
     </Dialog>
   );
@@ -70,10 +77,7 @@ function QuickAdd({
 
   return (
     <form onSubmit={submit} noValidate {...stylex.props(styles.form)}>
-      <div>
-        <h3 {...stylex.props(styles.heading)}>{copy.tracker.entry.quickAdd.text}</h3>
-        <p {...stylex.props(styles.hint)}>{copy.tracker.entry.quickAddHint.text}</p>
-      </div>
+      <p {...stylex.props(styles.hint)}>{copy.tracker.entry.quickAddHint.text}</p>
       <div {...stylex.props(styles.row)}>
         <Input
           label={copy.tracker.entry.name.text}
@@ -101,8 +105,15 @@ function QuickAdd({
 }
 
 const styles = stylex.create({
-  form: { display: "flex", flexDirection: "column", gap: 12 },
-  heading: { margin: 0, fontSize: 14, fontWeight: 650 },
+  sections: { display: "flex", flexDirection: "column", gap: 16 },
+  more: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: colors.surface0,
+  },
+  summary: { cursor: "pointer", fontSize: 14, fontWeight: 650, marginBottom: 8 },
+  form: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 },
   hint: { margin: 0, fontSize: 13, color: colors.subtext },
   row: {
     display: "grid",
