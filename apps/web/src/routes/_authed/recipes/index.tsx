@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy, type RecipeSort, type RecipeSummary } from "@cauldron/shared";
-import { useDebouncedCallback } from "@tanstack/react-pacer";
+import { useDebouncer } from "@tanstack/react-pacer";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -70,23 +70,29 @@ function Recipes() {
   const filtered = Boolean(search.q || search.tag);
 
   // The field updates as you type; the URL (and the query) follow, debounced.
-  const [text, setText] = useState(search.q ?? "");
-  // The last value we put in the URL, to tell our own update from another one.
-  const sent = useRef(search.q ?? "");
-  const [seen, setSeen] = useState(search.q);
-  const setQ = useDebouncedCallback(
+  const urlQ = search.q ?? "";
+  const [text, setText] = useState(urlQ);
+  // The last q this page put in the URL, to tell our own update from another one.
+  const [sent, setSent] = useState(urlQ);
+  const [seen, setSeen] = useState(urlQ);
+  const searchFor = useDebouncer(
     (value: string) => {
       const q = value.trim();
-      sent.current = q;
+      setSent(q);
       void navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true });
     },
     { wait: 200 },
   );
   // The field follows the URL when it changes on its own (the Recipes link,
-  // back and forward, Clear filters), adjusted during render rather than in an effect.
-  if (search.q !== seen) {
-    setSeen(search.q);
-    if ((search.q ?? "") !== sent.current) setText(search.q ?? "");
+  // back and forward), adjusted during render rather than in an effect. A
+  // search still waiting to go out would undo that, so it's dropped.
+  if (urlQ !== seen) {
+    setSeen(urlQ);
+    if (urlQ !== sent) {
+      searchFor.cancel();
+      setSent(urlQ);
+      setText(urlQ);
+    }
   }
 
   const tags = useQuery(tagsQuery());
@@ -126,7 +132,7 @@ function Recipes() {
             placeholder={copy.library.searchPlaceholder.text}
             onChange={(e) => {
               setText(e.target.value);
-              setQ(e.target.value);
+              searchFor.maybeExecute(e.target.value);
             }}
             autoComplete="off"
             {...stylex.props(control.field)}
@@ -192,8 +198,9 @@ function Recipes() {
               <Button
                 variant="secondary"
                 onClick={() => {
+                  searchFor.cancel();
                   setText("");
-                  sent.current = "";
+                  setSent("");
                   void navigate({
                     search: (prev) => ({ ...prev, q: undefined, tag: undefined }),
                     replace: true,

@@ -68,7 +68,9 @@ function Brew() {
         actions={
           <>
             {notFound ? null : (
-              <Button onClick={() => void recipe.refetch()}>{copy.library.retry.text}</Button>
+              <Button disabled={recipe.isFetching} onClick={() => void recipe.refetch()}>
+                {copy.ui.tryAgain.text}
+              </Button>
             )}
             <ButtonLink to="/recipes" variant="secondary">
               {copy.recipeView.backToRecipes.text}
