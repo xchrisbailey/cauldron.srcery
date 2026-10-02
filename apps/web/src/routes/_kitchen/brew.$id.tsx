@@ -45,8 +45,19 @@ export const Route = createFileRoute("/_kitchen/brew/$id")({
   loader: ({ context, params }) => {
     void context.queryClient.prefetchQuery(recipeQuery(params.id));
   },
+  // Server-rendered in place of the page, which only renders in the browser.
+  pendingComponent: BrewSkeleton,
   component: Brew,
 });
+
+function BrewSkeleton() {
+  return (
+    <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.screen)}>
+      <Skeleton height={24} width="50%" />
+      <Skeleton height={160} />
+    </div>
+  );
+}
 
 function Brew() {
   const { id } = Route.useParams();
@@ -54,14 +65,7 @@ function Brew() {
   // patchy kitchen signal mustn't tear down the page (and its timers).
   const recipe = useQuery({ ...recipeQuery(id), staleTime: Infinity, refetchOnWindowFocus: false });
   if (recipe.data) return <Brewing recipe={recipe.data} />;
-  if (recipe.isPending) {
-    return (
-      <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.screen)}>
-        <Skeleton height={24} width="50%" />
-        <Skeleton height={160} />
-      </div>
-    );
-  }
+  if (recipe.isPending) return <BrewSkeleton />;
   const notFound = failureOf(recipe.error).tag === "NotFound";
   return (
     <div {...stylex.props(styles.screen)}>

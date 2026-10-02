@@ -38,4 +38,6 @@ export const sessionQuery = queryOptions({
   queryKey: ["session"],
   queryFn: () => getSession(),
   staleTime: (query) => (query.state.data ? 60_000 : 0),
+  // Every page waits on this; with the API down, fail now rather than after backoff.
+  retry: false,
 });

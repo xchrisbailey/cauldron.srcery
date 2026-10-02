@@ -48,8 +48,29 @@ export const Route = createFileRoute("/_authed/recipes/")({
     void context.queryClient.prefetchInfiniteQuery(libraryQuery(deps));
     void context.queryClient.prefetchQuery(tagsQuery());
   },
+  // Server-rendered in place of the page, which only renders in the browser.
+  pendingComponent: LibrarySkeleton,
   component: Recipes,
 });
+
+function LibrarySkeleton() {
+  return (
+    <>
+      <PageHeader title={copy.nav.recipes.text} />
+      <RecipeSkeletons />
+    </>
+  );
+}
+
+function RecipeSkeletons() {
+  return (
+    <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.skeletons)}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <Skeleton key={i} height={220} />
+      ))}
+    </div>
+  );
+}
 
 type View = "grid" | "list";
 const CARD_MIN = 220;
@@ -185,11 +206,7 @@ function Recipes() {
       </div>
 
       {library.isPending ? (
-        <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.skeletons)}>
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} height={220} />
-          ))}
-        </div>
+        <RecipeSkeletons />
       ) : library.isError && !library.data ? (
         <FormMessage tone="error">{copy.errors.internal.text}</FormMessage>
       ) : recipes.length === 0 ? (
