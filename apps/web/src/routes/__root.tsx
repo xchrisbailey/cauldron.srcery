@@ -27,7 +27,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       ...(import.meta.env.DEV ? [{ rel: "stylesheet", href: "/virtual:stylex.css" }] : []),
     ],
-    scripts: [{ children: themeScript }],
+    scripts: [
+      { children: themeScript },
+      // The StyleX plugin only adds its dev runtime through index.html, which Start doesn't
+      // use. Without it the stylesheet above is the CSS as of the first page load, so a
+      // route compiled later (on client navigation) renders with its classes but no rules.
+      ...(import.meta.env.DEV ? [{ type: "module", src: "/@id/virtual:stylex:runtime" }] : []),
+    ],
   }),
   component: RootComponent,
   notFoundComponent: NotFound,
