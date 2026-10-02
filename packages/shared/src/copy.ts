@@ -509,6 +509,13 @@ export const gather = {
   retry: plain("Try again"),
 } as const;
 
+// The tracker (#23). Logging and divining are voice; numbers, units, meals,
+// controls and errors are plain.
+export const tracker = {
+  title: plain("Tracker"),
+  dayFull: plain("That day is full. Remove something first."),
+} as const;
+
 export const nav = {
   recipes: plain("Recipes"),
   week: plain("The week"),
