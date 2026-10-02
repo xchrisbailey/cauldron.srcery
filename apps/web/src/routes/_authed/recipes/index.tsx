@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy, type RecipeSort, type RecipeSummary } from "@cauldron/shared";
-import { useDebouncedValue } from "@tanstack/react-pacer";
+import { useDebouncedCallback } from "@tanstack/react-pacer";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Schema } from "effect";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { RecipeCard, RecipeRow } from "../../../components/RecipeCard";
 import {
   Button,
@@ -71,17 +71,23 @@ function Recipes() {
 
   // The field updates as you type; the URL (and the query) follow, debounced.
   const [text, setText] = useState(search.q ?? "");
-  const [debounced] = useDebouncedValue(text, { wait: 200 });
-  const q = debounced.trim();
-  useEffect(() => {
-    if ((search.q ?? "") === q) return;
-    void navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true });
-  }, [q]);
-  // And the field follows the URL when it changes on its own (the Recipes
-  // link, back and forward). After our own debounced update they agree.
-  useEffect(() => {
-    if ((search.q ?? "") !== q) setText(search.q ?? "");
-  }, [search.q]);
+  // The last value we put in the URL, to tell our own update from another one.
+  const sent = useRef(search.q ?? "");
+  const [seen, setSeen] = useState(search.q);
+  const setQ = useDebouncedCallback(
+    (value: string) => {
+      const q = value.trim();
+      sent.current = q;
+      void navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true });
+    },
+    { wait: 200 },
+  );
+  // The field follows the URL when it changes on its own (the Recipes link,
+  // back and forward, Clear filters), adjusted during render rather than in an effect.
+  if (search.q !== seen) {
+    setSeen(search.q);
+    if ((search.q ?? "") !== sent.current) setText(search.q ?? "");
+  }
 
   const tags = useQuery(tagsQuery());
   const library = useInfiniteQuery({
@@ -118,7 +124,10 @@ function Recipes() {
             type="search"
             value={text}
             placeholder={copy.library.searchPlaceholder.text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              setQ(e.target.value);
+            }}
             autoComplete="off"
             {...stylex.props(control.field)}
           />
@@ -184,6 +193,7 @@ function Recipes() {
                 variant="secondary"
                 onClick={() => {
                   setText("");
+                  sent.current = "";
                   void navigate({
                     search: (prev) => ({ ...prev, q: undefined, tag: undefined }),
                     replace: true,
