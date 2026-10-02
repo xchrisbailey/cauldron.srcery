@@ -52,11 +52,15 @@ export const failureOf = (error: unknown): Failure => {
   return { tag: "Defect", message };
 };
 
+const REFUSED: ReadonlyArray<FailureTag> = [
+  "NotFound",
+  "InvalidRequest",
+  "Unauthorized",
+  "Forbidden",
+];
+
 /** The API refused the request itself, so retrying it won't help. */
-export const refused = (error: unknown) => {
-  const { tag } = failureOf(error);
-  return tag === "NotFound" || tag === "InvalidRequest";
-};
+export const refused = (error: unknown) => REFUSED.includes(failureOf(error).tag);
 
 /** A TanStack Query `retry` function: up to `max` retries, none once the API has refused. */
 export const retryWhile =

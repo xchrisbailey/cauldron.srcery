@@ -68,9 +68,12 @@ describe("failureOf", () => {
 });
 
 describe("refused and retryWhile", () => {
-  it("refuses NotFound and InvalidRequest only", () => {
+  it("refuses NotFound, InvalidRequest, Unauthorized and Forbidden only", () => {
     expect(refused(notFound)).toBe(true);
     expect(refused(invalid)).toBe(true);
+    expect(refused(unauthorized)).toBe(true);
+    expect(refused(forbidden)).toBe(true);
+    expect(refused(unavailable)).toBe(false);
     expect(refused(tooMany)).toBe(false);
     expect(refused(new TypeError("Failed to fetch"))).toBe(false);
     expect(refused(new Error("boom"))).toBe(false);
