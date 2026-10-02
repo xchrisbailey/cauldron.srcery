@@ -95,6 +95,15 @@ const makeAuth = (
       },
     },
     user: { deleteUser: { enabled: true } },
+    session: {
+      expiresIn: 60 * 60 * 24 * 7, // sessions last 7 days...
+      updateAge: 60 * 60 * 24, // ...and slide forward at most once a day
+      // Deleting an account without a password (social-only accounts) needs a
+      // session this young, so a stale or stolen session can't wipe the account.
+      freshAge: 60 * 15,
+      // cookieCache is deliberately off: revocation (sign-out, deletion, password
+      // reset, revoke-sessions) must take effect immediately, not after a cache expiry.
+    },
     // Better Auth only reads headers, never the socket. Follow the same rule as
     // http/ClientIp.ts: trust the web proxy's x-client-ip when configured to,
     // otherwise record no IP rather than believe a client-supplied header.

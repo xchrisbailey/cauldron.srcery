@@ -1,10 +1,13 @@
 import { Api, Authorization } from "@cauldron/api-spec";
+import { schema } from "@cauldron/db";
 import { copy } from "@cauldron/shared";
+import { eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { OAuth2Server } from "oauth2-mock-server";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Auth } from "../src/Auth.ts";
+import { Db } from "../src/Db.ts";
 import { AuthorizationLive } from "../src/http/Authorization.ts";
 import { AuthRoute } from "../src/http/AuthRoute.ts";
 import { RateLimitLive } from "../src/http/RateLimit.ts";
@@ -439,6 +442,68 @@ describe("OAuth account linking", () => {
     const res = await api.post("/v1/auth/delete-user", {}, { cookie });
     expect(res.status).toBe(200);
     expect((await me(api, { cookie })).status).toBe(401);
+  });
+
+  /** Every cookie a response sets (session_token, plus session_data if the cookie cache is ever turned on), as one header. */
+  const jarOf = (res: Response) =>
+    res.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0]!)
+      .filter((pair) => !pair.endsWith("="))
+      .join("; ");
+
+  /** Pretend the session was created `ms` ago. */
+  const ageSession = (email: string, ms: number) =>
+    api.run(
+      Effect.gen(function* () {
+        const db = yield* Db;
+        const [row] = yield* db.use((d) =>
+          d.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.email, email)),
+        );
+        yield* db.use((d) =>
+          d
+            .update(schema.session)
+            .set({ createdAt: new Date(Date.now() - ms) })
+            .where(eq(schema.session.userId, row!.id)),
+        );
+      }),
+    );
+
+  it("won't delete a social-only account from a session older than freshAge", async () => {
+    const email = "stale-social@example.com";
+    const cookie = cookieOf(await oauthSignIn(email))!;
+    await ageSession(email, 16 * 60 * 1000);
+    // Still a valid session, just not a fresh one.
+    expect((await me(api, { cookie })).status).toBe(200);
+    const res = await api.post("/v1/auth/delete-user", {}, { cookie });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "SESSION_EXPIRED" });
+    expect((await me(api, { cookie })).status).toBe(200);
+  });
+
+  it("still deletes a social-only account from a session inside freshAge", async () => {
+    const email = "fresh-social@example.com";
+    const cookie = cookieOf(await oauthSignIn(email))!;
+    await ageSession(email, 10 * 60 * 1000);
+    const res = await api.post("/v1/auth/delete-user", {}, { cookie });
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a replayed session cookie after sign-out", async () => {
+    const jar = jarOf(await oauthSignIn("replay-signout@example.com"));
+    expect((await me(api, { cookie: jar })).status).toBe(200);
+    const out = await api.post("/v1/auth/sign-out", {}, { cookie: jar });
+    expect(out.status).toBe(200);
+    expect((await me(api, { cookie: jar })).status).toBe(401);
+    expect((await api.send("/v1/recipes", { headers: { cookie: jar } })).status).toBe(401);
+  });
+
+  it("rejects a replayed session cookie after the account is deleted", async () => {
+    const jar = jarOf(await oauthSignIn("replay-delete@example.com"));
+    expect((await me(api, { cookie: jar })).status).toBe(200);
+    expect((await api.post("/v1/auth/delete-user", {}, { cookie: jar })).status).toBe(200);
+    expect((await me(api, { cookie: jar })).status).toBe(401);
+    expect((await api.send("/v1/recipes", { headers: { cookie: jar } })).status).toBe(401);
   });
 
   it("links into a verified password account with the same email", async () => {
