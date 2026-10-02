@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders, setResponseHeader } from "@tanstack/react-start/server";
 
@@ -26,3 +27,15 @@ export const getSession = createServerFn({ method: "GET" }).handler(
       : null;
   },
 );
+
+/**
+ * The session for route guards, through the query cache. Guards run on every
+ * navigation and every intent preload, so a signed-in session is reused for a
+ * minute instead of asking the API each time. Signed out is never kept, so
+ * signing in is seen at once; signing out clears the cache (account.tsx).
+ */
+export const sessionQuery = queryOptions({
+  queryKey: ["session"],
+  queryFn: () => getSession(),
+  staleTime: (query) => (query.state.data ? 60_000 : 0),
+});
