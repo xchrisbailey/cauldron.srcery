@@ -40,9 +40,5 @@ const ButtonAnchor = forwardRef<
   return <a ref={ref} {...props} {...stylex.props(button.base, button[variant], focusRing.ring)} />;
 });
 
-const CreatedButtonLink = createLink(ButtonAnchor);
-
 /** A router link that looks like a button. */
-export const ButtonLink: LinkComponent<typeof ButtonAnchor> = (props) => (
-  <CreatedButtonLink preload="intent" {...props} />
-);
+export const ButtonLink: LinkComponent<typeof ButtonAnchor> = createLink(ButtonAnchor);

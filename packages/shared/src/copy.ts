@@ -515,6 +515,7 @@ export const ui = {
   menu: plain("Menu"),
   close: plain("Close"),
   loading: plain("Loading"),
+  tryAgain: plain("Try again"),
   skipToContent: plain("Skip to content"),
   mainNav: plain("Main"),
   goHome: plain("Back to Cauldron"),

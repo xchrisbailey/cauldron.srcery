@@ -19,7 +19,6 @@ export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
     <Link
       to="/recipes/$id"
       params={{ id: recipe.id }}
-      preload="intent"
       {...stylex.props(styles.card, focusRing.ring)}
     >
       <div {...stylex.props(styles.photo)}>
@@ -59,7 +58,6 @@ export function RecipeRow({ recipe }: { recipe: RecipeSummary }) {
     <Link
       to="/recipes/$id"
       params={{ id: recipe.id }}
-      preload="intent"
       {...stylex.props(styles.row, focusRing.ring)}
     >
       <span {...stylex.props(styles.rowTitle)}>{recipe.title}</span>
