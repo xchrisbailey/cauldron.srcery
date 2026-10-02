@@ -315,3 +315,62 @@ export const MealEstimate = Schema.Struct({
   items: Schema.Array(DescribedItem),
 }).annotate({ identifier: "MealEstimate" });
 export type MealEstimate = typeof MealEstimate.Type;
+
+/** Recents and favourites (#116): foods to log again in one tap. */
+export const FavouriteId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("FavouriteId"));
+export type FavouriteId = typeof FavouriteId.Type;
+
+/** Something logged before, as it was last logged: what a one-tap re-log copies. */
+export const QuickFood = Schema.Struct({
+  name: Schema.String,
+  amount: Schema.NullOr(Schema.String),
+  /** Servings the last time it was logged. */
+  servings: Schema.Number,
+  /** Per serving. */
+  macros: Macros,
+  source: DiarySource,
+  recipeId: Schema.NullOr(RecipeId),
+}).annotate({ identifier: "QuickFood" });
+export type QuickFood = typeof QuickFood.Type;
+
+export const Favourite = Schema.Struct({
+  id: FavouriteId,
+  food: QuickFood,
+}).annotate({ identifier: "Favourite" });
+export type Favourite = typeof Favourite.Type;
+
+export const RecentFood = Schema.Struct({
+  food: QuickFood,
+  /** Times logged in the recent window. */
+  count: Schema.Int,
+  lastLoggedOn: LocalDate,
+  /** The latest entry it was logged as, for starring it. */
+  lastEntryId: DiaryEntryId,
+}).annotate({ identifier: "RecentFood" });
+export type RecentFood = typeof RecentFood.Type;
+
+export const QuickFoods = Schema.Struct({
+  favourites: Schema.Array(Favourite),
+  /** Most often logged first, then most recent. Starred foods are left out (they're above). */
+  recents: Schema.Array(RecentFood),
+}).annotate({ identifier: "QuickFoods" });
+export type QuickFoods = typeof QuickFoods.Type;
+
+/** Star a logged entry: it becomes a favourite as it was logged. */
+export const FavouriteInput = Schema.Struct({ entryId: DiaryEntryId });
+export type FavouriteInput = typeof FavouriteInput.Type;
+
+/** Copy a day's entries (or one meal's) from `from` into `to`. */
+export const DiaryCopyInput = Schema.Struct({
+  from: LocalDate,
+  to: LocalDate,
+  /** Only this meal; the whole day when left out. */
+  slot: Schema.optionalKey(Schema.NullOr(MealSlot)),
+});
+export type DiaryCopyInput = typeof DiaryCopyInput.Type;
+
+/** The key recents and favourites are matched by: the recipe, or the name and amount. */
+export const quickFoodKey = (food: Pick<QuickFood, "recipeId" | "name" | "amount">) =>
+  food.recipeId !== null
+    ? `recipe:${food.recipeId}`
+    : `food:${food.name.trim().toLowerCase()}|${(food.amount ?? "").trim().toLowerCase()}`;

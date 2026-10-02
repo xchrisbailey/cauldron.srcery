@@ -11,6 +11,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { ActivityLevel, DiarySource, Goal, HeightUnit, Sex, WeightUnit } from "@cauldron/shared";
@@ -131,5 +132,41 @@ export const weighIn = pgTable(
   (t) => [
     primaryKey({ columns: [t.ownerId, t.date] }),
     check("weigh_in_weight_positive", sql`${t.weightKg} > 0`),
+  ],
+);
+
+/** A starred food (#116): a snapshot of an entry, to log again in one tap. */
+export const trackerFavourite = pgTable(
+  "tracker_favourite",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: ownerId(),
+    /** `quickFoodKey`: the recipe, or the lowercased name and amount. One favourite per key. */
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    amount: text("amount"),
+    servings: numeric("servings", { precision: 7, scale: 2, mode: "number" }).notNull(),
+    calories: integer("calories"),
+    proteinGrams: grams("protein_grams"),
+    carbsGrams: grams("carbs_grams"),
+    fatGrams: grams("fat_grams"),
+    source: diarySource("source").notNull(),
+    recipeId: uuid("recipe_id"),
+    ...timestamps(),
+  },
+  (t) => [
+    // Hand-edited to `ON DELETE SET NULL (recipe_id)` in the migration, like diary_entry.
+    foreignKey({
+      columns: [t.recipeId, t.ownerId],
+      foreignColumns: [recipe.id, recipe.ownerId],
+      name: "tracker_favourite_recipe_owner_fk",
+    }).onDelete("set null"),
+    uniqueIndex("tracker_favourite_owner_key_idx").on(t.ownerId, t.key),
+    index("tracker_favourite_recipe_idx").on(t.recipeId),
+    check("tracker_favourite_servings_positive", sql`${t.servings} > 0`),
+    check(
+      "tracker_favourite_macros_nonnegative",
+      sql`coalesce(${t.calories}, 0) >= 0 and coalesce(${t.proteinGrams}, 0) >= 0 and coalesce(${t.carbsGrams}, 0) >= 0 and coalesce(${t.fatGrams}, 0) >= 0`,
+    ),
   ],
 );

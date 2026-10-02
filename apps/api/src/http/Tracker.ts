@@ -41,6 +41,14 @@ export const TrackerHandlers = HttpApiBuilder.group(
         owned((owner) => tracker.update(owner, params.id, payload)),
       )
       .handle("remove", ({ params }) => owned((owner) => tracker.remove(owner, params.id)))
+      .handle("copy", ({ payload }) => owned((owner) => tracker.copyDay(owner, payload)))
+      .handle("quickFoods", () => owned((owner) => tracker.quickFoods(owner)))
+      .handle("favourite", ({ payload }) =>
+        owned((owner) => tracker.favourite(owner, payload.entryId)),
+      )
+      .handle("unfavourite", ({ params }) =>
+        owned((owner) => tracker.unfavourite(owner, params.id)),
+      )
       .handle("settings", () => owned((owner) => tracker.settings(owner)))
       .handle("saveProfile", ({ payload }) => owned((owner) => tracker.saveProfile(owner, payload)))
       .handle("saveTargets", ({ payload }) => owned((owner) => tracker.saveTargets(owner, payload)))
