@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { auth } from "./copy.ts";
+import { auth, errors } from "./copy.ts";
 
 // Input shapes for the account screens. Better Auth validates again on the
 // server; these give the web forms (and later iOS) the same rules and plain messages.
@@ -39,6 +39,8 @@ export const authErrorMessage = (code: string | undefined): string => {
       return auth.noPasswordOnAccount.text;
     case "SESSION_EXPIRED":
       return auth.signInAgainToDelete.text;
+    case "TOO_MANY_REQUESTS":
+      return errors.tooManyRequests.text;
     default:
       return auth.somethingWentWrong.text;
   }

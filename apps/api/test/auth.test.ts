@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Auth } from "../src/Auth.ts";
 import { AuthorizationLive } from "../src/http/Authorization.ts";
 import { AuthRoute } from "../src/http/AuthRoute.ts";
+import { RateLimitLive } from "../src/http/RateLimit.ts";
 import { type AuthApi, cookieOf, makeAuthApi } from "./auth-helpers.ts";
 import { WEB_ORIGIN } from "./helpers.ts";
 
@@ -297,7 +298,7 @@ describe("CSRF guard", () => {
   const routes = Layer.mergeAll(
     HttpApiBuilder.layer(TestApi).pipe(Layer.provide(ThingsLive), Layer.provide(AuthorizationLive)),
     AuthRoute,
-  ).pipe(Layer.provide(Auth.layer));
+  ).pipe(Layer.provide([Auth.layer, RateLimitLive]));
 
   let api: AuthApi;
   let cookie: string;

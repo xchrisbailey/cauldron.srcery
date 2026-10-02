@@ -22,6 +22,9 @@ const makeAuth = (
     secret: Redacted.value(config.authSecret),
     // Apple posts its callback from its own origin.
     trustedOrigins: [config.publicUrl, ...(apple ? ["https://appleid.apple.com"] : [])],
+    // http/AuthRoute.ts limits these endpoints with our own store and IP rule;
+    // Better Auth's limiter would be a second store that skips untracked IPs.
+    rateLimit: { enabled: false },
     database: drizzleAdapter(db.drizzle, {
       provider: "pg",
       schema: {
