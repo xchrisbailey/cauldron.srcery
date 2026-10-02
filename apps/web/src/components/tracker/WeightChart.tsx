@@ -3,10 +3,12 @@ import { copy, type TrendPoint, type WeightUnit } from "@cauldron/shared";
 import { shortDate } from "../../lib/dates";
 import { showNumber } from "../../lib/targets";
 import { buildChart } from "../../lib/weight";
+import { useEffect, useRef, useState } from "react";
 import { colors, fonts } from "../../styles/tokens.stylex";
 
 // Weigh-ins as dots and the smoothed trend as a line, drawn as inline SVG. The
-// viewBox scales it to the width of its box, so it reads on a phone too.
+// viewBox follows the box's own width, so the axis labels stay readable on a
+// phone instead of shrinking with a wide drawing.
 
 const t = copy.tracker.weight;
 
@@ -21,12 +23,24 @@ export function WeightChart({
   start: string;
   end: string;
 }) {
-  const chart = buildChart(points, unit, start, end);
+  const ref = useRef<HTMLElement>(null);
+  const [width, setWidth] = useState(640);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.max(280, Math.round(entry.contentRect.width)));
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+  const height = Math.round(Math.min(280, Math.max(200, width * 0.5)));
+  const chart = buildChart(points, unit, start, end, { width, height });
   const { plot } = chart;
   const first = points[0];
   const last = points[points.length - 1];
   return (
-    <figure {...stylex.props(styles.figure)}>
+    <figure ref={ref} {...stylex.props(styles.figure)}>
       <svg
         viewBox={`0 0 ${chart.width} ${chart.height}`}
         role="img"
