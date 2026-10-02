@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import {
   formatTimer,
+  macroLine,
   photoUrl,
   recipeMinutes,
   type RecipeSummary,
@@ -15,6 +16,7 @@ import { focusRing } from "./ui/controls";
 
 export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
   const minutes = recipeMinutes(recipe);
+  const macros = macroLine(recipe.macros);
   return (
     <Link
       to="/recipes/$id"
@@ -47,6 +49,12 @@ export function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
             <TagPill key={tag.id} tag={tag} />
           ))}
         </div>
+        {macros ? (
+          <p {...stylex.props(styles.macros)}>
+            <span aria-hidden="true">{macros.text}</span>
+            <span {...stylex.props(styles.srOnly)}>{macros.label}</span>
+          </p>
+        ) : null}
       </div>
     </Link>
   );
@@ -121,6 +129,24 @@ const styles = stylex.create({
   },
   meta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 },
   time: { fontFamily: fonts.mono, fontSize: 12, color: colors.subtext },
+  macros: {
+    margin: 0,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    fontVariantNumeric: "tabular-nums",
+    color: colors.subtext,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  srOnly: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+  },
   tag: {
     fontSize: 12,
     fontWeight: 500,

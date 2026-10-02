@@ -1,5 +1,6 @@
+import { library } from "./copy.ts";
 import type { PlanRecipe } from "./MealPlan.ts";
-import { RECIPE_LIMITS, type RecipeSummary } from "./Recipe.ts";
+import { type Macros, RECIPE_LIMITS, type RecipeSummary } from "./Recipe.ts";
 
 // Facts every client works out the same way from a recipe: how long it takes,
 // how much to scale it by, and the slice of it the week shows.
@@ -31,6 +32,28 @@ export const toPlanRecipe = (
   photoKey: recipe.photoKey,
   macros: recipe.macros,
 });
+
+/** In the order a card reads them: calories, then protein, fat and carbs. */
+const MACRO_LINE_ORDER = ["calories", "protein", "fat", "carbs"] as const;
+
+/**
+ * A recipe's per-serving macros as one compact line ("420 kcal · 32P · 18F ·
+ * 30C") and the words a screen reader says for it. Unknown values are left
+ * out; null when none are known.
+ */
+export const macroLine = (macros: Macros): { text: string; label: string } | null => {
+  const known = MACRO_LINE_ORDER.flatMap((key) => {
+    const value = macros[key];
+    return value === null ? [] : [{ key, value: Math.round(value).toLocaleString("en") }];
+  });
+  if (known.length === 0) return null;
+  const { macroLine: copy } = library;
+  return {
+    text: known.map(({ key, value }) => copy[key](value).text).join(" · "),
+    label: copy.spoken.label(known.map(({ key, value }) => copy.spoken[key](value).text).join(", "))
+      .text,
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Scaling a recipe while reading or brewing it: by servings when the recipe
