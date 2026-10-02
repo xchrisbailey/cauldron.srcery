@@ -15,6 +15,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink, EmptyState, Skeleton, useToast } from "../../components/ui";
 import { focusRing } from "../../components/ui/controls";
+import { failureOf } from "../../lib/api-failure";
 import { recipeQuery } from "../../lib/recipes";
 import { useRecipeWrites } from "../../lib/use-recipe-writes";
 import {
@@ -59,14 +60,22 @@ function Brew() {
       </div>
     );
   }
+  const notFound = failureOf(recipe.error).tag === "NotFound";
   return (
     <div {...stylex.props(styles.screen)}>
       <EmptyState
-        message={copy.recipeView.notFound.text}
+        message={notFound ? copy.recipeView.notFound.text : copy.errors.internal.text}
         actions={
-          <ButtonLink to="/recipes" variant="secondary">
-            {copy.recipeView.backToRecipes.text}
-          </ButtonLink>
+          <>
+            {notFound ? null : (
+              <Button disabled={recipe.isFetching} onClick={() => void recipe.refetch()}>
+                {copy.ui.tryAgain.text}
+              </Button>
+            )}
+            <ButtonLink to="/recipes" variant="secondary">
+              {copy.recipeView.backToRecipes.text}
+            </ButtonLink>
+          </>
         }
       />
     </div>

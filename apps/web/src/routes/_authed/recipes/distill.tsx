@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy, type ImportJob, SourceUrl } from "@cauldron/shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { type FormEvent, useState } from "react";
@@ -54,10 +54,23 @@ function Start() {
   const [link, setLink] = useState("");
   const [text, setText] = useState("");
   const [linkError, setLinkError] = useState<string | undefined>();
-  const [failed, setFailed] = useState(false);
-  const [starting, setStarting] = useState(false);
 
-  const submit = async (e: FormEvent) => {
+  const start = useMutation({
+    mutationFn: startImport,
+    onSuccess: async (job) => {
+      queryClient.setQueryData(importKeys.detail(job.id), job);
+      await navigate({ search: { job: job.id } });
+    },
+    onError: (error) => {
+      // A daily or per-minute limit says so in its own words.
+      const failure = failureOf(error);
+      if (failure.tag === "TooManyRequests") setLinkError(failure.message);
+    },
+  });
+  const starting = start.isPending;
+  const failed = start.isError && failureOf(start.error).tag !== "TooManyRequests";
+
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     const url = link.trim();
     if (url !== "" && !isLink(url)) {
@@ -65,28 +78,13 @@ function Start() {
       return;
     }
     if (url === "" && text.trim() === "") return;
-    setStarting(true);
-    setFailed(false);
-    try {
-      const job = await startImport(url !== "" ? { url } : { text: text.trim() });
-      queryClient.setQueryData(importKeys.detail(job.id), job);
-      await navigate({ search: { job: job.id } });
-    } catch (error) {
-      setStarting(false);
-      // A daily or per-minute limit says so in its own words.
-      const failure = failureOf(error);
-      if (failure.tag === "TooManyRequests") {
-        setLinkError(failure.message);
-        return;
-      }
-      setFailed(true);
-    }
+    start.mutate(url !== "" ? { url } : { text: text.trim() });
   };
 
   return (
     <>
       <PageHeader title={copy.imports.title.text} />
-      <form onSubmit={(e) => void submit(e)} noValidate {...stylex.props(styles.start)}>
+      <form onSubmit={submit} noValidate {...stylex.props(styles.start)}>
         {failed ? <FormMessage tone="error">{copy.imports.couldntStart.text}</FormMessage> : null}
         <Input
           label={copy.imports.link.text}
@@ -245,19 +243,17 @@ function Source({ job }: { job: ImportJob }) {
 
 function Working({ job }: { job: ImportJob }) {
   const queryClient = useQueryClient();
-  const stop = async () => {
-    try {
-      queryClient.setQueryData(importKeys.detail(job.id), await cancelImport(job.id));
-    } catch {
-      // Still shown as running; the next poll says where it's at.
-    }
-  };
+  // On failure it stays shown as running; the next poll says where it's at.
+  const stop = useMutation({
+    mutationFn: () => cancelImport(job.id),
+    onSuccess: (cancelled) => queryClient.setQueryData(importKeys.detail(job.id), cancelled),
+  });
   return (
     <>
       <PageHeader
         title={copy.imports.title.text}
         actions={
-          <Button variant="ghost" onClick={() => void stop()}>
+          <Button variant="ghost" onClick={() => stop.mutate()} disabled={stop.isPending}>
             {copy.imports.stop.text}
           </Button>
         }
