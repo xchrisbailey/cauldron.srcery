@@ -99,6 +99,14 @@ describe("email and password", () => {
 
     const badBearer = await me(api, { authorization: "Bearer not-a-real-token" });
     expect(badBearer.status).toBe(401);
+
+    // A raw session token (the unsigned part of the cookie value, as it sits in
+    // the session table) is not a bearer token: only the signed one is.
+    const raw = decodeURIComponent(cookie!.split("=").slice(1).join("=")).split(".")[0]!;
+    expect(raw).toBeTruthy();
+    expect(raw).not.toBe(token);
+    const rawBearer = await me(api, { authorization: `Bearer ${raw}` });
+    expect(rawBearer.status).toBe(401);
   });
 
   it("rejects a wrong password and an unknown account the same way", async () => {

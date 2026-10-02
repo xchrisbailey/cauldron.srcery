@@ -121,8 +121,10 @@ const makeAuth = (
     },
     plugins: [
       // Bearer tokens for the iOS app: sign-in responses carry `set-auth-token`,
-      // and `Authorization: Bearer <token>` works wherever the cookie does.
-      bearer(),
+      // and `Authorization: Bearer <token>` works wherever the cookie does. The
+      // client must store the signed `set-auth-token` header value as-is; a raw
+      // session token (as stored in the `session` table) is rejected.
+      bearer({ requireSignature: true }),
       genericOAuth({
         config: config.devOAuth
           ? [{ ...config.devOAuth, scopes: ["openid", "email", "profile"], pkce: true }]
