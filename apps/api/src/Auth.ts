@@ -14,6 +14,7 @@ const makeAuth = (
   config: AppConfig["Service"],
   db: Db["Service"],
   sendEmail: (email: Email) => Promise<void>,
+  audit: (event: string, fields: Record<string, string | null | undefined>) => void,
 ) => {
   const { google, apple } = config.social;
   return betterAuth({
@@ -39,6 +40,9 @@ const makeAuth = (
       requireEmailVerification: true,
       minPasswordLength: 8,
       revokeSessionsOnPasswordReset: true,
+      // A reset goes through updateMany, whose after-hook gets a row count rather
+      // than the account, so it's logged here instead of in databaseHooks.
+      onPasswordReset: async ({ user }) => audit("password.changed", { userId: user.id }),
       sendResetPassword: ({ user, url }) =>
         sendEmail({
           to: user.email,
@@ -125,18 +129,39 @@ const makeAuth = (
           : [],
       }),
     ],
+    // The audit trail logs one structured line per security event, ids and provider
+    // names only. Never an email, name, token or password.
     databaseHooks: {
+      session: {
+        create: {
+          after: async (session) =>
+            audit("session.created", { userId: session.userId, ipAddress: session.ipAddress }),
+        },
+        // Also fires for expiry cleanup and revoke-all, not only sign-out.
+        delete: { after: async (session) => audit("session.deleted", { userId: session.userId }) },
+      },
       account: {
         // Better Auth doesn't encrypt the ID token, nothing reads it, and a leaked one
         // could be replayed into a session through /sign-in/social's idToken flow. Never store it.
-        create: { before: (account) => Promise.resolve({ data: { ...account, idToken: null } }) },
+        create: {
+          before: (account) => Promise.resolve({ data: { ...account, idToken: null } }),
+          after: async (account) =>
+            audit("account.linked", { userId: account.userId, providerId: account.providerId }),
+        },
         update: {
           before: (account) =>
             Promise.resolve(
               "idToken" in account ? { data: { ...account, idToken: null } } : undefined,
             ),
+          after: async (account) => {
+            // change-password only; reset-password is logged by onPasswordReset.
+            if (account.providerId === "credential" && account.password) {
+              audit("password.changed", { userId: account.userId });
+            }
+          },
         },
       },
+      user: { delete: { after: async (user) => audit("user.deleted", { userId: user.id }) } },
     },
   });
 };
@@ -162,7 +187,16 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("cauldron/api/Au
         );
         return Promise.resolve();
       };
-      return makeAuth(config, db, sendEmail);
+      // Audit lines go through the Effect logger so they reach the OTLP exporter.
+      const audit = (event: string, fields: Record<string, string | null | undefined>) => {
+        const present = Object.fromEntries(
+          Object.entries(fields).filter(([, value]) => value != null && value !== ""),
+        );
+        Effect.runForkWith(context)(
+          Effect.logInfo("auth event").pipe(Effect.annotateLogs({ event, ...present })),
+        );
+      };
+      return makeAuth(config, db, sendEmail, audit);
     }),
   );
 }

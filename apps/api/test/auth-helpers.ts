@@ -1,4 +1,4 @@
-import { Effect, Layer, ManagedRuntime, Ref } from "effect";
+import { Effect, Layer, Logger, ManagedRuntime, Ref } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import type { AppConfig } from "../src/AppConfig.ts";
 import { Routes } from "../src/App.ts";
@@ -16,9 +16,14 @@ export const makeAuthApi = (
   routes: Layer.Layer<never, never, any> = Routes,
   remote: Parameters<typeof TestServices>[1] = {},
   extractor?: Parameters<typeof TestServices>[2],
+  /** Extra loggers, e.g. one that collects lines for a test to read. */
+  loggers: ReadonlyArray<Logger.Logger<unknown, unknown>> = [],
 ) => {
   const memoMap = Layer.makeMemoMapUnsafe();
-  const services = TestServices(config, remote, extractor);
+  const services = Layer.merge(
+    TestServices(config, remote, extractor),
+    Logger.layer(loggers, { mergeWithExisting: true }),
+  );
   const web = HttpRouter.toWebHandler(
     routes.pipe(Layer.provide(services), Layer.provide(HttpServer.layerServices)) as Layer.Layer<
       never,
