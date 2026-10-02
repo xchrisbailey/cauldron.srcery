@@ -85,6 +85,9 @@ const makeAuth = (
         : {}),
     },
     account: {
+      // Provider tokens are stored encrypted (AES-256-GCM, keyed by the auth secret).
+      // Rotating BETTER_AUTH_SECRET makes them unreadable, which is harmless: nothing reads them.
+      encryptOAuthTokens: true,
       accountLinking: {
         enabled: true,
         // Better Auth links a provider sign-in to an existing account only when the
@@ -122,6 +125,19 @@ const makeAuth = (
           : [],
       }),
     ],
+    databaseHooks: {
+      account: {
+        // Better Auth doesn't encrypt the ID token, nothing reads it, and a leaked one
+        // could be replayed into a session through /sign-in/social's idToken flow. Never store it.
+        create: { before: (account) => Promise.resolve({ data: { ...account, idToken: null } }) },
+        update: {
+          before: (account) =>
+            Promise.resolve(
+              "idToken" in account ? { data: { ...account, idToken: null } } : undefined,
+            ),
+        },
+      },
+    },
   });
 };
 
