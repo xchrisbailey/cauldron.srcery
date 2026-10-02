@@ -21,6 +21,7 @@ import { failureOf } from "../../../lib/api-failure";
 import { decodeRecipeForm, fromDraft, type RecipeFormValues } from "../../../lib/recipe-form";
 import { useRecipeWrites } from "../../../lib/use-recipe-writes";
 import { colors, fonts } from "../../../styles/tokens.stylex";
+import { pageTitle } from "../../../lib/page-title";
 
 // Distill (#13): a link or pasted text goes in on the left, and the draft
 // recipe opens in the editor on the right with the fields to confirm in the
@@ -36,6 +37,7 @@ const Search = Schema.toStandardSchemaV1(
 );
 
 export const Route = createFileRoute("/_authed/recipes/distill")({
+  head: () => pageTitle(copy.imports.title),
   validateSearch: Search,
   component: Distill,
 });

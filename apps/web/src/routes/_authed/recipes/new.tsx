@@ -8,8 +8,12 @@ import { loadDraft } from "../../../lib/recipe-draft";
 import { decodeRecipeForm, emptyRecipeForm, type RecipeFormValues } from "../../../lib/recipe-form";
 import { useRecipeWrites } from "../../../lib/use-recipe-writes";
 import { colors } from "../../../styles/tokens.stylex";
+import { pageTitle } from "../../../lib/page-title";
 
-export const Route = createFileRoute("/_authed/recipes/new")({ component: Conjure });
+export const Route = createFileRoute("/_authed/recipes/new")({
+  head: () => pageTitle(copy.editor.newTitle),
+  component: Conjure,
+});
 
 // A new recipe is kept as a draft in this browser while it's written, and only
 // reaches the API on Save. Imports (#13) will open this editor prefilled.

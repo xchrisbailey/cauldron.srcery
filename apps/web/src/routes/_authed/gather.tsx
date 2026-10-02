@@ -35,12 +35,14 @@ import { retryWhile } from "../../lib/api-failure";
 import { usePreference } from "../../lib/preference";
 import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { colors, fonts, quantity } from "../../styles/tokens.stylex";
+import { pageTitle } from "../../lib/page-title";
 
 // The Gather list (#19): the week's shopping, merged and grouped by aisle.
 // Checking items off changes the list at once and keeps retrying in the
 // background, so a patchy signal in the shop doesn't lose a tick.
 
 export const Route = createFileRoute("/_authed/gather")({
+  head: () => pageTitle(copy.nav.gather),
   validateSearch: weekSearch,
   component: Gather,
 });

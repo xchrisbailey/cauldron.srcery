@@ -41,6 +41,7 @@ import { gatherQuery, summarize } from "../../lib/gather";
 import { useWeekCursor, type WeekCursor, weekSearch } from "../../lib/week-cursor";
 import { usePlanWrites } from "../../lib/use-plan";
 import { colors, fonts } from "../../styles/tokens.stylex";
+import { pageTitle } from "../../lib/page-title";
 
 // The week (#18): a seven-day calendar of breakfast, lunch, dinner and snack,
 // with the week's calories and macros on top and the chosen day's beside them.
@@ -49,6 +50,7 @@ import { colors, fonts } from "../../styles/tokens.stylex";
 // rolls back if the API refuses it.
 
 export const Route = createFileRoute("/_authed/week")({
+  head: () => pageTitle(copy.nav.week),
   validateSearch: weekSearch,
   component: Week,
 });

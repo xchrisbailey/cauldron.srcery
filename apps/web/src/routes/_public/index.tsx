@@ -7,6 +7,7 @@ import { ButtonLink } from "../../components/ui";
 import { sessionQuery } from "../../lib/session";
 import { SearchFlag } from "../../lib/search";
 import { colors } from "../../styles/tokens.stylex";
+import { pageTitle } from "../../lib/page-title";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({ verified: SearchFlag, error: Schema.optional(Schema.String) }),
@@ -15,6 +16,7 @@ const Search = Schema.toStandardSchemaV1(
 // Signed-in visitors go straight to their recipes. Email verification links
 // land here (`?verified=1`, or `?error=` when the link was bad), so pass those on.
 export const Route = createFileRoute("/_public/")({
+  head: () => pageTitle(),
   validateSearch: Search,
   beforeLoad: async ({ search, context }) => {
     const session = await context.queryClient.fetchQuery(sessionQuery);

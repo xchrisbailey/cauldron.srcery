@@ -503,6 +503,18 @@ export const nav = {
   later: plain("later"),
 } as const;
 
+// Browser tab titles for pages that have no nav label or heading of their own.
+// Plain nouns; the web app adds the app name (`pageTitle`).
+export const pageTitles = {
+  signIn: plain("Sign in"),
+  signUp: plain("Create account"),
+  forgotPassword: plain("Reset your password"),
+  resetPassword: plain("Choose a new password"),
+  account: plain("Account"),
+  recipe: plain("Recipe"),
+  brew: plain("Brew"),
+} as const;
+
 export const ui = {
   appName: plain("Cauldron"),
   byline: plain("by srcery"),

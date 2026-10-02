@@ -6,8 +6,12 @@ import { Schema } from "effect";
 import { useState } from "react";
 import { AuthCard, Button, FormMessage, Stack, TextField } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
+import { pageTitle } from "../../lib/page-title";
 
-export const Route = createFileRoute("/_authed/account")({ component: Account });
+export const Route = createFileRoute("/_authed/account")({
+  head: () => pageTitle(copy.pageTitles.account),
+  component: Account,
+});
 
 function Account() {
   const { session } = Route.useRouteContext();
