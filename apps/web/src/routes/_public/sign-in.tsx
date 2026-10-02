@@ -9,6 +9,7 @@ import { SocialSignIn } from "../../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
 import { sessionQuery } from "../../lib/session";
+import { pageTitle } from "../../lib/page-title";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
@@ -20,6 +21,7 @@ const Search = Schema.toStandardSchemaV1(
 );
 
 export const Route = createFileRoute("/_public/sign-in")({
+  head: () => pageTitle(copy.pageTitles.signIn),
   validateSearch: Search,
   beforeLoad: async ({ search, context }) => {
     if (await context.queryClient.fetchQuery(sessionQuery))

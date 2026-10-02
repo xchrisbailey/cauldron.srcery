@@ -20,6 +20,7 @@ import { usePreference } from "../../../lib/preference";
 import { libraryQuery, tagsQuery } from "../../../lib/recipes";
 import { SearchFlag } from "../../../lib/search";
 import { colors, fonts } from "../../../styles/tokens.stylex";
+import { pageTitle } from "../../../lib/page-title";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
@@ -32,6 +33,7 @@ const Search = Schema.toStandardSchemaV1(
 );
 
 export const Route = createFileRoute("/_authed/recipes/")({
+  head: () => pageTitle(copy.nav.recipes),
   validateSearch: Search,
   // Recipes are fetched with the visitor's cookie, which only the browser sends.
   ssr: false,

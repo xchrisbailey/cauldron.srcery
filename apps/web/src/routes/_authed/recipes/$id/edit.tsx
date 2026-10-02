@@ -9,6 +9,7 @@ import { failureOf } from "../../../../lib/api-failure";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
 import { loadRecipe, recipeQuery } from "../../../../lib/recipes";
 import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
+import { pageTitle } from "../../../../lib/page-title";
 
 export const Route = createFileRoute("/_authed/recipes/$id/edit")({
   // Recipes are fetched with the visitor's cookie, which only the browser sends.
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/_authed/recipes/$id/edit")({
   loader: ({ context, params }) => loadRecipe(context.queryClient, params.id),
   pendingComponent: EditSkeleton,
   notFoundComponent: () => <EditMissing message={copy.errors.notFound.text} />,
+  head: () => pageTitle(copy.editor.editTitle),
   component: Edit,
 });
 

@@ -7,8 +7,10 @@ import { SocialSignIn } from "../../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
 import { sessionQuery } from "../../lib/session";
+import { pageTitle } from "../../lib/page-title";
 
 export const Route = createFileRoute("/_public/sign-up")({
+  head: () => pageTitle(copy.pageTitles.signUp),
   beforeLoad: async ({ context }) => {
     if (await context.queryClient.fetchQuery(sessionQuery)) throw redirect({ to: "/recipes" });
   },

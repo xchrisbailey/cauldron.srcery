@@ -31,6 +31,7 @@ import { focusRing } from "../../../../components/ui/controls";
 import { loadRecipe, recipeQuery } from "../../../../lib/recipes";
 import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
 import { colors, fonts, quantity, type } from "../../../../styles/tokens.stylex";
+import { pageTitle } from "../../../../lib/page-title";
 
 export const Route = createFileRoute("/_authed/recipes/$id/")({
   // Recipes are fetched with the visitor's cookie, which only the browser sends.
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/_authed/recipes/$id/")({
   loader: ({ context, params }) => loadRecipe(context.queryClient, params.id),
   pendingComponent: RecipeSkeleton,
   notFoundComponent: RecipeNotFound,
+  head: ({ loaderData }) => pageTitle(loaderData?.title ?? copy.pageTitles.recipe),
   component: RecipePage,
 });
 

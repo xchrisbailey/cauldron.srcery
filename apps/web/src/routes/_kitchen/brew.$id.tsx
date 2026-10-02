@@ -28,12 +28,14 @@ import {
 import { useUnitChoice } from "../../lib/units";
 import { useWakeLock } from "../../lib/wake-lock";
 import { colors, fonts, quantity } from "../../styles/tokens.stylex";
+import { pageTitle } from "../../lib/page-title";
 
 // Start brewing (#20): one step at a time in large type, with the step's
 // ingredients and timer. Timers keep running across steps, chime and notify
 // when done, and the screen stays awake. Controls are plain: hands are busy.
 
 export const Route = createFileRoute("/_kitchen/brew/$id")({
+  head: () => pageTitle(copy.pageTitles.brew),
   validateSearch: (search: Record<string, unknown>): ScaleSearch =>
     Scale.toSearch(Scale.fromSearch(search)),
   // Recipes are fetched with the visitor's cookie, which only the browser sends.
