@@ -25,6 +25,7 @@ import {
   useToast,
 } from "../../../../components/ui";
 import { StirRecipeDialog } from "../../../../components/StirIn";
+import { LogRecipeDialog } from "../../../../components/tracker/LogRecipe";
 import { failureOf } from "../../../../lib/api-failure";
 import { useUnitChoice } from "../../../../lib/units";
 import { focusRing } from "../../../../components/ui/controls";
@@ -114,6 +115,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [confirmingBanish, setConfirmingBanish] = useState(false);
   const [stirring, setStirring] = useState(false);
+  const [logging, setLogging] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const factor = Scale.factor(scale, recipe.servings);
@@ -180,6 +182,9 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             >
               {copy.recipes.startBrewing.text}
             </ButtonLink>
+            <Button variant="secondary" onClick={() => setLogging(true)}>
+              {copy.tracker.logRecipe.title.text}
+            </Button>
             <Button onClick={() => setStirring(true)}>{copy.week.stirIntoWeek.text}</Button>
           </div>
         }
@@ -365,6 +370,7 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
       </footer>
 
       <StirRecipeDialog recipe={recipe} open={stirring} onClose={() => setStirring(false)} />
+      <LogRecipeDialog recipe={recipe} open={logging} onClose={() => setLogging(false)} />
 
       <Dialog
         open={confirmingBanish}
