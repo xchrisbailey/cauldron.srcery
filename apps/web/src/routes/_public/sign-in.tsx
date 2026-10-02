@@ -8,7 +8,7 @@ import { useState } from "react";
 import { SocialSignIn } from "../../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
-import { getSession } from "../../lib/session";
+import { sessionQuery } from "../../lib/session";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
@@ -21,8 +21,9 @@ const Search = Schema.toStandardSchemaV1(
 
 export const Route = createFileRoute("/_public/sign-in")({
   validateSearch: Search,
-  beforeLoad: async ({ search }) => {
-    if (await getSession()) throw redirect({ href: safeRedirect(search.redirect) });
+  beforeLoad: async ({ search, context }) => {
+    if (await context.queryClient.fetchQuery(sessionQuery))
+      throw redirect({ href: safeRedirect(search.redirect) });
   },
   component: SignIn,
 });

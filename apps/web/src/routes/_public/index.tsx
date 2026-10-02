@@ -4,7 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { Lockup } from "../../components/Lockup";
 import { ButtonLink } from "../../components/ui";
-import { getSession } from "../../lib/session";
+import { sessionQuery } from "../../lib/session";
 import { SearchFlag } from "../../lib/search";
 import { colors } from "../../styles/tokens.stylex";
 
@@ -16,8 +16,8 @@ const Search = Schema.toStandardSchemaV1(
 // land here (`?verified=1`, or `?error=` when the link was bad), so pass those on.
 export const Route = createFileRoute("/_public/")({
   validateSearch: Search,
-  beforeLoad: async ({ search }) => {
-    const session = await getSession();
+  beforeLoad: async ({ search, context }) => {
+    const session = await context.queryClient.fetchQuery(sessionQuery);
     if (session) {
       throw redirect({
         to: "/recipes",
