@@ -36,6 +36,12 @@ import { colors, fonts, quantity } from "../../styles/tokens.stylex";
 export const Route = createFileRoute("/_kitchen/brew/$id")({
   validateSearch: (search: Record<string, unknown>): ScaleSearch =>
     Scale.toSearch(Scale.fromSearch(search)),
+  // Recipes are fetched with the visitor's cookie, which only the browser sends.
+  ssr: false,
+  // Start fetching as the cook taps in; the page shows its own loading and failure states.
+  loader: ({ context, params }) => {
+    void context.queryClient.prefetchQuery(recipeQuery(params.id));
+  },
   component: Brew,
 });
 

@@ -33,6 +33,19 @@ const Search = Schema.toStandardSchemaV1(
 
 export const Route = createFileRoute("/_authed/recipes/")({
   validateSearch: Search,
+  // Recipes are fetched with the visitor's cookie, which only the browser sends.
+  ssr: false,
+  loaderDeps: ({ search }) => ({
+    q: search.q ?? "",
+    tag: search.tag,
+    sort: search.sort ?? "recent",
+  }),
+  // Start fetching on hover and as the page opens, without holding up a
+  // search as you type: the page keeps showing the last results meanwhile.
+  loader: ({ context, deps }) => {
+    void context.queryClient.prefetchInfiniteQuery(libraryQuery(deps));
+    void context.queryClient.prefetchQuery(tagsQuery());
+  },
   component: Recipes,
 });
 
@@ -52,7 +65,8 @@ function Recipes() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const [view, setView] = useView();
-  const sort: RecipeSort = search.sort ?? "recent";
+  const filters = Route.useLoaderDeps();
+  const sort: RecipeSort = filters.sort;
   const filtered = Boolean(search.q || search.tag);
 
   // The field updates as you type; the URL (and the query) follow, debounced.
@@ -71,7 +85,7 @@ function Recipes() {
 
   const tags = useQuery(tagsQuery());
   const library = useInfiniteQuery({
-    ...libraryQuery({ q: search.q ?? "", tag: search.tag, sort }),
+    ...libraryQuery(filters),
     placeholderData: (previous) => previous,
   });
   const recipes = library.data?.pages.flatMap((page) => page.items) ?? [];

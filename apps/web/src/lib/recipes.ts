@@ -1,6 +1,8 @@
 import type { MacroEstimateInput, RecipeId, RecipeSort, TagId } from "@cauldron/shared";
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, type QueryClient, queryOptions } from "@tanstack/react-query";
+import { notFound } from "@tanstack/react-router";
 import { callApi } from "./api";
+import { failureOf } from "./api-failure";
 import { saveImport } from "./imports";
 import type { RecipeApi } from "./recipe-writes";
 
@@ -24,6 +26,19 @@ export const recipeQuery = (id: string) =>
     queryKey: recipeKeys.detail(id),
     queryFn: () => callApi((c) => c.recipes.get({ params: { id: id as RecipeId } })),
   });
+
+/**
+ * A route loader's recipe, from the cache or the API. A recipe the API doesn't
+ * have (or that was banished) becomes the route's not-found.
+ */
+export const loadRecipe = async (queryClient: QueryClient, id: string) => {
+  try {
+    return await queryClient.ensureQueryData(recipeQuery(id));
+  } catch (error) {
+    if (failureOf(error).tag === "NotFound") throw notFound();
+    throw error;
+  }
+};
 
 export interface LibraryFilters {
   readonly q: string;

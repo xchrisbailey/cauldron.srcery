@@ -28,36 +28,58 @@ import { StirRecipeDialog } from "../../../../components/StirIn";
 import { failureOf } from "../../../../lib/api-failure";
 import { useUnitChoice } from "../../../../lib/units";
 import { focusRing } from "../../../../components/ui/controls";
-import { recipeQuery } from "../../../../lib/recipes";
+import { loadRecipe, recipeQuery } from "../../../../lib/recipes";
 import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
 import { colors, fonts, quantity, type } from "../../../../styles/tokens.stylex";
 
-export const Route = createFileRoute("/_authed/recipes/$id/")({ component: RecipePage });
+export const Route = createFileRoute("/_authed/recipes/$id/")({
+  // Recipes are fetched with the visitor's cookie, which only the browser sends.
+  ssr: false,
+  loader: ({ context, params }) => loadRecipe(context.queryClient, params.id),
+  pendingComponent: RecipeSkeleton,
+  notFoundComponent: RecipeNotFound,
+  component: RecipePage,
+});
 
 const isNotFound = (error: unknown) => failureOf(error).tag === "NotFound";
 
+function RecipeSkeleton() {
+  return (
+    <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.loading)}>
+      <Skeleton height={40} width="60%" />
+      <Skeleton width="40%" />
+      <Skeleton height={200} />
+    </div>
+  );
+}
+
+function RecipeMissing({ message }: { message: string }) {
+  return (
+    <EmptyState
+      message={message}
+      actions={
+        <ButtonLink to="/recipes" variant="secondary">
+          {copy.recipeView.backToRecipes.text}
+        </ButtonLink>
+      }
+    />
+  );
+}
+
+function RecipeNotFound() {
+  return <RecipeMissing message={copy.recipeView.notFound.text} />;
+}
+
 function RecipePage() {
   const { id } = Route.useParams();
+  // The loader has it cached; this keeps the page in step with later writes.
   const recipe = useQuery(recipeQuery(id));
-  if (recipe.isPending) {
-    return (
-      <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.loading)}>
-        <Skeleton height={40} width="60%" />
-        <Skeleton width="40%" />
-        <Skeleton height={200} />
-      </div>
-    );
-  }
+  if (recipe.isPending) return <RecipeSkeleton />;
   if (recipe.isError) {
     return (
-      <EmptyState
+      <RecipeMissing
         message={
           isNotFound(recipe.error) ? copy.recipeView.notFound.text : copy.errors.internal.text
-        }
-        actions={
-          <ButtonLink to="/recipes" variant="secondary">
-            {copy.recipeView.backToRecipes.text}
-          </ButtonLink>
         }
       />
     );

@@ -7,34 +7,49 @@ import { RecipeEditor } from "../../../../components/editor/RecipeEditor";
 import { ButtonLink, EmptyState, PageHeader, Skeleton } from "../../../../components/ui";
 import { failureOf } from "../../../../lib/api-failure";
 import { decodeRecipeForm, fromRecipe, type RecipeFormValues } from "../../../../lib/recipe-form";
-import { recipeQuery } from "../../../../lib/recipes";
+import { loadRecipe, recipeQuery } from "../../../../lib/recipes";
 import { useRecipeWrites } from "../../../../lib/use-recipe-writes";
 
-export const Route = createFileRoute("/_authed/recipes/$id/edit")({ component: Edit });
+export const Route = createFileRoute("/_authed/recipes/$id/edit")({
+  // Recipes are fetched with the visitor's cookie, which only the browser sends.
+  ssr: false,
+  loader: ({ context, params }) => loadRecipe(context.queryClient, params.id),
+  pendingComponent: EditSkeleton,
+  notFoundComponent: () => <EditMissing message={copy.errors.notFound.text} />,
+  component: Edit,
+});
 
 const isNotFound = (error: unknown) => failureOf(error).tag === "NotFound";
+
+function EditSkeleton() {
+  return (
+    <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.rows)}>
+      <Skeleton height={40} />
+      <Skeleton width="60%" />
+      <Skeleton width="80%" />
+    </div>
+  );
+}
+
+function EditMissing({ message }: { message: string }) {
+  return (
+    <>
+      <PageHeader title={copy.editor.editTitle.text} />
+      <EmptyState message={message} />
+    </>
+  );
+}
 
 function Edit() {
   const { id } = Route.useParams();
   const recipe = useQuery(recipeQuery(id));
 
-  if (recipe.isPending) {
-    return (
-      <div aria-busy="true" aria-label={copy.ui.loading.text} {...stylex.props(styles.rows)}>
-        <Skeleton height={40} />
-        <Skeleton width="60%" />
-        <Skeleton width="80%" />
-      </div>
-    );
-  }
+  if (recipe.isPending) return <EditSkeleton />;
   if (recipe.isError) {
     return (
-      <>
-        <PageHeader title={copy.editor.editTitle.text} />
-        <EmptyState
-          message={isNotFound(recipe.error) ? copy.errors.notFound.text : copy.errors.internal.text}
-        />
-      </>
+      <EditMissing
+        message={isNotFound(recipe.error) ? copy.errors.notFound.text : copy.errors.internal.text}
+      />
     );
   }
   // Keyed by id so moving between recipes starts a fresh form.
