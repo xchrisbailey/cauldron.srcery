@@ -9,6 +9,7 @@ const EMAIL = "audit@example.com";
 const NAME = "Audit Person";
 const PASSWORD = "correct-horse-1";
 const NEW_PASSWORD = "battery-staple-2";
+const RESET_PASSWORD = "brand-new-pass-3";
 
 type Line = { message: string; annotations: Record<string, unknown> };
 
@@ -139,14 +140,47 @@ describe("auth audit log", () => {
     const ended = await waitForEvent("session.deleted", 1);
     expect(ended[0]!.annotations).toMatchObject({ userId });
 
+    // Reset the password by email link.
+    await api.post("/v1/auth/request-password-reset", { email: EMAIL, redirectTo: "/reset" });
+    const [, resetMail] = await api.waitForOutbox(2);
+    const link = await api.send(api.linkIn(resetMail!));
+    const resetToken = new URL(link.headers.get("location")!, "http://x").searchParams.get(
+      "token",
+    )!;
+    const reset = await api.post("/v1/auth/reset-password", {
+      newPassword: RESET_PASSWORD,
+      token: resetToken,
+    });
+    expect(reset.status).toBe(200);
+    const resets = await waitForEvent("password.changed", 2);
+    expect(resets[1]!.annotations).toMatchObject({ userId });
+
+    // Signing in again through the provider updates its account row, not a password.
+    const again = await api.post("/v1/auth/sign-in/social", { provider: "dev", callbackURL: "/" });
+    const againAuthorize = await fetch(((await again.json()) as { url: string }).url, {
+      redirect: "manual",
+    });
+    const againCallback = new URL(againAuthorize.headers.get("location")!);
+    await api.send(againCallback.pathname + againCallback.search, {
+      headers: {
+        cookie: again.headers
+          .getSetCookie()
+          .map((c) => c.split(";")[0])
+          .join("; "),
+      },
+    });
+    await api.settle();
+    expect(events("password.changed")).toHaveLength(2);
+    expect(events("account.linked")).toHaveLength(2);
+
     // Delete the account.
     const fresh = await api.post("/v1/auth/sign-in/email", {
       email: EMAIL,
-      password: NEW_PASSWORD,
+      password: RESET_PASSWORD,
     });
     const del = await api.post(
       "/v1/auth/delete-user",
-      { password: NEW_PASSWORD },
+      { password: RESET_PASSWORD },
       { cookie: cookieOf(fresh)! },
     );
     expect(del.status).toBe(200);
@@ -164,6 +198,8 @@ describe("auth audit log", () => {
       NAME,
       PASSWORD,
       NEW_PASSWORD,
+      RESET_PASSWORD,
+      resetToken,
       verifyToken,
       bearer,
       verified.split("=")[1]!,

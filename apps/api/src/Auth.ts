@@ -37,6 +37,9 @@ const makeAuth = (
       requireEmailVerification: true,
       minPasswordLength: 8,
       revokeSessionsOnPasswordReset: true,
+      // A reset goes through updateMany, whose after-hook gets a row count rather
+      // than the account, so it's logged here instead of in databaseHooks.
+      onPasswordReset: async ({ user }) => audit("password.changed", { userId: user.id }),
       sendResetPassword: ({ user, url }) =>
         sendEmail({
           to: user.email,
@@ -122,6 +125,7 @@ const makeAuth = (
           after: async (session) =>
             audit("session.created", { userId: session.userId, ipAddress: session.ipAddress }),
         },
+        // Also fires for expiry cleanup and revoke-all, not only sign-out.
         delete: { after: async (session) => audit("session.deleted", { userId: session.userId }) },
       },
       account: {
@@ -138,6 +142,7 @@ const makeAuth = (
               "idToken" in account ? { data: { ...account, idToken: null } } : undefined,
             ),
           after: async (account) => {
+            // change-password only; reset-password is logged by onPasswordReset.
             if (account.providerId === "credential" && account.password) {
               audit("password.changed", { userId: account.userId });
             }
@@ -173,7 +178,7 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("cauldron/api/Au
       // Audit lines go through the Effect logger so they reach the OTLP exporter.
       const audit = (event: string, fields: Record<string, string | null | undefined>) => {
         const present = Object.fromEntries(
-          Object.entries(fields).filter(([, value]) => value != null),
+          Object.entries(fields).filter(([, value]) => value != null && value !== ""),
         );
         Effect.runForkWith(context)(
           Effect.logInfo("auth event").pipe(Effect.annotateLogs({ event, ...present })),
