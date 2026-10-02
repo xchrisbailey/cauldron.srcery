@@ -31,7 +31,7 @@ import { Context, Effect, Layer } from "effect";
 import { Db } from "./Db.ts";
 import { Recipes } from "./Recipes.ts";
 
-const { diaryEntry: entry, bodyProfile, trackerTargets, weighIn } = schema;
+const { diaryEntry: entry, recipe, bodyProfile, trackerTargets, weighIn } = schema;
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
 const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
@@ -179,9 +179,11 @@ const make = Effect.gen(function* () {
   });
 
   const add = Effect.fn("Tracker.add")(function* (ownerId: UserId, input: DiaryEntryInput) {
-    const recipeId = input.recipeId ?? null;
-    // A recipe entry names its recipe, and only a recipe entry does.
-    if ((input.source === "recipe") !== (recipeId !== null)) return yield* invalid();
+    let recipeId = input.recipeId ?? null;
+    // Only a recipe entry names a recipe. A recipe entry may come without one
+    // when its recipe is gone (re-logging, undo), as long as it brings its own
+    // name and numbers.
+    if (recipeId !== null && input.source !== "recipe") return yield* invalid();
     return yield* db.transaction(
       Effect.gen(function* () {
         if (input.id !== undefined) {
@@ -196,13 +198,24 @@ const make = Effect.gen(function* () {
         }
         let name = input.name;
         let numbers = input.macros;
-        if (recipeId !== null) {
+        if (recipeId !== null && (name === undefined || numbers === undefined)) {
           const live = yield* recipes
             .live(ownerId, RecipeId.make(recipeId))
             .pipe(Effect.catchTag("NotFound", () => invalid()));
           name ??= live.title;
           // Copied now, so later edits to the recipe leave this day alone.
           numbers ??= macros.fromRow(live);
+        } else if (recipeId !== null) {
+          // Everything was sent, so the recipe is only a link: keep it while
+          // the cook still has the recipe (banished counts), and drop it
+          // otherwise rather than refuse a re-log.
+          const [own] = yield* db.use((d) =>
+            d
+              .select({ id: recipe.id })
+              .from(recipe)
+              .where(and(eq(recipe.id, recipeId!), eq(recipe.ownerId, ownerId))),
+          );
+          if (!own) recipeId = null;
         }
         if (name === undefined || numbers === undefined) return yield* invalid();
         yield* lockDay(ownerId, input.date);

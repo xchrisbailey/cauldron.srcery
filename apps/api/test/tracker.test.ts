@@ -429,11 +429,46 @@ describe("tracker", () => {
     expect((await dayOf(ada, date)).entries[0]).toMatchObject({ id: entry.id, servings: 1 });
   });
 
+  it("re-logs a recipe entry after its recipe is banished or gone", async () => {
+    const recipe = await createRecipe(ada, { title: "Short-lived stew" });
+    const date = "2026-12-03";
+    const again = {
+      date,
+      slot: "dinner",
+      name: "Short-lived stew",
+      amount: null,
+      servings: 1,
+      macros: MACROS,
+      source: "recipe",
+    };
+    // Banished: the link stays, and the recipe isn't looked up.
+    expect((await call(ada, "DELETE", `/v1/recipes/${recipe.id}`)).status).toBe(200);
+    const banished = await call(ada, "POST", "/v1/tracker/entries", {
+      ...again,
+      recipeId: recipe.id,
+    });
+    expect(banished.status).toBe(200);
+    expect(banished.body).toMatchObject({ recipeId: recipe.id, macros: MACROS });
+    // Gone (as after a hard delete): the entry's recipe id was cleared.
+    const gone = await call(ada, "POST", "/v1/tracker/entries", { ...again, recipeId: null });
+    expect(gone.status).toBe(200);
+    expect(gone.body).toMatchObject({ source: "recipe", recipeId: null });
+    // Someone else's recipe id is dropped, not linked.
+    const theirs = await createRecipe(bob, { title: "Bob's stew" });
+    const linked = await call(ada, "POST", "/v1/tracker/entries", {
+      ...again,
+      recipeId: theirs.id,
+    });
+    expect(linked.status).toBe(200);
+    expect(linked.body.recipeId).toBeNull();
+  });
+
   it("rejects bad input with 400", async () => {
     const base = manual("Bad", { date: "2026-12-01" });
     const post = (body: Record<string, unknown>) => call(ada, "POST", "/v1/tracker/entries", body);
     const recipe = await createRecipe(ada, { title: "For validation" });
-    expect((await post({ ...base, source: "recipe" })).status).toBe(400);
+    const { name: _rn, ...recipeNoName } = base;
+    expect((await post({ ...recipeNoName, source: "recipe" })).status).toBe(400);
     expect((await post({ ...base, recipeId: recipe.id })).status).toBe(400);
     const { name: _n, ...noName } = base;
     expect((await post(noName)).status).toBe(400);
