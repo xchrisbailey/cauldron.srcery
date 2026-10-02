@@ -266,6 +266,20 @@ export const library = {
   openWeek: plain("Open the week"),
   noResults: plain("Nothing matches. Try another word."),
   summonHelp: plain("Use the arrow keys to choose and Enter to open."),
+  /** The compact per-serving line on a card, and what it reads aloud. Plain: quantities. */
+  macroLine: {
+    calories: (n: string) => plain(`${n} kcal`),
+    protein: (g: string) => plain(`${g}P`),
+    fat: (g: string) => plain(`${g}F`),
+    carbs: (g: string) => plain(`${g}C`),
+    spoken: {
+      calories: (n: string) => plain(`${n} kcal`),
+      protein: (g: string) => plain(`${g} g protein`),
+      fat: (g: string) => plain(`${g} g fat`),
+      carbs: (g: string) => plain(`${g} g carbs`),
+      label: (parts: string) => plain(`Per serving: ${parts}`),
+    },
+  },
 } as const;
 
 // Recipe photos (#12). Plain, since they're controls and errors.
