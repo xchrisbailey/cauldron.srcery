@@ -47,6 +47,10 @@ export const heightFields = (cm: number) => {
 export const showWeight = (kg: number, unit: WeightUnit): string =>
   showNumber(roundWeight(fromKg(kg, unit)));
 
+/** A weight for reading, in the cook's unit: always one decimal, so 73.0 doesn't read as 73. */
+export const weightLabel = (kg: number, unit: WeightUnit): string =>
+  roundWeight(fromKg(kg, unit)).toFixed(1);
+
 /** A rate on offer, as shown (in the cook's unit) and as stored (kilograms). */
 export interface RateChoice {
   readonly amount: number;

@@ -3,7 +3,7 @@ import { copy, type WeighIn, type WeightUnit } from "@cauldron/shared";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useWeighInWrites } from "../../lib/weigh-in-writes";
-import { showWeight } from "../../lib/targets";
+import { weightLabel } from "../../lib/targets";
 import { colors, fonts } from "../../styles/tokens.stylex";
 import { Button } from "../ui";
 import { focusRing } from "../ui/controls";
@@ -27,7 +27,7 @@ export function WeighInAside({
 }) {
   const writes = useWeighInWrites();
   const [open, setOpen] = useState(false);
-  const shown = weighIn ? `${showWeight(weighIn.weightKg, unit)} ${unit}` : null;
+  const shown = weighIn ? `${weightLabel(weighIn.weightKg, unit)} ${unit}` : null;
 
   return (
     <div {...stylex.props(styles.root)}>
@@ -38,7 +38,7 @@ export function WeighInAside({
           aria-label={t.change(shown).text}
           {...stylex.props(styles.weight, focusRing.ring)}
         >
-          <span {...stylex.props(styles.figure)}>{showWeight(weighIn!.weightKg, unit)}</span>
+          <span {...stylex.props(styles.figure)}>{weightLabel(weighIn!.weightKg, unit)}</span>
           <span {...stylex.props(styles.unit)}> {unit}</span>
         </button>
       ) : (

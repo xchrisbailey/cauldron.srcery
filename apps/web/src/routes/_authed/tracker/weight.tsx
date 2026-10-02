@@ -23,7 +23,7 @@ import { focusRing } from "../../../components/ui/controls";
 import { shortDate } from "../../../lib/dates";
 import { pageTitle } from "../../../lib/page-title";
 import { localToday } from "../../../lib/recipes";
-import { showWeight } from "../../../lib/targets";
+import { weightLabel } from "../../../lib/targets";
 import { intakeQuery, settingsQuery, weighInsQuery } from "../../../lib/tracker";
 import { averageIntake, signedChange } from "../../../lib/weight";
 import { useWeighInWrites } from "../../../lib/weigh-in-writes";
@@ -134,7 +134,7 @@ function Weight({ today, range }: { today: string; range: WeightRange }) {
           <section {...stylex.props(styles.stats)}>
             <Stat
               label={t.trendNow.text}
-              value={trendNow === null ? null : showWeight(trendNow, unit)}
+              value={trendNow === null ? null : weightLabel(trendNow, unit)}
               unit={unit}
             />
             <Stat
@@ -184,7 +184,7 @@ function Weight({ today, range }: { today: string; range: WeightRange }) {
                       {shortDate(p.date, true)}
                     </time>
                     <span {...stylex.props(styles.mono)}>
-                      {showWeight(p.weightKg, unit)}
+                      {weightLabel(p.weightKg, unit)}
                       <span {...stylex.props(styles.unit)}> {unit}</span>
                     </span>
                   </button>
