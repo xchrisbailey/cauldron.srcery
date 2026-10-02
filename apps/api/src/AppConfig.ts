@@ -47,7 +47,11 @@ export class AppConfig extends Context.Service<
      * address. Only enable behind that proxy; otherwise the header is spoofable.
      */
     readonly trustProxy: boolean;
-    /** Rate limits Better Auth's sign-in, sign-up and email endpoints per client address. On in production. */
+    /**
+     * Rate limits Better Auth's sign-in, sign-up, password and email endpoints
+     * per client address. On in production. Behind the web proxy this needs
+     * `trustProxy`, or every client shares the proxy's address and one budget.
+     */
     readonly authRateLimit: boolean;
     /** Serves Scalar API docs at /v1/docs. */
     readonly docs: boolean;

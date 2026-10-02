@@ -7,11 +7,21 @@ import { Auth } from "../Auth.ts";
 import { resolveClientIp } from "./ClientIp.ts";
 import { consumeOrReject } from "./RateLimit.ts";
 
-/** The Better Auth endpoints that guess passwords or send email, each limited per client address. */
+/**
+ * The Better Auth endpoints that check a password, send email or start a
+ * sign-in (each writes a row), each limited per client address.
+ */
 export const AUTH_RATE_LIMITED_PATHS = new Set(
-  ["/sign-in/email", "/sign-up/email", "/request-password-reset", "/send-verification-email"].map(
-    (path) => `/v1/auth${path}`,
-  ),
+  [
+    "/sign-in/email",
+    "/sign-up/email",
+    "/request-password-reset",
+    "/send-verification-email",
+    "/change-password",
+    "/verify-password",
+    "/sign-in/social",
+    "/sign-in/oauth2",
+  ].map((path) => `/v1/auth${path}`),
 );
 
 export const AUTH_RATE_LIMIT = { limit: 5, window: "1 minute" } as const;

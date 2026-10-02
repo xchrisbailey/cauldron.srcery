@@ -48,6 +48,20 @@ describe("auth rate limit", () => {
       }
     });
 
+    it("limits a password check behind a session the same way", async () => {
+      for (let i = 0; i < AUTH_RATE_LIMIT.limit; i++) {
+        expect(
+          (await api.post("/v1/auth/change-password", { currentPassword: "x", newPassword: "y" }))
+            .status,
+        ).toBe(401);
+      }
+      const res = await api.post("/v1/auth/change-password", {
+        currentPassword: "x",
+        newPassword: "y",
+      });
+      expect(res.status).toBe(429);
+    });
+
     it("can't be dodged with a trailing slash", async () => {
       for (let i = 0; i < AUTH_RATE_LIMIT.limit; i++) {
         await api.post("/v1/auth/send-verification-email/", { email: "x@example.test" });
