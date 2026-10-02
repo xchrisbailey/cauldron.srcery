@@ -100,7 +100,11 @@ function Planner({
   const chosenDay = chosen !== null && days.includes(chosen) ? chosen : null;
   const phoneDay = chosenDay ?? (days.includes(today) ? today : days[0]!);
 
-  const prefetchWeek = (weekStart: string) => void queryClient.prefetchQuery(weekQuery(weekStart));
+  // The week and its Gather bar, so neither pops in after the switch.
+  const prefetchWeek = (weekStart: string) => {
+    void queryClient.prefetchQuery(weekQuery(weekStart));
+    void queryClient.prefetchQuery(gatherQuery(weekStart));
+  };
 
   /** A recipe goes through the days picker, so its servings can feed more than one day. */
   const stir = (target: Target, recipe: PlanRecipe, position?: number) =>
