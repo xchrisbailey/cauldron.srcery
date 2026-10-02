@@ -82,6 +82,8 @@ const makeAuth = (
         : {}),
     },
     account: {
+      // Provider tokens are stored encrypted (AES-256-GCM, keyed by the auth secret).
+      encryptOAuthTokens: true,
       accountLinking: {
         enabled: true,
         // Better Auth links a provider sign-in to an existing account only when the

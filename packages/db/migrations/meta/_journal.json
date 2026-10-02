@@ -50,6 +50,13 @@
       "when": 1790859194731,
       "tag": "0006_recipe_macros",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790912570474,
+      "tag": "0007_clear_oauth_tokens",
+      "breakpoints": true
     }
   ]
 }
