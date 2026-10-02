@@ -92,7 +92,7 @@ Better Auth runs inside the API on `/v1/auth/*`. The web app uses cookie session
 
 Every `/v1` data route goes through the `Authorization` middleware, which accepts either the session cookie or a bearer token, and rejects cookie-authenticated writes that don't come from `PUBLIC_URL` (a CSRF guard).
 
-The iOS app, like any client without a browser, signs in with `POST /v1/auth/sign-in/email` (or the social flow) and reads the `set-auth-token` response header. It sends that token as `Authorization: Bearer <token>` on every request. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
+The iOS app, like any client without a browser, signs in with `POST /v1/auth/sign-in/email` (or the social flow) and reads the `set-auth-token` response header. It sends that token as `Authorization: Bearer <token>` on every request. Store the header value exactly as received: it is signed (`token.signature`), and a bare session token is rejected. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
 
 ## Containers
 
