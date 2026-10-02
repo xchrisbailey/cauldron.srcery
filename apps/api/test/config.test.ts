@@ -5,6 +5,7 @@ import { Db } from "../src/Db.ts";
 import { Storage } from "../src/Storage.ts";
 
 const SECRET = "x".repeat(32);
+const PLACEHOLDER = "change-me-change-me-change-me-change-me";
 
 const withEnv = (env: Record<string, string>) =>
   ConfigProvider.layer(ConfigProvider.fromEnvRecord(env));
@@ -75,6 +76,23 @@ describe("AppConfig", () => {
       const text = failureText(exit);
       assert.include(text, "at least 32 characters");
       assert.notInclude(text, "too-short-secret");
+    }),
+  );
+
+  it.effect("production rejects the example placeholder secret, without echoing it", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({ ...production, BETTER_AUTH_SECRET: PLACEHOLDER });
+      assert.isTrue(Exit.isFailure(exit));
+      const text = failureText(exit);
+      assert.include(text, "BETTER_AUTH_SECRET is the example placeholder");
+      assert.notInclude(text, PLACEHOLDER);
+    }),
+  );
+
+  it.effect("development still accepts the example placeholder secret", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({ BETTER_AUTH_SECRET: PLACEHOLDER });
+      assert.isTrue(Exit.isSuccess(exit));
     }),
   );
 });
