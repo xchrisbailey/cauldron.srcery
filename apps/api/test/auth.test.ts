@@ -443,7 +443,7 @@ describe("OAuth account linking", () => {
     expect((await me(api, { cookie })).status).toBe(401);
   });
 
-  /** Every cookie a response sets (session_token and the cookie-cache session_data), as one header. */
+  /** Every cookie a response sets (session_token, plus session_data if the cookie cache is ever turned on), as one header. */
   const jarOf = (res: Response) =>
     res.headers
       .getSetCookie()
@@ -490,7 +490,6 @@ describe("OAuth account linking", () => {
 
   it("rejects a replayed session cookie after sign-out", async () => {
     const jar = jarOf(await oauthSignIn("replay-signout@example.com"));
-    expect(jar).toContain("session_data");
     expect((await me(api, { cookie: jar })).status).toBe(200);
     const out = await api.post("/v1/auth/sign-out", {}, { cookie: jar });
     expect(out.status).toBe(200);
