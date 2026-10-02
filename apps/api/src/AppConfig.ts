@@ -25,7 +25,7 @@ const ProductionSecret = Config.schema(
         message: `BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters in production (try: openssl rand -base64 32)`,
       }),
       Schema.makeFilter((secret: string) =>
-        secret.includes(EXAMPLE_SECRET_MARKER)
+        secret.toLowerCase().includes(EXAMPLE_SECRET_MARKER)
           ? "BETTER_AUTH_SECRET is the example placeholder; set a real secret in production (try: openssl rand -base64 32)"
           : true,
       ),

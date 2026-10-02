@@ -89,6 +89,17 @@ describe("AppConfig", () => {
     }),
   );
 
+  it.effect("production rejects the placeholder in any letter case", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({
+        ...production,
+        BETTER_AUTH_SECRET: PLACEHOLDER.toUpperCase(),
+      });
+      assert.isTrue(Exit.isFailure(exit));
+      assert.include(failureText(exit), "BETTER_AUTH_SECRET is the example placeholder");
+    }),
+  );
+
   it.effect("development still accepts the example placeholder secret", () =>
     Effect.gen(function* () {
       const exit = yield* loadConfig({ BETTER_AUTH_SECRET: PLACEHOLDER });
