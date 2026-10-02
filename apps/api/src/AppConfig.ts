@@ -15,12 +15,20 @@ export const NodeEnv = Config.Literals(["development", "test", "production"], "N
 
 export const MIN_SECRET_LENGTH = 32;
 
+/** The example env file ships a secret containing this; it must never reach production. */
+const EXAMPLE_SECRET_MARKER = "change-me";
+
 const ProductionSecret = Config.schema(
   Schema.Redacted(
     Schema.String.check(
       Schema.isMinLength(MIN_SECRET_LENGTH, {
         message: `BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters in production (try: openssl rand -base64 32)`,
       }),
+      Schema.makeFilter((secret: string) =>
+        secret.toLowerCase().includes(EXAMPLE_SECRET_MARKER)
+          ? "BETTER_AUTH_SECRET is the example placeholder; set a real secret in production (try: openssl rand -base64 32)"
+          : true,
+      ),
     ),
   ),
   "BETTER_AUTH_SECRET",
