@@ -42,3 +42,21 @@ const ButtonAnchor = forwardRef<
 
 /** A router link that looks like a button. */
 export const ButtonLink: LinkComponent<typeof ButtonAnchor> = createLink(ButtonAnchor);
+
+const IconAnchor = forwardRef<
+  HTMLAnchorElement,
+  Omit<ComponentProps<"a">, "aria-label"> & { label: string }
+>(function IconAnchor({ label, ...props }, ref) {
+  return (
+    <a
+      ref={ref}
+      aria-label={label}
+      title={label}
+      {...props}
+      {...stylex.props(button.base, button.ghost, button.icon, focusRing.ring)}
+    />
+  );
+});
+
+/** A router link that looks like an `IconButton`; `label` is its accessible name and tooltip. */
+export const IconButtonLink: LinkComponent<typeof IconAnchor> = createLink(IconAnchor);

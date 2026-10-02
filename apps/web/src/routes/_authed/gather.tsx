@@ -9,7 +9,7 @@ import {
   RECIPE_LIMITS,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { CloseGlyph } from "../../components/glyphs";
 import { WeekRange } from "../../components/WeekRange";
@@ -71,14 +71,14 @@ function List({
   hideChecked: boolean;
   toggleHide: (hide: boolean) => void;
 }) {
-  const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
   const toast = useToast();
   const list = useQuery(gatherQuery(start));
   const [line, setLine] = useState("");
   const key = gatherKeys.week(start);
 
-  const goTo = (weekStart: string) => void navigate({ search: searchFor(weekStart) });
+  const prefetchWeek = (weekStart: string) =>
+    void queryClient.prefetchQuery(gatherQuery(weekStart));
 
   // Each change sets a value rather than toggling, and changes run one at a
   // time in the order they were made, so retries can't land out of order.
@@ -169,7 +169,7 @@ function List({
           ) : null
         }
       />
-      <WeekRange start={start} thisWeek={thisWeek} onGo={goTo} />
+      <WeekRange start={start} thisWeek={thisWeek} searchFor={searchFor} prefetch={prefetchWeek} />
 
       <form onSubmit={submit} {...stylex.props(styles.addRow)}>
         <input
