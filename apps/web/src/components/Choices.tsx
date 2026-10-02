@@ -98,7 +98,7 @@ export function ChoiceList<T extends string>({
 }
 
 const styles = stylex.create({
-  fieldset: { margin: 0, padding: 0, border: "none", minWidth: 0 },
+  fieldset: { margin: 0, padding: 0, borderWidth: 0, minWidth: 0 },
   legend: { padding: 0, marginBottom: 6, fontSize: 14, fontWeight: 500, color: colors.subtext },
   hidden: {
     position: "absolute",
