@@ -9,11 +9,14 @@ import { control } from "./controls";
 
 function Field({
   label,
+  hideLabel = false,
   hint,
   error,
   children,
 }: {
   label: string;
+  /** Keep the label for screen readers only, when something else on the page already names the control. */
+  hideLabel?: boolean;
   hint?: string | undefined;
   error?: string | undefined;
   children: (ids: { id: string; describedBy: string | undefined }) => ReactNode;
@@ -24,7 +27,7 @@ function Field({
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
     <div {...stylex.props(styles.field)}>
-      <label htmlFor={id} {...stylex.props(styles.label)}>
+      <label htmlFor={id} {...stylex.props(styles.label, hideLabel && styles.hidden)}>
         {label}
       </label>
       {children({ id, describedBy })}
@@ -44,6 +47,7 @@ function Field({
 
 type Labelled = {
   label: string;
+  hideLabel?: boolean;
   hint?: string | undefined;
   error?: string | undefined;
   /** Extra StyleX styles for the control itself, e.g. Geist Mono for quantities. */
@@ -52,13 +56,14 @@ type Labelled = {
 
 export function Input({
   label,
+  hideLabel,
   hint,
   error,
   xstyle,
   ...props
 }: ComponentProps<"input"> & Labelled) {
   return (
-    <Field label={label} hint={hint} error={error}>
+    <Field label={label} hideLabel={hideLabel ?? false} hint={hint} error={error}>
       {({ id, describedBy }) => (
         <input
           id={id}
@@ -151,6 +156,17 @@ export function TextField({
 const styles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: 6 },
   label: { fontSize: 14, fontWeight: 500, color: colors.subtext },
+  hidden: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    margin: -1,
+    padding: 0,
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)",
+    whiteSpace: "nowrap",
+    border: 0,
+  },
   hint: { fontSize: 13, color: colors.subtext },
   error: { fontSize: 13, fontWeight: 500, color: colors.ink },
 });

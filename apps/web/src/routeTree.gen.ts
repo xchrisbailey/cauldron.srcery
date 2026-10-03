@@ -23,6 +23,7 @@ import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as AuthedRecipesIndexRouteImport } from './routes/_authed/recipes/index'
 import { Route as AuthedRecipesDistillRouteImport } from './routes/_authed/recipes/distill'
 import { Route as AuthedRecipesNewRouteImport } from './routes/_authed/recipes/new'
+import { Route as AuthedTrackerTargetsRouteImport } from './routes/_authed/tracker/targets'
 import { Route as KitchenBrewIdRouteImport } from './routes/_kitchen/brew.$id'
 import { Route as AuthedRecipesIdIndexRouteImport } from './routes/_authed/recipes/$id/index'
 import { Route as AuthedRecipesIdEditRouteImport } from './routes/_authed/recipes/$id/edit'
@@ -94,6 +95,11 @@ const AuthedRecipesNewRoute = AuthedRecipesNewRouteImport.update({
   path: '/recipes/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedTrackerTargetsRoute = AuthedTrackerTargetsRouteImport.update({
+  id: '/tracker/targets',
+  path: '/tracker/targets',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const KitchenBrewIdRoute = KitchenBrewIdRouteImport.update({
   id: '/brew/$id',
   path: '/brew/$id',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes/': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof PublicSignUpRoute
   '/recipes/distill': typeof AuthedRecipesDistillRoute
   '/recipes/new': typeof AuthedRecipesNewRoute
+  '/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/brew/$id': typeof KitchenBrewIdRoute
   '/recipes': typeof AuthedRecipesIndexRoute
   '/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/_authed/recipes/distill': typeof AuthedRecipesDistillRoute
   '/_authed/recipes/new': typeof AuthedRecipesNewRoute
+  '/_authed/tracker/targets': typeof AuthedTrackerTargetsRoute
   '/_kitchen/brew/$id': typeof KitchenBrewIdRoute
   '/_authed/recipes/': typeof AuthedRecipesIndexRoute
   '/_authed/recipes/$id/edit': typeof AuthedRecipesIdEditRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/tracker/targets'
     | '/brew/$id'
     | '/recipes/'
     | '/recipes/$id/edit'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/recipes/distill'
     | '/recipes/new'
+    | '/tracker/targets'
     | '/brew/$id'
     | '/recipes'
     | '/recipes/$id/edit'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/_authed/recipes/distill'
     | '/_authed/recipes/new'
+    | '/_authed/tracker/targets'
     | '/_kitchen/brew/$id'
     | '/_authed/recipes/'
     | '/_authed/recipes/$id/edit'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRecipesNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/tracker/targets': {
+      id: '/_authed/tracker/targets'
+      path: '/tracker/targets'
+      fullPath: '/tracker/targets'
+      preLoaderRoute: typeof AuthedTrackerTargetsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_kitchen/brew/$id': {
       id: '/_kitchen/brew/$id'
       path: '/brew/$id'
@@ -352,6 +371,7 @@ interface AuthedRouteChildren {
   AuthedWeekRoute: typeof AuthedWeekRoute
   AuthedRecipesDistillRoute: typeof AuthedRecipesDistillRoute
   AuthedRecipesNewRoute: typeof AuthedRecipesNewRoute
+  AuthedTrackerTargetsRoute: typeof AuthedTrackerTargetsRoute
   AuthedRecipesIndexRoute: typeof AuthedRecipesIndexRoute
   AuthedRecipesIdEditRoute: typeof AuthedRecipesIdEditRoute
   AuthedRecipesIdIndexRoute: typeof AuthedRecipesIdIndexRoute
@@ -363,6 +383,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedWeekRoute: AuthedWeekRoute,
   AuthedRecipesDistillRoute: AuthedRecipesDistillRoute,
   AuthedRecipesNewRoute: AuthedRecipesNewRoute,
+  AuthedTrackerTargetsRoute: AuthedTrackerTargetsRoute,
   AuthedRecipesIndexRoute: AuthedRecipesIndexRoute,
   AuthedRecipesIdEditRoute: AuthedRecipesIdEditRoute,
   AuthedRecipesIdIndexRoute: AuthedRecipesIdIndexRoute,

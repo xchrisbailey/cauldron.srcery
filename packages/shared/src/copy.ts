@@ -514,6 +514,89 @@ export const gather = {
 export const tracker = {
   title: plain("Tracker"),
   dayFull: plain("That day is full. Remove something first."),
+  targets: {
+    title: voice("Set your targets"),
+    pageTitle: plain("Targets"),
+    step: (n: number, of: number) => plain(`Step ${n} of ${of}`),
+    steps: {
+      about: plain("About you"),
+      activity: plain("Activity and goal"),
+      targets: plain("Your targets"),
+    },
+    sex: plain("Sex"),
+    sexes: {
+      female: plain("Female"),
+      male: plain("Male"),
+      unspecified: plain("Prefer not to say"),
+    },
+    sexHint: plain("Used only for the resting energy formula."),
+    birthDate: plain("Birth date"),
+    height: plain("Height"),
+    heightUnits: { cm: plain("cm"), ftin: plain("ft/in") },
+    feet: plain("ft"),
+    inches: plain("in"),
+    weight: plain("Current weight"),
+    weightUnits: { kg: plain("kg"), lb: plain("lb") },
+    unitSwitch: (what: string) => plain(`${what} unit`),
+    activity: plain("How active are you?"),
+    activityLevels: {
+      sedentary: { label: plain("Sedentary"), hint: plain("Desk job, little exercise.") },
+      light: { label: plain("Lightly active"), hint: plain("Exercise 1 to 3 days a week.") },
+      moderate: { label: plain("Moderately active"), hint: plain("Exercise 3 to 5 days a week.") },
+      active: { label: plain("Very active"), hint: plain("Hard exercise 6 to 7 days a week.") },
+      veryActive: {
+        label: plain("Extremely active"),
+        hint: plain("Physical job plus hard training."),
+      },
+    },
+    goal: plain("What's your goal?"),
+    goals: { lose: plain("Lose weight"), maintain: plain("Maintain"), gain: plain("Gain weight") },
+    rate: plain("How fast?"),
+    perWeek: (amount: string, unit: string) => plain(`${amount} ${unit} a week`),
+    continue: plain("Continue"),
+    back: plain("Back"),
+    edit: plain("Edit"),
+    summaryAge: (years: number) => plain(`${years} years`),
+    // The reasoning, in plain words.
+    headline: (goal: "lose" | "maintain" | "gain", kcal: string, amount: string, unit: string) =>
+      plain(
+        goal === "maintain"
+          ? `About ${kcal} kcal a day to stay where you are.`
+          : `About ${kcal} kcal a day to ${goal} ${amount} ${unit} a week.`,
+      ),
+    breakdown: (resting: string, multiplier: string, burned: string) =>
+      plain(
+        `Resting energy ${resting} kcal x ${multiplier} for activity = ${burned} kcal burned a day.`,
+      ),
+    adjustLose: (kcal: string) => plain(`Minus ${kcal} kcal a day for your goal.`),
+    adjustGain: (kcal: string) => plain(`Plus ${kcal} kcal a day for your goal.`),
+    floor: (kcal: string) =>
+      plain(`That went below the safety floor, so it was raised to ${kcal} kcal.`),
+    macroLabels: {
+      calories: plain("Calories"),
+      protein: plain("Protein"),
+      carbs: plain("Carbs"),
+      fat: plain("Fat"),
+    },
+    unitKcal: plain("kcal"),
+    unitGrams: plain("g"),
+    calculated: plain("calculated"),
+    setByYou: plain("set by you"),
+    reset: plain("Reset"),
+    resetLabel: (what: string) => plain(`Reset ${what} to the calculated value`),
+    adjust: plain("Adjust"),
+    proteinPerKg: plain("Protein per kg of bodyweight (g)"),
+    fatShare: plain("Fat share of calories (%)"),
+    save: voice("Set my targets"),
+    saving: voice("Setting\u2026"),
+    saved: voice("Targets set"),
+    settled: plain(
+      "These are your daily targets. Change any of them, or run the calculator again.",
+    ),
+    couldntSave: plain("Couldn't save your targets. Check your connection and try again."),
+    couldntLoad: plain("Couldn't load your details. Try again."),
+    fixThese: plain("Check the highlighted fields."),
+  },
 } as const;
 
 export const nav = {
