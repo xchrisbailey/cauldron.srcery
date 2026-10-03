@@ -25,7 +25,7 @@ import {
   roundWeight,
 } from "@cauldron/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ChoiceList, Pills } from "../../../components/Choices";
 import { Button, FormMessage, Input, PageHeader, Skeleton, useToast } from "../../../components/ui";
@@ -245,6 +245,7 @@ function Flow({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const [v, setV] = useState(() => initialValues(settings, latest));
   const [step, setStep] = useState(settings.profile && latest ? 2 : 0);
   const [attempted, setAttempted] = useState(false);
@@ -313,6 +314,7 @@ function Flow({
     onSuccess: () => {
       setSettled(true);
       toast(t.saved.text);
+      void navigate({ to: "/tracker" });
     },
     onError: (e) => setError(messageOr(e, t.couldntSave.text)),
     onSettled: () => queryClient.invalidateQueries({ queryKey: trackerKeys.all }),
