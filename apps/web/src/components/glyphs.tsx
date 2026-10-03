@@ -96,3 +96,16 @@ export const CloseGlyph = () => (
     <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </Glyph>
 );
+
+/** A star, outlined or filled: favourites in the tracker. */
+export const StarGlyph = ({ filled = false }: { filled?: boolean }) => (
+  <Glyph>
+    <path
+      d="M8 2.2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 11l-3.5 1.9.8-3.9-2.9-2.7 3.9-.5z"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+      fill={filled ? "currentColor" : "none"}
+    />
+  </Glyph>
+);

@@ -1,8 +1,10 @@
 import type {
   BodyProfile,
+  DiaryCopyInput,
   DiaryEntryId,
   DiaryEntryInput,
   DiaryEntryUpdate,
+  FavouriteId,
   LocalDate,
   TargetsInput,
 } from "@cauldron/shared";
@@ -20,6 +22,7 @@ export const trackerKeys = {
   weighIns: ["tracker", "weigh-ins"] as const,
   weighInRange: (from: string, to: string) => ["tracker", "weigh-ins", from, to] as const,
   intake: ["tracker", "intake"] as const,
+  quick: ["tracker", "quick"] as const,
   intakeRange: (from: string, to: string) => ["tracker", "intake", from, to] as const,
 };
 
@@ -47,6 +50,13 @@ export const intakeQuery = (from: string, to: string) =>
     queryFn: () => callApi((c) => c.tracker.intake({ query: { from, to } })),
   });
 
+/** Favourites and recents, for one-tap logging. */
+export const quickFoodsQuery = () =>
+  queryOptions({
+    queryKey: trackerKeys.quick,
+    queryFn: () => callApi((c) => c.tracker.quickFoods()),
+  });
+
 /** The tracker endpoints that write. */
 export const trackerApi = {
   add: (input: DiaryEntryInput) => callApi((c) => c.tracker.add({ payload: input })),
@@ -55,6 +65,10 @@ export const trackerApi = {
   update: (id: DiaryEntryId, update: DiaryEntryUpdate) =>
     callApi((c) => c.tracker.update({ params: { id }, payload: update })),
   remove: (id: DiaryEntryId) => callApi((c) => c.tracker.remove({ params: { id } })),
+  copy: (input: DiaryCopyInput) => callApi((c) => c.tracker.copy({ payload: input })),
+  favourite: (entryId: DiaryEntryId) =>
+    callApi((c) => c.tracker.favourite({ payload: { entryId } })),
+  unfavourite: (id: FavouriteId) => callApi((c) => c.tracker.unfavourite({ params: { id } })),
   saveProfile: (profile: BodyProfile) =>
     callApi((c) => c.tracker.saveProfile({ payload: profile })),
   saveTargets: (targets: TargetsInput) =>

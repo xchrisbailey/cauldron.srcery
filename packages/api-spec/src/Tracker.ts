@@ -1,16 +1,21 @@
 import {
   BodyProfile,
   DiaryBatchInput,
+  DiaryCopyInput,
   DiaryDay,
   DiaryDayQuery,
   DiaryEntry,
   DiaryEntryId,
   DiaryEntryInput,
   DiaryEntryUpdate,
+  Favourite,
+  FavouriteId,
+  FavouriteInput,
   IntakeDay,
   LocalDate,
   MealDescription,
   MealEstimate,
+  QuickFoods,
   Targets,
   TargetsInput,
   TrackerRangeQuery,
@@ -82,6 +87,31 @@ export class TrackerApi extends HttpApiGroup.make("tracker")
     HttpApiEndpoint.delete("remove", "/entries/:id", {
       params: entry,
       success: DiaryEntry,
+      error: NotFoundError,
+    }),
+    HttpApiEndpoint.post("copy", "/copy", {
+      payload: DiaryCopyInput,
+      success: DiaryDay,
+      error: InvalidRequestError,
+    }).annotate(
+      OpenApi.Description,
+      "Logs a copy of every entry on `from` (or only its `slot`) on `to`, in the same meals, and returns the day `to`.",
+    ),
+    HttpApiEndpoint.get("quickFoods", "/quick", { success: QuickFoods }).annotate(
+      OpenApi.Description,
+      "Favourites, then what was logged in the last 60 days, most often first, each as it was last logged.",
+    ),
+    HttpApiEndpoint.post("favourite", "/favourites", {
+      payload: FavouriteInput,
+      success: Favourite,
+      error: NotFoundError,
+    }).annotate(
+      OpenApi.Description,
+      "Stars a logged entry as a favourite, as it was logged. Starring the same food again updates it.",
+    ),
+    HttpApiEndpoint.delete("unfavourite", "/favourites/:id", {
+      params: { id: FavouriteId },
+      success: Favourite,
       error: NotFoundError,
     }),
     HttpApiEndpoint.get("settings", "/settings", { success: TrackerSettings }).annotate(

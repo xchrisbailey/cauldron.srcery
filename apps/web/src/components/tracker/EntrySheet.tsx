@@ -7,11 +7,16 @@ import {
   entryTotals,
   MACRO_KEYS,
   MEAL_SLOTS,
+  quickFoodKey,
   type MealSlot,
   TRACKER_LIMITS,
 } from "@cauldron/shared";
+import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 import { dayLabel } from "../../lib/dates";
+import { quickFoodsQuery } from "../../lib/tracker";
+import { StarGlyph } from "../glyphs";
+import { useStar } from "./Recents";
 import { Button, Dialog, FormMessage, Input, Select } from "../ui";
 import { colors, fonts } from "../../styles/tokens.stylex";
 import { draftOf, type MacroDraft, MacroFields, readDraft } from "./MacroFields";
@@ -61,6 +66,10 @@ function EntryForm({
   const [draft, setDraft] = useState<MacroDraft>(draftOf(entry.macros));
   const [error, setError] = useState<string | null>(null);
   useEffect(() => setError(null), [name, servings, draft]);
+  const quick = useQuery(quickFoodsQuery());
+  const { star, unstar } = useStar();
+  const key = quickFoodKey(entry);
+  const starredId = quick.data?.favourites.find((f) => quickFoodKey(f.food) === key)?.id ?? null;
 
   const servingsNumber = Number(servings);
   const servingsOk =
@@ -183,9 +192,24 @@ function EntryForm({
       </div>
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
       <div {...stylex.props(styles.actions)}>
-        <Button variant="danger" onClick={() => onRemove(entry)}>
-          {copy.tracker.entry.remove.text}
-        </Button>
+        <div {...stylex.props(styles.left)}>
+          <Button variant="danger" onClick={() => onRemove(entry)}>
+            {copy.tracker.entry.remove.text}
+          </Button>
+          <Button
+            variant="ghost"
+            aria-pressed={starredId !== null}
+            disabled={star.isPending || unstar.isPending}
+            onClick={() => (starredId === null ? star.mutate(entry.id) : unstar.mutate(starredId))}
+          >
+            <span {...stylex.props(styles.star, starredId !== null && styles.starOn)}>
+              <StarGlyph filled={starredId !== null} />
+            </span>
+            {starredId === null
+              ? copy.tracker.quick.favourite.text
+              : copy.tracker.quick.unfavourite.text}
+          </Button>
+        </div>
         <Button type="submit">{copy.tracker.entry.save.text}</Button>
       </div>
     </form>
@@ -212,5 +236,8 @@ const styles = stylex.create({
     gap: 8,
   },
   legend: { padding: 0, marginBottom: 8, fontSize: 13, fontWeight: 600, color: colors.subtext },
-  actions: { display: "flex", justifyContent: "space-between", gap: 8 },
+  actions: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
+  left: { display: "flex", gap: 8 },
+  star: { display: "inline-flex" },
+  starOn: { color: colors.tips },
 });

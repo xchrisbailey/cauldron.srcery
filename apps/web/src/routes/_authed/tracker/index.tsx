@@ -15,6 +15,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PlusGlyph } from "../../../components/glyphs";
 import { AddSheet } from "../../../components/tracker/AddSheet";
+import { CopyDayDialog, useCopyDay } from "../../../components/tracker/CopyDay";
 import { DayHeader } from "../../../components/tracker/DayHeader";
 import { EntrySheet } from "../../../components/tracker/EntrySheet";
 import {
@@ -81,6 +82,8 @@ function Diary({ today, date }: { today: string; date: string }) {
   const writes = useDiaryWrites();
   const [adding, setAdding] = useState<MealSlot | null>(null);
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
+  const [copying, setCopying] = useState(false);
+  const copyDay = useCopyDay();
 
   // The days either side, so stepping through doesn't wait.
   useEffect(() => {
@@ -96,9 +99,14 @@ function Diary({ today, date }: { today: string; date: string }) {
       <PageHeader
         title={copy.tracker.title.text}
         actions={
-          <ButtonLink to="/tracker/targets" variant="secondary">
-            {copy.tracker.header.targets.text}
-          </ButtonLink>
+          <>
+            <Button variant="secondary" onClick={() => setCopying(true)}>
+              {copy.tracker.copyDay.open.text}
+            </Button>
+            <ButtonLink to="/tracker/targets" variant="secondary">
+              {copy.tracker.header.targets.text}
+            </ButtonLink>
+          </>
         }
       />
 
@@ -154,7 +162,16 @@ function Diary({ today, date }: { today: string; date: string }) {
         <>
           <DayHeader totals={day.data.totals} targets={day.data.targets} />
           {entries.length === 0 ? (
-            <p {...stylex.props(styles.empty)}>{copy.tracker.diary.empty.text}</p>
+            <div {...stylex.props(styles.emptyRow)}>
+              <p {...stylex.props(styles.empty)}>{copy.tracker.diary.empty.text}</p>
+              <Button
+                variant="secondary"
+                disabled={copyDay.isPending}
+                onClick={() => copyDay.mutate({ from: addDays(date, -1), to: date, slot: null })}
+              >
+                {copy.tracker.copyDay.copyYesterday.text}
+              </Button>
+            </div>
           ) : null}
           <div {...stylex.props(styles.slots)}>
             {MEAL_SLOTS.map((slot) => (
@@ -179,6 +196,7 @@ function Diary({ today, date }: { today: string; date: string }) {
           void writes.add(inputs);
         }}
       />
+      <CopyDayDialog to={date} open={copying} onClose={() => setCopying(false)} />
       <EntrySheet
         entry={editing}
         today={today}
@@ -324,6 +342,13 @@ const styles = stylex.create({
     fontVariantNumeric: "tabular-nums",
   },
   empty: { margin: 0, fontSize: 14, color: colors.subtext },
+  emptyRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   slots: { display: "flex", flexDirection: "column", gap: 12 },
   slot: {
     display: "flex",

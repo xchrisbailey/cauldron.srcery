@@ -64,6 +64,13 @@
       "when": 1790923431779,
       "tag": "0008_tracker",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790925409691,
+      "tag": "0009_tracker_favourites",
+      "breakpoints": true
     }
   ]
 }

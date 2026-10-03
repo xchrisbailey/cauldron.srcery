@@ -673,9 +673,37 @@ export const tracker = {
       "This recipe is missing some numbers. Divine them from the ingredients, or log what's known.",
     ),
   },
+  /** Recents and favourites (#116). Re-logging is voice; the rest is plain. */
+  quick: {
+    favourites: plain("Favourites"),
+    recents: plain("Recent"),
+    empty: voice("Nothing logged lately. Describe a meal and it'll be here next time."),
+    logAgain: (name: string) => plain(`Log ${name} again`),
+    star: (name: string) => plain(`Add ${name} to favourites`),
+    unstar: (name: string) => plain(`Remove ${name} from favourites`),
+    favourite: plain("Favourite"),
+    unfavourite: plain("Unfavourite"),
+    starred: (name: string) => plain(`${name} is a favourite.`),
+    times: (n: number) => plain(`${n}×`),
+    couldntLoad: plain("Couldn't load your recent foods."),
+  },
+  /** Copying a meal or a day (#116). */
+  copyDay: {
+    open: plain("Copy a day"),
+    copyYesterday: plain("Copy yesterday"),
+    title: (day: string) => plain(`Copy into ${day}`),
+    from: plain("From"),
+    meal: plain("Meal"),
+    wholeDay: plain("The whole day"),
+    copy: plain("Copy"),
+    copied: (n: number) => voice(n === 1 ? "Copied 1 item." : `Copied ${n} items.`),
+    nothing: plain("Nothing logged there to copy."),
+    sameDay: plain("Pick a different day to copy from."),
+  },
   /** The add sheet's ways in. */
   addTabs: {
     label: plain("How to add"),
+    recents: plain("Recent"),
     describe: plain("Describe"),
     recipe: plain("Recipe"),
     quick: plain("Quick add"),

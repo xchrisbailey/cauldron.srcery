@@ -80,6 +80,7 @@ export function useDiaryWrites() {
           unique.map((d) => cache.invalidateQueries({ queryKey: trackerKeys.day(d) })),
         );
         void cache.invalidateQueries({ queryKey: trackerKeys.intake });
+        void cache.invalidateQueries({ queryKey: trackerKeys.quick });
       }
     };
 

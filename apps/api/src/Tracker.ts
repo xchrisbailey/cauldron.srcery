@@ -1,7 +1,14 @@
 import { macros, schema } from "@cauldron/db";
 import {
+  addDays,
   copy,
   dayTotals,
+  type DiaryCopyInput,
+  type Favourite,
+  FavouriteId,
+  type QuickFood,
+  quickFoodKey,
+  type RecentFood,
   daysBetween,
   type BodyProfile,
   type DiaryBatchInput,
@@ -26,12 +33,19 @@ import {
   type WeighIn,
   type WeighInInput,
 } from "@cauldron/shared";
-import { and, asc, between, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, between, desc, eq, gte, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { Db } from "./Db.ts";
 import { Recipes } from "./Recipes.ts";
 
-const { diaryEntry: entry, recipe, bodyProfile, trackerTargets, weighIn } = schema;
+const {
+  diaryEntry: entry,
+  recipe,
+  bodyProfile,
+  trackerTargets,
+  trackerFavourite: favourite,
+  weighIn,
+} = schema;
 
 const notFound = () => new NotFound({ message: copy.errors.notFound.text });
 const invalid = () => new InvalidRequest({ message: copy.errors.invalidRequest.text });
@@ -50,6 +64,34 @@ const toEntry = (row: EntryRow): DiaryEntry => ({
   source: row.source,
   recipeId: row.recipeId === null ? null : RecipeId.make(row.recipeId),
   position: row.position,
+});
+
+/** How far back recents look. */
+const RECENT_DAYS = 60;
+const RECENT_MAX = 30;
+
+const toFood = (row: {
+  name: string;
+  amount: string | null;
+  servings: number;
+  calories: number | null;
+  proteinGrams: number | null;
+  carbsGrams: number | null;
+  fatGrams: number | null;
+  source: DiaryEntry["source"];
+  recipeId: string | null;
+}): QuickFood => ({
+  name: row.name,
+  amount: row.amount,
+  servings: row.servings,
+  macros: macros.fromRow(row),
+  source: row.source,
+  recipeId: row.recipeId === null ? null : RecipeId.make(row.recipeId),
+});
+
+const toFavourite = (row: typeof favourite.$inferSelect): Favourite => ({
+  id: FavouriteId.make(row.id),
+  food: toFood(row),
 });
 
 const toTargets = (row: typeof trackerTargets.$inferSelect): Targets => ({
@@ -311,6 +353,133 @@ const make = Effect.gen(function* () {
     return toEntry(rows[0]);
   });
 
+  const copyDay = Effect.fn("Tracker.copyDay")(function* (ownerId: UserId, input: DiaryCopyInput) {
+    const slot = input.slot ?? null;
+    if (input.from === input.to) return yield* invalid();
+    yield* db.transaction(
+      Effect.gen(function* () {
+        const source = yield* select(
+          ownerId,
+          and(eq(entry.date, input.from), slot === null ? undefined : eq(entry.slot, slot)),
+        );
+        if (source.length === 0) return;
+        yield* lockDay(ownerId, input.to);
+        if ((yield* countDay(ownerId, input.to)) + source.length > TRACKER_LIMITS.perDay) {
+          return yield* dayFull();
+        }
+        const next = new Map<MealSlot, number>();
+        const values: Array<typeof entry.$inferInsert> = [];
+        for (const e of source) {
+          const position = next.get(e.slot) ?? (yield* nextPosition(ownerId, input.to, e.slot));
+          next.set(e.slot, position + 1);
+          values.push({
+            ownerId,
+            date: input.to,
+            slot: e.slot,
+            name: e.name,
+            amount: e.amount,
+            servings: e.servings,
+            ...macros.toRow(e.macros),
+            source: e.source,
+            recipeId: e.recipeId,
+            position,
+          });
+        }
+        yield* db.use((d) => d.insert(entry).values(values));
+      }),
+    );
+    return yield* day(ownerId, input.to);
+  });
+
+  const quickFoods = Effect.fn("Tracker.quickFoods")(function* (ownerId: UserId, today?: string) {
+    const favourites = yield* db
+      .use((d) =>
+        d
+          .select()
+          .from(favourite)
+          .where(eq(favourite.ownerId, ownerId))
+          .orderBy(asc(sql`lower(${favourite.name})`)),
+      )
+      .pipe(Effect.map((rows) => rows.map(toFavourite)));
+    const since = addDays(today ?? new Date().toISOString().slice(0, 10), -RECENT_DAYS);
+    const rows = yield* db.use((d) =>
+      d
+        .select()
+        .from(entry)
+        .where(and(eq(entry.ownerId, ownerId), gte(entry.date, since)))
+        .orderBy(desc(entry.date), desc(entry.createdAt)),
+    );
+    const starred = new Map(favourites.map((f) => [quickFoodKey(f.food), f.id]));
+    const groups = new Map<
+      string,
+      { food: QuickFood; count: number; lastLoggedOn: string; lastEntryId: DiaryEntryId }
+    >();
+    for (const row of rows) {
+      const food = toFood(row);
+      const key = quickFoodKey(food);
+      const group = groups.get(key);
+      // Rows come newest first, so the first one seen is how it was last logged.
+      if (group) group.count++;
+      else
+        groups.set(key, {
+          food,
+          count: 1,
+          lastLoggedOn: row.date,
+          lastEntryId: DiaryEntryId.make(row.id),
+        });
+    }
+    const recents = [...groups]
+      .filter(([key]) => !starred.has(key))
+      .map(([, g]): RecentFood => ({
+        food: g.food,
+        count: g.count,
+        lastLoggedOn: g.lastLoggedOn,
+        lastEntryId: g.lastEntryId,
+      }))
+      .sort((a, b) => b.count - a.count || b.lastLoggedOn.localeCompare(a.lastLoggedOn))
+      .slice(0, RECENT_MAX);
+    return { favourites, recents };
+  });
+
+  const star = Effect.fn("Tracker.favourite")(function* (ownerId: UserId, entryId: DiaryEntryId) {
+    const logged = yield* one(ownerId, entryId);
+    const food: QuickFood = {
+      name: logged.name,
+      amount: logged.amount,
+      servings: logged.servings,
+      macros: logged.macros,
+      source: logged.source,
+      recipeId: logged.recipeId,
+    };
+    const values = {
+      name: food.name,
+      amount: food.amount,
+      servings: food.servings,
+      ...macros.toRow(food.macros),
+      source: food.source,
+      recipeId: food.recipeId,
+    };
+    const [row] = yield* db.use((d) =>
+      d
+        .insert(favourite)
+        .values({ ownerId, key: quickFoodKey(food), ...values })
+        .onConflictDoUpdate({ target: [favourite.ownerId, favourite.key], set: values })
+        .returning(),
+    );
+    return toFavourite(row!);
+  });
+
+  const unstar = Effect.fn("Tracker.unfavourite")(function* (ownerId: UserId, id: FavouriteId) {
+    const [row] = yield* db.use((d) =>
+      d
+        .delete(favourite)
+        .where(and(eq(favourite.id, id), eq(favourite.ownerId, ownerId)))
+        .returning(),
+    );
+    if (!row) return yield* notFound();
+    return toFavourite(row);
+  });
+
   const settings = Effect.fn("Tracker.settings")(function* (ownerId: UserId) {
     const [profile] = yield* db.use((d) =>
       d.select().from(bodyProfile).where(eq(bodyProfile.ownerId, ownerId)),
@@ -412,6 +581,10 @@ const make = Effect.gen(function* () {
     addMany,
     update,
     remove,
+    copyDay,
+    quickFoods,
+    favourite: star,
+    unfavourite: unstar,
     settings,
     saveProfile,
     saveTargets,
