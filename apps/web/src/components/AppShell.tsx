@@ -28,6 +28,7 @@ const nav = [
   { to: "/recipes", label: copy.nav.recipes.text, Glyph: BookGlyph },
   { to: "/week", label: copy.nav.week.text, Glyph: CalendarGlyph },
   { to: "/gather", label: copy.nav.gather.text, Glyph: BagGlyph },
+  { to: "/tracker", label: copy.nav.tracker.text, Glyph: ChartGlyph },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -125,14 +126,6 @@ function Sidebar({ pathname, onSummon }: { pathname: string; onSummon: () => voi
               </li>
             );
           })}
-          {/* Reserved so the tracker (#23) can arrive without moving anything. */}
-          <li {...stylex.props(styles.item, styles.itemLater)}>
-            <span {...stylex.props(styles.glyph)}>
-              <ChartGlyph />
-            </span>
-            {copy.nav.tracker.text}
-            <span {...stylex.props(styles.pill)}>{copy.nav.later.text}</span>
-          </li>
         </ul>
       </nav>
       <Link
@@ -255,26 +248,8 @@ const styles = stylex.create({
       ":hover": `color-mix(in srgb, ${colors.magic} 24%, transparent)`,
     },
   },
-  itemLater: {
-    color: colors.subtext,
-    backgroundColor: { default: "transparent", ":hover": "transparent" },
-  },
   glyph: { display: "inline-flex", color: colors.subtext },
   glyphActive: { color: colors.magic },
-  pill: {
-    marginInlineStart: "auto",
-    paddingBlock: 4,
-    paddingInline: 7,
-    borderRadius: 999,
-    backgroundColor: colors.surface0,
-    color: colors.ink,
-    fontFamily: fonts.mono,
-    fontSize: 10.5,
-    fontWeight: 600,
-    letterSpacing: "0.05em",
-    lineHeight: 1,
-    textTransform: "uppercase",
-  },
   foot: {
     display: "flex",
     alignItems: "center",

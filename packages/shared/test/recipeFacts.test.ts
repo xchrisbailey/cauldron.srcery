@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  macroLine,
   noMacros,
   RECIPE_LIMITS,
   RecipeId,
@@ -156,5 +157,29 @@ describe("Scale", () => {
     { search: { servings: 4, multiplier: 2 }, scale: servings(4) },
   ])("reads $search as $scale", ({ search, scale }) => {
     expect(Scale.fromSearch(search)).toEqual(scale);
+  });
+});
+
+describe("macroLine", () => {
+  it("reads calories, then protein, fat and carbs", () => {
+    expect(macroLine({ calories: 420, protein: 32, carbs: 30, fat: 18 })).toEqual({
+      text: "420 kcal · 32P · 18F · 30C",
+      label: "Per serving: 420 kcal, 32 g protein, 18 g fat, 30 g carbs",
+    });
+  });
+
+  it("rounds to whole numbers and groups thousands", () => {
+    expect(macroLine({ calories: 1249.6, protein: 31.5, carbs: 0.4, fat: 18.2 })?.text).toBe(
+      "1,250 kcal · 32P · 18F · 0C",
+    );
+  });
+
+  it("leaves out what isn't known", () => {
+    expect(macroLine({ ...noMacros, calories: 380, fat: 12 })?.text).toBe("380 kcal · 12F");
+    expect(macroLine({ ...noMacros, protein: 0 })?.text).toBe("0P");
+  });
+
+  it("is null with no macros", () => {
+    expect(macroLine(noMacros)).toBeNull();
   });
 });
