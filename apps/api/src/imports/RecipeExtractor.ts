@@ -1,4 +1,10 @@
-import { DraftField, type MacroEstimateInput, type Macros, RECIPE_LIMITS } from "@cauldron/shared";
+import {
+  type DescribedItem,
+  DraftField,
+  type MacroEstimateInput,
+  type Macros,
+  RECIPE_LIMITS,
+} from "@cauldron/shared";
 import { chat, type ChatMiddleware } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
@@ -189,6 +195,61 @@ export const fromModelMacros = (model: ModelMacros): Macros => ({
   fat: within(model.fat, RECIPE_LIMITS.grams, 0.5),
 });
 
+// Meal estimates for the tracker (#114): the cook describes what they ate and
+// the model splits it into foods, each with an amount and its numbers.
+
+const MealItem = Schema.Struct({
+  name: Schema.String.annotate({ description: 'The food, short and plain: "Eggs", "Sourdough".' }),
+  amount: Schema.NullOr(Schema.String).annotate({
+    description:
+      'How much, as the cook said it or a typical portion: "2 large", "1 slice". Null if unknown.',
+  }),
+  food: Schema.Boolean.annotate({
+    description: "False when this isn't something eaten or drunk; its numbers must then be null.",
+  }),
+  calories: Estimate.annotate({ description: "Kilocalories for that amount." }),
+  protein: Estimate.annotate({ description: "Grams of protein for that amount." }),
+  carbs: Estimate.annotate({ description: "Grams of carbohydrate for that amount." }),
+  fat: Estimate.annotate({ description: "Grams of fat for that amount." }),
+});
+
+/** What the model is asked for when estimating a described meal. */
+export const ModelMeal = Schema.Struct({ items: Schema.Array(MealItem) });
+export type ModelMeal = typeof ModelMeal.Type;
+
+const mealSchema = Schema.toStandardJSONSchemaV1(ModelMeal)["~standard"].jsonSchema.input({
+  target: "draft-2020-12",
+});
+
+const MEAL_RULES = `You estimate nutrition for food someone describes having eaten.
+- Return one item per food or drink, in the order mentioned. Split "eggs on toast with butter" into eggs, toast and butter.
+- Use the amount they give. When they don't give one, assume a typical single portion and say what you assumed in the amount.
+- Answer for that amount: kilocalories, and grams of protein, carbohydrate and fat, using typical values.
+- If something isn't food or drink, set food to false and every number to null. Never guess numbers for it.
+- Use null for any number you can't estimate.`;
+
+export const mealPromptFor = (text: string) => ({
+  system: MEAL_RULES,
+  user: text.slice(0, MODEL_INPUT_MAX),
+});
+
+const decodeModelMeal = Schema.decodeUnknownEffect(ModelMeal);
+
+const MEAL_ITEMS_MAX = 30;
+
+/** The model's foods, rounded and bounded like recipe macros; non-food comes back with null numbers. */
+export const fromModelMeal = (model: ModelMeal): ReadonlyArray<DescribedItem> =>
+  model.items
+    .filter((item) => item.name.trim() !== "")
+    .slice(0, MEAL_ITEMS_MAX)
+    .map((item) => ({
+      name: item.name.trim().slice(0, RECIPE_LIMITS.title),
+      amount: item.amount?.trim().slice(0, 100) || null,
+      macros: item.food
+        ? fromModelMacros({ ...item, servings: null })
+        : { calories: null, protein: null, carbs: null, fat: null },
+    }));
+
 export type ProviderName = "gemini" | "anthropic" | "openai";
 
 export interface Provider {
@@ -270,6 +331,10 @@ export class RecipeExtractor extends Context.Service<
     readonly extract: (input: ExtractInput) => Effect.Effect<Extraction, ExtractError>;
     /** Per-serving macros estimated from the ingredient lines. */
     readonly estimateMacros: (input: MacroEstimateInput) => Effect.Effect<Macros, ExtractError>;
+    /** Foods in a described meal, each with an amount and its numbers. */
+    readonly estimateMeal: (
+      text: string,
+    ) => Effect.Effect<ReadonlyArray<DescribedItem>, ExtractError>;
   }
 >()("cauldron/api/RecipeExtractor") {
   static readonly layerModel = (provider: Provider) =>
@@ -292,6 +357,14 @@ export class RecipeExtractor extends Context.Service<
           );
           return fromModelMacros(model);
         }),
+        estimateMeal: Effect.fn("RecipeExtractor.estimateMeal")(function* (text) {
+          const { raw, usage } = yield* ask(provider, mealPromptFor(text), mealSchema);
+          yield* Effect.logInfo("Meal estimate", usage);
+          const model = yield* decodeModelMeal(raw).pipe(
+            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+          );
+          return fromModelMeal(model);
+        }),
       }),
     );
 
@@ -302,6 +375,7 @@ export class RecipeExtractor extends Context.Service<
       available: false,
       extract: () => Effect.fail(new ExtractError({ reason: "unavailable" })),
       estimateMacros: () => Effect.fail(new ExtractError({ reason: "unavailable" })),
+      estimateMeal: () => Effect.fail(new ExtractError({ reason: "unavailable" })),
     }),
   );
 
@@ -346,6 +420,9 @@ export class RecipeExtractor extends Context.Service<
     respond: (input: ExtractInput) => Effect.Effect<ExtractedRecipe | ExtractOutcome, ExtractError>,
     estimate: (input: MacroEstimateInput) => Effect.Effect<Macros, ExtractError> = () =>
       Effect.fail(new ExtractError({ reason: "unavailable" })),
+    /** Answers a described meal as the model would, before `fromModelMeal` cleans it up. */
+    describe: (text: string) => Effect.Effect<unknown, ExtractError> = () =>
+      Effect.fail(new ExtractError({ reason: "unavailable" })),
   ) =>
     Layer.succeed(
       RecipeExtractor,
@@ -359,6 +436,16 @@ export class RecipeExtractor extends Context.Service<
             : { outcome: "found" as const, recipe: answer, usage };
         }),
         estimateMacros: estimate,
+        // The fake's answer goes through the same decoding as a real model's.
+        estimateMeal: (text) =>
+          describe(text).pipe(
+            Effect.flatMap((raw) =>
+              decodeModelMeal(raw).pipe(
+                Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+              ),
+            ),
+            Effect.map(fromModelMeal),
+          ),
       }),
     );
 }

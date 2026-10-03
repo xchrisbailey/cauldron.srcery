@@ -286,3 +286,32 @@ export const dayTotals = (
 /** Whether an entry is missing any of its numbers. */
 export const hasGaps = (entry: Pick<DiaryEntry, "macros">) =>
   MACRO_KEYS.some((key) => entry.macros[key] === null);
+
+/** Describe it (#114): what was eaten, in words, for the model to split into foods. */
+export const MEAL_DESCRIPTION_MAX = 1000;
+
+export const MealDescription = Schema.Struct({
+  text: Schema.Trim.check(
+    Schema.isNonEmpty({ message: validation.required.text }),
+    Schema.isMaxLength(MEAL_DESCRIPTION_MAX, {
+      message: validation.tooLong(MEAL_DESCRIPTION_MAX).text,
+    }),
+  ),
+});
+export type MealDescription = typeof MealDescription.Type;
+
+/**
+ * One food the model found, with its amount and numbers for that amount.
+ * Numbers are null when the model couldn't say, or the item isn't food.
+ */
+export const DescribedItem = Schema.Struct({
+  name: Schema.String,
+  amount: Schema.NullOr(Schema.String),
+  macros: Macros,
+}).annotate({ identifier: "DescribedItem" });
+export type DescribedItem = typeof DescribedItem.Type;
+
+export const MealEstimate = Schema.Struct({
+  items: Schema.Array(DescribedItem),
+}).annotate({ identifier: "MealEstimate" });
+export type MealEstimate = typeof MealEstimate.Type;

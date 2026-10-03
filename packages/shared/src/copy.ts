@@ -643,6 +643,25 @@ export const tracker = {
     carbs: plain("Carbs"),
     fat: plain("Fat"),
   },
+  /** Describe it (#114): type what you ate, the model splits it into foods. */
+  describe: {
+    heading: plain("Describe it"),
+    hint: plain("Say what you ate, with amounts if you know them."),
+    label: plain("What you ate"),
+    placeholder: plain("2 eggs, a slice of sourdough with butter, black coffee"),
+    divine: voice("Divine it"),
+    divining: voice("Divining…"),
+    review: plain("Check these before logging. The numbers are estimates."),
+    notFood: plain("Not something we could estimate"),
+    remove: (name: string) => plain(`Remove ${name}`),
+    total: plain("Total"),
+    log: (n: number) => voice(n === 1 ? "Log 1 item" : `Log ${n} items`),
+    startOver: plain("Start over"),
+    unavailable: plain("Describing needs an AI model, and none is set up. Use quick add instead."),
+    failed: plain("Couldn't estimate that just now. Try again, or use quick add."),
+    unreadable: plain("Couldn't find any food in that. Try naming what you ate."),
+    nothingLeft: plain("Nothing left to log."),
+  },
   /** The add sheet and the entry editor. Fields and controls are plain. */
   entry: {
     addTitle: (slot: string) => plain(`Add to ${slot.toLowerCase()}`),

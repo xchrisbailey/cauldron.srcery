@@ -9,6 +9,8 @@ import {
   DiaryEntryUpdate,
   IntakeDay,
   LocalDate,
+  MealDescription,
+  MealEstimate,
   Targets,
   TargetsInput,
   TrackerRangeQuery,
@@ -19,7 +21,13 @@ import {
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api";
 import { Authorization } from "./Authorization.ts";
-import { InvalidRequestError, NotFoundError } from "./errors.ts";
+import {
+  InvalidRequestError,
+  NotFoundError,
+  TooManyRequestsError,
+  UnavailableError,
+} from "./errors.ts";
+import { RateLimit, RateLimitPolicy } from "./RateLimit.ts";
 
 const entry = { id: DiaryEntryId };
 const day = { date: LocalDate };
@@ -41,6 +49,17 @@ export class TrackerApi extends HttpApiGroup.make("tracker")
       OpenApi.Description,
       "What each day from `from` to `to` added up to (at most 367 days). Days with nothing logged are left out.",
     ),
+    HttpApiEndpoint.post("describe", "/describe", {
+      payload: MealDescription,
+      success: MealEstimate,
+      error: [InvalidRequestError, UnavailableError, TooManyRequestsError],
+    })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 20, window: "1 minute" })
+      .annotate(
+        OpenApi.Description,
+        "Splits a meal described in words into foods, each with an amount and estimated calories and macros, using the configured AI model. Nothing is logged. 503 when no model is set up or it can't answer.",
+      ),
     HttpApiEndpoint.post("add", "/entries", {
       payload: DiaryEntryInput,
       success: DiaryEntry,
