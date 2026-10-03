@@ -1,4 +1,4 @@
-// Seeds a demo account with a few recipes: `bun run --cwd packages/db seed`.
+// Seeds a demo account with a few recipes and four weeks of tracker history: `bun run --cwd packages/db seed`.
 // SEED_COUNT=500 tops the account up to that many recipes with generated ones.
 // Uses DATABASE_URL when set, otherwise the API's local PGlite data directory
 // (stop the API first; PGlite allows one process at a time).
@@ -14,6 +14,7 @@ import pg from "pg";
 import { migrationsFolder, schema } from "../src/index.ts";
 import { seed } from "../src/seed.ts";
 import { seedMany } from "../src/seed-many.ts";
+import { seedTracker } from "../src/seed-tracker.ts";
 
 const email = process.env.SEED_EMAIL ?? "demo@cauldron.local";
 const DEFAULT_PASSWORD = "cauldron-demo";
@@ -67,6 +68,10 @@ try {
   }
   const { created, total } = await seed(db, owner!.id);
   console.log(`Seeded ${created} of ${total} recipes for ${email}.`);
+  const days = await seedTracker(db, owner!.id);
+  console.log(
+    days > 0 ? `Seeded ${days} days of tracker history.` : "Tracker history already seeded.",
+  );
   const target = Number(process.env.SEED_COUNT ?? 0);
   if (Number.isInteger(target) && target > 0) {
     const started = performance.now();
