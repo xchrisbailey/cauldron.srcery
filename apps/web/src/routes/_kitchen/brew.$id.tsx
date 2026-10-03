@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink, EmptyState, Skeleton, useToast } from "../../components/ui";
+import { LogRecipeDialog } from "../../components/tracker/LogRecipe";
 import { focusRing } from "../../components/ui/controls";
 import { failureOf } from "../../lib/api-failure";
 import { recipeQuery } from "../../lib/recipes";
@@ -143,6 +144,7 @@ function Brewing({ recipe }: { recipe: Recipe }) {
   const [at, setIndex] = useState(0);
   const [units] = useUnitChoice();
   const [busy, setBusy] = useState(false);
+  const [logging, setLogging] = useState(false);
   // When the step last changed, so a quick second tap meant for "Next step"
   // doesn't land on "Brewed" as it takes the button's place.
   const movedAt = useRef(0);
@@ -318,9 +320,14 @@ function Brewing({ recipe }: { recipe: Recipe }) {
               {copy.brewing.nextStep.text}
             </Button>
           ) : (
-            <Button key="brewed" onClick={() => void brewed()} disabled={busy}>
-              {copy.brewing.brewed.text}
-            </Button>
+            <>
+              <Button key="log" variant="secondary" onClick={() => setLogging(true)}>
+                {copy.tracker.logRecipe.title.text}
+              </Button>
+              <Button key="brewed" onClick={() => void brewed()} disabled={busy}>
+                {copy.brewing.brewed.text}
+              </Button>
+            </>
           )}
         </div>
         <p {...stylex.props(styles.note)}>
@@ -332,6 +339,7 @@ function Brewing({ recipe }: { recipe: Recipe }) {
         </p>
         <p {...stylex.props(styles.note, styles.keys)}>{copy.brewing.keys.text}</p>
       </footer>
+      <LogRecipeDialog recipe={recipe} open={logging} onClose={() => setLogging(false)} />
     </main>
   );
 }

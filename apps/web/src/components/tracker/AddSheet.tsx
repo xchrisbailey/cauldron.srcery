@@ -2,13 +2,18 @@ import * as stylex from "@stylexjs/stylex";
 import { copy, type DiaryEntryInput, type MealSlot, TRACKER_LIMITS } from "@cauldron/shared";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button, Dialog, FormMessage, Input } from "../ui";
+import { focusRing } from "../ui/controls";
 import { colors, fonts } from "../../styles/tokens.stylex";
 import { DescribeIt } from "./DescribeIt";
+import { RecipePicker } from "./LogRecipe";
 import { emptyDraft, type MacroDraft, MacroFields, readDraft } from "./MacroFields";
 
-// What the diary's add button opens, for one meal slot. Quick add by numbers
-// is the plain fallback; describing a meal (#114), logging a recipe (#115)
-// and recents (#116) sit above it.
+// What the diary's add button opens, for one meal slot: describe it in words
+// (#114, the main way), pick a recipe (#115), or quick add by numbers, the
+// plain fallback.
+
+const TABS = ["describe", "recipe", "quick"] as const;
+type Tab = (typeof TABS)[number];
 
 export function AddSheet({
   date,
@@ -29,15 +34,52 @@ export function AddSheet({
       title={copy.tracker.entry.addTitle(slotName).text}
     >
       {slot === null ? null : (
-        <div key={`${date}/${slot}`} {...stylex.props(styles.sections)}>
-          <DescribeIt date={date} slot={slot} onLog={onLog} />
-          <details {...stylex.props(styles.more)}>
-            <summary {...stylex.props(styles.summary)}>{copy.tracker.entry.quickAdd.text}</summary>
-            <QuickAdd date={date} slot={slot} onLog={onLog} />
-          </details>
-        </div>
+        <Ways key={`${date}/${slot}`} date={date} slot={slot} onLog={onLog} />
       )}
     </Dialog>
+  );
+}
+
+function Ways({
+  date,
+  slot,
+  onLog,
+}: {
+  date: string;
+  slot: MealSlot;
+  onLog: (inputs: ReadonlyArray<DiaryEntryInput>) => void;
+}) {
+  const [tab, setTab] = useState<Tab>("describe");
+  return (
+    <div {...stylex.props(styles.sections)}>
+      <div
+        role="tablist"
+        aria-label={copy.tracker.addTabs.label.text}
+        {...stylex.props(styles.tabs)}
+      >
+        {TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            {...stylex.props(styles.tab, tab === t && styles.tabOn, focusRing.ring)}
+          >
+            {copy.tracker.addTabs[t].text}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel">
+        {tab === "describe" ? (
+          <DescribeIt date={date} slot={slot} onLog={onLog} />
+        ) : tab === "recipe" ? (
+          <RecipePicker date={date} slot={slot} onLog={onLog} />
+        ) : (
+          <QuickAdd date={date} slot={slot} onLog={onLog} />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -105,15 +147,36 @@ function QuickAdd({
 }
 
 const styles = stylex.create({
-  sections: { display: "flex", flexDirection: "column", gap: 16 },
-  more: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: colors.surface0,
+  sections: { display: "flex", flexDirection: "column", gap: 14 },
+  tabs: {
+    display: "flex",
+    gap: 4,
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: colors.base,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: colors.surface0,
   },
-  summary: { cursor: "pointer", fontSize: 14, fontWeight: 650, marginBottom: 8 },
-  form: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 },
+  tab: {
+    flexGrow: 1,
+    paddingBlock: 7,
+    paddingInline: 10,
+    borderRadius: 7,
+    borderWidth: 0,
+    backgroundColor: { default: "transparent", ":hover": colors.surface0 },
+    color: colors.subtext,
+    fontFamily: fonts.ui,
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  tabOn: {
+    backgroundColor: { default: colors.surface0, ":hover": colors.surface0 },
+    color: colors.ink,
+    fontWeight: 600,
+  },
+  form: { display: "flex", flexDirection: "column", gap: 12 },
   hint: { margin: 0, fontSize: 13, color: colors.subtext },
   row: {
     display: "grid",

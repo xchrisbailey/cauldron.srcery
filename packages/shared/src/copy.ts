@@ -662,6 +662,24 @@ export const tracker = {
     unreadable: plain("Couldn't find any food in that. Try naming what you ate."),
     nothingLeft: plain("Nothing left to log."),
   },
+  /** Log a recipe (#115). Logging is voice; servings and numbers are plain. */
+  logRecipe: {
+    title: voice("Log it"),
+    search: plain("Search your recipes"),
+    noNumbers: plain("No calories yet"),
+    aServing: plain("a serving"),
+    change: plain("Change recipe"),
+    gaps: plain(
+      "This recipe is missing some numbers. Divine them from the ingredients, or log what's known.",
+    ),
+  },
+  /** The add sheet's ways in. */
+  addTabs: {
+    label: plain("How to add"),
+    describe: plain("Describe"),
+    recipe: plain("Recipe"),
+    quick: plain("Quick add"),
+  },
   /** The add sheet and the entry editor. Fields and controls are plain. */
   entry: {
     addTitle: (slot: string) => plain(`Add to ${slot.toLowerCase()}`),
