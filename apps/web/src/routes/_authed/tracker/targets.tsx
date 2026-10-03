@@ -294,7 +294,7 @@ function Flow({
       ? resolveTargets({
           calculated: calc.targets,
           overrides: v.overrides,
-          weightKg,
+          weightKg: calc.adjustedWeightKg,
           proteinPerKg,
           fatShare: fatShare === 0 ? undefined : fatShare,
         })
@@ -600,7 +600,6 @@ function TargetsStep({
 }) {
   const unit = t.weightUnits[v.weightUnit].text;
   const rate = v.rate === null ? "" : String(v.rate);
-  const multiplier = calc.expenditure / calc.restingEnergy;
   const adjustment = Math.abs(calc.dailyAdjustment);
   const setTarget = (key: TargetKey, text: string) =>
     update({ overrides: { ...v.overrides, [key]: text } });
@@ -639,7 +638,7 @@ function TargetsStep({
             text={
               t.breakdown(
                 whole(calc.restingEnergy),
-                showNumber(multiplier, 3),
+                whole(calc.activityEnergy),
                 whole(calc.expenditure),
               ).text
             }
@@ -652,6 +651,19 @@ function TargetsStep({
                   calc.dailyAdjustment < 0
                     ? t.adjustLose(whole(adjustment)).text
                     : t.adjustGain(whole(adjustment)).text
+                }
+              />
+            </>
+          ) : null}
+          {calc.adjustedWeightKg < (weightKgOf(v) ?? 0) - 0.5 ? (
+            <>
+              {" "}
+              <Numbers
+                text={
+                  t.adjustedWeight(
+                    showNumber(roundWeight(fromKg(calc.adjustedWeightKg, v.weightUnit))),
+                    unit,
+                  ).text
                 }
               />
             </>

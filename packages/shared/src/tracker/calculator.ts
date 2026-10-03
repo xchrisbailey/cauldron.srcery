@@ -46,6 +46,24 @@ export const restingEnergy = (input: {
 }): number =>
   10 * input.weightKg + 6.25 * input.heightCm - 5 * input.ageYears + SEX_CONSTANT[input.sex];
 
+/** Body mass index at which the reference weight is taken. */
+const REFERENCE_BMI = 25;
+/** Share of the weight above the reference that counts toward the adjusted weight. */
+const EXCESS_SHARE = 0.25;
+
+/**
+ * The weight protein, the fat minimum and activity are worked out from.
+ * Up to a BMI of 25 it's the actual weight. Above that it's the BMI-25
+ * weight plus a quarter of the rest (the clinical "adjusted body weight"):
+ * extra body fat needs little protein and doesn't raise the cost of
+ * activity the way the multiplier assumes, so dosing by total weight
+ * overstates both for larger bodies.
+ */
+export const adjustedWeight = (weightKg: number, heightCm: number): number => {
+  const reference = REFERENCE_BMI * (heightCm / 100) ** 2;
+  return weightKg <= reference ? weightKg : reference + EXCESS_SHARE * (weightKg - reference);
+};
+
 /** Daily calories and macro grams. */
 export interface MacroTargets {
   readonly calories: number;
@@ -131,7 +149,11 @@ export interface CalculatorInput {
 
 export interface CalculatorResult {
   readonly restingEnergy: number;
+  /** Energy for activity on top of resting: the multiplier applied at the adjusted weight. */
+  readonly activityEnergy: number;
   readonly expenditure: number;
+  /** The weight protein, the fat minimum and activity used; see `adjustedWeight`. */
+  readonly adjustedWeightKg: number;
   /** Signed kcal per day, negative to lose. */
   readonly dailyAdjustment: number;
   /** After clamping; 0 for maintain. */
@@ -143,13 +165,18 @@ export interface CalculatorResult {
 
 /** Daily targets for a person and a goal. */
 export const calculateTargets = (input: CalculatorInput): CalculatorResult => {
-  const resting = restingEnergy({
+  const person = {
     sex: input.sex,
     ageYears: ageOn(input.birthDate, input.today),
     heightCm: input.heightCm,
-    weightKg: input.weightKg,
-  });
-  const expenditure = resting * ACTIVITY_MULTIPLIERS[input.activity];
+  };
+  const resting = restingEnergy({ ...person, weightKg: input.weightKg });
+  const adjusted = adjustedWeight(input.weightKg, input.heightCm);
+  // Resting energy uses the real weight (Mifflin-St Jeor holds for larger
+  // bodies); the activity on top of it is scaled at the adjusted weight.
+  const activityEnergy =
+    (ACTIVITY_MULTIPLIERS[input.activity] - 1) * restingEnergy({ ...person, weightKg: adjusted });
+  const expenditure = resting + activityEnergy;
   const { calories, floored, dailyAdjustment } = goalCalories({
     sex: input.sex,
     expenditure,
@@ -158,13 +185,15 @@ export const calculateTargets = (input: CalculatorInput): CalculatorResult => {
   });
   return {
     restingEnergy: resting,
+    activityEnergy,
     expenditure,
+    adjustedWeightKg: adjusted,
     dailyAdjustment,
     weeklyRateKg: clampWeeklyRate(input.goal, input.weeklyRateKg),
     floored,
     targets: splitMacros({
       calories,
-      weightKg: input.weightKg,
+      weightKg: adjusted,
       proteinPerKg: input.proteinPerKg,
       fatShare: input.fatShare,
     }),

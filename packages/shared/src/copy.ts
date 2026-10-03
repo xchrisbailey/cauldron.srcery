@@ -564,9 +564,13 @@ export const tracker = {
           ? `About ${kcal} kcal a day to stay where you are.`
           : `About ${kcal} kcal a day to ${goal} ${amount} ${unit} a week.`,
       ),
-    breakdown: (resting: string, multiplier: string, burned: string) =>
+    breakdown: (resting: string, activity: string, burned: string) =>
       plain(
-        `Resting energy ${resting} kcal x ${multiplier} for activity = ${burned} kcal burned a day.`,
+        `Resting energy ${resting} kcal plus ${activity} kcal for activity = ${burned} kcal burned a day.`,
+      ),
+    adjustedWeight: (weight: string, unit: string) =>
+      plain(
+        `Activity and protein are worked out from an adjusted weight of ${weight} ${unit}, since neither grows with every extra pound.`,
       ),
     adjustLose: (kcal: string) => plain(`Minus ${kcal} kcal a day for your goal.`),
     adjustGain: (kcal: string) => plain(`Plus ${kcal} kcal a day for your goal.`),

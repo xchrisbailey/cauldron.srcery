@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   ACTIVITY_MULTIPLIERS,
+  adjustedWeight,
   ageOn,
   calculateTargets,
   type CalculatorInput,
@@ -74,16 +75,19 @@ describe("calculateTargets", () => {
       weeklyRateKg: 0.5,
     });
     // resting = 700 + 1031.25 - 175 - 161 = 1395.25
-    // expenditure = 1395.25 * 1.375 = 1918.47
-    expect(result.expenditure).toBeCloseTo(1918.46875, 5);
+    // BMI 25.7, so adjusted = 68.0625 + 0.25 * (70 - 68.0625) = 68.546875
+    // activity = 0.375 * (685.46875 + 1031.25 - 175 - 161) = 517.77
+    // expenditure = 1395.25 + 517.77 = 1913.02
+    expect(result.adjustedWeightKg).toBeCloseTo(68.546875, 6);
+    expect(result.expenditure).toBeCloseTo(1913.01953125, 5);
     // adjustment = -0.5 * 7700 / 7 = -550
     expect(result.dailyAdjustment).toBeCloseTo(-550, 6);
     expect(result.weeklyRateKg).toBe(0.5);
     expect(result.floored).toBe(false);
-    // calories = 1368.4 -> 1370
-    // protein = 126 g; fat share gives 38 g but the minimum is 0.6 * 70 = 42 g
-    // carbs = (1370 - 504 - 378) / 4 = 122 g
-    expect(result.targets).toEqual({ calories: 1370, protein: 126, carbs: 122, fat: 42 });
+    // calories = 1363.02 -> 1360
+    // protein = 1.8 * 68.55 = 123.4 g; fat share gives 37.8 g but the minimum is 0.6 * 68.55 = 41.1 g
+    // carbs = (1360 - 493.5 - 370.2) / 4 = 124.1 g
+    expect(result.targets).toEqual({ calories: 1360, protein: 123, carbs: 124, fat: 41 });
   });
 
   it("gains: unspecified, 28, 170 cm, 65 kg, moderate, 0.25 kg a week", () => {
@@ -204,5 +208,35 @@ describe("limits", () => {
       fatShare: 0.2,
     });
     expect(carbsHeavy.carbs).toBe(1000);
+  });
+});
+
+describe("larger bodies", () => {
+  it("doses protein and activity by the adjusted weight, not every kilo", () => {
+    // Male, 41, 5 ft 9 in (175.26 cm), 396.8 lb (179.98 kg), very active, losing 1.5 lb a week.
+    const result = calculateTargets({
+      ...base,
+      sex: "male",
+      birthDate: "1985-01-01",
+      heightCm: 175.26,
+      weightKg: 179.98,
+      activity: "active",
+      goal: "lose",
+      weeklyRateKg: 0.68,
+    });
+    // reference = 25 * 1.7526^2 = 76.79; adjusted = 76.79 + 0.25 * 103.19 = 102.59
+    expect(result.adjustedWeightKg).toBeCloseTo(102.59, 1);
+    // resting = 1799.8 + 1095.4 - 205 + 5 = 2695.2 (real weight)
+    expect(result.restingEnergy).toBeCloseTo(2695.2, 0);
+    // activity = 0.725 * (1025.9 + 1095.4 - 205 + 5) = 1392.9
+    expect(result.activityEnergy).toBeCloseTo(1392.9, 0);
+    // expenditure 4088, minus 748 a day for the goal: 3340 (it was 3900 on total weight)
+    expect(result.targets.calories).toBe(3340);
+    // protein 1.8 * 102.59 = 185 g (it was 324 g on total weight)
+    expect(result.targets.protein).toBe(185);
+  });
+
+  it("leaves a healthy weight alone", () => {
+    expect(adjustedWeight(70, 180)).toBe(70);
   });
 });

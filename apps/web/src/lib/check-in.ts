@@ -1,5 +1,6 @@
 import {
   addDays,
+  adjustedWeight,
   ADAPTIVE_LIMITS,
   calculateTargets,
   daysBetween,
@@ -130,7 +131,8 @@ export const buildCheckIn = (input: {
     estimate,
     goal: profile.goal,
     weeklyRateKg: profile.weeklyRateKg,
-    weightKg,
+    // Protein and the fat minimum follow the adjusted weight, as in the calculator.
+    weightKg: adjustedWeight(weightKg, profile.heightCm),
     sex: profile.sex,
     proteinPerKg: profile.proteinPerKg,
     fatShare: profile.fatShare,
