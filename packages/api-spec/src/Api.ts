@@ -8,6 +8,7 @@ import { ImportsApi } from "./Imports.ts";
 import { PhotosApi } from "./Photos.ts";
 import { PlanApi } from "./Plan.ts";
 import { RecipesApi, TagsApi } from "./Recipes.ts";
+import { TrackerApi } from "./Tracker.ts";
 
 export class Health extends Schema.Class<Health>("Health")({
   status: Schema.Literal("ok"),
@@ -49,5 +50,6 @@ export class Api extends HttpApi.make("cauldron")
   .add(ImportsApi)
   .add(PlanApi)
   .add(GatherApi)
+  .add(TrackerApi)
   .prefix("/v1")
   .annotateMerge(OpenApi.annotations({ title: "Cauldron API" })) {}
