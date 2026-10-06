@@ -31,7 +31,7 @@ COPY --from=prod-deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=prod-deps /app/packages ./packages
 COPY --from=build /app/packages ./packages
 COPY package.json ./
-COPY apps/web/package.json apps/web/server.ts apps/web/forward-headers.ts ./apps/web/
+COPY apps/web/package.json apps/web/server.ts apps/web/forward-headers.ts apps/web/security-headers.ts ./apps/web/
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 USER bun
 WORKDIR /app/apps/web

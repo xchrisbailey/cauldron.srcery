@@ -3,6 +3,12 @@
 import { join, normalize, sep } from "node:path";
 import type { Server } from "bun";
 import { forwardHeaders } from "./forward-headers.ts";
+import {
+  generateNonce,
+  NONCE_HEADER,
+  securityHeaderOptionsFromEnv,
+  withSecurityHeaders,
+} from "./security-headers.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:3001").replace(/\/+$/, "");
@@ -49,25 +55,40 @@ if (import.meta.main) {
     default: { fetch: (request: Request) => Response | Promise<Response> };
   };
 
+  // Every response gets the security headers. Only SSR needs the nonce, which
+  // the router puts on every inline script it emits.
+  const respond = async (
+    request: Request,
+    server: Server<unknown>,
+    nonce: string,
+  ): Promise<Response> => {
+    const url = new URL(request.url);
+    if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
+      try {
+        return await proxy(request, url, server);
+      } catch {
+        return Response.json(
+          { error: { code: "bad_gateway", message: "Cauldron can't reach its API right now." } },
+          { status: 502 },
+        );
+      }
+    }
+    if (request.method === "GET" || request.method === "HEAD") {
+      const file = await staticFile(url.pathname);
+      if (file) return file;
+    }
+    // Never trust a client-sent nonce: this overwrites it for the page render.
+    const headers = new Headers(request.headers);
+    headers.set(NONCE_HEADER, nonce);
+    return start.default.fetch(new Request(request, { headers }));
+  };
+
   Bun.serve({
     port,
     async fetch(request, server) {
-      const url = new URL(request.url);
-      if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
-        try {
-          return await proxy(request, url, server);
-        } catch {
-          return Response.json(
-            { error: { code: "bad_gateway", message: "Cauldron can't reach its API right now." } },
-            { status: 502 },
-          );
-        }
-      }
-      if (request.method === "GET" || request.method === "HEAD") {
-        const file = await staticFile(url.pathname);
-        if (file) return file;
-      }
-      return start.default.fetch(request);
+      const nonce = generateNonce();
+      const response = await respond(request, server, nonce);
+      return withSecurityHeaders(response, securityHeaderOptionsFromEnv(process.env, nonce));
     },
   });
   console.log(`web listening on :${port}, proxying /v1 to ${apiOrigin}`);
