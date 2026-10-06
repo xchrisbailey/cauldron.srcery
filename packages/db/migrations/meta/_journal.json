@@ -71,6 +71,13 @@
       "when": 1790925409691,
       "tag": "0009_tracker_favourites",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791317866579,
+      "tag": "0010_import_text_retention",
+      "breakpoints": true
     }
   ]
 }

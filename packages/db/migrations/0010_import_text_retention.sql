@@ -1,0 +1,2 @@
+ALTER TABLE "import_job" DROP CONSTRAINT "import_job_input_check";--> statement-breakpoint
+ALTER TABLE "import_job" ADD CONSTRAINT "import_job_input_check" CHECK (not ("import_job"."source_url" is not null and "import_job"."input_text" is not null));
