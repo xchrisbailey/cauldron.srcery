@@ -133,4 +133,21 @@ describe("helpers", () => {
     expect(generateNonce()).not.toBe(generateNonce());
     expect(generateNonce()).toMatch(/^[A-Za-z0-9+/]+=*$/);
   });
+
+  it("leaves the policy off responses the API produced", () => {
+    const res = withSecurityHeaders(
+      new Response("<html></html>", { headers: { "content-type": "text/html" } }),
+      { ...options, csp: false },
+    );
+    expect(res.headers.get("content-security-policy")).toBeNull();
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("sets the headers on a response whose own headers can't be changed", () => {
+    // Per the Fetch spec a redirect response's headers are immutable.
+    const res = withSecurityHeaders(Response.redirect("https://cauldron.example/", 302), options);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://cauldron.example/");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
 });
