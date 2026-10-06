@@ -21,21 +21,30 @@ export class PhotosApi extends HttpApiGroup.make("photos")
     HttpApiEndpoint.post("startUpload", "/uploads", {
       payload: PhotoUploadInput,
       success: PhotoUpload,
-    }).annotate(
-      OpenApi.Description,
-      "Where to PUT the original: storage directly when it can sign a URL, otherwise /photos/uploads/{id}.",
-    ),
+      error: InvalidRequestError,
+    })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 30, window: "1 minute" })
+      .annotate(
+        OpenApi.Description,
+        "Where to PUT the original: storage directly when it can sign a URL, otherwise /photos/uploads/{id}. Refused when the user's photo storage is full.",
+      ),
     HttpApiEndpoint.put("receiveUpload", "/uploads/:id", {
       params: { id: Schema.String.check(Schema.isUUID()) },
       payload: Bytes("application/octet-stream"),
       success: HttpApiSchema.NoContent,
       error: InvalidRequestError,
-    }),
+    })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 30, window: "1 minute" }),
     HttpApiEndpoint.post("finishUpload", "/", {
       payload: PhotoFinishInput,
       success: Photo,
       error: InvalidRequestError,
-    }).annotate(OpenApi.Description, "Resizes the uploaded original into WebP variants."),
+    })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 30, window: "1 minute" })
+      .annotate(OpenApi.Description, "Resizes the uploaded original into WebP variants."),
     HttpApiEndpoint.post("fromUrl", "/from-url", {
       payload: PhotoFromUrlInput,
       success: Photo,

@@ -9,7 +9,8 @@ import { chat, type ChatMiddleware } from "@tanstack/ai";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
 import { createGeminiChat } from "@tanstack/ai-gemini";
 import { createOpenaiChat } from "@tanstack/ai-openai";
-import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Clock, Config, Context, Duration, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { AppConfig } from "../AppConfig.ts";
 import { emptyExtracted, type ExtractedRecipe, type Usage } from "./Extracted.ts";
 
 // Model extraction through TanStack AI (#13). One function takes raw text (a
@@ -37,7 +38,10 @@ export interface Extraction {
 }
 
 export class ExtractError extends Schema.TaggedError<ExtractError>()("ExtractError", {
-  reason: Schema.Literals(["unavailable", "failed", "timeout"]),
+  // "budget" is internal: the process's daily model budget is spent. Callers
+  // that don't know it treat it like any other failure, and Distill reports it
+  // as "unavailable".
+  reason: Schema.Literals(["unavailable", "failed", "timeout", "budget"]),
   detail: Schema.optional(Schema.String),
 }) {}
 
@@ -326,6 +330,39 @@ const ask = (
     }),
   );
 
+const BUDGET_WINDOW_MS = Duration.toMillis(Duration.hours(24));
+
+/**
+ * A fixed-window budget of model calls, shared by every caller of one
+ * extractor. The window opens at the first call after the last one ended and
+ * resets 24 hours later (by the Effect Clock). `guard` runs the wrapped effect
+ * while there's budget left, and otherwise fails without running it.
+ */
+export const makeModelBudget = (limit: number) =>
+  Effect.sync(() => {
+    let opened = 0;
+    let used = 0;
+    const take = Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      if (used === 0 || now - opened >= BUDGET_WINDOW_MS) {
+        opened = now;
+        used = 0;
+      }
+      if (used >= limit) return false;
+      used += 1;
+      return true;
+    });
+    return {
+      guard: <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | ExtractError, R> =>
+        Effect.flatMap(take, (ok): Effect.Effect<A, E | ExtractError, R> => {
+          if (ok) return effect;
+          return Effect.logWarning("Daily model budget spent", { limit }).pipe(
+            Effect.andThen(Effect.fail(new ExtractError({ reason: "budget" }))),
+          );
+        }),
+    };
+  });
+
 export class RecipeExtractor extends Context.Service<
   RecipeExtractor,
   {
@@ -340,34 +377,39 @@ export class RecipeExtractor extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<DescribedItem>, ExtractError>;
   }
 >()("cauldron/api/RecipeExtractor") {
-  static readonly layerModel = (provider: Provider) =>
-    Layer.succeed(
+  static readonly layerModel = (provider: Provider, dailyLimit: number) =>
+    Layer.effect(
       RecipeExtractor,
-      RecipeExtractor.of({
-        available: true,
-        extract: Effect.fn("RecipeExtractor.extract")(function* (input) {
-          const { raw, usage } = yield* ask(provider, promptFor(input), outputSchema);
-          const model = yield* decodeModelRecipe(raw).pipe(
-            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
-          );
-          return { outcome: model.recipe, recipe: fromModel(model), usage };
-        }),
-        estimateMacros: Effect.fn("RecipeExtractor.estimateMacros")(function* (input) {
-          const { raw, usage } = yield* ask(provider, macroPromptFor(input), macrosSchema);
-          yield* Effect.logInfo("Macro estimate", usage);
-          const model = yield* decodeModelMacros(raw).pipe(
-            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
-          );
-          return fromModelMacros(model);
-        }),
-        estimateMeal: Effect.fn("RecipeExtractor.estimateMeal")(function* (text) {
-          const { raw, usage } = yield* ask(provider, mealPromptFor(text), mealSchema);
-          yield* Effect.logInfo("Meal estimate", usage);
-          const model = yield* decodeModelMeal(raw).pipe(
-            Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
-          );
-          return fromModelMeal(model);
-        }),
+      Effect.gen(function* () {
+        const budget = yield* makeModelBudget(dailyLimit);
+        const askModel = (prompt: Parameters<typeof ask>[1], schema: typeof outputSchema) =>
+          budget.guard(ask(provider, prompt, schema));
+        return RecipeExtractor.of({
+          available: true,
+          extract: Effect.fn("RecipeExtractor.extract")(function* (input) {
+            const { raw, usage } = yield* askModel(promptFor(input), outputSchema);
+            const model = yield* decodeModelRecipe(raw).pipe(
+              Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+            );
+            return { outcome: model.recipe, recipe: fromModel(model), usage };
+          }),
+          estimateMacros: Effect.fn("RecipeExtractor.estimateMacros")(function* (input) {
+            const { raw, usage } = yield* askModel(macroPromptFor(input), macrosSchema);
+            yield* Effect.logInfo("Macro estimate", usage);
+            const model = yield* decodeModelMacros(raw).pipe(
+              Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+            );
+            return fromModelMacros(model);
+          }),
+          estimateMeal: Effect.fn("RecipeExtractor.estimateMeal")(function* (text) {
+            const { raw, usage } = yield* askModel(mealPromptFor(text), mealSchema);
+            yield* Effect.logInfo("Meal estimate", usage);
+            const model = yield* decodeModelMeal(raw).pipe(
+              Effect.mapError(() => new ExtractError({ reason: "failed", detail: "bad output" })),
+            );
+            return fromModelMeal(model);
+          }),
+        });
       }),
     );
 
@@ -397,6 +439,7 @@ export class RecipeExtractor extends Context.Service<
       }
       const chosen = yield* Config.option(Config.Literals(names, "AI_PROVIDER"));
       const model = yield* Config.option(Config.String("AI_MODEL"));
+      const { modelDailyLimit } = yield* AppConfig;
       const name = Option.getOrUndefined(chosen) ?? names.find((n) => Option.isSome(keys[n]));
       if (name === undefined) {
         yield* Effect.logInfo("No model configured: Distill uses structured data and text only.");
@@ -406,11 +449,14 @@ export class RecipeExtractor extends Context.Service<
       if (Option.isNone(apiKey)) {
         return yield* Effect.die(`AI_PROVIDER is ${name}, but ${PROVIDERS[name].key} isn't set.`);
       }
-      return RecipeExtractor.layerModel({
-        name,
-        apiKey: apiKey.value,
-        model: Option.getOrElse(model, () => PROVIDERS[name].model),
-      });
+      return RecipeExtractor.layerModel(
+        {
+          name,
+          apiKey: apiKey.value,
+          model: Option.getOrElse(model, () => PROVIDERS[name].model),
+        },
+        modelDailyLimit,
+      );
     }),
   );
 

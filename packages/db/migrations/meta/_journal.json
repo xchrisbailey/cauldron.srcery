@@ -78,6 +78,13 @@
       "when": 1791317866579,
       "tag": "0010_import_text_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791318293311,
+      "tag": "0011_photo_bytes",
+      "breakpoints": true
     }
   ]
 }
