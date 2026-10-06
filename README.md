@@ -66,6 +66,7 @@ API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 | `NODE_ENV`                                                              | `development`           | `production` turns docs off by default and requires `DATABASE_URL`, `PUBLIC_URL`, `SIGNUP_MODE` and a 32+ character secret                                                                                                         |
 | `GIT_SHA`                                                               | unset                   | Reported by `/v1/version`                                                                                                                                                                                                          |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`                                           | unset                   | Exports traces and logs over OTLP/HTTP                                                                                                                                                                                             |
+| `OTEL_EXPORTER_OTLP_HEADERS`                                            | unset                   | Headers for the collector, as `name=value,name=value`, such as its auth token. Use with an https endpoint when the collector is on another machine                                                                                 |
 
 Web (production server only):
 
@@ -101,6 +102,15 @@ Better Auth runs inside the API on `/v1/auth/*`. The web app uses cookie session
 Every `/v1` data route goes through the `Authorization` middleware, which accepts either the session cookie or a bearer token, and rejects cookie-authenticated writes that don't come from `PUBLIC_URL` (a CSRF guard).
 
 The iOS app, like any client without a browser, signs in with `POST /v1/auth/sign-in/email` (or the social flow) and reads the `set-auth-token` response header. It sends that token as `Authorization: Bearer <token>` on every request. Store the header value exactly as received: it is signed (`token.signature`), and a bare session token is rejected. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
+
+## Deploying safely
+
+Some protections depend on how the containers are run, and no code can check them. The list lives on the deploy ticket ([#21](https://github.com/xchrisbailey/cauldron.srcery/issues/21), "Security settings"). In short:
+
+- The API container publishes no host port. Only the web container and Postgres can reach it, and both containers set `TRUST_PROXY=true` behind a reverse proxy.
+- The API container can't open connections to private addresses other than Postgres. Distill fetches links on the server, and this egress rule is what stops a link from reaching internal services.
+- `SIGNUP_MODE` is `closed`, or `allowlist` while you create your own account.
+- Rate limits and the model budget live in the API's memory: a restart clears them, and more than one API replica needs a shared store first.
 
 ## What is kept
 
