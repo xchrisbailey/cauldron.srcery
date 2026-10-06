@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { AUTH_ACCOUNT_RATE_LIMIT, AUTH_RATE_LIMIT } from "../src/http/AuthRoute.ts";
 import { cookieOf, makeAuthApi } from "./auth-helpers.ts";
+import { WEB_ORIGIN } from "./helpers.ts";
 
 const signIn = { email: "nobody@example.test", password: "wrong-password" };
 
@@ -154,25 +155,59 @@ describe("auth rate limit", () => {
       expect((await api.post("/v1/auth/delete-user", {}, from("10.4.0.1"))).status).toBe(429);
     });
 
-    it("limits a password check per session credential across addresses", async () => {
-      const cookie = { cookie: "better-auth.session_token=made-up.value" };
-      for (let i = 0; i < AUTH_ACCOUNT_RATE_LIMIT.limit; i++) {
-        const res = await api.post(
+    it("limits a password check per signed-in user, however the session is presented", async () => {
+      const email = "checker@example.com";
+      const before = (await api.outbox()).length;
+      await api.post("/v1/auth/sign-up/email", {
+        email,
+        password: "correct-horse-1",
+        name: "Checker",
+      });
+      const verify = await api.send(api.linkIn((await api.waitForOutbox(before + 1)).at(-1)!));
+      const session = cookieOf(verify)!;
+      const bearer = verify.headers.get("set-auth-token")!;
+      // The same session as a cookie, a cookie beside a junk one, and a bearer token.
+      const guises = [
+        { cookie: session },
+        { cookie: `other=junk-1; ${session}` },
+        { authorization: `Bearer ${bearer}` },
+        { authorization: `Bearer ${bearer}`, cookie: "better-auth.session_token=junk.value" },
+      ];
+      const attempt = (i: number) =>
+        api.post(
           "/v1/auth/verify-password",
-          { password: "x" },
-          { ...cookie, ...from(`10.5.${Math.floor(i / 4)}.${i % 4}`) },
+          { password: "wrong-password" },
+          { ...guises[i % guises.length], ...from(`10.5.${Math.floor(i / 4)}.${i % 4}`) },
         );
-        expect(res.status).toBe(401);
+      for (let i = 0; i < AUTH_ACCOUNT_RATE_LIMIT.limit; i++) {
+        expect((await attempt(i)).status).not.toBe(429);
       }
-      expect(
-        (
-          await api.post(
-            "/v1/auth/verify-password",
-            { password: "x" },
-            { ...cookie, ...from("10.5.9.9") },
-          )
-        ).status,
-      ).toBe(429);
+      for (let i = 0; i < guises.length; i++) {
+        expect((await attempt(AUTH_ACCOUNT_RATE_LIMIT.limit + i)).status).toBe(429);
+      }
+    });
+
+    it("counts a form-encoded sign-in against the same account budget", async () => {
+      const form = (i: number) =>
+        api.send("/v1/auth/sign-in/email", {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            origin: WEB_ORIGIN,
+            ...from(`10.6.${Math.floor(i / 4)}.${i % 4}`),
+          },
+          body: new URLSearchParams({ email: "Form@Example.com", password: "nope" }).toString(),
+        });
+      for (let i = 0; i < AUTH_ACCOUNT_RATE_LIMIT.limit; i++) {
+        expect((await form(i)).status).not.toBe(429);
+      }
+      expect((await form(99)).status).toBe(429);
+      const json = await api.post(
+        "/v1/auth/sign-in/email",
+        { email: "form@example.com", password: "nope" },
+        from("10.6.9.9"),
+      );
+      expect(json.status).toBe(429);
     });
 
     it("passes a non-JSON, empty or email-less sign-in body on to Better Auth", async () => {
