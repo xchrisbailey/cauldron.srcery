@@ -1,10 +1,11 @@
 import { compileErrors, validate } from "@readme/openapi-parser";
 import { Api } from "@cauldron/api-spec";
+import { copy } from "@cauldron/shared";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { makeTestApi, url } from "./helpers.ts";
 
 describe("OpenAPI document", () => {
-  const api = makeTestApi();
+  const api = makeTestApi({ docs: true });
   afterAll(() => api.dispose());
 
   const fetchSpec = async () => {
@@ -63,5 +64,18 @@ describe("OpenAPI document", () => {
     const spec = await fetchSpec();
     const me = spec.paths["/v1/account/me"]?.["get"] as { responses: Record<string, unknown> };
     expect(Object.keys(me.responses)).toContain("401");
+  });
+});
+
+describe("OpenAPI document with docs off", () => {
+  const api = makeTestApi({ docs: false });
+  afterAll(() => api.dispose());
+
+  it("is not served, and answers the standard 404 body", async () => {
+    const res = await api.handler(new Request(url("/v1/openapi.json")));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      error: { code: "not_found", message: copy.errors.notFound.text },
+    });
   });
 });

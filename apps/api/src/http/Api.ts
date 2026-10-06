@@ -63,28 +63,37 @@ const Docs = Layer.unwrap(
   }),
 );
 
-export const ApiRoutes = Layer.mergeAll(
-  HttpApiBuilder.layer(Api, { openapiPath: "/v1/openapi.json" }).pipe(
-    Layer.provide([
-      SystemHandlers,
-      AccountHandlers,
-      RecipesHandlers,
-      TagsHandlers,
-      PhotosHandlers,
-      ImportsHandlers,
-      PlanHandlers,
-      GatherHandlers,
-      TrackerHandlers,
-    ]),
-    Layer.provide([
-      AuthorizationLive,
-      Recipes.layer,
-      Photos.layer,
-      Imports.layer,
-      Plan.layer,
-      Gather.layer,
-      Tracker.layer,
-    ]),
-  ),
-  Docs,
+// The OpenAPI document describes the whole API surface, so it is served only
+// with the docs (production keeps both off). The iOS contract is generated
+// from the spec, not fetched from a running server.
+const Routes = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* AppConfig;
+    return HttpApiBuilder.layer(Api, {
+      openapiPath: config.docs ? "/v1/openapi.json" : undefined,
+    }).pipe(
+      Layer.provide([
+        SystemHandlers,
+        AccountHandlers,
+        RecipesHandlers,
+        TagsHandlers,
+        PhotosHandlers,
+        ImportsHandlers,
+        PlanHandlers,
+        GatherHandlers,
+        TrackerHandlers,
+      ]),
+      Layer.provide([
+        AuthorizationLive,
+        Recipes.layer,
+        Photos.layer,
+        Imports.layer,
+        Plan.layer,
+        Gather.layer,
+        Tracker.layer,
+      ]),
+    );
+  }),
 );
+
+export const ApiRoutes = Layer.mergeAll(Routes, Docs);

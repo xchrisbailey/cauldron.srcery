@@ -51,6 +51,27 @@ describe("system endpoints", () => {
   });
 });
 
+describe("health rate limit", () => {
+  it("answers 429 with the standard body and Retry-After on the 61st check, leaving other system routes alone", async () => {
+    const limited = makeTestApi();
+    try {
+      const ping = () => limited.handler(new Request(url("/v1/health")));
+      for (let i = 0; i < 60; i++) expect((await ping()).status).toBe(200);
+      const res = await ping();
+      expect(res.status).toBe(429);
+      expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+        "too_many_requests",
+      );
+      for (const path of ["/v1/version", "/v1/sign-in-options"]) {
+        expect((await limited.handler(new Request(url(path)))).status).toBe(200);
+      }
+    } finally {
+      await limited.dispose();
+    }
+  });
+});
+
 describe("request ids", () => {
   it("adds one when absent", async () => {
     const res = await app.handler(new Request(url("/v1/version")));
