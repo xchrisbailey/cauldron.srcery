@@ -10,6 +10,11 @@ export interface SecurityHeaderOptions {
   readonly connectSrc: string | undefined;
   /** Per-request nonce allowed for inline scripts. */
   readonly nonce: string | undefined;
+  /**
+   * False for responses the API produced: they aren't this app's pages, and
+   * its docs page (when on) brings scripts our policy wouldn't allow.
+   */
+  readonly csp?: boolean;
 }
 
 /** Request header that carries the nonce into the Start handler; server.ts always overwrites it. */
@@ -63,7 +68,7 @@ const apply = (headers: Headers, options: SecurityHeaderOptions): void => {
     "camera=(), microphone=(), geolocation=(), screen-wake-lock=(self)",
   );
   headers.set("x-frame-options", "DENY");
-  if (headers.get("content-type")?.toLowerCase().startsWith("text/html")) {
+  if (options.csp !== false && headers.get("content-type")?.toLowerCase().startsWith("text/html")) {
     headers.set(
       options.cspReportOnly ? "content-security-policy-report-only" : "content-security-policy",
       contentSecurityPolicy(options),

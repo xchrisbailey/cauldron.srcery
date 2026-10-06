@@ -17,6 +17,8 @@ const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:3001").replace(/\
 const trustProxy = process.env.TRUST_PROXY === "true";
 const clientDir = join(import.meta.dir, "dist", "client");
 
+const isApiPath = (pathname: string) => pathname === "/v1" || pathname.startsWith("/v1/");
+
 const staticFile = async (pathname: string): Promise<Response | undefined> => {
   let decoded: string;
   try {
@@ -63,7 +65,7 @@ if (import.meta.main) {
     nonce: string,
   ): Promise<Response> => {
     const url = new URL(request.url);
-    if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
+    if (isApiPath(url.pathname)) {
       try {
         return await proxy(request, url, server);
       } catch {
@@ -87,8 +89,21 @@ if (import.meta.main) {
     port,
     async fetch(request, server) {
       const nonce = generateNonce();
-      const response = await respond(request, server, nonce);
-      return withSecurityHeaders(response, securityHeaderOptionsFromEnv(process.env, nonce));
+      const proxied = isApiPath(new URL(request.url).pathname);
+      const options = { ...securityHeaderOptionsFromEnv(process.env, nonce), csp: !proxied };
+      try {
+        return withSecurityHeaders(await respond(request, server, nonce), options);
+      } catch (error) {
+        // A failed render still answers with the headers, not Bun's bare 500.
+        console.error(error);
+        return withSecurityHeaders(
+          Response.json(
+            { error: { code: "internal", message: "Something went wrong on our side." } },
+            { status: 500 },
+          ),
+          options,
+        );
+      }
     },
   });
   console.log(`web listening on :${port}, proxying /v1 to ${apiOrigin}`);
