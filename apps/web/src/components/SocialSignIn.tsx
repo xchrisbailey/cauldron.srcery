@@ -1,16 +1,12 @@
 import { copy } from "@cauldron/shared";
 import { useQuery } from "@tanstack/react-query";
-import { callApi } from "../lib/api";
 import { authClient } from "../lib/auth-client";
+import { signInOptionsQuery } from "../lib/sign-in-options";
 import { Button, Divider, Stack } from "./ui";
 
 /** Google, Apple (and the dev provider locally), for whichever the API has configured. */
 export function SocialSignIn({ callbackURL }: { callbackURL: string }) {
-  const options = useQuery({
-    queryKey: ["sign-in-options"],
-    queryFn: () => callApi((c) => c.signInOptions()),
-    staleTime: Infinity,
-  });
+  const options = useQuery(signInOptionsQuery);
   const providers = [
     options.data?.google && { id: "google", label: copy.auth.signInWithGoogle.text },
     options.data?.apple && { id: "apple", label: copy.auth.signInWithApple.text },
@@ -25,7 +21,10 @@ export function SocialSignIn({ callbackURL }: { callbackURL: string }) {
           key={p.id}
           type="button"
           variant="secondary"
-          onClick={() => authClient.signIn.social({ provider: p.id, callbackURL })}
+          onClick={() =>
+            // A refused sign-in (sign-up closed, say) comes back to our page, not Better Auth's.
+            authClient.signIn.social({ provider: p.id, callbackURL, errorCallbackURL: "/sign-in" })
+          }
         >
           {p.label}
         </Button>

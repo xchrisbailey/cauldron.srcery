@@ -34,6 +34,17 @@ const ProductionSecret = Config.schema(
   "BETTER_AUTH_SECRET",
 );
 
+/** Who may create an account: anyone, nobody, or only the listed addresses. */
+export const SignUpMode = Schema.Literals(["open", "closed", "allowlist"]);
+export type SignUpMode = typeof SignUpMode.Type;
+
+/** `SIGNUP_ALLOWED_EMAILS`: comma separated, compared in lower case. */
+const parseEmailList = (raw: string): ReadonlyArray<string> =>
+  raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email !== "");
+
 export interface SocialProviders {
   readonly google?: { readonly clientId: string; readonly clientSecret: Redacted.Redacted<string> };
   readonly apple?: {
@@ -61,6 +72,13 @@ export class AppConfig extends Context.Service<
      * `trustProxy`, or every client shares the proxy's address and one budget.
      */
     readonly authRateLimit: boolean;
+    /**
+     * Who may create an account, by email or by a first social sign-in. Existing
+     * users sign in whatever the mode. Production must choose one.
+     */
+    readonly signUpMode: SignUpMode;
+    /** Lower-cased addresses that may sign up when `signUpMode` is `allowlist`. */
+    readonly signUpAllowedEmails: ReadonlyArray<string>;
     /** Serves Scalar API docs at /v1/docs. */
     readonly docs: boolean;
     readonly version: string;
@@ -89,6 +107,17 @@ export class AppConfig extends Context.Service<
         ? ProductionSecret
         : Config.Redacted("BETTER_AUTH_SECRET");
       const trustProxy = yield* Config.Boolean("TRUST_PROXY").pipe(Config.withDefault(false));
+      // No default in production, so a deploy is never open to strangers by accident.
+      const signUpModeConfig = Config.schema(SignUpMode, "SIGNUP_MODE");
+      const signUpMode = yield* production
+        ? signUpModeConfig
+        : signUpModeConfig.pipe(Config.withDefault("open"));
+      const signUpAllowedEmails = parseEmailList(
+        yield* Config.String("SIGNUP_ALLOWED_EMAILS").pipe(Config.withDefault("")),
+      );
+      if (signUpMode === "allowlist" && signUpAllowedEmails.length === 0) {
+        return yield* Effect.die("SIGNUP_MODE=allowlist needs SIGNUP_ALLOWED_EMAILS.");
+      }
       const docs = yield* Config.Boolean("API_DOCS").pipe(Config.withDefault(env !== "production"));
       const commit = yield* Config.option(Config.String("GIT_SHA"));
       const devIssuer = yield* Config.option(Config.String("DEV_OAUTH_DISCOVERY_URL"));
@@ -115,6 +144,8 @@ export class AppConfig extends Context.Service<
         authSecret,
         trustProxy,
         authRateLimit: production,
+        signUpMode,
+        signUpAllowedEmails,
         docs,
         version: pkg.version,
         commit: Option.getOrUndefined(commit),
@@ -147,6 +178,8 @@ export class AppConfig extends Context.Service<
         authSecret: Redacted.make("test-secret-test-secret-test-secret"),
         trustProxy: false,
         authRateLimit: false,
+        signUpMode: "open",
+        signUpAllowedEmails: [],
         docs: false,
         version: "0.0.0-test",
         commit: undefined,

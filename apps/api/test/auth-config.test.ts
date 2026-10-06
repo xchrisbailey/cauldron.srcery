@@ -6,6 +6,7 @@ import { Mailer, maskEmail } from "../src/Mailer.ts";
 // Everything production requires, so these tests fail only for the reason they're about.
 const PRODUCTION = {
   NODE_ENV: "production",
+  SIGNUP_MODE: "closed",
   PUBLIC_URL: "https://cauldron.example",
   DATABASE_URL: "postgres://localhost/cauldron",
   BETTER_AUTH_SECRET: "x".repeat(32),

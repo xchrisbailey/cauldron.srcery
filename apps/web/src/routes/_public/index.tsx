@@ -1,10 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 import { copy } from "@cauldron/shared";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { Lockup } from "../../components/Lockup";
 import { ButtonLink } from "../../components/ui";
 import { sessionQuery } from "../../lib/session";
+import { signInOptionsQuery } from "../../lib/sign-in-options";
 import { SearchFlag } from "../../lib/search";
 import { colors } from "../../styles/tokens.stylex";
 import { pageTitle } from "../../lib/page-title";
@@ -32,6 +34,8 @@ export const Route = createFileRoute("/_public/")({
 });
 
 function Landing() {
+  const options = useQuery(signInOptionsQuery);
+  const signUpClosed = options.data?.signUp === false;
   return (
     <section {...stylex.props(styles.hero)}>
       <h1 {...stylex.props(styles.title)} aria-label={copy.ui.appName.text}>
@@ -39,8 +43,8 @@ function Landing() {
       </h1>
       <p {...stylex.props(styles.tagline)}>{copy.ui.tagline.text}</p>
       <div {...stylex.props(styles.actions)}>
-        <ButtonLink to="/sign-up">{copy.auth.signUp.text}</ButtonLink>
-        <ButtonLink to="/sign-in" variant="secondary">
+        {signUpClosed ? null : <ButtonLink to="/sign-up">{copy.auth.signUp.text}</ButtonLink>}
+        <ButtonLink to="/sign-in" variant={signUpClosed ? "primary" : "secondary"}>
           {copy.auth.signIn.text}
         </ButtonLink>
       </div>

@@ -44,6 +44,8 @@ const SystemHandlers = HttpApiBuilder.group(
             google: config.social.google !== undefined,
             apple: config.social.apple !== undefined,
             dev: config.devOAuth !== undefined,
+            // An allowlist still takes sign-ups, from the listed addresses.
+            signUp: config.signUpMode !== "closed",
           }),
         ),
       );

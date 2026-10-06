@@ -25,6 +25,8 @@ export class SignInOptions extends Schema.Class<SignInOptions>("SignInOptions")(
   apple: Schema.Boolean,
   /** A local OIDC provider standing in for Google and Apple in development. */
   dev: Schema.Boolean,
+  /** Whether new accounts can be created at all. False hides the sign-up screens. */
+  signUp: Schema.Boolean,
 }) {}
 
 export class SystemApi extends HttpApiGroup.make("system", { topLevel: true })

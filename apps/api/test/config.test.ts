@@ -24,6 +24,7 @@ const production = {
   NODE_ENV: "production",
   PUBLIC_URL: "https://cauldron.example",
   BETTER_AUTH_SECRET: SECRET,
+  SIGNUP_MODE: "closed",
 };
 
 describe("AppConfig", () => {
@@ -47,6 +48,52 @@ describe("AppConfig", () => {
         assert.strictEqual(exit.value.publicUrl, "https://cauldron.example");
         assert.isTrue(exit.value.trustProxy);
         assert.isFalse(exit.value.docs);
+        assert.strictEqual(exit.value.signUpMode, "closed");
+      }
+    }),
+  );
+
+  it.effect("sign-up is open by default outside production", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({ BETTER_AUTH_SECRET: SECRET });
+      assert.isTrue(Exit.isSuccess(exit));
+      if (Exit.isSuccess(exit)) assert.strictEqual(exit.value.signUpMode, "open");
+    }),
+  );
+
+  it.effect("production requires SIGNUP_MODE", () =>
+    Effect.gen(function* () {
+      const { SIGNUP_MODE: _, ...env } = production;
+      const exit = yield* loadConfig(env);
+      assert.isTrue(Exit.isFailure(exit));
+      assert.include(failureText(exit), "SIGNUP_MODE");
+    }),
+  );
+
+  it.effect("rejects an unknown SIGNUP_MODE", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({ ...production, SIGNUP_MODE: "invite" });
+      assert.isTrue(Exit.isFailure(exit));
+      assert.include(failureText(exit), "SIGNUP_MODE");
+    }),
+  );
+
+  it.effect("an allowlist needs addresses, and reads them trimmed and lower-cased", () =>
+    Effect.gen(function* () {
+      const empty = yield* loadConfig({ ...production, SIGNUP_MODE: "allowlist" });
+      assert.isTrue(Exit.isFailure(empty));
+      assert.include(failureText(empty), "SIGNUP_ALLOWED_EMAILS");
+      const exit = yield* loadConfig({
+        ...production,
+        SIGNUP_MODE: "allowlist",
+        SIGNUP_ALLOWED_EMAILS: " Chris@Example.com, ,cook@example.com ",
+      });
+      assert.isTrue(Exit.isSuccess(exit));
+      if (Exit.isSuccess(exit)) {
+        assert.deepStrictEqual(exit.value.signUpAllowedEmails, [
+          "chris@example.com",
+          "cook@example.com",
+        ]);
       }
     }),
   );

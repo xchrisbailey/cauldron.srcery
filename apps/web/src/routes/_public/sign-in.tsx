@@ -1,6 +1,6 @@
 import { copy, EmailInput, SignInInput, authErrorMessage } from "@cauldron/shared";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { SearchFlag } from "../../lib/search";
@@ -10,13 +10,15 @@ import { SocialSignIn } from "../../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
 import { sessionQuery } from "../../lib/session";
+import { SIGN_UP_CLOSED, signInOptionsQuery } from "../../lib/sign-in-options";
 import { pageTitle } from "../../lib/page-title";
 
 const Search = Schema.toStandardSchemaV1(
   Schema.Struct({
     redirect: Schema.optional(Schema.String),
     reset: SearchFlag,
-    // Better Auth sends a bad verification link here as `error=INVALID_TOKEN`.
+    // Better Auth sends a bad verification link here as `error=INVALID_TOKEN`, and a
+    // provider sign-in that would have made a new account as `error=SIGN_UP_CLOSED`.
     error: Schema.optional(Schema.String),
   }),
 );
@@ -65,11 +67,17 @@ function SignIn() {
     if (res.error) return setError(authErrorMessage(errorCode(res.error)));
     setResent(true);
   };
-  const showResend = Boolean(search.error) || needsVerification;
+  const signUpClosed = search.error === SIGN_UP_CLOSED;
+  const showResend = (Boolean(search.error) && !signUpClosed) || needsVerification;
+  const options = useQuery(signInOptionsQuery);
 
   return (
     <AuthCard title={copy.auth.signInTitle.text}>
-      {search.error ? <FormMessage tone="error">{copy.auth.linkExpired.text}</FormMessage> : null}
+      {search.error ? (
+        <FormMessage tone="error">
+          {signUpClosed ? copy.auth.signUpClosed.text : copy.auth.linkExpired.text}
+        </FormMessage>
+      ) : null}
       {search.reset ? (
         <FormMessage tone="info">{copy.auth.passwordUpdated.text}</FormMessage>
       ) : null}
@@ -123,7 +131,9 @@ function SignIn() {
       <SocialSignIn callbackURL={to} />
       <Stack>
         <TextLink to="/forgot-password">{copy.auth.forgotPassword.text}</TextLink>
-        <TextLink to="/sign-up">{copy.auth.noAccount.text}</TextLink>
+        {options.data?.signUp === false ? null : (
+          <TextLink to="/sign-up">{copy.auth.noAccount.text}</TextLink>
+        )}
       </Stack>
     </AuthCard>
   );

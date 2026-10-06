@@ -1,5 +1,6 @@
 import { authErrorMessage, copy, SignUpInput } from "@cauldron/shared";
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState } from "react";
@@ -7,6 +8,7 @@ import { SocialSignIn } from "../../components/SocialSignIn";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient, errorCode } from "../../lib/auth-client";
 import { sessionQuery } from "../../lib/session";
+import { signInOptionsQuery } from "../../lib/sign-in-options";
 import { pageTitle } from "../../lib/page-title";
 
 export const Route = createFileRoute("/_public/sign-up")({
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/_public/sign-up")({
 function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const options = useQuery(signInOptionsQuery);
   const form = useForm({
     defaultValues: { name: "", email: "", password: "" },
     validators: { onSubmit: Schema.toStandardSchemaV1(SignUpInput) },
@@ -45,6 +48,15 @@ function SignUp() {
           {copy.auth.resendVerification.text}
         </Button>
         <TextLink to="/sign-in">{copy.auth.backToSignIn.text}</TextLink>
+      </AuthCard>
+    );
+  }
+
+  if (options.data?.signUp === false) {
+    return (
+      <AuthCard title={copy.auth.signUpTitle.text}>
+        <FormMessage tone="info">{copy.auth.signUpClosed.text}</FormMessage>
+        <TextLink to="/sign-in">{copy.auth.haveAccount.text}</TextLink>
       </AuthCard>
     );
   }
