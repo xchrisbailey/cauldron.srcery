@@ -34,6 +34,28 @@ const ProductionSecret = Config.schema(
   "BETTER_AUTH_SECRET",
 );
 
+const isHttpsOrigin = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.origin === value;
+  } catch {
+    return false;
+  }
+};
+
+// Better Auth marks its cookies Secure from this URL's scheme, and CORS and the
+// CSRF guard compare origins against it exactly, so production takes nothing looser.
+const ProductionPublicUrl = Config.schema(
+  Schema.String.check(
+    Schema.makeFilter((value: string) =>
+      isHttpsOrigin(value)
+        ? true
+        : "PUBLIC_URL must be an https origin in production, like https://cauldron.example (no path or trailing slash)",
+    ),
+  ),
+  "PUBLIC_URL",
+);
+
 /** Who may create an account: anyone, nobody, or only the listed addresses. */
 export const SignUpMode = Schema.Literals(["open", "closed", "allowlist"]);
 export type SignUpMode = typeof SignUpMode.Type;
@@ -101,7 +123,7 @@ export class AppConfig extends Context.Service<
       // Production has no defaults: a missing PUBLIC_URL would quietly point
       // auth cookies and redirects at localhost.
       const publicUrl = yield* production
-        ? Config.String("PUBLIC_URL")
+        ? ProductionPublicUrl
         : Config.String("PUBLIC_URL").pipe(Config.withDefault("http://localhost:3000"));
       const authSecret = yield* production
         ? ProductionSecret
