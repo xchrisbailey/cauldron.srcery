@@ -32,7 +32,7 @@ export const AUTH_RATE_LIMIT = { limit: 5, window: "1 minute" } as const;
  * The password-checking endpoints also get a per-account budget, so a guesser
  * who rotates addresses still can't try many passwords against one account.
  * `/sign-in/email` is keyed on the (normalised) email in the body; the others
- * carry no email and are keyed on the session credential. Every attempt counts,
+ * carry no email and are keyed on the signed-in user. Every attempt counts,
  * not only failures: simpler, and 10 tries in 15 minutes is generous for a person.
  */
 export const AUTH_ACCOUNT_RATE_LIMIT = { limit: 10, window: "15 minutes" } as const;
@@ -41,7 +41,6 @@ const EMAIL_KEYED_PATH = "/v1/auth/sign-in/email";
 const SESSION_KEYED_PATHS = new Set(
   ["/change-password", "/verify-password", "/delete-user"].map((path) => `/v1/auth${path}`),
 );
-const SESSION_COOKIES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
 
 // Keys and logs never hold a raw email or token, only this digest.
 const sha256Hex = (input: string) =>
@@ -54,20 +53,15 @@ const decodeSignInBody = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Struct({ email: Schema.String })),
 );
 
-// The email in a sign-in body, trimmed and lowercased. Anything that isn't a
-// JSON object with a string `email` gives none, and Better Auth answers it.
-const emailFromBody = (text: string): string | undefined => {
-  const email = Option.getOrUndefined(decodeSignInBody(text))?.email.trim().toLowerCase();
+// The email in a sign-in body, trimmed and lowercased, read the way Better Auth
+// will read it: JSON, or a form post. Anything else gives none, and Better Auth
+// answers it.
+const emailFromBody = (text: string, contentType: string | undefined): string | undefined => {
+  const raw = contentType?.toLowerCase().includes("application/x-www-form-urlencoded")
+    ? (new URLSearchParams(text).get("email") ?? undefined)
+    : Option.getOrUndefined(decodeSignInBody(text))?.email;
+  const email = raw?.trim().toLowerCase();
   return email === "" ? undefined : email;
-};
-
-const sessionCredential = (request: HttpServerRequest.HttpServerRequest): string | undefined => {
-  for (const name of SESSION_COOKIES) {
-    const cookie = request.cookies[name];
-    if (cookie) return cookie;
-  }
-  const bearer = /^Bearer\s+(\S+)/i.exec(request.headers.authorization ?? "")?.[1];
-  return bearer;
 };
 
 // Better Auth's own error shape, which its client reads.
@@ -100,6 +94,21 @@ export const AuthRoute = HttpRouter.use(
         ),
       );
 
+    // The signed-in user, resolved by Better Auth itself (cookie or bearer, with
+    // its own cookie names, signatures and decoding), so the key can't be varied
+    // by dressing one session up differently. No session, no key: Better Auth
+    // answers 401 without checking a password.
+    const sessionUserId = (request: HttpServerRequest.HttpServerRequest) =>
+      Effect.tryPromise(() =>
+        auth.api.getSession({
+          headers: new Headers(request.headers),
+          query: { disableRefresh: true },
+        }),
+      ).pipe(
+        Effect.map((session) => session?.user.id),
+        Effect.orElseSucceed(() => undefined),
+      );
+
     // The account budget's subject, or undefined when there's nothing to key on.
     const accountKey = Effect.fn("AuthRoute.accountKey")(function* (
       request: HttpServerRequest.HttpServerRequest,
@@ -107,12 +116,13 @@ export const AuthRoute = HttpRouter.use(
       text: string | undefined,
     ) {
       if (path === EMAIL_KEYED_PATH) {
-        const email = text === undefined ? undefined : emailFromBody(text);
+        const email =
+          text === undefined ? undefined : emailFromBody(text, request.headers["content-type"]);
         return email === undefined ? undefined : `email:${yield* sha256Hex(email)}`;
       }
       if (!SESSION_KEYED_PATHS.has(path)) return undefined;
-      const credential = sessionCredential(request);
-      return credential === undefined ? undefined : `session:${yield* sha256Hex(credential)}`;
+      const userId = yield* sessionUserId(request);
+      return userId === undefined ? undefined : `user:${userId}`;
     });
 
     const limited = Effect.gen(function* () {
