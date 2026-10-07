@@ -66,12 +66,32 @@ Create a personal access token in Openship (**Settings**), then add these under 
 
 GitHub's runners must be able to reach the Openship API URL over https.
 
+### 4. Host firewall for the API
+
+Recipe imports make the API fetch URLs that users supply. [`host/api-egress.sh`](host/api-egress.sh) stops the API container from reaching private addresses (other containers, Openship, the metadata service) or the VPS itself. Postgres stays reachable. This closes the DNS-rebinding gap from the security audit. The script finds containers by the `srcery.cauldron.role` label in the compose file, and the systemd unit re-applies the rules whenever a deploy starts a new container. On the VPS:
+
+```sh
+sudo install -m 755 deploy/host/api-egress.sh /usr/local/sbin/cauldron-api-egress
+sudo install -m 644 deploy/host/cauldron-api-egress.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now cauldron-api-egress
+journalctl -u cauldron-api-egress   # should log the api and postgres addresses
+```
+
+If the API exports telemetry to a collector on the VPS, allow it with `Environment=CAULDRON_EGRESS_ALLOW=<address>:<port>` in the unit. The rules are IPv4 only, which matches Docker's default of no IPv6 on its networks.
+
+After the first deploy, check from the API container that private addresses are blocked and Postgres still works:
+
+```sh
+docker exec <api-container> bun -e 'fetch("http://<openship-dashboard-or-other-internal-address>").then(() => console.log("REACHABLE: rules missing"), () => console.log("blocked"))'
+docker exec <api-container> bun -e 'fetch("http://localhost:3001/v1/health").then((r) => console.log(r.status))'   # 200 means Postgres is reachable
+```
+
 ## First deploy
 
 1. Run **Actions → Deploy → Run workflow** on `main`, or push to `main`.
 2. Open the site with the browser console open. Sign up with the allowlisted address, confirm the email, upload a photo and open cook mode. Look for CSP reports.
 3. Remove `CSP_REPORT_ONLY` from `web` and set `SIGNUP_MODE=closed` on `api`. Then run the Deploy workflow again. It redeploys the same commit with the new variables.
-4. Work through the rest of #21: the network checks, backups and a restore, the smoke test and the uptime check.
+4. Run the API firewall check from step 4 of the setup, then work through the rest of #21: the network checks, backups and a restore, the smoke test and the uptime check.
 
 ## Day to day
 

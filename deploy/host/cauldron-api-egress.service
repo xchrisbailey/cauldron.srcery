@@ -1,0 +1,19 @@
+# Keeps deploy/host/api-egress.sh's rules current as deploys replace the API
+# container. Install on the VPS:
+#   sudo install -m 755 deploy/host/api-egress.sh /usr/local/sbin/cauldron-api-egress
+#   sudo install -m 644 deploy/host/cauldron-api-egress.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now cauldron-api-egress
+[Unit]
+Description=Cauldron API egress firewall
+After=docker.service
+Requires=docker.service
+
+[Service]
+# Environment=CAULDRON_EGRESS_ALLOW=172.17.0.1:4318
+ExecStart=/usr/local/sbin/cauldron-api-egress watch
+ExecStopPost=/usr/local/sbin/cauldron-api-egress remove
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
