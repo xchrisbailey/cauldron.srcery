@@ -3,6 +3,12 @@
 import { join, normalize, sep } from "node:path";
 import type { Server } from "bun";
 import { forwardHeaders } from "./forward-headers.ts";
+import {
+  generateNonce,
+  NONCE_HEADER,
+  securityHeaderOptionsFromEnv,
+  withSecurityHeaders,
+} from "./security-headers.ts";
 
 const port = Number(process.env.PORT ?? 3000);
 const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:3001").replace(/\/+$/, "");
@@ -10,6 +16,8 @@ const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:3001").replace(/\
 // to X-Forwarded-For. Otherwise client-sent forwarding headers are dropped.
 const trustProxy = process.env.TRUST_PROXY === "true";
 const clientDir = join(import.meta.dir, "dist", "client");
+
+const isApiPath = (pathname: string) => pathname === "/v1" || pathname.startsWith("/v1/");
 
 const staticFile = async (pathname: string): Promise<Response | undefined> => {
   let decoded: string;
@@ -49,25 +57,53 @@ if (import.meta.main) {
     default: { fetch: (request: Request) => Response | Promise<Response> };
   };
 
+  // Every response gets the security headers. Only SSR needs the nonce, which
+  // the router puts on every inline script it emits.
+  const respond = async (
+    request: Request,
+    server: Server<unknown>,
+    nonce: string,
+  ): Promise<Response> => {
+    const url = new URL(request.url);
+    if (isApiPath(url.pathname)) {
+      try {
+        return await proxy(request, url, server);
+      } catch {
+        return Response.json(
+          { error: { code: "bad_gateway", message: "Cauldron can't reach its API right now." } },
+          { status: 502 },
+        );
+      }
+    }
+    if (request.method === "GET" || request.method === "HEAD") {
+      const file = await staticFile(url.pathname);
+      if (file) return file;
+    }
+    // Never trust a client-sent nonce: this overwrites it for the page render.
+    const headers = new Headers(request.headers);
+    headers.set(NONCE_HEADER, nonce);
+    return start.default.fetch(new Request(request, { headers }));
+  };
+
   Bun.serve({
     port,
     async fetch(request, server) {
-      const url = new URL(request.url);
-      if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
-        try {
-          return await proxy(request, url, server);
-        } catch {
-          return Response.json(
-            { error: { code: "bad_gateway", message: "Cauldron can't reach its API right now." } },
-            { status: 502 },
-          );
-        }
+      const nonce = generateNonce();
+      const proxied = isApiPath(new URL(request.url).pathname);
+      const options = { ...securityHeaderOptionsFromEnv(process.env, nonce), csp: !proxied };
+      try {
+        return withSecurityHeaders(await respond(request, server, nonce), options);
+      } catch (error) {
+        // A failed render still answers with the headers, not Bun's bare 500.
+        console.error(error);
+        return withSecurityHeaders(
+          Response.json(
+            { error: { code: "internal", message: "Something went wrong on our side." } },
+            { status: 500 },
+          ),
+          options,
+        );
       }
-      if (request.method === "GET" || request.method === "HEAD") {
-        const file = await staticFile(url.pathname);
-        if (file) return file;
-      }
-      return start.default.fetch(request);
     },
   });
   console.log(`web listening on :${port}, proxying /v1 to ${apiOrigin}`);

@@ -67,11 +67,16 @@ API (`apps/api/.env`, see [`.env.example`](apps/api/.env.example)):
 
 Web (production server only):
 
-| Variable      | Default                 | Notes                                                                                                                                                          |
-| ------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`        | `3000`                  |                                                                                                                                                                |
-| `API_ORIGIN`  | `http://localhost:3001` | Where `/v1` is proxied to                                                                                                                                      |
-| `TRUST_PROXY` | `false`                 | Take the client address from the rightmost `X-Forwarded-For` entry (added by your load balancer) instead of the peer address. Sent to the API as `x-client-ip` |
+| Variable          | Default                 | Notes                                                                                                                                                              |
+| ----------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`            | `3000`                  |                                                                                                                                                                    |
+| `API_ORIGIN`      | `http://localhost:3001` | Where `/v1` is proxied to                                                                                                                                          |
+| `TRUST_PROXY`     | `false`                 | Take the client address from the rightmost `X-Forwarded-For` entry (added by your load balancer) instead of the peer address. Sent to the API as `x-client-ip`     |
+| `PUBLIC_URL`      | unset                   | The origin the browser sees. When it is `https://`, responses carry `Strict-Transport-Security`                                                                    |
+| `CSP_REPORT_ONLY` | `false`                 | Sends the Content-Security-Policy as `Content-Security-Policy-Report-Only`. Use it for a first deploy and watch the browser console                                |
+| `CSP_CONNECT_SRC` | unset                   | Extra origins (space or comma separated) for the policy's `connect-src` and `img-src`, such as the S3 endpoint when the browser uploads photos straight to storage |
+
+The production server sets security headers on every response: `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options` and, over https, HSTS. Pages also get a Content-Security-Policy that allows scripts only from the app itself, with a fresh nonce per request for the few inline ones.
 
 ## Scripts
 
