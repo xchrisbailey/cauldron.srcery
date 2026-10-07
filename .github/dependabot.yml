@@ -12,7 +12,12 @@ updates:
       - /apps/web
     schedule:
       interval: weekly
+  # Postgres majors need a dump and restore (a new major can't open the old data
+  # directory), so only minor and patch bumps come through for it.
   - package-ecosystem: docker-compose
     directory: /deploy
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]

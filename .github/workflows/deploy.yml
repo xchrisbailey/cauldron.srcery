@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # One deploy at a time, and never cancel one halfway.
 concurrency:
@@ -38,13 +39,40 @@ jobs:
         run: |
           echo "::error::Run this workflow from main."
           exit 1
+      # Only the tip of main ships: a re-run of an older CI run would otherwise
+      # roll production back (and migrations only go forward). A manual run
+      # also needs a passing CI run on that commit.
+      - name: Check the commit is the tip of main and passed CI
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          tip=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          if [ "$tip" != "$COMMIT" ]; then
+            echo "::notice::$COMMIT is no longer the tip of main ($tip); not deploying it."
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT" = workflow_dispatch ]; then
+            passed=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$COMMIT&event=push&status=success" --jq .total_count)
+            if [ "$passed" = 0 ]; then
+              echo "::error::CI has not passed on $COMMIT yet."
+              exit 1
+            fi
+          fi
+          echo "ship=true" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        if: steps.gate.outputs.ship == 'true'
         with:
           node-version: 24
       # Pinned like everything else; bump it on purpose.
       - name: Install the Openship CLI
+        if: steps.gate.outputs.ship == 'true'
         run: npm install --global --ignore-scripts openship@0.8.2
       - name: Sign in to Openship
+        if: steps.gate.outputs.ship == 'true'
         env:
           OPENSHIP_TOKEN: ${{ secrets.OPENSHIP_TOKEN }}
           OPENSHIP_API_URL: ${{ secrets.OPENSHIP_API_URL }}
@@ -58,6 +86,7 @@ jobs:
       # swaps traffic over. Fails the job when the deploy fails. The API runs
       # migrations as it boots.
       - name: Deploy ${{ env.COMMIT }}
+        if: steps.gate.outputs.ship == 'true'
         env:
           OPENSHIP_PROJECT_ID: ${{ secrets.OPENSHIP_PROJECT_ID }}
         run: >-
@@ -67,6 +96,7 @@ jobs:
           --commit "$COMMIT"
           --watch --timeout 1800000
       - name: Check the live version
+        if: steps.gate.outputs.ship == 'true'
         env:
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
         run: |

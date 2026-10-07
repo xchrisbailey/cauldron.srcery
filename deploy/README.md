@@ -1,6 +1,6 @@
 # Deploying Cauldron
 
-Production runs on the OVH VPS under [Openship](https://openship.io), as one compose stack: `postgres`, `api` and `web` ([`compose.yaml`](compose.yaml)). `openship.json` at the repo root points Openship at that file. Only `web` is public; it serves the app and proxies `/v1` to `api`, which no one else can reach.
+Production runs on the OVH VPS under [Openship](https://openship.io), as one compose stack: `postgres`, `api` and `web` ([`compose.yaml`](compose.yaml)). `openship.json` at the repo root points Openship at that file. Only `web` is public; it serves the app and proxies `/v1` to `api`, which no one else can reach. Only `api` can reach `postgres`.
 
 Every push to `main` that passes CI deploys that exact commit ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): GitHub Actions asks Openship to build the commit on the VPS, waits for the stack's health checks, and then checks `/v1/health` on the live site. The API runs any new migrations as it boots. A red CI run deploys nothing.
 
@@ -10,41 +10,49 @@ The rest of the launch checklist (security settings, backups, the smoke test) is
 
 ### 1. Openship project
 
-1. In Openship, connect GitHub (**Settings → Git**) and create a project from `xchrisbailey/cauldron.srcery`, branch `main`, deploying to the VPS. Openship reads `openship.json` and should detect a compose project with three services. If it asks for the compose path, it is `deploy/compose.yaml`.
+1. In Openship, connect GitHub (**Settings → Git**) and create a project from `xchrisbailey/cauldron.srcery`, branch `main`, deploying to the VPS. Openship reads `openship.json` and should detect a compose project with the services in `compose.yaml`. If it asks for the compose path, it is `deploy/compose.yaml`.
 2. Leave **Auto-deploy** off (project **Source** tab). GitHub Actions deploys after CI instead.
-3. In **Services**, mark `web` **Public** on port `3000` and attach the domain with Let's Encrypt. Keep `api` and `postgres` **Internal**. Neither should have a host port.
+3. In **Services**, mark `web` **Public** on port `3000` and attach the domain with Let's Encrypt. Keep every other service **Internal**, with no host port. Check that Openship kept the compose file's `networks` (postgres is only on `data`, web only on `default`).
 4. Make sure the proxy accepts request bodies of at least 20 MB, because photo uploads go through `web`.
 5. If the VPS has 2 GB of RAM or less, have Openship build somewhere other than the VPS, because the web build is heavy.
 
 ### 2. Variables in Openship
 
-Set **project** variables. Compose reads these two for its `${...}` values, and Openship hands project variables to every service:
+Generate the database password once with `openssl rand -hex 24`. Postgres keeps the password it was first started with, so don't change it later without also changing it inside the database.
 
-| Variable            | Value                                                                       |
-| ------------------- | --------------------------------------------------------------------------- |
-| `POSTGRES_PASSWORD` | `openssl rand -hex 24` (secret). Set it once; Postgres keeps the first one. |
-| `PUBLIC_URL`        | `https://<domain>`, no trailing slash                                       |
+Set one **project** variable. Compose interpolates it, and it isn't secret:
+
+| Variable     | Value                                 |
+| ------------ | ------------------------------------- |
+| `PUBLIC_URL` | `https://<domain>`, no trailing slash |
+
+Set **service** variables so each container gets only its own secrets. On **`postgres`**:
+
+| Variable            | Value                          |
+| ------------------- | ------------------------------ |
+| `POSTGRES_PASSWORD` | The database password (secret) |
 
 Set these on the **`api` service only**, so the web container never sees them:
 
-| Variable                                                                | Value                                                              |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `BETTER_AUTH_SECRET`                                                    | `openssl rand -base64 32` (secret)                                 |
-| `SIGNUP_MODE`, `SIGNUP_ALLOWED_EMAILS`                                  | `allowlist` and your address for the first sign-up, then `closed`  |
-| `RESEND_API_KEY`, `EMAIL_FROM`                                          | Resend key (secret), and an address on a domain verified in Resend |
-| `GEMINI_API_KEY`                                                        | Google AI Studio key (secret)                                      |
-| `INSTAGRAM_OEMBED_TOKEN`                                                | Optional, `app-id\|client-token` (secret)                          |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                              | Optional. Redirect URI `<PUBLIC_URL>/v1/auth/callback/google`      |
-| `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER` | Optional. Return URL `<PUBLIC_URL>/v1/auth/callback/apple`         |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`             | Optional collector (see #21)                                       |
+| Variable                                                                | Value                                                                     |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                          | `postgres://cauldron:<database password>@postgres:5432/cauldron` (secret) |
+| `BETTER_AUTH_SECRET`                                                    | `openssl rand -base64 32` (secret)                                        |
+| `SIGNUP_MODE`, `SIGNUP_ALLOWED_EMAILS`                                  | `allowlist` and your address for the first sign-up, then `closed`         |
+| `RESEND_API_KEY`, `EMAIL_FROM`                                          | Resend key (secret), and an address on a domain verified in Resend        |
+| `GEMINI_API_KEY`                                                        | Google AI Studio key (secret)                                             |
+| `INSTAGRAM_OEMBED_TOKEN`                                                | Optional, `app-id\|client-token` (secret)                                 |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                              | Optional. Redirect URI `<PUBLIC_URL>/v1/auth/callback/google`             |
+| `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER` | Optional. Return URL `<PUBLIC_URL>/v1/auth/callback/apple`                |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`             | Optional collector (see #21)                                              |
 
-On the **`web` service**, set `CSP_REPORT_ONLY=true` for the first deploy only (see below).
+On the **`web` service**, set `CSP_REPORT_ONLY=true` for the first deploy only (see below). Then open its **Environment** view and check that none of the secrets above are listed there.
 
-Compose already sets `NODE_ENV`, `PORT`, `DATABASE_URL`, `TRUST_PROXY`, `STORAGE_DIR` and `API_ORIGIN`. Leave `S3_BUCKET` and `API_DOCS` unset. Photos live on the `photos` volume, and API docs stay off in production.
+Compose already sets `NODE_ENV`, `PORT`, `TRUST_PROXY`, `STORAGE_DIR` and `API_ORIGIN`. Leave `S3_BUCKET` and `API_DOCS` unset. Photos live on the `photos` volume, and API docs stay off in production.
 
 ### 3. GitHub
 
-Create a personal access token in Openship (**Settings**), then add these under the repo's **Settings → Environments → production** (or as repo secrets):
+Create a personal access token in Openship (**Settings**). Add the secrets below under the repo's **Settings → Environments → production** (or as repo secrets). `PUBLIC_URL` must be a **repository** variable (**Settings → Secrets and variables → Actions → Variables**), because the workflow checks it before the environment loads:
 
 | Name                     | Kind     | Value                                                                                      |
 | ------------------------ | -------- | ------------------------------------------------------------------------------------------ |
@@ -65,10 +73,10 @@ GitHub's runners must be able to reach the Openship API URL over https.
 
 ## Day to day
 
-- **Deploy:** merge to `main`. The Deploy run links to the site and fails if Openship's deploy fails or the site doesn't answer afterwards.
+- **Deploy:** merge to `main`. The Deploy run links to the site and fails if Openship's deploy fails or the site doesn't answer afterwards. A run for a commit that is no longer the tip of `main` (a re-run of an old CI run) deploys nothing, so it can't roll production back by accident.
 - **Watch a deploy:** `openship logs <deployment-id> --follow`, or the Openship dashboard.
 - **Roll back:** `openship deployment rollback`, or the dashboard. Migrations only move forward. Rolling back past a migration leaves the newer schema in place, which older code usually tolerates when the migration only added things. Anything else needs a restore.
-- **Change a variable:** edit it in Openship, then run the Deploy workflow by hand to apply it.
+- **Change a variable:** edit it in Openship, then run the Deploy workflow by hand to apply it. A manual run deploys the tip of `main`, and only if CI passed on it.
 
 ## Not here yet
 
