@@ -78,13 +78,13 @@ House style:
 
 ## Delegation
 
-The main session runs on **Opus at medium effort** (`.claude/settings.json`). It plans, orchestrates, reviews, and does the larger or cross-cutting work itself: architecture, anything touching several packages, Effect layer wiring, and auth.
+The main session runs on **Opus at medium effort** (`.claude/settings.json`). It plans, orchestrates, reviews, and does the larger or cross-cutting work itself: architecture, anything touching several packages, Effect layer wiring, and auth. Everything else goes to the agents in `.claude/agents/`:
 
-Small, well-defined tasks go to **Sonnet 5.5** subagents in `.claude/agents/`:
+- `coder` (Sonnet 5.5, high): one ticket or a bounded piece of one, code and tests, in its own worktree, ending in a draft PR.
+- `scout` (Haiku): read-only lookups for writing a brief.
+- `adversary` (Fable): tries to break a ticket breakdown or a risky PR.
+- On an agent team, `reviewer` (Sonnet 5.5, high) gives each draft PR a first pass and `shepherd` (Haiku) reruns checks and cleans up after merges.
 
-- `implementer`: one focused change with a clear spec (a route, a component, a schema, a migration, a bug fix).
-- `test-writer`: tests for existing code (unit, integration, fixture corpora).
+A session spawned as one of these follows its own file instead. Opus reviews every PR before it is marked ready. When delegating a ticket, starting an agent team, stacking or merging PRs, or reviewing a coder's PR, read `docs/agents/orchestration.md`.
 
-Before merging, send any non-trivial diff to `reviewer` (Opus, medium effort, read-only).
-
-Subagents without a named type also default to Sonnet 5.5 (`CLAUDE_CODE_SUBAGENT_MODEL`). When you delegate, pass the ticket number, the exact files or area, the acceptance criteria, and the house rules above. Subagents start cold.
+Subagents without a named type default to Sonnet 5.5 (`CLAUDE_CODE_SUBAGENT_MODEL`). Subagents start cold, so every brief stands alone.
