@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AuthCard, Button, FormMessage, Stack, TextField, TextLink } from "../../components/ui";
 import { authClient } from "../../lib/auth-client";
 import { pageTitle } from "../../lib/page-title";
+import { resetRequestErrorMessage } from "../../lib/reset-request-error";
 
 export const Route = createFileRoute("/_public/forgot-password")({
   head: () => pageTitle(copy.pageTitles.forgotPassword),
@@ -14,12 +15,22 @@ export const Route = createFileRoute("/_public/forgot-password")({
 
 function ForgotPassword() {
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const form = useForm({
     defaultValues: { email: "" },
     validators: { onSubmit: Schema.toStandardSchemaV1(EmailInput) },
     onSubmit: async ({ value }) => {
+      setError(null);
+      try {
+        const res = await authClient.requestPasswordReset({
+          email: value.email,
+          redirectTo: "/reset-password",
+        });
+        if (res.error) return setError(resetRequestErrorMessage(res.error));
+      } catch {
+        return setError(resetRequestErrorMessage(undefined));
+      }
       // Same answer whether or not the account exists.
-      await authClient.requestPasswordReset({ email: value.email, redirectTo: "/reset-password" });
       setSent(true);
     },
   });
@@ -47,6 +58,7 @@ function ForgotPassword() {
                 />
               )}
             </form.Field>
+            {error ? <FormMessage tone="error">{error}</FormMessage> : null}
             <form.Subscribe selector={(s) => s.isSubmitting}>
               {(submitting) => (
                 <Button type="submit" disabled={submitting}>
