@@ -205,7 +205,8 @@ const make = Effect.gen(function* () {
   const work = Effect.fn("Imports.work")(function* (row: JobRow) {
     // A cancel that landed between the claim and now: don't spend a model call.
     if (yield* queue.cancelled(row.id)) return yield* Effect.interrupt;
-    // A job has a link or text, never both (the table checks).
+    // A job has a link or text, never both (the table checks). Jobs whose text
+    // was dropped (see ImportQueue.cleanup) are finished, so none reaches here.
     const request = row.inputText === null ? { url: row.sourceUrl! } : { text: row.inputText };
     return yield* distill(request, row.ownerId as UserId).pipe(Effect.provideContext(seams));
   });
@@ -258,7 +259,7 @@ const make = Effect.gen(function* () {
     Effect.forever,
   );
 
-  return { start, get, cancel, save, recover: queue.recover, worker };
+  return { start, get, cancel, save, recover: queue.recover, cleanup: queue.cleanup, worker };
 });
 
 /** Distill jobs: start, poll, cancel and save. Every read and write is scoped to one owner. */
@@ -280,5 +281,22 @@ export const ImportWorker = Layer.effectDiscard(
       Effect.forkScoped,
     );
     for (let i = 0; i < CONCURRENCY; i++) yield* Effect.forkScoped(imports.worker);
+  }),
+).pipe(Layer.provide(Imports.layer));
+
+/** Drops old import text and deletes old jobs once a day in the background for as long as the API is up. */
+export const ImportCleanup = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const imports = yield* Imports;
+    yield* imports.cleanup().pipe(
+      Effect.tap((removed) =>
+        removed.stripped + removed.deleted > 0
+          ? Effect.logInfo("Cleaned up imports", removed)
+          : Effect.void,
+      ),
+      Effect.catchCause((cause) => Effect.logWarning("Import cleanup failed", cause)),
+      Effect.repeat(Schedule.spaced("1 day")),
+      Effect.forkScoped,
+    );
   }),
 ).pipe(Layer.provide(Imports.layer));

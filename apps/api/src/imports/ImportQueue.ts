@@ -1,6 +1,6 @@
 import { schema } from "@cauldron/db";
 import type { ImportFailureCode, ImportSource, UserId } from "@cauldron/shared";
-import { and, count, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNotNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Duration, Effect, Layer } from "effect";
 import { Db } from "../Db.ts";
 import type { Distilled } from "./distill.ts";
@@ -15,6 +15,10 @@ export type JobRow = typeof importJob.$inferSelect;
 /** Jobs left running this long were orphaned by a stopped worker and are picked up again. */
 export const STALE_AFTER = Duration.minutes(5);
 export const MAX_ATTEMPTS = 3;
+/** Pasted text and what was read from a page are dropped from finished jobs after this long. */
+export const INPUT_RETENTION = Duration.days(7);
+/** Jobs are deleted after this long. The daily cap only looks back a day. */
+export const JOB_RETENTION = Duration.days(30);
 
 /** How a job ended: a draft, or a plain reason with what was read before it failed. */
 export type Outcome =
@@ -168,7 +172,37 @@ const make = Effect.gen(function* () {
     return Number(row?.n ?? 0);
   });
 
-  return { enqueue, claim, finish, requeue, cancel, cancelled, recover, countSince };
+  /**
+   * Drops the text of finished jobs after INPUT_RETENTION (the draft, link and
+   * status stay) and deletes jobs after JOB_RETENTION. A job still queued or
+   * running keeps its text, since a worker needs it.
+   */
+  const cleanup = Effect.fn("ImportQueue.cleanup")(function* () {
+    const at = yield* now;
+    const ago = (age: Duration.Input) => new Date(at.getTime() - Duration.toMillis(age));
+    const deleted = yield* db.use((d) =>
+      d
+        .delete(importJob)
+        .where(lt(importJob.createdAt, ago(JOB_RETENTION)))
+        .returning({ id: importJob.id }),
+    );
+    const stripped = yield* db.use((d) =>
+      d
+        .update(importJob)
+        .set({ inputText: null, rawContent: null })
+        .where(
+          and(
+            lt(importJob.createdAt, ago(INPUT_RETENTION)),
+            notInArray(importJob.status, ["queued", "running"]),
+            or(isNotNull(importJob.inputText), isNotNull(importJob.rawContent)),
+          ),
+        )
+        .returning({ id: importJob.id }),
+    );
+    return { stripped: stripped.length, deleted: deleted.length };
+  });
+
+  return { enqueue, claim, finish, requeue, cancel, cancelled, recover, countSince, cleanup };
 });
 
 /** The import_job table as a work queue, for Imports and its worker. */

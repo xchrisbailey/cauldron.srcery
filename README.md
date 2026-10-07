@@ -100,6 +100,10 @@ Every `/v1` data route goes through the `Authorization` middleware, which accept
 
 The iOS app, like any client without a browser, signs in with `POST /v1/auth/sign-in/email` (or the social flow) and reads the `set-auth-token` response header. It sends that token as `Authorization: Bearer <token>` on every request. Store the header value exactly as received: it is signed (`token.signature`), and a bare session token is rejected. Bearer requests skip the Origin check, and the token is the same session the cookie holds, so sign-out (`POST /v1/auth/sign-out` with the bearer header) revokes it.
 
+## What is kept
+
+Distill keeps the text you paste, and the readable text it pulls from a link or caption, on the import job for 7 days after the job finishes, then erases it. The job itself (its draft, link and status) is deleted after 30 days. A saved recipe keeps its own source link.
+
 ## Containers
 
 Each app has a Dockerfile built from the repo root, so hosting stays open ([#21](https://github.com/xchrisbailey/cauldron.srcery/issues/21)):

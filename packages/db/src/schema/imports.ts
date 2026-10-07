@@ -24,9 +24,9 @@ export const importJob = pgTable(
     source: sourcePlatform("source").notNull(),
     /** The link as given, for links. */
     sourceUrl: text("source_url"),
-    /** The text as pasted, for pasted text. */
+    /** The text as pasted, for pasted text. Dropped from finished jobs after a week. */
     inputText: text("input_text"),
-    /** What the importer read (page text, caption), kept for debugging and for #17. */
+    /** What the importer read (page text, caption), kept for debugging and for #17, until the job is a week old. */
     rawContent: text("raw_content"),
     /** The draft recipe (`ImportDraft` in `@cauldron/shared`). */
     draft: jsonb("draft"),
@@ -52,9 +52,11 @@ export const importJob = pgTable(
       .where(sql`${t.status} = 'queued'`),
     // Per-user daily caps and de-duplication lookups.
     index("import_job_owner_created_idx").on(t.ownerId, t.createdAt.desc()),
+    // Never both. A finished job's pasted text is dropped after a week, so a
+    // text job may have neither; creation checks that one is given.
     check(
       "import_job_input_check",
-      sql`(${t.sourceUrl} is not null) <> (${t.inputText} is not null)`,
+      sql`not (${t.sourceUrl} is not null and ${t.inputText} is not null)`,
     ),
   ],
 );

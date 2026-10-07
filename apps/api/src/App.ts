@@ -8,7 +8,7 @@ import { AuthRoute } from "./http/AuthRoute.ts";
 import { RateLimitLive } from "./http/RateLimit.ts";
 import { RequestId } from "./http/RequestId.ts";
 import { Mailer } from "./Mailer.ts";
-import { ImportWorker } from "./Imports.ts";
+import { ImportCleanup, ImportWorker } from "./Imports.ts";
 import { RecipeExtractor } from "./imports/RecipeExtractor.ts";
 import { PhotoCleanup, Photos } from "./Photos.ts";
 import { RemoteFetch } from "./RemoteFetch.ts";
@@ -30,8 +30,12 @@ export const Routes = Layer.mergeAll(ApiRoutes, AuthRoute, RequestId, Cors).pipe
   Layer.provide([Auth.layer, RateLimitLive]),
 );
 
-/** Background work that runs while the API is up: the import workers and the hourly photo cleanup. */
-export const Jobs = Layer.merge(PhotoCleanup.pipe(Layer.provide(Photos.layer)), ImportWorker);
+/** Background work that runs while the API is up: the import workers, the hourly photo cleanup and the daily import cleanup. */
+export const Jobs = Layer.mergeAll(
+  PhotoCleanup.pipe(Layer.provide(Photos.layer)),
+  ImportWorker,
+  ImportCleanup,
+);
 
 /**
  * The external services for a real run. Tests swap in `Db.layerTest`,
