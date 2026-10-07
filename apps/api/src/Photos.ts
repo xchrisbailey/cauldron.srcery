@@ -82,9 +82,23 @@ const make = Effect.gen(function* () {
   const db = yield* Db;
   const storage = yield* Storage;
   const remote = yield* RemoteFetch;
-  const { publicUrl } = yield* AppConfig;
+  const { publicUrl, photoStorageCapBytes } = yield* AppConfig;
   // Decoding is memory-hungry: two at a time per API process.
   const rendering = yield* Semaphore.make(2);
+
+  /** Refuses once the owner's stored photos take up the cap. Pending uploads aren't counted. */
+  const ensureRoom = Effect.fn("Photos.ensureRoom")(function* (ownerId: UserId) {
+    const [row] = yield* db.use((d) =>
+      d
+        .select({ total: sql<string | null>`sum(${photo.bytes})` })
+        .from(photo)
+        .where(eq(photo.ownerId, ownerId)),
+    );
+    // Postgres sums integers as bigint, which arrives as a string.
+    if (Number(row?.total ?? 0) >= photoStorageCapBytes) {
+      return yield* invalid(copy.photos.storageFull.text);
+    }
+  });
 
   /** Stores the variants of an image and records the photo. */
   const store = Effect.fn("Photos.store")(function* (ownerId: UserId, bytes: Uint8Array) {
@@ -92,7 +106,13 @@ const make = Effect.gen(function* () {
     const id = crypto.randomUUID();
     // The row first: if storing a variant fails, cleanup still finds the photo.
     yield* db.use((d) =>
-      d.insert(photo).values({ id, ownerId, width: rendered.width, height: rendered.height }),
+      d.insert(photo).values({
+        id,
+        ownerId,
+        width: rendered.width,
+        height: rendered.height,
+        bytes: rendered.variants.reduce((sum, v) => sum + v.bytes.byteLength, 0),
+      }),
     );
     for (const v of rendered.variants) {
       yield* storage.put(variantKey(ownerId, id, v.variant), v.bytes, "image/webp");
@@ -117,6 +137,7 @@ const make = Effect.gen(function* () {
       ownerId: UserId,
       input: PhotoUploadInput,
     ) {
+      yield* ensureRoom(ownerId);
       const [row] = yield* db.use((d) =>
         d
           .insert(photoUpload)
@@ -174,6 +195,7 @@ const make = Effect.gen(function* () {
 
     /** For importers: downloads a photo from a source URL on the server. */
     fromUrl: Effect.fn("Photos.fromUrl")(function* (ownerId: UserId, url: string) {
+      yield* ensureRoom(ownerId);
       const fetched = yield* remote
         .get(url, { maxBytes: PHOTO_MAX_BYTES, accept: "image/*" })
         .pipe(

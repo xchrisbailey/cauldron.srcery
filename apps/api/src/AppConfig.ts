@@ -56,6 +56,9 @@ const ProductionPublicUrl = Config.schema(
   "PUBLIC_URL",
 );
 
+const DEFAULT_PHOTO_STORAGE_CAP_MB = 2048;
+const DEFAULT_MODEL_DAILY_LIMIT = 500;
+
 /** Who may create an account: anyone, nobody, or only the listed addresses. */
 export const SignUpMode = Schema.Literals(["open", "closed", "allowlist"]);
 export type SignUpMode = typeof SignUpMode.Type;
@@ -111,6 +114,10 @@ export class AppConfig extends Context.Service<
     readonly devOAuth: OAuthProviderConfig | undefined;
     /** A Meta app token ("app-id|client-token") for Instagram's oEmbed (#16). Optional. */
     readonly instagramOEmbedToken: Redacted.Redacted<string> | undefined;
+    /** Most photo bytes one user may hold (`PHOTO_STORAGE_CAP_MB`, default 2048 MB). */
+    readonly photoStorageCapBytes: number;
+    /** Model calls the whole process makes per day, shared by every user (`MODEL_DAILY_LIMIT`). */
+    readonly modelDailyLimit: number;
   }
 >()("cauldron/api/AppConfig") {
   // Reads the environment once at boot and fails fast on anything missing.
@@ -160,6 +167,12 @@ export class AppConfig extends Context.Service<
       );
       const appleBundle = yield* Config.option(Config.String("APPLE_APP_BUNDLE_IDENTIFIER"));
       const instagramToken = yield* Config.option(Config.Redacted("INSTAGRAM_OEMBED_TOKEN"));
+      const photoStorageCapMb = yield* Config.Int("PHOTO_STORAGE_CAP_MB").pipe(
+        Config.withDefault(DEFAULT_PHOTO_STORAGE_CAP_MB),
+      );
+      const modelDailyLimit = yield* Config.Int("MODEL_DAILY_LIMIT").pipe(
+        Config.withDefault(DEFAULT_MODEL_DAILY_LIMIT),
+      );
       return AppConfig.of({
         port,
         publicUrl,
@@ -187,6 +200,8 @@ export class AppConfig extends Context.Service<
           }),
         }),
         instagramOEmbedToken: Option.getOrUndefined(instagramToken),
+        photoStorageCapBytes: photoStorageCapMb * 1024 * 1024,
+        modelDailyLimit,
       });
     }),
   );
@@ -208,6 +223,8 @@ export class AppConfig extends Context.Service<
         social: {},
         devOAuth: undefined,
         instagramOEmbedToken: undefined,
+        photoStorageCapBytes: DEFAULT_PHOTO_STORAGE_CAP_MB * 1024 * 1024,
+        modelDailyLimit: DEFAULT_MODEL_DAILY_LIMIT,
         ...overrides,
       }),
     );

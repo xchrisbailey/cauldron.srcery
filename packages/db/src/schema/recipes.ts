@@ -61,6 +61,8 @@ export const photo = pgTable(
     ownerId: ownerId(),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    /** Total size of the stored WebP variants; what a user's storage cap counts. */
+    bytes: integer("bytes").notNull().default(0),
     createdAt: timestampMs("created_at").notNull().defaultNow(),
   },
   (t) => [

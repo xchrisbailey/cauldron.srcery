@@ -413,3 +413,149 @@ layer(cleanupLayer)("photo cleanup", (it) => {
     }),
   );
 });
+
+// Limits: upload rate limits and the per-user storage cap.
+
+/** Signs a verified user up on another API and returns their session cookie. */
+const signUpOn = async (other: AuthApi, email: string) => {
+  const before = (await other.outbox()).length;
+  await other.post("/v1/auth/sign-up/email", { email, password: PASSWORD, name: "Cook" });
+  const sent = (await other.waitForOutbox(before + 1)).slice(before).filter((m) => m.to === email);
+  const cookie = cookieOf(await other.send(other.linkIn(sent[0]!)));
+  if (!cookie) throw new Error("verification didn't sign in");
+  return cookie;
+};
+
+const startOn = (other: AuthApi, cookie: string) =>
+  other.send("/v1/photos/uploads", {
+    method: "POST",
+    headers: { cookie, origin: WEB_ORIGIN, "content-type": "application/json" },
+    body: JSON.stringify({ contentType: "image/png", size: 100 }),
+  });
+
+describe("photo upload rate limits", () => {
+  it("answers 429 to the 31st startUpload in a minute, for that user only", async () => {
+    const limited = makeAuthApi();
+    try {
+      const cook = await signUpOn(limited, "rate-ada@example.com");
+      const other = await signUpOn(limited, "rate-bob@example.com");
+      for (let i = 0; i < 30; i++) expect((await startOn(limited, cook)).status).toBe(200);
+      const res = await startOn(limited, cook);
+      expect(res.status).toBe(429);
+      expect(((await res.json()) as any).error.code).toBe("too_many_requests");
+      expect((await startOn(limited, other)).status).toBe(200);
+    } finally {
+      await limited.dispose();
+    }
+  });
+
+  it("gives receiveUpload and finishUpload their own budgets", async () => {
+    const limited = makeAuthApi();
+    try {
+      const cook = await signUpOn(limited, "rate-cy@example.com");
+      const headers = { cookie: cook, origin: WEB_ORIGIN, "content-type": "application/json" };
+      const finishing = () =>
+        limited.send("/v1/photos", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ uploadId: crypto.randomUUID() }),
+        });
+      const receiving = () =>
+        limited.send(`/v1/photos/uploads/${crypto.randomUUID()}`, {
+          method: "PUT",
+          headers: { cookie: cook, origin: WEB_ORIGIN, "content-type": "application/octet-stream" },
+          body: new Uint8Array([1]) as BodyInit,
+        });
+      for (let i = 0; i < 30; i++) {
+        expect((await finishing()).status).toBe(400);
+        expect((await receiving()).status).toBe(400);
+      }
+      expect((await finishing()).status).toBe(429);
+      expect((await receiving()).status).toBe(429);
+      // startUpload has its own budget, untouched so far.
+      expect((await startOn(limited, cook)).status).toBe(200);
+    } finally {
+      await limited.dispose();
+    }
+  });
+});
+
+describe("photo storage", () => {
+  it("records the summed size of a photo's variants", async () => {
+    const done = await upload(ada, png, "image/png");
+    expect(done.status).toBe(200);
+    const { bytes, stored } = await api.run(
+      Effect.gen(function* () {
+        const db = yield* Db;
+        const objects = yield* Ref.get(yield* StorageObjects);
+        const [row] = yield* db.use((d) =>
+          d
+            .select({ bytes: schema.photo.bytes, ownerId: schema.photo.ownerId })
+            .from(schema.photo)
+            .where(eq(schema.photo.id, done.body.id)),
+        );
+        let total = 0;
+        for (const v of ["thumb", "card", "full"] as const) {
+          total += objects.get(variantKey(row!.ownerId, done.body.id, v))!.byteLength;
+        }
+        return { bytes: row!.bytes, stored: total };
+      }),
+    );
+    expect(bytes).toBeGreaterThan(0);
+    expect(bytes).toBe(stored);
+  });
+
+  it("refuses to start an upload at the cap, for that user only, until photos are removed", async () => {
+    // Any stored photo is over a 1 byte cap.
+    const capped = makeAuthApi({ photoStorageCapBytes: 1 }, undefined, {
+      [PNG_URL]: { bytes: new Uint8Array(png), contentType: "image/png" },
+    });
+    try {
+      const cook = await signUpOn(capped, "cap-ada@example.com");
+      const other = await signUpOn(capped, "cap-bob@example.com");
+
+      const started = await startOn(capped, cook);
+      expect(started.status).toBe(200);
+      const id = ((await started.json()) as any).id as string;
+      const sent = await capped.send(`/v1/photos/uploads/${id}`, {
+        method: "PUT",
+        headers: { cookie: cook, origin: WEB_ORIGIN, "content-type": "application/octet-stream" },
+        body: new Uint8Array(png) as BodyInit,
+      });
+      expect(sent.status).toBe(204);
+      const finished = await capped.send("/v1/photos", {
+        method: "POST",
+        headers: { cookie: cook, origin: WEB_ORIGIN, "content-type": "application/json" },
+        body: JSON.stringify({ uploadId: id }),
+      });
+      expect(finished.status).toBe(200);
+
+      const refused = await startOn(capped, cook);
+      expect(refused.status).toBe(400);
+      expect(((await refused.json()) as any).error.message).toBe(copy.photos.storageFull.text);
+      const fromUrl = await capped.send("/v1/photos/from-url", {
+        method: "POST",
+        headers: { cookie: cook, origin: WEB_ORIGIN, "content-type": "application/json" },
+        body: JSON.stringify({ url: PNG_URL }),
+      });
+      expect(fromUrl.status).toBe(400);
+      expect(((await fromUrl.json()) as any).error.message).toBe(copy.photos.storageFull.text);
+      expect((await startOn(capped, other)).status).toBe(200);
+
+      // The photo isn't on a recipe and is a day old: cleanup removes it.
+      const removed = await capped.run(
+        Effect.gen(function* () {
+          const db = yield* Db;
+          yield* db.use((d) =>
+            d.update(schema.photo).set({ createdAt: new Date(Date.now() - 2 * DAY) }),
+          );
+          return yield* (yield* Photos).cleanup();
+        }).pipe(Effect.provide(Photos.layer)),
+      );
+      expect(removed.photos).toBe(1);
+      expect((await startOn(capped, cook)).status).toBe(200);
+    } finally {
+      await capped.dispose();
+    }
+  });
+});

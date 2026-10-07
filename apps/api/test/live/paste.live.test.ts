@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { AppConfig } from "../../src/AppConfig.ts";
 import { fromText } from "../../src/imports/fromText.ts";
 import { RecipeExtractor } from "../../src/imports/RecipeExtractor.ts";
 
@@ -31,7 +32,7 @@ const fixtures = readdirSync(dir)
   .filter((f) => f.expected.needsModel);
 
 // Reads the key and model from the environment, like the API does.
-const Model = RecipeExtractor.layer;
+const Model = RecipeExtractor.layer.pipe(Layer.provide(AppConfig.layerTest()));
 
 describe.skipIf(!live)("pastes read by the model", () => {
   it.each(fixtures)("$name", async ({ text, expected }) => {

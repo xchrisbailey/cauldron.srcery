@@ -232,3 +232,34 @@ describe("Storage.layer", () => {
     }),
   );
 });
+
+describe("AppConfig model and photo limits", () => {
+  it.effect("defaults to a 2 GB photo cap and 500 model calls a day", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({ BETTER_AUTH_SECRET: SECRET });
+      assert.isTrue(Exit.isSuccess(exit));
+      if (Exit.isSuccess(exit)) {
+        assert.strictEqual(exit.value.photoStorageCapBytes, 2048 * 1024 * 1024);
+        assert.strictEqual(exit.value.modelDailyLimit, 500);
+      }
+      const test = yield* Effect.service(AppConfig).pipe(Effect.provide(AppConfig.layerTest()));
+      assert.strictEqual(test.photoStorageCapBytes, 2048 * 1024 * 1024);
+      assert.strictEqual(test.modelDailyLimit, 500);
+    }),
+  );
+
+  it.effect("reads PHOTO_STORAGE_CAP_MB and MODEL_DAILY_LIMIT", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({
+        BETTER_AUTH_SECRET: SECRET,
+        PHOTO_STORAGE_CAP_MB: "10",
+        MODEL_DAILY_LIMIT: "7",
+      });
+      assert.isTrue(Exit.isSuccess(exit));
+      if (Exit.isSuccess(exit)) {
+        assert.strictEqual(exit.value.photoStorageCapBytes, 10 * 1024 * 1024);
+        assert.strictEqual(exit.value.modelDailyLimit, 7);
+      }
+    }),
+  );
+});

@@ -296,6 +296,9 @@ export const photos = {
   couldntRead: plain("We couldn't read that photo. Try another one."),
   couldntFetch: plain("We couldn't fetch a photo from that link."),
   uploadExpired: plain("That upload has expired. Choose the photo again."),
+  storageFull: plain(
+    "Your photo storage is full. Take photos off recipes you no longer need; the space comes back within a day.",
+  ),
 } as const;
 
 // Distill (#13 to #16): importing a recipe from a link or pasted text. The
