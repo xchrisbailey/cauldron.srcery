@@ -105,6 +105,8 @@ The iOS app, like any client without a browser, signs in with `POST /v1/auth/sig
 
 ## Deploying safely
 
+Production runs as a compose stack on Openship, and merging to `main` deploys it once CI passes. Setup and day-to-day steps are in [`deploy/README.md`](deploy/README.md).
+
 Some protections depend on how the containers are run, and no code can check them. The list lives on the deploy ticket ([#21](https://github.com/xchrisbailey/cauldron.srcery/issues/21), "Security settings"). In short:
 
 - The API container publishes no host port. Only the web container and Postgres can reach it, and both containers set `TRUST_PROXY=true` behind a reverse proxy.

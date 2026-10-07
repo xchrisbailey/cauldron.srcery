@@ -1,0 +1,81 @@
+name: Deploy
+
+# Ships main to Openship on the VPS once CI has passed on that exact commit.
+# Setup and secrets: deploy/README.md. Openship's own auto-deploy stays off so
+# a push never ships before CI has checked it.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Redeploy main by hand (for example after changing variables in Openship).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancel one halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_URL }}
+    env:
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Only main deploys
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run this workflow from main."
+          exit 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+      # Pinned like everything else; bump it on purpose.
+      - name: Install the Openship CLI
+        run: npm install --global --ignore-scripts openship@0.8.2
+      - name: Sign in to Openship
+        env:
+          OPENSHIP_TOKEN: ${{ secrets.OPENSHIP_TOKEN }}
+          OPENSHIP_API_URL: ${{ secrets.OPENSHIP_API_URL }}
+          OPENSHIP_DASHBOARD_URL: ${{ secrets.OPENSHIP_DASHBOARD_URL }}
+        run: >-
+          openship login --context ci
+          --token "$OPENSHIP_TOKEN"
+          --api-url "$OPENSHIP_API_URL"
+          --dashboard-url "$OPENSHIP_DASHBOARD_URL"
+      # Builds on the VPS from this commit, runs the stack's health checks and
+      # swaps traffic over. Fails the job when the deploy fails. The API runs
+      # migrations as it boots.
+      - name: Deploy ${{ env.COMMIT }}
+        env:
+          OPENSHIP_PROJECT_ID: ${{ secrets.OPENSHIP_PROJECT_ID }}
+        run: >-
+          openship deploy
+          --project "$OPENSHIP_PROJECT_ID"
+          --branch main
+          --commit "$COMMIT"
+          --watch --timeout 1800000
+      - name: Check the live version
+        if: vars.PUBLIC_URL != ''
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "$PUBLIC_URL/v1/health" >/dev/null; then
+              curl -fsS "$PUBLIC_URL/v1/version"; echo
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$PUBLIC_URL/v1/health is not answering after the deploy."
+          exit 1

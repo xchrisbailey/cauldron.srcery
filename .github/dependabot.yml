@@ -12,3 +12,7 @@ updates:
       - /apps/web
     schedule:
       interval: weekly
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: weekly

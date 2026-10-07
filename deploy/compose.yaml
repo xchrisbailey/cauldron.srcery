@@ -1,0 +1,91 @@
+# Production stack for Openship (see deploy/README.md). openship.json at the
+# repo root points here. Build contexts are relative to this file, so `..` is
+# the repo root that both Dockerfiles expect.
+#
+# Only wiring lives here. Secrets and per-deploy settings are set in Openship
+# as service-scoped variables (api: auth, email, AI, OAuth; web: CSP), and
+# POSTGRES_PASSWORD and PUBLIC_URL as project variables, which also feed the
+# ${...} interpolation below.
+name: cauldron
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cauldron
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Openship}
+      POSTGRES_DB: cauldron
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cauldron", "-d", "cauldron"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Internal only: no ports, reachable by the web service alone. TRUST_PROXY
+  # is safe because of that (#21, "Security settings").
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgres://cauldron:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Openship}@postgres:5432/cauldron
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in Openship}
+      TRUST_PROXY: "true"
+      STORAGE_DIR: /app/apps/api/.data/storage
+    volumes:
+      # A named volume inherits the image's bun ownership of this directory.
+      - photos:/app/apps/api/.data
+    expose:
+      - "3001"
+    # Called inside the container, so it never spends the public /v1/health budget.
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - 'fetch("http://localhost:3001/v1/health").then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))'
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  # The only public service. Openship's proxy terminates TLS in front of it.
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      API_ORIGIN: http://api:3001
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in Openship}
+      TRUST_PROXY: "true"
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - 'fetch("http://localhost:3000/favicon.svg").then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))'
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  postgres:
+  photos:
