@@ -7,6 +7,7 @@ import { GatherApi } from "./Gather.ts";
 import { ImportsApi } from "./Imports.ts";
 import { PhotosApi } from "./Photos.ts";
 import { PlanApi } from "./Plan.ts";
+import { RateLimit, RateLimitPolicy } from "./RateLimit.ts";
 import { RecipesApi, TagsApi } from "./Recipes.ts";
 import { TrackerApi } from "./Tracker.ts";
 
@@ -31,7 +32,10 @@ export class SignInOptions extends Schema.Class<SignInOptions>("SignInOptions")(
 
 export class SystemApi extends HttpApiGroup.make("system", { topLevel: true })
   .add(
-    HttpApiEndpoint.get("health", "/health", { success: Health, error: UnavailableError }),
+    // Anonymous and it queries the database, so it is limited per client address.
+    HttpApiEndpoint.get("health", "/health", { success: Health, error: UnavailableError })
+      .middleware(RateLimit)
+      .annotate(RateLimitPolicy, { limit: 60, window: "1 minute" }),
     HttpApiEndpoint.get("version", "/version", { success: Version }),
     HttpApiEndpoint.get("signInOptions", "/sign-in-options", { success: SignInOptions }),
   )
