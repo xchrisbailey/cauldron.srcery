@@ -46,13 +46,13 @@ Compose already sets `NODE_ENV`, `PORT`, `DATABASE_URL`, `TRUST_PROXY`, `STORAGE
 
 Create a personal access token in Openship (**Settings**), then add these under the repo's **Settings → Environments → production** (or as repo secrets):
 
-| Name                     | Kind     | Value                                                 |
-| ------------------------ | -------- | ----------------------------------------------------- |
-| `OPENSHIP_TOKEN`         | secret   | The token (`opsh_pat_...`)                            |
-| `OPENSHIP_API_URL`       | secret   | Openship's API URL                                    |
-| `OPENSHIP_DASHBOARD_URL` | secret   | Openship's dashboard URL                              |
-| `OPENSHIP_PROJECT_ID`    | secret   | The project id (`openship project list`)              |
-| `PUBLIC_URL`             | variable | `https://<domain>`, used for the check after a deploy |
+| Name                     | Kind     | Value                                                                                      |
+| ------------------------ | -------- | ------------------------------------------------------------------------------------------ |
+| `OPENSHIP_TOKEN`         | secret   | The token (`opsh_pat_...`)                                                                 |
+| `OPENSHIP_API_URL`       | secret   | Openship's API URL                                                                         |
+| `OPENSHIP_DASHBOARD_URL` | secret   | Openship's dashboard URL                                                                   |
+| `OPENSHIP_PROJECT_ID`    | secret   | The project id (`openship project list`)                                                   |
+| `PUBLIC_URL`             | variable | `https://<domain>`, used for the check after a deploy. Deploys are skipped until it is set |
 
 GitHub's runners must be able to reach the Openship API URL over https.
 

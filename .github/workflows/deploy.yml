@@ -22,9 +22,10 @@ concurrency:
 
 jobs:
   deploy:
+    # Skipped until the PUBLIC_URL variable exists, so main stays green before setup.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      vars.PUBLIC_URL != '' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -66,7 +67,6 @@ jobs:
           --commit "$COMMIT"
           --watch --timeout 1800000
       - name: Check the live version
-        if: vars.PUBLIC_URL != ''
         env:
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
         run: |
