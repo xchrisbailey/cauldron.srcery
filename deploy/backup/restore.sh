@@ -16,7 +16,9 @@ restic restore "$snapshot" --host cauldron --target "$target"
 echo "[restore] files are in $target"
 
 if [ -n "${RESTORE_DATABASE_URL:-}" ]; then
-  pg_restore --clean --if-exists --no-owner --dbname="$RESTORE_DATABASE_URL" \
+  # One transaction: a failed restore leaves the database as it was.
+  pg_restore --clean --if-exists --no-owner --single-transaction --exit-on-error \
+    --dbname="$RESTORE_DATABASE_URL" \
     "$target${WORK_DIR:-/backup}/cauldron.dump"
   echo "[restore] database loaded"
 fi
