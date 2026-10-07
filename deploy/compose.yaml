@@ -86,6 +86,26 @@ services:
       start_period: 30s
       retries: 3
 
+  # Nightly pg_dump plus the photos, encrypted by restic into a bucket off the
+  # VPS (RESTIC_*, AWS_* as service variables in Openship; deploy/README.md).
+  backup:
+    build:
+      context: backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: cauldron
+      PGDATABASE: cauldron
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Openship}
+      PHOTOS_DIR: /photos
+    volumes:
+      - photos:/photos:ro
+      - restic-cache:/root/.cache/restic
+
 volumes:
   postgres:
   photos:
+  restic-cache:

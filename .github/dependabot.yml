@@ -10,6 +10,7 @@ updates:
     directories:
       - /apps/api
       - /apps/web
+      - /deploy/backup
     schedule:
       interval: weekly
   - package-ecosystem: docker-compose

@@ -1,6 +1,6 @@
 # Deploying Cauldron
 
-Production runs on the OVH VPS under [Openship](https://openship.io), as one compose stack: `postgres`, `api` and `web` ([`compose.yaml`](compose.yaml)). `openship.json` at the repo root points Openship at that file. Only `web` is public; it serves the app and proxies `/v1` to `api`, which no one else can reach.
+Production runs on the OVH VPS under [Openship](https://openship.io), as one compose stack: `postgres`, `api`, `web` and `backup` ([`compose.yaml`](compose.yaml)). `openship.json` at the repo root points Openship at that file. Only `web` is public; it serves the app and proxies `/v1` to `api`, which no one else can reach.
 
 Every push to `main` that passes CI deploys that exact commit ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): GitHub Actions asks Openship to build the commit on the VPS, waits for the stack's health checks, and then checks `/v1/health` on the live site. The API runs any new migrations as it boots. A red CI run deploys nothing.
 
@@ -42,6 +42,16 @@ On the **`web` service**, set `CSP_REPORT_ONLY=true` for the first deploy only (
 
 Compose already sets `NODE_ENV`, `PORT`, `DATABASE_URL`, `TRUST_PROXY`, `STORAGE_DIR` and `API_ORIGIN`. Leave `S3_BUCKET` and `API_DOCS` unset. Photos live on the `photos` volume, and API docs stay off in production.
 
+Set these on the **`backup` service** (see [Backups](#backups)):
+
+| Variable                                     | Value                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `RESTIC_REPOSITORY`                          | `s3:https://<endpoint>/<bucket>`, a bucket **off the VPS** (R2, OVH Object Storage, Backblaze B2)      |
+| `RESTIC_PASSWORD`                            | `openssl rand -base64 32` (secret). Keep a copy outside the VPS: without it the backups are unreadable |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | A key that can only read and write that bucket (secret)                                                |
+| `BACKUP_AT`, `BACKUP_KEEP_DAILY`             | Optional. UTC time of the nightly run (default `03:00`) and days kept (default `14`)                   |
+| `BACKUP_PING_URL`                            | Optional. Called after each successful run, e.g. a healthchecks.io check that alerts on a miss         |
+
 ### 3. GitHub
 
 Create a personal access token in Openship (**Settings**), then add these under the repo's **Settings → Environments → production** (or as repo secrets):
@@ -69,6 +79,25 @@ GitHub's runners must be able to reach the Openship API URL over https.
 - **Watch a deploy:** `openship logs <deployment-id> --follow`, or the Openship dashboard.
 - **Roll back:** `openship deployment rollback`, or the dashboard. Migrations only move forward. Rolling back past a migration leaves the newer schema in place, which older code usually tolerates when the migration only added things. Anything else needs a restore.
 - **Change a variable:** edit it in Openship, then run the Deploy workflow by hand to apply it.
+
+## Backups
+
+The `backup` service runs [`backup/backup.sh`](backup/backup.sh) every night. It takes a `pg_dump` of the database, then has [restic](https://restic.net) snapshot the dump and the `photos` volume (mounted read-only) into the bucket. Snapshots are encrypted with `RESTIC_PASSWORD` and deduplicated, so a night with no new photos adds little. Only the last `BACKUP_KEEP_DAILY` days are kept. The first run creates the repository.
+
+- **Back up now:** run `backup.sh` in the `backup` container, from Openship's service shell or `docker exec <backup-container> backup.sh` on the VPS.
+- **List snapshots:** `restic snapshots` in the same container.
+- **Restore drill** (#21 asks for one): on another machine, with the same `RESTIC_*` and `AWS_*` values in your shell, run the image against a scratch Postgres:
+
+  ```sh
+  docker build -t cauldron-backup deploy/backup
+  docker run --rm -e RESTIC_REPOSITORY -e RESTIC_PASSWORD -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
+    -e RESTORE_DATABASE_URL=postgres://user:pass@host:5432/scratch \
+    -v "$PWD/restore:/restore" cauldron-backup restore.sh
+  ```
+
+  That puts the photos in `restore/photos` and loads the dump into the scratch database. Point a local API at both (`DATABASE_URL` and `STORAGE_DIR`) and sign in. Pass a snapshot id to `restore.sh` to restore an older night.
+
+- **Restore production:** stop `api`, run `restore.sh` in the `backup` container with `RESTORE_DATABASE_URL=postgres://cauldron:$PGPASSWORD@postgres:5432/cauldron`, copy `/restore/photos` back into the `photos` volume (`chown -R 1000:1000`, because the API runs as `bun`), then start `api`. The `backup` service mounts photos read-only, so the copy needs a one-off container with the volume mounted read-write.
 
 ## Not here yet
 
