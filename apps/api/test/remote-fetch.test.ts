@@ -1,6 +1,6 @@
 import { Effect, Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { FetchError, isPrivateAddress, RemoteFetch } from "../src/RemoteFetch.ts";
+import { checkRemoteUrl, FetchError, isPrivateAddress, RemoteFetch } from "../src/RemoteFetch.ts";
 
 describe("isPrivateAddress", () => {
   it.each([
@@ -70,5 +70,41 @@ describe("RemoteFetch.layer", () => {
       expect(result.failure).toBeInstanceOf(FetchError);
       expect(result.failure.reason).toBe("blocked");
     }
+  });
+});
+
+describe("DNS check", () => {
+  const check = (answer: () => Promise<ReadonlyArray<string>>) =>
+    checkRemoteUrl("https://recipes.example.com/pie", answer).pipe(
+      Effect.result,
+      Effect.runPromise,
+    );
+
+  it("blocks a name that resolves to a public and a private address", async () => {
+    const result = await check(async () => ["93.184.216.34", "10.0.0.5"]);
+    expect(Result.isFailure(result) && result.failure).toMatchObject({
+      reason: "blocked",
+      detail: "private address",
+    });
+  });
+
+  it("passes a name that resolves only to public addresses", async () => {
+    const result = await check(async () => ["93.184.216.34", "2606:4700::1111"]);
+    expect(Result.isSuccess(result)).toBe(true);
+  });
+
+  it("blocks an empty answer", async () => {
+    const result = await check(async () => []);
+    expect(Result.isFailure(result) && result.failure).toMatchObject({
+      reason: "blocked",
+      detail: "private address",
+    });
+  });
+
+  it("reports a failing lookup as unreachable", async () => {
+    const result = await check(async () => {
+      throw new Error("ENOTFOUND");
+    });
+    expect(Result.isFailure(result) && result.failure).toMatchObject({ reason: "unreachable" });
   });
 });

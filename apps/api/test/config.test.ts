@@ -107,6 +107,37 @@ describe("AppConfig", () => {
     }),
   );
 
+  it.effect("production requires PUBLIC_URL to be an https origin", () =>
+    Effect.gen(function* () {
+      for (const url of [
+        "http://cauldron.example",
+        "https://cauldron.example/",
+        "https://cauldron.example/app",
+        "https://cauldron.example?x=1",
+        "cauldron.example",
+      ]) {
+        const exit = yield* loadConfig({ ...production, PUBLIC_URL: url });
+        assert.isTrue(Exit.isFailure(exit), url);
+        assert.include(failureText(exit), "PUBLIC_URL must be an https origin");
+      }
+      const withPort = yield* loadConfig({
+        ...production,
+        PUBLIC_URL: "https://cauldron.example:8443",
+      });
+      assert.isTrue(Exit.isSuccess(withPort));
+    }),
+  );
+
+  it.effect("development takes an http PUBLIC_URL", () =>
+    Effect.gen(function* () {
+      const exit = yield* loadConfig({
+        BETTER_AUTH_SECRET: SECRET,
+        PUBLIC_URL: "http://localhost:4000",
+      });
+      assert.isTrue(Exit.isSuccess(exit));
+    }),
+  );
+
   it.effect("production requires BETTER_AUTH_SECRET", () =>
     Effect.gen(function* () {
       const { BETTER_AUTH_SECRET: _, ...env } = production;

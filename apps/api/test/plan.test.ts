@@ -513,4 +513,20 @@ describe("plan", () => {
     const entry = await addEntry(ada, { date: "2027-11-15", slot: "lunch", recipeId: plain.id });
     expect(entry.recipe.macros).toEqual({ calories: null, protein: null, carbs: null, fat: null });
   });
+
+  it("keeps a client id to its owner: a retry returns the entry, another user's id is refused", async () => {
+    const id = crypto.randomUUID();
+    const mine = { id, date: "2027-12-06", slot: "dinner", title: "Mine" };
+    const first = await addEntry(ada, mine);
+    expect(first.id).toBe(id);
+    // Bob reuses Ada's id: the same refusal as any bad request.
+    const clash = await call(bob, "POST", "/v1/plan", { ...mine, title: "Bob's" });
+    expect(clash.status).toBe(400);
+    expect(clash.body).toMatchObject({ error: { code: "invalid_request" } });
+    expect(await range(bob, "2027-12-06", "2027-12-12")).toMatchObject({ body: [] });
+    // Ada's entry is untouched, and her own retry is idempotent.
+    expect(await addEntry(ada, { ...mine, title: "Changed" })).toEqual(first);
+    const week = await range(ada, "2027-12-06", "2027-12-12");
+    expect(week.body.filter((e: { id: string }) => e.id === id)).toEqual([first]);
+  });
 });

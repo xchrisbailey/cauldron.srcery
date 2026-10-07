@@ -9,9 +9,10 @@ import { Context, Effect, Layer, Schema } from "effect";
 // time-capped.
 //
 // A name could still resolve differently between the check and the fetch
-// (DNS rebinding). Closing that needs pinning the connection to the checked
-// address, which Bun's fetch can't do with TLS; revisit with hosting (#21),
-// where an egress proxy can enforce it.
+// (DNS rebinding). Pinning the connection to the checked address isn't
+// possible with Bun's fetch over TLS, so that gap is closed at the network
+// layer by the egress rule on the deploy checklist (#21). This application
+// check is the first line of defence, not the only one.
 
 export class FetchError extends Schema.TaggedError<FetchError>()("FetchError", {
   reason: Schema.Literals(["blocked", "unreachable", "status", "tooLarge", "timeout"]),
@@ -100,8 +101,20 @@ export const isPrivateAddress = (ip: string): boolean => {
 
 const blocked = (detail: string) => new FetchError({ reason: "blocked", detail });
 
-/** Checks a URL's scheme, credentials and port, and that its host resolves only to public addresses. */
-const checkUrl = Effect.fn("RemoteFetch.checkUrl")(function* (raw: string) {
+/** Resolves a hostname to every address it answers with. */
+export type Resolver = (host: string) => Promise<ReadonlyArray<string>>;
+
+const resolveHost: Resolver = async (host) =>
+  (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
+
+/**
+ * Checks a URL's scheme, credentials and port, and that its host resolves only
+ * to public addresses. The resolver is injectable for tests.
+ */
+const checkUrl = Effect.fn("RemoteFetch.checkUrl")(function* (
+  raw: string,
+  resolve: Resolver = resolveHost,
+) {
   const url = yield* Effect.try({ try: () => new URL(raw), catch: () => blocked("not a URL") });
   if (url.protocol !== "http:" && url.protocol !== "https:") return yield* blocked("scheme");
   if (url.username || url.password) return yield* blocked("credentials");
@@ -110,7 +123,7 @@ const checkUrl = Effect.fn("RemoteFetch.checkUrl")(function* (raw: string) {
   const addresses = isIP(host)
     ? [host]
     : yield* Effect.tryPromise({
-        try: async () => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address),
+        try: () => resolve(host),
         catch: () => new FetchError({ reason: "unreachable", detail: "dns" }),
       });
   if (addresses.length === 0 || addresses.some(isPrivateAddress)) {

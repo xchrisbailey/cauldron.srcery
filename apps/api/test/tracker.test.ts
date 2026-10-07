@@ -513,4 +513,19 @@ describe("tracker", () => {
     const extra = await call(ada, "POST", "/v1/tracker/entries", manual("One too many", { date }));
     expect(extra.status).toBe(400);
   });
+
+  it("keeps a client id to its owner: a retry returns the entry, another user's id is refused", async () => {
+    const id = crypto.randomUUID();
+    const mine = manual("Mine", { id, date: "2027-12-06" });
+    const first = await log(ada, mine);
+    expect(first.id).toBe(id);
+    // Bob reuses Ada's id: the same refusal as any bad request.
+    const clash = await call(bob, "POST", "/v1/tracker/entries", { ...mine, name: "Bob's" });
+    expect(clash.status).toBe(400);
+    expect(clash.body).toMatchObject({ error: { code: "invalid_request" } });
+    // Ada's entry is untouched, and her own retry is idempotent.
+    expect(await log(ada, { ...mine, name: "Changed" })).toEqual(first);
+    expect((await dayOf(ada, "2027-12-06")).entries).toEqual([first]);
+    expect((await dayOf(bob, "2027-12-06")).entries).toEqual([]);
+  });
 });

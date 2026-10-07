@@ -35,7 +35,7 @@ import {
 } from "@cauldron/shared";
 import { and, asc, between, desc, eq, gte, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { Db } from "./Db.ts";
+import { Db, type DbError, isUniqueViolation } from "./Db.ts";
 import { Recipes } from "./Recipes.ts";
 
 const {
@@ -230,13 +230,17 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         if (input.id !== undefined) {
           // A retry of an add that already landed: hand back what's there.
+          // Scoped to the caller: another user's row is never read, and its id
+          // falls through to the insert, where the primary key refuses it.
           const [already] = yield* db.use((d) =>
-            d.select({ ownerId: entry.ownerId }).from(entry).where(eq(entry.id, input.id!)),
+            d
+              .select({ id: entry.id })
+              .from(entry)
+              .where(and(eq(entry.id, input.id!), eq(entry.ownerId, ownerId))),
           );
-          if (already)
-            return already.ownerId === ownerId
-              ? yield* one(ownerId, input.id).pipe(Effect.catchTag("NotFound", Effect.die))
-              : yield* invalid();
+          if (already) {
+            return yield* one(ownerId, input.id).pipe(Effect.catchTag("NotFound", Effect.die));
+          }
         }
         let name = input.name;
         let numbers = input.macros;
@@ -265,24 +269,32 @@ const make = Effect.gen(function* () {
           return yield* dayFull();
         }
         const position = yield* nextPosition(ownerId, input.date, input.slot);
-        const [row] = yield* db.use((d) =>
-          d
-            .insert(entry)
-            .values({
-              ...(input.id === undefined ? {} : { id: input.id }),
-              ownerId,
-              date: input.date,
-              slot: input.slot,
-              name,
-              amount: input.amount || null,
-              servings: input.servings,
-              ...macroColumns(numbers),
-              source: input.source,
-              recipeId,
-              position,
-            })
-            .returning({ id: entry.id }),
-        );
+        const [row] = yield* db
+          .use((d) =>
+            d
+              .insert(entry)
+              .values({
+                ...(input.id === undefined ? {} : { id: input.id }),
+                ownerId,
+                date: input.date,
+                slot: input.slot,
+                name,
+                amount: input.amount || null,
+                servings: input.servings,
+                ...macroColumns(numbers),
+                source: input.source,
+                recipeId,
+                position,
+              })
+              .returning({ id: entry.id }),
+          )
+          .pipe(
+            // A client-chosen id that is someone else's row: the primary key
+            // refuses it, and the answer is the same as for any bad request.
+            Effect.catchTag("DbError", (error): Effect.Effect<never, DbError | InvalidRequest> =>
+              Effect.fail(input.id !== undefined && isUniqueViolation(error) ? invalid() : error),
+            ),
+          );
         return yield* one(ownerId, row!.id).pipe(Effect.catchTag("NotFound", Effect.die));
       }),
     );
