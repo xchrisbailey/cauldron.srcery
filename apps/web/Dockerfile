@@ -1,5 +1,6 @@
 # Build from the repo root: docker build -f apps/web/Dockerfile .
-FROM oven/bun:1.4.2 AS manifests
+# The base image is pinned by digest; Dependabot bumps the tag and digest together.
+FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS manifests
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
@@ -23,7 +24,7 @@ RUN BUN_JSC_useFTLJIT=0 bun run --cwd apps/web build
 FROM manifests AS prod-deps
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter web
 
-FROM oven/bun:1.4.2
+FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules

@@ -1,0 +1,14 @@
+# Keeps the pinned GitHub Actions and Docker base images current. npm packages
+# are left out on purpose: effect and Better Auth are upgraded deliberately.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web
+    schedule:
+      interval: weekly

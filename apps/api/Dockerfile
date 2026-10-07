@@ -1,5 +1,6 @@
 # Build from the repo root: docker build -f apps/api/Dockerfile .
-FROM oven/bun:1.4.2 AS deps
+# The base image is pinned by digest; Dependabot bumps the tag and digest together.
+FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS deps
 WORKDIR /app
 # Manifests first so the install layer is cached until dependencies change.
 COPY package.json bun.lock ./
@@ -10,7 +11,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter api
 
-FROM oven/bun:1.4.2
+FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
