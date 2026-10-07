@@ -13,7 +13,16 @@ updates:
       - /deploy/backup
     schedule:
       interval: weekly
+    # The backup image's Postgres must match the database's major (see below).
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+  # Postgres majors need a dump and restore (a new major can't open the old data
+  # directory), so only minor and patch bumps come through for it.
   - package-ecosystem: docker-compose
     directory: /deploy
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]

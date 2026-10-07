@@ -109,7 +109,7 @@ Production runs as a compose stack on Openship, and merging to `main` deploys it
 
 Some protections depend on how the containers are run, and no code can check them. The list lives on the deploy ticket ([#21](https://github.com/xchrisbailey/cauldron.srcery/issues/21), "Security settings"). In short:
 
-- The API container publishes no host port. Only the web container and Postgres can reach it, and both containers set `TRUST_PROXY=true` behind a reverse proxy.
+- The API container publishes no host port. Only the web container can reach it, only the API and the backup job can reach Postgres, and the web and API containers both set `TRUST_PROXY=true` behind a reverse proxy.
 - The API container can't open connections to private addresses other than Postgres. Distill fetches links on the server, and this egress rule is what stops a link from reaching internal services.
 - `SIGNUP_MODE` is `closed`, or `allowlist` while you create your own account.
 - Rate limits and the model budget live in the API's memory: a restart clears them, and more than one API replica needs a shared store first.

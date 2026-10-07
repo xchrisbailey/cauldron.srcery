@@ -11,10 +11,16 @@
 #   CAULDRON-API-HOST  jumped to from INPUT (traffic to the host's own addresses)
 # Container addresses change on every deploy, so run it after each one:
 #   api-egress.sh          apply once
-#   api-egress.sh watch    apply, then re-apply whenever a Cauldron container starts
+#   api-egress.sh watch    apply, then rebuild whenever a Cauldron container starts
+#                          or stops, so a stopped API's address keeps no rules
 #   api-egress.sh remove   take the rules out again
-# CAULDRON_EGRESS_ALLOW adds "address:port" pairs the API may reach, such as an
-# OpenTelemetry collector on the host (e.g. "172.17.0.1:4318").
+# CAULDRON_EGRESS_ALLOW adds "address:port" pairs the API may reach over TCP and
+# UDP, such as an OpenTelemetry collector on the host ("172.17.0.1:4318") or a
+# DNS resolver on a private address ("10.0.0.2:53"; Docker's resolver forwards
+# the API's lookups from the API's own network namespace).
+#
+# IPv4 only: Docker networks have no IPv6 unless it is turned on. Needs the
+# iptables backend for Docker (the default), which provides DOCKER-USER.
 set -eu
 
 FWD=CAULDRON-API-FWD
@@ -51,6 +57,10 @@ remove() {
 }
 
 apply() {
+  if ! iptables -n -L DOCKER-USER >/dev/null 2>&1; then
+    log "no DOCKER-USER chain: is Docker running with its iptables backend?"
+    exit 1
+  fi
   api_ips=$(ips_for api)
   pg_ips=$(ips_for postgres)
   ensure_chain "$FWD"
@@ -68,8 +78,10 @@ apply() {
     for pair in $ALLOW; do
       addr=${pair%:*}
       port=${pair##*:}
-      iptables -A "$FWD" -s "$api" -d "$addr" -p tcp --dport "$port" -j RETURN
-      iptables -A "$HOST" -s "$api" -d "$addr" -p tcp --dport "$port" -j RETURN
+      for proto in tcp udp; do
+        iptables -A "$FWD" -s "$api" -d "$addr" -p "$proto" --dport "$port" -j RETURN
+        iptables -A "$HOST" -s "$api" -d "$addr" -p "$proto" --dport "$port" -j RETURN
+      done
     done
     for range in $PRIVATE_RANGES; do
       iptables -A "$FWD" -s "$api" -d "$range" -j DROP
@@ -88,7 +100,9 @@ case "${1:-apply}" in
   remove) remove ;;
   watch)
     apply
-    docker events --filter type=container --filter event=start \
+    # A new API container is unfiltered for the moment between its start and
+    # this rebuild.
+    docker events --filter type=container --filter event=start --filter event=die \
       --filter label=srcery.cauldron.role --format '{{.ID}}' |
       while read -r _; do apply; done
     ;;

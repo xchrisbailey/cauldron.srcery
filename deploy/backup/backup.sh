@@ -13,9 +13,22 @@ KEEP_DAILY="${BACKUP_KEEP_DAILY:-14}"
 
 log() { echo "[backup] $(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 
-if ! restic cat config >/dev/null 2>&1; then
-  log "initialising the restic repository"
-  restic init
+# Create the repository on the first run only. Any other failure to read it
+# (network, credentials) stops here rather than trying to init over it.
+# restic exits 10 for a missing repository; older versions only say so.
+rc=0
+err=$(restic cat config 2>&1 >/dev/null) || rc=$?
+if [ "$rc" -ne 0 ]; then
+  case "$rc:$err" in
+    10:* | *"does not exist"* | *"Is there a repository at"*)
+      log "initialising the restic repository"
+      restic init
+      ;;
+    *)
+      log "cannot open the restic repository: $err"
+      exit 1
+      ;;
+  esac
 fi
 
 mkdir -p "$WORK_DIR"

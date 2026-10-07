@@ -10,8 +10,9 @@ Requires=docker.service
 
 [Service]
 # Environment=CAULDRON_EGRESS_ALLOW=172.17.0.1:4318
+# The rules stay in place when the unit stops or restarts, so a crash never
+# leaves the API unfiltered. Take them out with `cauldron-api-egress remove`.
 ExecStart=/usr/local/sbin/cauldron-api-egress watch
-ExecStopPost=/usr/local/sbin/cauldron-api-egress remove
 Restart=always
 RestartSec=5
 
