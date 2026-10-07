@@ -39,6 +39,9 @@ export const authErrorMessage = (code: string | undefined): string => {
       return auth.noPasswordOnAccount.text;
     case "SESSION_EXPIRED":
       return auth.signInAgainToDelete.text;
+    case "SIGN_UP_CLOSED":
+    case "EMAIL_PASSWORD_SIGN_UP_DISABLED":
+      return auth.signUpClosed.text;
     case "TOO_MANY_REQUESTS":
       return errors.tooManyRequests.text;
     default:

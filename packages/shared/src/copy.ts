@@ -73,6 +73,7 @@ export const auth = {
   noPasswordOnAccount: plain("This account doesn't have a password. Sign in again to continue."),
   wrongPassword: plain("That password isn't right."),
   somethingWentWrong: plain("Something went wrong. Try again in a moment."),
+  signUpClosed: plain("Cauldron isn't taking new accounts right now."),
   signInTitle: plain("Sign in to Cauldron"),
   signUpTitle: plain("Create your Cauldron account"),
   forgotPasswordTitle: plain("Reset your password"),

@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins/bearer";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -9,6 +10,18 @@ import { AppConfig } from "./AppConfig.ts";
 import { Db } from "./Db.ts";
 import { CLIENT_IP_HEADER } from "./http/ClientIp.ts";
 import { type Email, Mailer } from "./Mailer.ts";
+
+/** The code a refused sign-up answers with, by email (in the body) or by a provider (`?error=`). */
+export const SIGN_UP_CLOSED = "SIGN_UP_CLOSED";
+
+/** Whether `email` may create an account under the configured sign-up mode. */
+export const maySignUp = (
+  config: Pick<AppConfig["Service"], "signUpMode" | "signUpAllowedEmails">,
+  email: string,
+): boolean =>
+  config.signUpMode === "open" ||
+  (config.signUpMode === "allowlist" &&
+    config.signUpAllowedEmails.includes(email.trim().toLowerCase()));
 
 const makeAuth = (
   config: AppConfig["Service"],
@@ -37,6 +50,10 @@ const makeAuth = (
     }),
     emailAndPassword: {
       enabled: true,
+      // Refuses a closed sign-up before anything else runs, so not even the
+      // "you already have an account" email goes out. The allowlist is the
+      // user hook below, which also covers a first social sign-in.
+      disableSignUp: config.signUpMode === "closed",
       requireEmailVerification: true,
       minPasswordLength: 8,
       revokeSessionsOnPasswordReset: true,
@@ -163,7 +180,22 @@ const makeAuth = (
           },
         },
       },
-      user: { delete: { after: async (user) => audit("user.deleted", { userId: user.id }) } },
+      user: {
+        // The one place every new account passes through: email sign-up and a
+        // first sign-in with Google, Apple or the dev provider. A 400 rather than a
+        // 403, which email sign-up would answer as a made-up success.
+        create: {
+          before: async (user) => {
+            if (maySignUp(config, user.email)) return;
+            audit("signup.refused", { mode: config.signUpMode });
+            throw new APIError("BAD_REQUEST", {
+              code: SIGN_UP_CLOSED,
+              message: copy.auth.signUpClosed.text,
+            });
+          },
+        },
+        delete: { after: async (user) => audit("user.deleted", { userId: user.id }) },
+      },
     },
   });
 };
