@@ -2,6 +2,10 @@
 
 A personal recipe box and weekly meal planner, by srcery. The web app comes first, followed by an iOS app and macro tracking. The plan lives in the v1 epic, [#2](https://github.com/xchrisbailey/cauldron.srcery/issues/2). Every ticket is a sub-issue of it and says what it depends on and when it's done.
 
+## Native rebuild under way
+
+Cauldron is being rebuilt as a native iOS 27 / macOS 27 SwiftUI app with no server (SwiftData + iCloud, Apple Foundation Models). The decisions and phased plan are in `docs/native/` and the native epic on GitHub. The TypeScript workspace below is frozen as the reference implementation: don't add features to it. It is removed once the native app reaches parity. CI/CD is only for TestFlight releases; tests, lint and format run locally.
+
 ## Stack
 
 - **Monorepo**: Vite+ (`vp`) on Bun. It provides dev, build, Vitest, Oxlint, format and the task runner.
@@ -17,9 +21,9 @@ A personal recipe box and weekly meal planner, by srcery. The web app comes firs
 
 - `bun run dev`: API on :3001 and web on :3000 (which proxies `/v1` to the API). Copy `apps/api/.env.example` to `apps/api/.env` first.
 - `vp check` (`--fix` to fix): format, lint and typecheck across the workspace. `vp` alone runs Vite+ built-ins; `vpr <script>` runs a package script.
-- `bun run test`, `bun run build`, `bun run ready` (what CI runs).
+- `bun run test`, `bun run build`, `bun run ready` (run locally; there is no CI for the TypeScript any more).
 - Locally the API uses PGlite (in-process Postgres); there is no Docker on the main dev machine.
-- API tests build the whole app in process with `makeTestApi()` from `apps/api/test/helpers.ts`, on `Db.layerTest` (a fresh database: real Postgres when `DATABASE_URL` is set, as in CI, PGlite otherwise) and `Mailer.layerTest`.
+- API tests build the whole app in process with `makeTestApi()` from `apps/api/test/helpers.ts`, on `Db.layerTest` (a fresh database: real Postgres when `DATABASE_URL` is set, PGlite otherwise) and `Mailer.layerTest`.
 - The Effect language service is `@effect/tsgo`, patched into TypeScript 7 by the root `prepare` script, so `tsc -p <pkg>` also reports Effect diagnostics.
 
 ## Build order
