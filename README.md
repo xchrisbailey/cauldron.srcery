@@ -91,7 +91,7 @@ The production server sets security headers on every response: `X-Content-Type-O
 | `bun run test`                       | Every package's tests                                            |
 | `bun run build`                      | Production builds                                                |
 | `bun run brand`                      | Regenerate the brand SVGs, favicon and app icons                 |
-| `bun run ready`                      | All of the above, as CI runs it                                  |
+| `bun run ready`                      | All of the above                                                 |
 | `bun run --cwd apps/web start`       | Serve the built web app (`server.ts`)                            |
 | `bun run --cwd packages/db generate` | New migration from the Drizzle schema                            |
 
