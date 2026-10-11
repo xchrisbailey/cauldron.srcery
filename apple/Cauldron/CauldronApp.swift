@@ -14,6 +14,16 @@ struct CauldronApp: App {
       // quietly lose whatever was entered.
       fatalError("Cauldron couldn't open its data store: \(error)")
     }
+    #if DEBUG
+      // Demo data, only when launched with `-seed`, and only into an empty store.
+      do {
+        try DebugSeed.populateIfRequested(
+          arguments: CommandLine.arguments, mode: CauldronStore.launchMode,
+          context: ModelContext(container), today: DebugSeed.today())
+      } catch {
+        fatalError("Cauldron couldn't seed its data store: \(error)")
+      }
+    #endif
   }
 
   var body: some Scene {
