@@ -1,0 +1,107 @@
+# The Xcode project is generated from this file: run `make project` after changing it,
+# and commit the result. Source folders are synced, so adding a Swift file needs no regeneration.
+name: Cauldron
+options:
+  bundleIdPrefix: computer.srcery
+  deploymentTarget:
+    iOS: "27.0"
+    macOS: "27.0"
+  defaultSourceDirectoryType: syncedFolder
+  developmentLanguage: en
+packages:
+  CauldronKit:
+    path: CauldronKit
+# Every build setting is spelled out here: don't rely on XcodeGen's presets, which
+# some installs (Nix) ship without.
+settings:
+  base:
+    SDKROOT: auto
+    SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    IPHONEOS_DEPLOYMENT_TARGET: "27.0"
+    MACOSX_DEPLOYMENT_TARGET: "27.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    PRODUCT_NAME: $(TARGET_NAME)
+    GENERATE_INFOPLIST_FILE: YES
+    CODE_SIGN_STYLE: Automatic
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+    "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: -Onone
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG"
+      GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) DEBUG=1"
+      GCC_OPTIMIZATION_LEVEL: "0"
+      DEBUG_INFORMATION_FORMAT: dwarf
+      ONLY_ACTIVE_ARCH: YES
+      ENABLE_TESTABILITY: YES
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      ENABLE_NS_ASSERTIONS: NO
+      VALIDATE_PRODUCT: YES
+targets:
+  Cauldron:
+    type: application
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources: [Cauldron]
+    dependencies:
+      - package: CauldronKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
+        # XcodeGen writes these empty on a multiplatform target unless they are set here.
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        PRODUCT_NAME: Cauldron
+        INFOPLIST_KEY_CFBundleDisplayName: Cauldron
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.food-and-drink
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        ENABLE_PREVIEWS: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  CauldronTests:
+    type: bundle.unit-test
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources: [CauldronTests]
+    dependencies:
+      - target: Cauldron
+      - package: CauldronKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.tests
+        # XcodeGen writes these empty on a multiplatform target unless they are set here.
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Cauldron.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cauldron
+schemes:
+  Cauldron:
+    build:
+      targets:
+        Cauldron: all
+        CauldronTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [CauldronTests]
+    archive:
+      config: Release

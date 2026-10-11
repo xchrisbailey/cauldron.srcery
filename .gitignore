@@ -36,3 +36,10 @@ dist-ssr
 .output
 .tanstack
 .data
+
+# Swift and Xcode
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcresult
