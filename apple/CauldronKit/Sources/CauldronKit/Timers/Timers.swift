@@ -45,7 +45,7 @@ private func groups(of regex: NSRegularExpression?, in text: String) -> [Double]
 }
 
 private func parseAmount(_ raw: String) -> Double? {
-  let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+  let s = raw.jsTrimmed().lowercased()
   if s == "a" || s == "an" { return 1 }
   if s.hasPrefix("half") { return 0.5 }
   if let n = groups(of: mixedNumber, in: s) { return n[0] + n[1] / n[2] }
@@ -68,7 +68,7 @@ private func unitSeconds(_ unit: String) -> Double {
 }
 
 private func isWord(_ raw: String) -> Bool {
-  let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+  let s = raw.jsTrimmed().lowercased()
   return s.hasPrefix("a") || s.hasPrefix("half")
 }
 

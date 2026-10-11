@@ -50,7 +50,7 @@ public func hasGaps(_ food: some MacroCarrying) -> Bool {
 public func quickFoodKey(recipeId: RecipeId?, name: String, amount: String?) -> String {
   if let recipeId { return "recipe:\(recipeId.uuidString.lowercased())" }
   func tidy(_ text: String) -> String {
-    text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    text.jsTrimmed().lowercased()
   }
   return "food:\(tidy(name))|\(tidy(amount ?? ""))"
 }

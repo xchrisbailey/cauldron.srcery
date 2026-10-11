@@ -70,6 +70,28 @@ struct QuickFoodKeyTests {
     #expect(quickFoodKey(recipeId: nil, name: "Egg", amount: "   ") == "food:egg|")
   }
 
+  @Test func trimsExactlyWhatJavaScriptTrims() {
+    // The reference's `trim()` strips U+FEFF but keeps U+0085, the opposite of Foundation.
+    #expect(
+      quickFoodKey(recipeId: nil, name: "  Greek Yoghurt\u{FEFF}", amount: " 1 CUP ")
+        == "food:greek yoghurt|1 cup")
+    #expect(quickFoodKey(recipeId: nil, name: "\u{85}Toast", amount: nil) == "food:\u{85}toast|")
+    #expect(
+      quickFoodKey(recipeId: nil, name: "\u{A0}Toast\u{A0}", amount: "\u{2003} 2 slices\u{3000}")
+        == "food:toast|2 slices")
+    #expect(
+      quickFoodKey(recipeId: nil, name: "\u{180E}Toast", amount: nil) == "food:\u{180E}toast|")
+    #expect(
+      quickFoodKey(recipeId: nil, name: "\u{200B}Toast", amount: nil) == "food:\u{200B}toast|")
+    #expect(
+      quickFoodKey(recipeId: nil, name: "\u{2028}Toast\u{2029}", amount: "\u{0B}1\u{0C}")
+        == "food:toast|1")
+    #expect(
+      quickFoodKey(recipeId: nil, name: "\u{1680}Toast\u{202F}", amount: "\u{205F}1")
+        == "food:toast|1")
+    #expect(quickFoodKey(recipeId: nil, name: "Toast\u{0}", amount: nil) == "food:toast\u{0}|")
+  }
+
   @Test func readsAQuickFoodOrAnEntry() {
     let food = QuickFood(
       name: "Egg", amount: "2 large", servings: 1, macros: .none, source: .manual, recipeId: nil)
