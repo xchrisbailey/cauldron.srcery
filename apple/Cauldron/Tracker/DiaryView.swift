@@ -22,7 +22,7 @@ struct DiaryView: View {
   var body: some View {
     VStack(spacing: 0) {
       DayNavigator(day: $day, today: today)
-      DiaryDayList(day: day, targets: targets, openTargets: openTargets)
+      DiaryDayList(day: day, today: today, targets: targets, openTargets: openTargets)
     }
     .background(Brand.Colors.base)
     .onChange(of: scenePhase) { _, phase in
@@ -101,24 +101,31 @@ private struct AddRequest: Identifiable {
 /// One day's entries. The entries are read live with `@Query`, so every change shows at once.
 private struct DiaryDayList: View {
   let day: LocalDate
+  let today: LocalDate
   let targets: TargetsRecord?
   let openTargets: () -> Void
 
   @Query private var records: [DiaryEntryRecord]
+  @Query private var weighIns: [WeighInRecord]
+  @Query private var profiles: [BodyProfileRecord]
   @Environment(\.modelContext) private var context
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
+  @State private var weighing = false
   @State private var failure: CopyString?
   /// The line at the bottom after a delete, with Undo; the count restarts its timer.
   @State private var notice: DiaryWrites.Removed?
   @State private var noticeCount = 0
 
-  init(day: LocalDate, targets: TargetsRecord?, openTargets: @escaping () -> Void) {
+  init(day: LocalDate, today: LocalDate, targets: TargetsRecord?, openTargets: @escaping () -> Void)
+  {
     self.day = day
+    self.today = today
     self.targets = targets
     self.openTargets = openTargets
     let key = day.description
     _records = Query(filter: #Predicate<DiaryEntryRecord> { $0.dayKey == key })
+    _weighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey == key })
   }
 
   private var log: DayLog { DayLog(day: day, records: records) }
@@ -131,6 +138,7 @@ private struct DiaryDayList: View {
         DayHeaderView(
           meters: MacroMeter.meters(totals: log.totals, targets: targets?.macroTargets),
           openTargets: openTargets)
+        weighInRow
       }
       .listRowBackground(Brand.Colors.mantle)
 
@@ -177,6 +185,11 @@ private struct DiaryDayList: View {
       }
     }
     .scrollContentBackground(.hidden)
+    .sheet(isPresented: $weighing) {
+      WeightEntrySheet(
+        day: day, today: today, unit: weightUnit, existing: Deduplication.keeper(of: weighIns),
+        pickDay: false, onClose: { weighing = false })
+    }
     .sheet(item: $adding) { request in
       DiaryAddSheet(day: day, slot: request.slot) { adding = nil }
     }
@@ -208,9 +221,38 @@ private struct DiaryDayList: View {
     }
   }
 
+  private var weightUnit: WeightUnit { Deduplication.keeper(of: profiles)?.weightUnit ?? .kg }
+
+  /// The day's weigh-in (tap to change it) or a way to log one, and the way to the trend.
+  private var weighInRow: some View {
+    HStack {
+      if let weighIn = Deduplication.keeper(of: weighIns) {
+        let shown =
+          "\(WeightText.label(kg: weighIn.weightKg, unit: weightUnit)) \(Copy.tracker.targets.weightUnits[weightUnit].text)"
+        Button {
+          weighing = true
+        } label: {
+          Text(verbatim: shown).brandText(.quantity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Copy.tracker.weight.change(shown).text)
+      } else if day <= today {
+        Button(Copy.tracker.weight.logWeight.text) { weighing = true }
+          .brandText(.control)
+      }
+      Spacer()
+      NavigationLink {
+        WeightView(today: today)
+      } label: {
+        Text(verbatim: Copy.tracker.weight.seeTrend.text).brandText(.control)
+      }
+      .fixedSize()
+    }
+  }
+
   private func remove(_ record: DiaryEntryRecord) {
     do {
-      show(try DiaryWrites.remove(record, in: context))
+      show(try DiaryEditor(context: context).remove(record))
     } catch {
       failure = Copy.tracker.diary.couldntSave
     }
@@ -224,7 +266,7 @@ private struct DiaryDayList: View {
   private func undo() {
     guard let removed = notice else { return }
     do {
-      try DiaryWrites.restore(removed, in: context)
+      try DiaryEditor(context: context).restore(removed)
       withAnimation { notice = nil }
     } catch DiaryWrites.Failure.dayFull {
       notice = nil

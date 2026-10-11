@@ -89,7 +89,7 @@ struct DiaryAddSheet: View {
   private var addContext: AddContext {
     AddContext(day: day, slot: slot) { entries in
       do {
-        try DiaryWrites.add(entries, on: day, slot: slot, in: context)
+        try DiaryEditor(context: context).add(entries, on: day, slot: slot)
         onClose()
         return nil
       } catch DiaryWrites.Failure.dayFull {

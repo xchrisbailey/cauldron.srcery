@@ -8,6 +8,7 @@ struct TrackerRoot: View {
   @Environment(\.modelContext) private var context
   @Query private var targets: [TargetsRecord]
   @State private var changingTargets = false
+  @Environment(\.scenePhase) private var scenePhase
 
   var body: some View {
     NavigationStack {
@@ -17,11 +18,18 @@ struct TrackerRoot: View {
         diary
           .navigationTitle(AppDestination.tracker.title.text)
           .toolbar {
-            ToolbarItem {
+            ToolbarItemGroup {
+              if let today = TargetsForm.today() {
+                NavigationLink(Copy.tracker.weight.link.text) { WeightView(today: today) }
+              }
               Button(Copy.tracker.targets.pageTitle.text) { changingTargets = true }
             }
           }
       }
+    }
+    .task { await checkHealth() }
+    .onChange(of: scenePhase) { _, phase in
+      if phase == .active { Task { await checkHealth() } }
     }
     .sheet(isPresented: $changingTargets) {
       NavigationStack {
@@ -36,6 +44,12 @@ struct TrackerRoot: View {
         .frame(minWidth: 480, minHeight: 640)
       #endif
     }
+  }
+
+  /// Weights from Health come in when the tracker opens and whenever the app comes forward.
+  private func checkHealth() async {
+    guard let today = TargetsForm.today() else { return }
+    await HealthSync.shared.importWeights(into: context, today: today)
   }
 
   @ViewBuilder

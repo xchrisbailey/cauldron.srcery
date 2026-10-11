@@ -153,7 +153,7 @@ struct DiaryEntrySheet: View {
     attempted = true
     guard let valid = draft.valid(requireCalories: false) else { return }
     do {
-      try DiaryWrites.update(record, with: valid, in: context)
+      try DiaryEditor(context: context).update(record, with: valid)
       onClose()
     } catch DiaryWrites.Failure.dayFull {
       onFailure(Copy.tracker.dayFull)
@@ -164,7 +164,7 @@ struct DiaryEntrySheet: View {
 
   private func remove() {
     do {
-      let removed = try DiaryWrites.remove(record, in: context)
+      let removed = try DiaryEditor(context: context).remove(record)
       onClose()
       onRemoved(removed)
     } catch {
