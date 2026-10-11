@@ -29,6 +29,8 @@ CloudKit rejects a schema that breaks any of these, and only at runtime. `DataMo
 - **`searchText` is rebuilt by `RecipeRecord.refreshSearchText()`**; call it after changing a title, ingredients or tags.
 - **Deleted recipes are soft-deleted** with `deletedAt`.
 
+- **A removed Health weigh-in leaves a `HealthDismissalRecord`**, which syncs, so the iPhone that reads Health doesn't import the reading again. Duplicates of one are harmless and are not tidied.
+
 ## Duplicates
 
 CloudKit can't enforce uniqueness, so two devices can each create a row that should exist once. The rule: **the most recently changed row wins, and the id breaks a tie.**
