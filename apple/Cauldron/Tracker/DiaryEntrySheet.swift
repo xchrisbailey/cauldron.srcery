@@ -1,0 +1,145 @@
+import CauldronKit
+import SwiftData
+import SwiftUI
+
+/// Changing a logged entry: servings, name, amount, numbers or meal, or removing it. The numbers
+/// are the entry's own snapshot, so changing them leaves the recipe it came from alone.
+struct DiaryEntrySheet: View {
+  let record: DiaryEntryRecord
+  let onClose: () -> Void
+  /// Called with the message to show when a change could not be saved.
+  let onFailure: (CopyString) -> Void
+
+  @Environment(\.modelContext) private var context
+  @State private var draft: EntryDraft
+  @State private var attempted = false
+
+  private let entry = Copy.tracker.entry
+
+  init(
+    record: DiaryEntryRecord, onClose: @escaping () -> Void,
+    onFailure: @escaping (CopyString) -> Void
+  ) {
+    self.record = record
+    self.onClose = onClose
+    self.onFailure = onFailure
+    _draft = State(initialValue: EntryDraft(record))
+  }
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        servingsSection
+        DiaryEntryFields(
+          draft: $draft, errors: attempted ? draft.errors(requireCalories: false) : [:])
+        Section {
+          Picker(selection: $draft.slot) {
+            ForEach(MealSlot.allCases, id: \.self) { slot in
+              Text(verbatim: Copy.week.slots[slot].text).tag(slot)
+            }
+          } label: {
+            Text(verbatim: entry.meal.text)
+          }
+          .brandText(.body)
+          .listRowBackground(Brand.Colors.mantle)
+        }
+        Section {
+          Button(role: .destructive, action: remove) {
+            Text(verbatim: entry.remove.text).brandText(.body)
+          }
+          .listRowBackground(Brand.Colors.mantle)
+        }
+      }
+      .formStyle(.grouped)
+      .scrollContentBackground(.hidden)
+      .background(Brand.Colors.base)
+      .navigationTitle(record.name)
+      #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+      #endif
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button(entry.cancel.text, action: onClose)
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(entry.save.text, action: save)
+        }
+      }
+    }
+    #if os(macOS)
+      .frame(minWidth: 440, minHeight: 600)
+    #endif
+  }
+
+  private var servingsSection: some View {
+    Section {
+      HStack {
+        Button {
+          draft.nudgeServings(by: -EntryDraft.servingStep)
+        } label: {
+          Image(systemName: "minus.circle")
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(entry.fewer.text)
+        TextField(entry.servings.text, text: $draft.servings)
+          .labelsHidden()
+          .multilineTextAlignment(.center)
+          .brandText(.quantity)
+          #if os(iOS)
+            .keyboardType(.decimalPad)
+          #endif
+        Button {
+          draft.nudgeServings(by: EntryDraft.servingStep)
+        } label: {
+          Image(systemName: "plus.circle")
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(entry.more.text)
+      }
+      .listRowBackground(Brand.Colors.mantle)
+      FieldError(attempted ? draft.errors(requireCalories: false)[.servings] : nil)
+      if let total {
+        Text(monoNumbers("\(entry.total.text): \(total)", size: 13))
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+          .listRowBackground(Color.clear)
+      }
+    } header: {
+      Text(verbatim: entry.servings.text)
+    }
+  }
+
+  /// "320 kcal · 12g protein · …" for the servings and numbers as typed, when they are usable.
+  private var total: String? {
+    guard let valid = draft.valid(requireCalories: false) else { return nil }
+    let totals = entryTotals(macros: valid.macros, servings: valid.servings)
+    let macros = Copy.tracker.macros
+    let grams = macros.grams.text
+    return [
+      "\(MacroMeter.whole(totals.calories)) \(macros.calories.text)",
+      "\(MacroMeter.whole(totals.protein))\(grams) \(macros.protein.text)",
+      "\(MacroMeter.whole(totals.carbs))\(grams) \(macros.carbs.text)",
+      "\(MacroMeter.whole(totals.fat))\(grams) \(macros.fat.text)",
+    ].joined(separator: " · ")
+  }
+
+  private func save() {
+    attempted = true
+    guard let valid = draft.valid(requireCalories: false) else { return }
+    do {
+      try DiaryWrites.update(record, with: valid, in: context)
+      onClose()
+    } catch {
+      onFailure(Copy.tracker.diary.couldntSave)
+    }
+  }
+
+  private func remove() {
+    do {
+      try DiaryWrites.remove(record, in: context)
+      onClose()
+    } catch {
+      onFailure(Copy.tracker.diary.couldntSave)
+    }
+  }
+}

@@ -560,7 +560,7 @@ private struct TargetRow: View {
 
 // MARK: Pieces
 
-private struct NumberField: View {
+struct NumberField: View {
   let label: String
   let unit: String?
   @Binding var text: String
@@ -582,7 +582,7 @@ private struct NumberField: View {
   }
 }
 
-private struct FieldError: View {
+struct FieldError: View {
   let message: CopyString?
 
   init(_ message: CopyString?) {
@@ -605,7 +605,7 @@ private func whole(_ value: Double) -> String {
 }
 
 /// A sentence with its numbers set in Geist Mono.
-private func monoNumbers(_ text: String, size: CGFloat) -> AttributedString {
+func monoNumbers(_ text: String, size: CGFloat) -> AttributedString {
   var result = AttributedString(text)
   for range in text.ranges(of: /\d[\d,.]*/) {
     if let attributed = Range(range, in: result) {
@@ -613,18 +613,4 @@ private func monoNumbers(_ text: String, size: CGFloat) -> AttributedString {
     }
   }
   return result
-}
-
-extension LocalDate {
-  /// The calendar day `date` falls on in `calendar`.
-  fileprivate init?(_ date: Date, in calendar: Calendar) {
-    let parts = calendar.dateComponents([.year, .month, .day], from: date)
-    guard let year = parts.year, let month = parts.month, let day = parts.day else { return nil }
-    self.init(year: year, month: month, day: day)
-  }
-
-  /// Midday on this day in `calendar`, which no time zone moves to another day.
-  fileprivate func date(in calendar: Calendar) -> Date? {
-    calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
-  }
 }
