@@ -53,6 +53,5 @@ Reads apply it. `ModelContext.current(_:)` and `weighIn(on:)` return the winner,
 
 ## Left for later tickets
 
-- **A store that won't open** stops the app at launch (`CauldronApp`). Before the first TestFlight build that changes the schema, give that failure a screen with a way to export, as part of #185.
+- **A store that won't open** stops the app at launch (`CauldronApp`), and an export can't run without an open store. It needs a recovery screen that can at least hand over the store files, before the first TestFlight build that changes the schema. It has no ticket yet.
 - **AI jobs have no owner**, so two devices could both run the same one. #170 decides how a device claims a job.
-- **Nothing calls `tidy` yet.** The app shell (#166) runs it at launch.
