@@ -6,5 +6,5 @@ import Testing
 @MainActor
 @Test func appLinksCauldronKit() {
   _ = RootView()
-  #expect(CauldronKit.name == "Cauldron")
+  #expect(Copy.ui.appName.text == "Cauldron")
 }
