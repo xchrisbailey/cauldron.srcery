@@ -41,7 +41,7 @@
 
 **Parallel work and PRs.**
 
-- Use one branch and one PR per ticket. Name the branch `<type>/<issue>-<slug>`, such as `feat/12-gather-list`.
+- Outside an integration branch (below), use one branch and one PR per ticket. Name the branch `<type>/<issue>-<slug>`, such as `feat/12-gather-list`.
 - Tickets whose blockers are all merged run in parallel, each in its own worktree, and each PR targets `main`. Parallel work is preferred. Two tickets that each add a Drizzle migration can't both merge as generated; land one, then have the other regenerate its migration on the new `main`.
 - When a ticket depends on work that isn't merged yet, **stack** it:
   - The coder branches from the blocking ticket's branch and opens a draft PR against that branch.
@@ -55,7 +55,18 @@
   - Stacked PRs are in public preview. If `gh stack` fails, skip the stack: merge the bottom PR, then rebase and retarget each PR above it in turn.
 - Keep stacks short. Don't stack work that could run in parallel.
 - PR descriptions link the ticket with `Closes #<issue>` and name the PR this one is stacked on, if any.
-- A skill that asks for one integration branch and merger agents, such as `implement-spec`, gets this per-ticket PR workflow instead.
+- A skill that asks for one integration branch, such as `implement-spec`, gets the integration-branch workflow below instead of per-ticket PRs.
+
+**Integration branches.**
+
+- When a skill asks for one integration branch and merger agents, follow the skill. For that spec it replaces per-ticket PRs and stacks; everything else in this file still applies.
+- Name the branch `feat/<spec issue>-<slug>` and cut it from `origin/main`. Push it, and open one draft PR against `main` after the first ticket merges into it. The PR description lists `Closes #<issue>` for the spec and for each ticket as it lands.
+- Each ticket still gets its own worktree and its own branch, `<type>/<issue>-<slug>`, based on the integration branch tip. Tickets whose blockers are all in the integration branch run in parallel.
+- A coder's brief names the integration branch as its base and asks for the branch and the check results back, not a PR. The coder merges the integration branch tip into its branch and reruns the checks before reporting done.
+- Opus reviews each ticket branch against its "Done when" before it goes in, and the adversarial pass runs at the same points as for a PR. Findings go back to the same coder.
+- A merger subagent merges a reviewed ticket branch into the integration branch, resolves conflicts, reruns the checks on the result, and pushes. It doesn't change behaviour; a conflict it can't resolve mechanically comes back to Opus.
+- The main checkout still stays on `main` and clean. The integration branch lives in its own worktree.
+- Mark the PR ready when every ticket is in and the final review passes. Merging it into `main` still waits for the user.
 
 **Adversarial pass.**
 
