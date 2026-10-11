@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 /// `toBeCloseTo(expected, digits)`.
-func closeTo(_ received: Double, _ expected: Double, digits: Int = 2) -> Bool {
+func toBeCloseTo(_ received: Double, _ expected: Double, digits: Int = 2) -> Bool {
   abs(expected - received) < pow(10, -Double(digits)) / 2
 }
 
@@ -41,19 +41,19 @@ struct CatalogueTests {
 @Suite("convert")
 struct ConvertTests {
   @Test func convertsVolume() throws {
-    #expect(closeTo(try #require(convert(1, from: .cup, to: .ml)), 236.588, digits: 2))
-    #expect(closeTo(try #require(convert(3, from: .tsp, to: .tbsp)), 1, digits: 10))
-    #expect(closeTo(try #require(convert(16, from: .tbsp, to: .cup)), 1, digits: 10))
-    #expect(closeTo(try #require(convert(4, from: .cup, to: .quart)), 1, digits: 10))
-    #expect(closeTo(try #require(convert(1, from: .gallon, to: .l)), 3.785, digits: 3))
-    #expect(closeTo(try #require(convert(8, from: .flOz, to: .cup)), 1, digits: 10))
-    #expect(closeTo(try #require(convert(2, from: .pint, to: .quart)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(1, from: .cup, to: .ml)), 236.588, digits: 2))
+    #expect(toBeCloseTo(try #require(convert(3, from: .tsp, to: .tbsp)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(16, from: .tbsp, to: .cup)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(4, from: .cup, to: .quart)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(1, from: .gallon, to: .l)), 3.785, digits: 3))
+    #expect(toBeCloseTo(try #require(convert(8, from: .flOz, to: .cup)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(2, from: .pint, to: .quart)), 1, digits: 10))
     #expect(convert(1, from: .l, to: .ml) == 1000)
   }
 
   @Test func convertsMass() throws {
-    #expect(closeTo(try #require(convert(1, from: .lb, to: .g)), 453.592, digits: 2))
-    #expect(closeTo(try #require(convert(16, from: .oz, to: .lb)), 1, digits: 10))
+    #expect(toBeCloseTo(try #require(convert(1, from: .lb, to: .g)), 453.592, digits: 2))
+    #expect(toBeCloseTo(try #require(convert(16, from: .oz, to: .lb)), 1, digits: 10))
     #expect(convert(1.5, from: .kg, to: .g) == 1500)
   }
 
@@ -68,14 +68,14 @@ struct ConvertTests {
     for a in UnitCode.allCases {
       for b in UnitCode.allCases {
         if let there = convert(7, from: a, to: b) {
-          #expect(closeTo(try #require(convert(there, from: b, to: a)), 7, digits: 8))
+          #expect(toBeCloseTo(try #require(convert(there, from: b, to: a)), 7, digits: 8))
         }
       }
     }
   }
 }
 
-struct DisplayCase: Sendable {
+struct UnitDisplayCase: Sendable {
   let quantity: Double
   let from: UnitCode
   let system: TargetSystem
@@ -85,7 +85,7 @@ struct DisplayCase: Sendable {
 
 @Suite("convertForDisplay")
 struct ConvertForDisplayTests {
-  static let cases: [DisplayCase] = [
+  static let cases: [UnitDisplayCase] = [
     .init(quantity: 1, from: .cup, system: .metric, expected: 236.588, unit: .ml),
     .init(quantity: 4.5, from: .cup, system: .metric, expected: 1.0647, unit: .l),
     .init(quantity: 1, from: .tsp, system: .metric, expected: 4.929, unit: .ml),
@@ -102,10 +102,10 @@ struct ConvertForDisplayTests {
   ]
 
   @Test(arguments: cases)
-  func convertsToTheSystem(_ c: DisplayCase) {
+  func convertsToTheSystem(_ c: UnitDisplayCase) {
     let out = convertForDisplay(c.quantity, unit: c.from, target: c.system)
     #expect(out.unit == c.unit)
-    #expect(closeTo(out.quantity, c.expected, digits: 2))
+    #expect(toBeCloseTo(out.quantity, c.expected, digits: 2))
   }
 
   @Test func stepsSmallUSVolumesDownWithinTheUSSystem() {

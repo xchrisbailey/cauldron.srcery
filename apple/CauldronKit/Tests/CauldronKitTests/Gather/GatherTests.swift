@@ -5,7 +5,7 @@ import Testing
 // Ported from `packages/shared/test/gather.test.ts`. The TypeScript named recipes and rows with
 // plain strings ("a", "eggs"); here they are UUIDs made from the same letters.
 
-func recipeId(_ name: String) -> RecipeId {
+private func recipeId(_ name: String) -> RecipeId {
   var bytes = [UInt8](repeating: 0, count: 16)
   for (offset, byte) in name.utf8.enumerated() where offset < 16 { bytes[15 - offset] = byte }
   return UUID(
@@ -91,7 +91,7 @@ struct GatherMergingTests {
     let rows = gather(("a", "4 tbsp olive oil"), ("b", "1 cup olive oil"))
     #expect(rows.count == 1)
     #expect(rows[0].unit == .cup)
-    #expect(closeTo(try #require(rows[0].quantity).min, 1.25, digits: 1))
+    #expect(toBeCloseTo(try #require(rows[0].quantity).min, 1.25, digits: 1))
     #expect(rows[0].quantity?.max == nil)
   }
 
@@ -99,7 +99,7 @@ struct GatherMergingTests {
     let rows = gather(("a", "1 tsp vanilla extract"), ("b", "1 tbsp vanilla extract"))
     #expect(rows.count == 1)
     #expect(rows[0].unit == .tbsp)
-    #expect(closeTo(try #require(rows[0].quantity).min, 1.333, digits: 2))
+    #expect(toBeCloseTo(try #require(rows[0].quantity).min, 1.333, digits: 2))
   }
 
   @Test func sumsGAndKgIntoOneMetricRow() throws {
@@ -109,14 +109,14 @@ struct GatherMergingTests {
     let row = rows[0]
     #expect(row.unit == .g || row.unit == .kg)
     let min = try #require(row.quantity).min
-    #expect(closeTo(min * (row.unit == .kg ? 1000 : 1), 2000, digits: 6))
+    #expect(toBeCloseTo(min * (row.unit == .kg ? 1000 : 1), 2000, digits: 6))
   }
 
   @Test func sumsLbAndOzIntoAUSMass() throws {
     let rows = gather(("a", "1 lb potatoes"), ("b", "8 oz potatoes"))
     #expect(rows.count == 1)
     #expect(rows[0].unit == .lb)
-    #expect(closeTo(try #require(rows[0].quantity).min, 1.5, digits: 2))
+    #expect(toBeCloseTo(try #require(rows[0].quantity).min, 1.5, digits: 2))
   }
 
   @Test func addsRangesUsingMinWhereMaxIsAbsent() {
@@ -132,8 +132,8 @@ struct GatherMergingTests {
     let rows = gather(("a", "1-2 cups milk"), ("b", "8 tbsp milk"))
     #expect(rows.count == 1)
     #expect(rows[0].unit == .cup)
-    #expect(closeTo(try #require(rows[0].quantity).min, 1.5, digits: 1))
-    #expect(closeTo(try #require(rows[0].quantity?.max), 2.5, digits: 1))
+    #expect(toBeCloseTo(try #require(rows[0].quantity).min, 1.5, digits: 1))
+    #expect(toBeCloseTo(try #require(rows[0].quantity?.max), 2.5, digits: 1))
   }
 
   @Test func mergesClovesWithClovesAndKeepsClovesApartFromCans() {
@@ -213,14 +213,14 @@ struct GatherSourcesTests {
     #expect(b.unit == .cup && b.quantity == q(0.5))
     #expect(c.unit == .tbsp && c.quantity == q(4))
     #expect(row.unit == .cup)
-    #expect(closeTo(try #require(row.quantity).min, 2.75, digits: 1))
+    #expect(toBeCloseTo(try #require(row.quantity).min, 2.75, digits: 1))
   }
 
   @Test func totalsARecipesOwnMixedUnitsForItsSource() throws {
     let rows = gather(("a", "1 cup milk"), ("a", "4 tbsp milk"))
     #expect(rows[0].sources.count == 1)
     #expect(rows[0].sources[0].unit == .cup)
-    #expect(closeTo(try #require(rows[0].sources[0].quantity).min, 1.25, digits: 1))
+    #expect(toBeCloseTo(try #require(rows[0].sources[0].quantity).min, 1.25, digits: 1))
   }
 }
 

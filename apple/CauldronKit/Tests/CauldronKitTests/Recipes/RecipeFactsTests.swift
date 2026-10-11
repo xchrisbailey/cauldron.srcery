@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 /// Ported from `packages/shared/test/recipeFacts.test.ts`.
-struct MinutesCase: Sendable {
+struct RecipeMinutesCase: Sendable {
   let total: Int?
   let prep: Int?
   let cook: Int?
@@ -12,7 +12,7 @@ struct MinutesCase: Sendable {
 
 @Suite("recipeMinutes")
 struct RecipeMinutesTests {
-  static let cases: [MinutesCase] = [
+  static let cases: [RecipeMinutesCase] = [
     .init(total: 45, prep: 10, cook: 20, minutes: 45),
     .init(total: nil, prep: 10, cook: 20, minutes: 30),
     .init(total: nil, prep: 10, cook: nil, minutes: 10),
@@ -22,7 +22,7 @@ struct RecipeMinutesTests {
   ]
 
   @Test(arguments: cases)
-  func totalPrepAndCook(_ c: MinutesCase) {
+  func totalPrepAndCook(_ c: RecipeMinutesCase) {
     #expect(
       recipeMinutes(totalMinutes: c.total, prepMinutes: c.prep, cookMinutes: c.cook) == c.minutes)
   }

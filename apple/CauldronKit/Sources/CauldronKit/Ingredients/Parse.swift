@@ -67,7 +67,7 @@ private let bulletsWithMarkers: Set<Unicode.Scalar> = ["-", "*", "•", "·", "�
 private let bullets: Set<Unicode.Scalar> = ["•", "·", "▪", "◦", "‣"]
 
 /// Vulgar fractions spelled out, every dash a hyphen, and runs of whitespace one space.
-func normalize(_ line: String) -> Scalars {
+func normalizeIngredientLine(_ line: String) -> Scalars {
   let input = Scalars(line)
   var out = Scalars()
   var i = 0
@@ -100,7 +100,7 @@ func normalize(_ line: String) -> Scalars {
   return dashed.jsSpacesCollapsed.jsTrimmed
 }
 
-func stripBullet(_ text: Scalars) -> Scalars {
+func stripIngredientBullet(_ text: Scalars) -> Scalars {
   let runEnd = text.end(ofRunFrom: 0, where: { bulletsWithMarkers.contains($0) })
   if runEnd > 0 {
     let spaceEnd = text.end(ofRunFrom: runEnd, where: \.isJSSpace)
@@ -407,7 +407,7 @@ private func blank(original: String, item: String) -> ParsedIngredient {
 /// Parse one ingredient line. Always answers: a line it can't read is returned whole as the
 /// `item`, with no quantity.
 public func parseIngredientLine(_ line: String) -> ParsedIngredient {
-  let text = stripBullet(normalize(line))
+  let text = stripIngredientBullet(normalizeIngredientLine(line))
   if text.isEmpty { return blank(original: line, item: "") }
 
   let (headRaw, commaNote) = splitAtComma(text)
@@ -641,8 +641,8 @@ private func parseSize(_ rest: Scalars) -> (measure: AltMeasure, rest: Scalars)?
 /// Whether a line is a group heading rather than an ingredient: "For the sauce:", or "FOR THE
 /// CRUST". Callers use it to start a new section.
 public func isSectionHeading(_ line: String) -> Bool {
-  let normalized = normalize(line)
-  var text = stripBullet(normalized)
+  let normalized = normalizeIngredientLine(line)
+  var text = stripIngredientBullet(normalized)
   if text.last == ":" { text.removeLast() }
   text = text.jsTrimmed
   if text.isEmpty || text.string.utf16.count > 60 { return false }

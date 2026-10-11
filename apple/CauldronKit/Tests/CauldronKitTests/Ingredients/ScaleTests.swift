@@ -11,7 +11,7 @@ struct ScaleQuantityTests {
   }
 }
 
-struct FormatCase: Sendable {
+struct QuantityFormatCase: Sendable {
   let value: Double
   let unit: UnitCode?
   let expected: String
@@ -20,7 +20,7 @@ struct FormatCase: Sendable {
 @Suite("formatQuantity")
 struct FormatQuantityTests {
   /// US and counts use fractions.
-  static let fractions: [FormatCase] = [
+  static let fractions: [QuantityFormatCase] = [
     .init(value: 1.5, unit: .cup, expected: "1 ½"),
     .init(value: 0.5, unit: .cup, expected: "½"),
     .init(value: 0.75, unit: .tsp, expected: "¾"),
@@ -50,7 +50,7 @@ struct FormatQuantityTests {
   ]
 
   @Test(arguments: fractions)
-  func usAndCountsUseFractions(_ c: FormatCase) {
+  func usAndCountsUseFractions(_ c: QuantityFormatCase) {
     #expect(formatQuantity(Quantity(min: c.value, max: nil), unit: c.unit) == c.expected)
   }
 
@@ -64,7 +64,7 @@ struct FormatQuantityTests {
   }
 
   /// Metric uses decimals.
-  static let decimals: [FormatCase] = [
+  static let decimals: [QuantityFormatCase] = [
     .init(value: 250, unit: .g, expected: "250"),
     .init(value: 1.5, unit: .kg, expected: "1.5"),
     .init(value: 1.25, unit: .kg, expected: "1.25"),
@@ -78,7 +78,7 @@ struct FormatQuantityTests {
   ]
 
   @Test(arguments: decimals)
-  func metricUsesDecimals(_ c: FormatCase) {
+  func metricUsesDecimals(_ c: QuantityFormatCase) {
     #expect(formatQuantity(Quantity(min: c.value, max: nil), unit: c.unit) == c.expected)
   }
 

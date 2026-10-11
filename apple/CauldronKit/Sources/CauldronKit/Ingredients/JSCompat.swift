@@ -98,17 +98,7 @@ extension Array where Element == Unicode.Scalar {
 }
 
 /// `String.prototype.trim`.
-func jsTrim(_ string: String) -> String { Scalars(string).jsTrimmed.string }
-
-/// `Math.round`: halves go up, toward positive infinity (so -2.5 is -2, unlike
-/// `.toNearestOrAwayFromZero`).
-func jsRound(_ x: Double) -> Double {
-  guard x.isFinite else { return x }
-  let floor = x.rounded(.down)
-  let rounded = x - floor >= 0.5 ? floor + 1 : floor
-  // -0.4 rounds to -0, as it does there.
-  return rounded == 0 && x < 0 ? -0.0 : rounded
-}
+func jsTrim(_ string: String) -> String { string.jsTrimmed() }
 
 /// `Math.max(a, b)`: NaN if either is.
 func jsMax(_ a: Double, _ b: Double) -> Double {
@@ -199,7 +189,8 @@ func jsGroupedRounded(_ x: Double) -> String {
     grouped.append(character)
   }
   digits = String(grouped.reversed())
-  let negative = rounded < 0 || (rounded == 0 && rounded.sign == .minus)
+  // Math.round(-0.4) is -0, which prints as "-0".
+  let negative = rounded < 0 || (rounded == 0 && (x < 0 || x.sign == .minus))
   return negative ? "-" + digits : digits
 }
 
