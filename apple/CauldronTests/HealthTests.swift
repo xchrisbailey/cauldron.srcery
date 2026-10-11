@@ -6,15 +6,20 @@ import Testing
 @testable import Cauldron
 
 /// Health, in memory. Saving a sample replaces the one with its sync id when the version is
-/// higher, as Health does; anything else stays.
+/// higher, as Health does; anything else stays. Each nutrient can be refused, and a save or a
+/// delete that includes a refused one fails as a whole, as it does in Health.
 actor FakeHealthStore: HealthStore {
   nonisolated let availability: HealthAvailability
   private(set) var samples: [String: (sample: NutritionSample, version: Int)] = [:]
   private(set) var authorizationRequests = 0
   private(set) var readRequests = 0
+  private(set) var saveRequests = 0
   var weights: [HealthWeightSample] = []
   var authorizationFails = false
   var writesFail = false
+  var denied: Set<Nutrient> = []
+  private var holdReads = false
+  private var waiting: [CheckedContinuation<Void, Never>] = []
 
   init(availability: HealthAvailability = .supported) {
     self.availability = availability
@@ -23,31 +28,71 @@ actor FakeHealthStore: HealthStore {
   func setWeights(_ new: [HealthWeightSample]) { weights = new }
   func setAuthorizationFails(_ fails: Bool) { authorizationFails = fails }
   func setWritesFail(_ fails: Bool) { writesFail = fails }
+  func setDenied(_ nutrients: Set<Nutrient>) { denied = nutrients }
+
+  /// Reads of body mass wait until `releaseReads`.
+  func holdReadsOfBodyMass() { holdReads = true }
+
+  func releaseReads() {
+    holdReads = false
+    for waiter in waiting { waiter.resume() }
+    waiting = []
+  }
+
+  /// Puts a sample in Health as though another device (or an earlier run) had.
+  func plant(_ sample: NutritionSample, version: Int) {
+    samples[sample.syncID] = (sample, version)
+  }
 
   func requestAuthorization() async throws {
     authorizationRequests += 1
     if authorizationFails { throw HealthFailure("denied") }
   }
 
+  func writableNutrients() async -> Set<Nutrient> {
+    Set(Nutrient.allCases).subtracting(denied)
+  }
+
+  func nutritionSamples(since date: Date) async throws -> [HeldNutrition] {
+    samples.values.filter { $0.sample.date >= date }.map {
+      HeldNutrition(
+        syncID: $0.sample.syncID, value: $0.sample.value, date: $0.sample.date,
+        name: $0.sample.name, version: $0.version)
+    }
+  }
+
   func bodyMass(since date: Date) async throws -> [HealthWeightSample] {
     readRequests += 1
+    if holdReads { await withCheckedContinuation { waiting.append($0) } }
     return weights.filter { $0.date >= date }.sorted { $0.date > $1.date }
   }
 
   func save(_ new: [NutritionSample], version: Int) async throws {
-    if writesFail { throw HealthFailure("write") }
+    saveRequests += 1
+    if writesFail || new.contains(where: { denied.contains($0.nutrient) }) {
+      throw HealthFailure("write")
+    }
     for sample in new where (samples[sample.syncID]?.version ?? 0) < version {
       samples[sample.syncID] = (sample, version)
     }
   }
 
   func deleteNutrition(syncIDs: [String]) async throws {
-    if writesFail { throw HealthFailure("write") }
+    if writesFail
+      || syncIDs.contains(where: { HealthNutrition.nutrient(of: $0).map(denied.contains) ?? false })
+    {
+      throw HealthFailure("write")
+    }
     for id in syncIDs { samples[id] = nil }
   }
 
   /// What Health holds now, by sync id.
   var held: [String: NutritionSample] { samples.mapValues(\.sample) }
+}
+
+private func noon(_ day: LocalDate) -> Date {
+  calendar.date(
+    from: DateComponents(year: day.year, month: day.month, day: day.day, hour: 12)) ?? .now
 }
 
 private let calendar: Calendar = {
@@ -176,6 +221,146 @@ struct HealthNutritionTests {
   }
 }
 
+@Suite("Making Health match the diary")
+struct HealthReconcileTests {
+  private let day = LocalDate(year: 2026, month: 10, day: 10)!
+  private let id = UUID(uuidString: "0A1B2C3D-0000-4000-8000-000000000001")!
+  private let other = UUID(uuidString: "0A1B2C3D-0000-4000-8000-000000000002")!
+
+  private func entry(
+    _ id: UUID? = nil, servings: Double = 2, name: String = "Eggs",
+    macros: Macros = Macros(calories: 143, protein: 12.5, carbs: 1, fat: 9.5),
+    pending: Bool = false, slot: MealSlot = .lunch
+  ) -> HealthEntry {
+    HealthEntry(
+      id: id ?? self.id, day: day, slot: slot, name: name, servings: servings, macros: macros,
+      pending: pending)
+  }
+
+  /// What Health would hold after `entry` was written.
+  private func held(_ entry: HealthEntry, version: Int = 5) -> [HeldNutrition] {
+    HealthNutrition.plan(for: entry, calendar: calendar).save.map {
+      HeldNutrition(
+        syncID: $0.syncID, value: $0.value, date: $0.date, name: $0.name, version: version)
+    }
+  }
+
+  private func plan(
+    _ entries: [HealthEntry], _ held: [HeldNutrition],
+    writable: Set<Nutrient> = Set(Nutrient.allCases)
+  ) -> NutritionPlan {
+    HealthReconcile.plan(entries: entries, held: held, writable: writable, calendar: calendar)
+  }
+
+  @Test func whenHealthAlreadyMatchesThereIsNothingToDo() {
+    let e = entry()
+    #expect(plan([e], held(e)) == NutritionPlan(save: [], delete: []))
+    #expect(plan([], []) == NutritionPlan(save: [], delete: []))
+  }
+
+  @Test func anEntryWithNoSamplesIsWritten() {
+    let e = entry()
+    let result = plan([e], [])
+    #expect(result.save.map(\.nutrient) == [.energy, .protein, .carbs, .fat])
+    #expect(result.save.map(\.value) == [286, 25, 2, 19])
+    #expect(result.delete.isEmpty)
+  }
+
+  @Test func samplesWhoseEntryIsGoneAreDeleted() {
+    let gone = entry(other)
+    let result = plan([entry()], held(entry()) + held(gone))
+    #expect(result.save.isEmpty)
+    #expect(result.delete == HealthNutrition.syncIDs(entry: other).sorted())
+  }
+
+  @Test func samplesThatDifferAreWrittenAgain() {
+    let changed = entry(servings: 3)
+    let result = plan([changed], held(entry()))
+    #expect(result.save.map(\.value) == [429, 37.5, 3, 28.5])
+    // A different meal moves the time; a different name changes the label.
+    #expect(plan([entry(slot: .dinner)], held(entry())).save.count == 4)
+    #expect(plan([entry(name: "Omelette")], held(entry())).save.count == 4)
+  }
+
+  @Test func onlyTheSamplesThatDifferAreRewritten() {
+    let have = held(entry()).map { sample -> HeldNutrition in
+      var sample = sample
+      if sample.syncID.hasSuffix("fat") { sample.value = 1 }
+      return sample
+    }
+    #expect(plan([entry()], have).save.map(\.nutrient) == [.fat])
+  }
+
+  @Test func aNumberThatBecameUnknownIsDeletedAndOthersStay() {
+    let before = entry()
+    let after = entry(macros: Macros(calories: 143, protein: nil, carbs: 1, fat: nil))
+    let result = plan([after], held(before))
+    #expect(result.save.isEmpty)
+    #expect(
+      result.delete
+        == HealthNutrition.syncIDs(entry: id).filter {
+          $0.hasSuffix("protein") || $0.hasSuffix("fat")
+        }.sorted())
+  }
+
+  @Test func aMealWaitingForNumbersWritesNothingAndLosesItsSamples() {
+    let waiting = entry(pending: true)
+    #expect(plan([waiting], []) == NutritionPlan(save: [], delete: []))
+    #expect(plan([waiting], held(entry())).delete.count == 4)
+  }
+
+  @Test func nutrientsHealthWontTakeAreLeftAlone() {
+    let e = entry()
+    let writable: Set<Nutrient> = [.energy, .carbs]
+    let result = plan([e], [], writable: writable)
+    #expect(result.save.map(\.nutrient) == [.energy, .carbs])
+    // Nothing is deleted for a nutrient that can't be written either.
+    let stale = held(entry(other))
+    #expect(plan([], stale, writable: writable).delete.count == 2)
+  }
+
+  @Test func samplesThatAreNotCauldronsAreIgnored() {
+    let foreign = HeldNutrition(
+      syncID: "other.app.protein", value: 9, date: .now, name: "", version: 1)
+    let alsoForeign = HeldNutrition(
+      syncID: "cauldron.entry.x.sodium", value: 9, date: .now, name: "", version: 1)
+    #expect(plan([], [foreign, alsoForeign]) == NutritionPlan(save: [], delete: []))
+  }
+
+  @Test func doingItAgainOnTheResultChangesNothing() {
+    let entries = [
+      entry(), entry(other, servings: 1, name: "Toast", macros: Macros(calories: 100)),
+    ]
+    var have =
+      held(entry(UUID(), name: "Stale"))
+      + held(entries[0], version: 3).map {
+        var sample = $0
+        sample.value += 1
+        return sample
+      }
+    let first = plan(entries, have)
+    #expect(!first.save.isEmpty && !first.delete.isEmpty)
+    // Apply it the way Health would.
+    have.removeAll { first.delete.contains($0.syncID) }
+    for sample in first.save {
+      have.removeAll { $0.syncID == sample.syncID }
+      have.append(
+        HeldNutrition(
+          syncID: sample.syncID, value: sample.value, date: sample.date, name: sample.name,
+          version: 9))
+    }
+    #expect(plan(entries, have) == NutritionPlan(save: [], delete: []))
+  }
+
+  @Test func theSampleIdsAreReadBack() {
+    #expect(
+      HealthNutrition.nutrient(of: HealthNutrition.syncID(entry: id, nutrient: .carbs)) == .carbs)
+    #expect(HealthNutrition.nutrient(of: "cauldron.entry.abc.energy") == .energy)
+    #expect(HealthNutrition.nutrient(of: "cauldron.entry.abc.sodium") == nil)
+    #expect(HealthNutrition.nutrient(of: "nope.protein") == nil)
+  }
+}
+
 @Suite("Weights from Health")
 struct HealthWeightImportTests {
   private let today = LocalDate(year: 2026, month: 10, day: 10)!
@@ -295,7 +480,7 @@ struct HealthSyncTests {
   ) async -> HealthSync {
     let sync = HealthSync(
       store: store, setup: HealthSetup(isConfigured: configured), defaults: defaults,
-      calendar: calendar)
+      calendar: calendar, now: { [today = self.today] in noon(today) })
     if connected { await sync.connect() }
     return sync
   }
@@ -528,7 +713,7 @@ struct HealthSyncTests {
       reading("s1", today, 73.4), reading("s0", today.adding(days: -1), 73.9),
     ])
     let sync = await sync(store)
-    #expect(await sync.importWeights(into: context, today: today) == 2)
+    #expect(await sync.importWeights(into: context) == 2)
     let rows = try weighIns()
     #expect(rows.map(\.dayKey) == ["2026-10-09", "2026-10-10"])
     #expect(rows.map(\.weightKg) == [73.9, 73.4])
@@ -539,8 +724,8 @@ struct HealthSyncTests {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
-    await sync.importWeights(into: context, today: today)
-    #expect(await sync.importWeights(into: context, today: today) == 0)
+    await sync.importWeights(into: context)
+    #expect(await sync.importWeights(into: context) == 0)
     #expect(try weighIns().count == 1)
   }
 
@@ -550,7 +735,7 @@ struct HealthSyncTests {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
-    #expect(await sync.importWeights(into: context, today: today) == 0)
+    #expect(await sync.importWeights(into: context) == 0)
     let rows = try weighIns()
     #expect(rows.count == 1 && rows[0].weightKg == 74.0 && rows[0].healthSampleID == nil)
   }
@@ -559,35 +744,90 @@ struct HealthSyncTests {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
-    await sync.importWeights(into: context, today: today)
+    await sync.importWeights(into: context)
     await store.setWeights([reading("s1", today, 73.0)])
-    await sync.importWeights(into: context, today: today)
+    await sync.importWeights(into: context)
     #expect(try weighIns().map(\.weightKg) == [73.0])
     await store.setWeights([])
-    await sync.importWeights(into: context, today: today)
+    await sync.importWeights(into: context)
     #expect(try weighIns().isEmpty)
   }
 
-  @Test func aWeightRemovedFromCauldronStaysRemoved() async throws {
+  @Test func aWeightRemovedFromCauldronStaysRemovedOnEveryDevice() async throws {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
-    await sync.importWeights(into: context, today: today)
-    if let sample = try WeightWrites.remove(day: today, in: context) {
-      sync.dismiss(sampleID: sample)
-    }
-    #expect(await sync.importWeights(into: context, today: today) == 0)
+    await sync.importWeights(into: context)
+    try WeightWrites.remove(day: today, in: context)
+    #expect(try context.fetch(FetchDescriptor<HealthDismissalRecord>()).map(\.sampleID) == ["s1"])
+    #expect(await sync.importWeights(into: context) == 0)
     #expect(try weighIns().isEmpty)
-    // The choice outlives this run of the app.
+    // Another run of the app, or another device reading the same store, sees the choice too.
     let next = await self.sync(store, connected: false)
-    #expect(next.dismissedSampleIDs == ["s1"])
+    #expect(await next.importWeights(into: context) == 0)
+  }
+
+  @Test func aWeightRemovedOnTheMacIsNotImportedOnThePhone() async throws {
+    // The Mac removed the weigh-in and its dismissal synced here.
+    context.insert(HealthDismissalRecord(sampleID: "s1"))
+    try context.save()
+    let store = FakeHealthStore()
+    await store.setWeights([
+      reading("s1", today, 73.4), reading("s2", today.adding(days: -1), 73.9),
+    ])
+    let sync = await sync(store)
+    await sync.importWeights(into: context)
+    #expect(try weighIns().map(\.healthSampleID) == ["s2"])
+  }
+
+  @Test func editingAHealthWeighInAndRemovingItDoesNotBringTheReadingBack() async throws {
+    let store = FakeHealthStore()
+    await store.setWeights([reading("s1", today, 73.4)])
+    let sync = await sync(store)
+    await sync.importWeights(into: context)
+    try WeightWrites.save(kg: 74, on: today, today: today, in: context)
+    try WeightWrites.remove(day: today, in: context)
+    #expect(await sync.importWeights(into: context) == 0)
+    #expect(try weighIns().isEmpty)
+  }
+
+  @Test func overlappingChecksShareOneRunAndNeverDuplicate() async throws {
+    let store = FakeHealthStore()
+    await store.setWeights([
+      reading("s1", today, 73.4), reading("s0", today.adding(days: -1), 73.9),
+    ])
+    await store.holdReadsOfBodyMass()
+    let sync = await sync(store)
+    let first = Task { await sync.importWeights(into: context) }
+    let second = Task { await sync.importWeights(into: context) }
+    for _ in 0..<200 where await store.readRequests == 0 { await Task.yield() }
+    await Task.yield()
+    await store.releaseReads()
+    let counts = await [first.value, second.value]
+    #expect(counts == [2, 2])
+    #expect(await store.readRequests == 1)
+    #expect(try weighIns().map(\.dayKey) == ["2026-10-09", "2026-10-10"])
+  }
+
+  @Test func twoSyncsRacingOnOneStoreStillLeaveOneWeighInADay() async throws {
+    let store = FakeHealthStore()
+    await store.setWeights([reading("s1", today, 73.4)])
+    await store.holdReadsOfBodyMass()
+    let a = await sync(store)
+    let b = await sync(store, connected: false)
+    let first = Task { await a.importWeights(into: context) }
+    let second = Task { await b.importWeights(into: context) }
+    for _ in 0..<200 where await store.readRequests < 2 { await Task.yield() }
+    await store.releaseReads()
+    _ = await [first.value, second.value]
+    #expect(try weighIns().count == 1)
   }
 
   @Test func healthIsNotReadWhileOffOrNotSetUp() async throws {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
-    #expect(await sync(store, connected: false).importWeights(into: context, today: today) == 0)
-    #expect(await sync(store, configured: false).importWeights(into: context, today: today) == 0)
+    #expect(await sync(store, connected: false).importWeights(into: context) == 0)
+    #expect(await sync(store, configured: false).importWeights(into: context) == 0)
     #expect(await store.readRequests == 0)
     #expect(try weighIns().isEmpty)
   }
@@ -596,7 +836,7 @@ struct HealthSyncTests {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today.adding(days: -2), 71.4)])
     let sync = await sync(store)
-    await sync.importWeights(into: context, today: today)
+    await sync.importWeights(into: context)
     let form = try TargetsForm.load(from: context, today: today, measurement: .metric)
     #expect(form.weight == "71.4")
   }
@@ -605,7 +845,7 @@ struct HealthSyncTests {
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
-    await sync.importWeights(into: context, today: today)
+    await sync.importWeights(into: context)
     var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
@@ -614,7 +854,239 @@ struct HealthSyncTests {
     try form.save(in: context)
     #expect(try weighIns().map(\.healthSampleID) == [nil])
     await store.setWeights([reading("s1", today, 73.0)])
-    #expect(await sync.importWeights(into: context, today: today) == 0)
+    #expect(await sync.importWeights(into: context) == 0)
     #expect(try weighIns().map(\.weightKg) == [72.6])
+  }
+
+  // MARK: Reconciling
+
+  /// A diary entry the way another device would have synced it: written to the store without
+  /// going through `DiaryEditor`.
+  @discardableResult
+  private func synced(
+    _ name: String, on day: LocalDate? = nil, servings: Double = 1,
+    macros: Macros = Macros(calories: 100, protein: 5, carbs: 10, fat: 2)
+  ) throws -> DiaryEntryRecord {
+    let record = DiaryEntryRecord(
+      day: day ?? today, slot: .lunch, name: name, servings: servings, source: .manual)
+    record.macros = macros
+    context.insert(record)
+    try context.save()
+    return record
+  }
+
+  @Test func anEntryLoggedBeforeHealthWasConnectedIsWrittenWhenItIs() async throws {
+    let before = try synced("Soup")
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    #expect(await store.held.isEmpty)
+    await sync.reconcile(in: context)
+    #expect(
+      await store.held.keys.sorted() == HealthNutrition.syncIDs(entry: before.id).sorted())
+  }
+
+  @Test func onlyTheLastThirtyDaysAreBackfilled() async throws {
+    try synced("Today")
+    try synced("A month ago", on: today.adding(days: -29))
+    try synced("Too old", on: today.adding(days: -30))
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    await sync.reconcile(in: context)
+    let names = Set(await store.held.values.map(\.name))
+    #expect(names == ["Today", "A month ago"])
+  }
+
+  @Test func anEntryDeletedOnAnotherDeviceLosesItsSamples() async throws {
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    let soup = try editor(sync).add([food("Soup")], on: today, slot: .lunch)[0]
+    await sync.settle()
+    #expect(await store.held.count == 4)
+    // The Mac deleted it; the delete synced here without touching the editor.
+    context.delete(soup)
+    try context.save()
+    await sync.appDidBecomeActive(in: context)
+    #expect(await store.held.isEmpty)
+  }
+
+  @Test func disconnectedDeletedAndReconnectedEndsClean() async throws {
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    let soup = try editor(sync).add([food("Soup")], on: today, slot: .lunch)[0]
+    await sync.settle()
+    sync.disconnect()
+    try editor(sync).remove(soup)
+    await sync.settle()
+    #expect(await store.held.count == 4)
+    await sync.connect()
+    await sync.reconcile(in: context)
+    #expect(await store.held.isEmpty)
+  }
+
+  @Test func aWriteThatFailedIsMadeGoodLater() async throws {
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    await store.setWritesFail(true)
+    try editor(sync).add([food("Soup")], on: today, slot: .lunch)
+    await sync.settle()
+    #expect(await store.held.isEmpty)
+    await store.setWritesFail(false)
+    await sync.appDidBecomeActive(in: context)
+    #expect(await store.held.count == 4)
+    #expect(sync.failure == nil)
+  }
+
+  @Test func aDescribedMealGetsItsSamplesWhenItsNumbersArrive() async throws {
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    var pending = food("Described")
+    pending.macros = Macros()
+    pending.macrosPending = true
+    let record = try editor(sync).add([pending], on: today, slot: .lunch)[0]
+    await sync.settle()
+    #expect(await store.held.isEmpty)
+    // The estimate comes back later and is written to the entry directly.
+    record.macros = Macros(calories: 300, protein: 20, carbs: 30, fat: 10)
+    record.macrosPending = false
+    try context.save()
+    await sync.reconcile(in: context)
+    #expect(await store.held.count == 4)
+  }
+
+  @Test func aStaleSampleIsFixedByTheNextDiaryChange() async throws {
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    let soup = try editor(sync).add([food("Soup", servings: 1)], on: today, slot: .lunch)[0]
+    await sync.settle()
+    // Something else changed the entry (another device) and Health wasn't told.
+    soup.servings = 2
+    try context.save()
+    try editor(sync).add([food("Toast", servings: 1)], on: today, slot: .lunch)
+    await sync.settle()
+    let energy = await store.held[HealthNutrition.syncID(entry: soup.id, nutrient: .energy)]
+    #expect(energy?.value == 286)
+  }
+
+  @Test func reconcilingTwiceWritesNothingTheSecondTime() async throws {
+    try synced("Soup")
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    await sync.reconcile(in: context)
+    let saves = await store.saveRequests
+    await sync.reconcile(in: context)
+    await sync.appDidBecomeActive(in: context)
+    #expect(await store.saveRequests == saves)
+  }
+
+  @Test func aVersionHigherThanOursStillGetsReplaced() async throws {
+    let soup = try synced("Soup")
+    let store = FakeHealthStore()
+    let sync = await sync(store)
+    // Another device with a fast clock wrote this, with a version from the future.
+    let stale = NutritionSample(
+      syncID: HealthNutrition.syncID(entry: soup.id, nutrient: .energy), nutrient: .energy,
+      value: 999, date: noon(today), name: "Soup")
+    await store.plant(stale, version: Int.max / 2)
+    await sync.reconcile(in: context)
+    #expect(await store.held[stale.syncID]?.value == 100)
+  }
+
+  @Test func thePhoneNeverReadsOrWritesAnythingWhileOff() async throws {
+    try synced("Soup")
+    let store = FakeHealthStore()
+    let off = await sync(store, connected: false)
+    await off.appDidBecomeActive(in: context)
+    #expect(await store.held.isEmpty)
+    #expect(await store.readRequests == 0)
+  }
+
+  @Test func comingForwardChecksWeightsAndTheDiary() async throws {
+    try synced("Soup")
+    let store = FakeHealthStore()
+    await store.setWeights([reading("s1", today, 73.4)])
+    let sync = await sync(store)
+    await sync.appDidBecomeActive(in: context)
+    #expect(try weighIns().count == 1)
+    #expect(await store.held.count == 4)
+  }
+
+  // MARK: Nutrients Health won't take
+
+  @Test func aNutrientTheCookRefusedIsLeftOutAndTheRestAreWritten() async throws {
+    let store = FakeHealthStore()
+    await store.setDenied([.protein])
+    let sync = await sync(store)
+    let soup = try editor(sync).add([food("Soup", servings: 1)], on: today, slot: .lunch)[0]
+    await sync.settle()
+    let held = await store.held
+    #expect(
+      Set(held.keys)
+        == Set(HealthNutrition.syncIDs(entry: soup.id).filter { !$0.hasSuffix("protein") }))
+    #expect(sync.deniedNutrients == [.protein])
+    #expect(sync.failure == nil)
+  }
+
+  @Test func refusingSeveralNutrientsStillWritesWhatIsAllowed() async throws {
+    let store = FakeHealthStore()
+    await store.setDenied([.energy, .fat])
+    let sync = await sync(store)
+    try editor(sync).add([food("Soup", servings: 1)], on: today, slot: .lunch)
+    await sync.settle()
+    #expect(Set(await store.held.values.map(\.nutrient)) == [.protein, .carbs])
+    #expect(sync.deniedNutrients == [.energy, .fat])
+  }
+
+  @Test func deletingAndReconcilingWorkWhileANutrientIsRefused() async throws {
+    let store = FakeHealthStore()
+    await store.setDenied([.carbs])
+    let sync = await sync(store)
+    let soup = try editor(sync).add([food("Soup")], on: today, slot: .lunch)[0]
+    await sync.settle()
+    try editor(sync).remove(soup)
+    await sync.reconcile(in: context)
+    #expect(await store.held.isEmpty)
+    #expect(sync.failure == nil)
+  }
+
+  @Test func theCookAllowingItLaterGetsTheMissingSamplesBackfilled() async throws {
+    let store = FakeHealthStore()
+    await store.setDenied([.protein])
+    let sync = await sync(store)
+    try editor(sync).add([food("Soup", servings: 1)], on: today, slot: .lunch)
+    await sync.settle()
+    #expect(await store.held.count == 3)
+    await store.setDenied([])
+    await sync.appDidBecomeActive(in: context)
+    #expect(await store.held.count == 4)
+    #expect(sync.deniedNutrients.isEmpty)
+  }
+
+  @Test func connectingReportsWhichNutrientsAreOff() async throws {
+    let store = FakeHealthStore()
+    await store.setDenied([.fat])
+    let sync = await sync(store)
+    #expect(sync.deniedNutrients == [.fat])
+    sync.disconnect()
+    #expect(sync.deniedNutrients.isEmpty)
+  }
+
+  // MARK: Weights typed in the targets form
+
+  @Test func aHealthWeightLeftAsShownIsNotClaimedByTheTargetsForm() async throws {
+    // The form opens before the weight is imported, so it doesn't know the day has one.
+    var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    let store = FakeHealthStore()
+    await store.setWeights([reading("s1", today, 73.44)])
+    let sync = await sync(store)
+    await sync.importWeights(into: context)
+    form.sex = .female
+    form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
+    form.cm = "168"
+    form.weight = "73.4"
+    try form.save(in: context)
+    let rows = try weighIns()
+    #expect(rows.map(\.healthSampleID) == ["s1"])
+    #expect(rows.map(\.weightKg) == [73.44])
+    #expect(try context.fetch(FetchDescriptor<HealthDismissalRecord>()).isEmpty)
   }
 }

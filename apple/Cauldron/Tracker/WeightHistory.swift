@@ -184,19 +184,29 @@ enum WeightWrites {
     let rounded = (kg * 100).rounded() / 100
     if let row = try context.weighIn(on: day) {
       row.weightKg = rounded
-      row.healthSampleID = nil
+      claim(row, in: context)
     } else {
       context.insert(WeighInRecord(day: day, weightKg: rounded))
     }
     try commit(context)
   }
 
-  /// Removes the day's weigh-in. Returns the Health sample it came from, if any, so the next
-  /// check doesn't bring it back.
+  /// Makes a weigh-in the cook's own: it no longer follows Health. The Health sample it came from
+  /// is dismissed, so removing the weigh-in later doesn't bring that reading back. It syncs, so
+  /// no device does either.
+  static func claim(_ row: WeighInRecord, in context: ModelContext) {
+    guard let sample = row.healthSampleID else { return }
+    row.healthSampleID = nil
+    context.insert(HealthDismissalRecord(sampleID: sample))
+  }
+
+  /// Removes the day's weigh-in. One that came from Health is dismissed, so no device brings the
+  /// reading back. Returns the Health sample it came from, if any.
   @discardableResult
   static func remove(day: LocalDate, in context: ModelContext) throws -> String? {
     guard let row = try context.weighIn(on: day) else { return nil }
     let sample = row.healthSampleID
+    if let sample { context.insert(HealthDismissalRecord(sampleID: sample)) }
     context.delete(row)
     try commit(context)
     return sample

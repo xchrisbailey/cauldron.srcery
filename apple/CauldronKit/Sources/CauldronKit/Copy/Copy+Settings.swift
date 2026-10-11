@@ -72,6 +72,13 @@ extension Copy {
 
       public init() {}
 
+      /// `names` is a plain list such as "protein and fat".
+      public func someOff(_ names: String) -> CopyString {
+        plain(
+          "Health isn't taking \(names) from Cauldron. Allow it in Settings, under Health, Data Access & Devices."
+        )
+      }
+
       public func imported(_ n: Int) -> CopyString {
         plain(n == 1 ? "Added 1 weigh-in from Health." : "Added \(n) weigh-ins from Health.")
       }

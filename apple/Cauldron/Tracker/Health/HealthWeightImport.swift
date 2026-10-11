@@ -94,6 +94,12 @@ enum HealthWeightImport {
     }
   }
 
+  /// The Health samples the cook removed from Cauldron, on any device (they sync).
+  @MainActor
+  static func dismissed(in context: ModelContext) throws -> Set<String> {
+    Set(try context.fetch(FetchDescriptor<HealthDismissalRecord>()).map(\.sampleID))
+  }
+
   /// Makes the plan so, and saves.
   @MainActor
   static func apply(_ plan: WeightImportPlan, in context: ModelContext) throws {

@@ -31,6 +31,14 @@ struct HealthKitSection: View {
           }
           .disabled(checking)
           .listRowBackground(Brand.Colors.mantle)
+          if !health.deniedNutrients.isEmpty {
+            Label {
+              Text(verbatim: copy.someOff(deniedNames).text).brandText(.body)
+            } icon: {
+              Image(systemName: "exclamationmark.triangle").foregroundStyle(Brand.Colors.heat)
+            }
+            .listRowBackground(Brand.Colors.mantle)
+          }
           if let count = health.lastImportCount {
             Text(verbatim: (count == 0 ? copy.upToDate : copy.imported(count)).text)
               .brandText(.control)
@@ -63,6 +71,23 @@ struct HealthKitSection: View {
     .listRowBackground(Brand.Colors.mantle)
   }
 
+  /// "calories, protein and fat" for the nutrients Health refused.
+  private var deniedNames: String {
+    let names = health.deniedNutrients.map { Self.name(of: $0) }
+    guard let last = names.last, names.count > 1 else { return names.first ?? "" }
+    return names.dropLast().joined(separator: ", ") + " and " + last
+  }
+
+  private static func name(of nutrient: Nutrient) -> String {
+    let names = Copy.tracker.macroNames
+    return switch nutrient {
+    case .energy: names.calories.text.lowercased()
+    case .protein: names.protein.text.lowercased()
+    case .carbs: names.carbs.text.lowercased()
+    case .fat: names.fat.text.lowercased()
+    }
+  }
+
   private var connected: Binding<Bool> {
     Binding(
       get: { health.status == .on },
@@ -83,9 +108,8 @@ struct HealthKitSection: View {
   }
 
   private func checkNow() async {
-    guard let today = TargetsForm.today() else { return }
     checking = true
-    await health.importWeights(into: context, today: today)
+    await health.appDidBecomeActive(in: context)
     checking = false
   }
 }

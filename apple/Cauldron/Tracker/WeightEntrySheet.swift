@@ -123,9 +123,7 @@ struct WeightEntrySheet: View {
 
   private func remove() {
     do {
-      if let sample = try WeightWrites.remove(day: chosenDay, in: context) {
-        HealthSync.shared.dismiss(sampleID: sample)
-      }
+      try WeightWrites.remove(day: chosenDay, in: context)
       onClose()
     } catch {
       self.error = t.couldntRemove

@@ -48,6 +48,15 @@ struct NutritionSample: Equatable, Sendable {
   var name: String
 }
 
+/// One of Cauldron's own dietary samples as Health holds it.
+struct HeldNutrition: Equatable, Sendable {
+  var syncID: String
+  var value: Double
+  var date: Date
+  var name: String
+  var version: Int
+}
+
 /// How far Health is usable here.
 enum HealthAvailability: Equatable, Sendable {
   /// This device has no Health (a Mac, an iPad without it).
@@ -72,6 +81,12 @@ protocol HealthStore: Sendable {
   func requestAuthorization() async throws
   /// Body mass readings from `date` on, newest first.
   func bodyMass(since date: Date) async throws -> [HealthWeightSample]
+  /// The nutrients Cauldron may write to. The cook can allow some and refuse others in Health,
+  /// and a save that includes a refused type fails as a whole.
+  func writableNutrients() async -> Set<Nutrient>
+  /// Cauldron's own dietary samples (written by this app, with a sync identifier) dated from
+  /// `date` on.
+  func nutritionSamples(since date: Date) async throws -> [HeldNutrition]
   /// Saves the samples, each replacing the one that has its `syncID`. `version` rises with
   /// every save.
   func save(_ samples: [NutritionSample], version: Int) async throws
@@ -84,6 +99,8 @@ struct UnavailableHealthStore: HealthStore {
   var availability: HealthAvailability { .unsupported }
   func requestAuthorization() async throws { throw HealthFailure() }
   func bodyMass(since date: Date) async throws -> [HealthWeightSample] { [] }
+  func writableNutrients() async -> Set<Nutrient> { [] }
+  func nutritionSamples(since date: Date) async throws -> [HeldNutrition] { [] }
   func save(_ samples: [NutritionSample], version: Int) async throws {}
   func deleteNutrition(syncIDs: [String]) async throws {}
 }

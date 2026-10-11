@@ -48,8 +48,7 @@ struct TrackerRoot: View {
 
   /// Weights from Health come in when the tracker opens and whenever the app comes forward.
   private func checkHealth() async {
-    guard let today = TargetsForm.today() else { return }
-    await HealthSync.shared.importWeights(into: context, today: today)
+    await HealthSync.shared.appDidBecomeActive(in: context)
   }
 
   @ViewBuilder

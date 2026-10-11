@@ -13,26 +13,26 @@ struct DiaryEditor {
   @discardableResult
   func add(_ entries: [NewEntry], on day: LocalDate, slot: MealSlot) throws -> [DiaryEntryRecord] {
     let added = try DiaryWrites.add(entries, on: day, slot: slot, in: context)
-    health.entriesSaved(added.compactMap(HealthEntry.init))
+    health.diaryChanged(saved: added.compactMap(HealthEntry.init), removed: [], in: context)
     return added
   }
 
   func update(_ record: DiaryEntryRecord, with valid: EntryDraft.Valid) throws {
     try DiaryWrites.update(record, with: valid, in: context)
-    health.entriesSaved([HealthEntry(record)].compactMap { $0 })
+    health.diaryChanged(saved: [HealthEntry(record)].compactMap { $0 }, removed: [], in: context)
   }
 
   @discardableResult
   func remove(_ record: DiaryEntryRecord) throws -> DiaryWrites.Removed {
     let removed = try DiaryWrites.remove(record, in: context)
-    health.entriesRemoved([removed.id])
+    health.diaryChanged(saved: [], removed: [removed.id], in: context)
     return removed
   }
 
   @discardableResult
   func restore(_ removed: DiaryWrites.Removed) throws -> DiaryEntryRecord {
     let record = try DiaryWrites.restore(removed, in: context)
-    health.entriesSaved([HealthEntry(record)].compactMap { $0 })
+    health.diaryChanged(saved: [HealthEntry(record)].compactMap { $0 }, removed: [], in: context)
     return record
   }
 }

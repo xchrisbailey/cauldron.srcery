@@ -78,7 +78,7 @@ struct WeightView: View {
         Button(t.add.text) { adding = true }
       }
     }
-    .refreshable { await HealthSync.shared.importWeights(into: context, today: today) }
+    .refreshable { await HealthSync.shared.appDidBecomeActive(in: context) }
     .sheet(isPresented: $adding) {
       WeightEntrySheet(
         day: today, today: today, unit: unit, existing: nil, pickDay: true,
@@ -298,9 +298,7 @@ struct WeightView: View {
   private func remove(_ record: WeighInRecord) {
     guard let day = record.day else { return }
     do {
-      if let sample = try WeightWrites.remove(day: day, in: context) {
-        HealthSync.shared.dismiss(sampleID: sample)
-      }
+      try WeightWrites.remove(day: day, in: context)
     } catch {
       failure = t.couldntRemove
     }
