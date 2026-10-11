@@ -26,11 +26,38 @@ struct DiaryView: View {
     }
     .background(Brand.Colors.base)
     .onChange(of: scenePhase) { _, phase in
-      // A diary left open past midnight: follow the new day if it was showing the old one.
-      guard phase == .active, let now = TargetsForm.today(), now != today else { return }
-      if day == today { day = now }
-      today = now
+      if phase == .active { refreshToday() }
     }
+    // A diary left open past midnight rolls over to the new day when it comes.
+    .task(id: today) {
+      while !Task.isCancelled {
+        let wait = DayRollover.secondsUntilMidnight(now: .now, calendar: .current)
+        try? await Task.sleep(for: .seconds(wait + 1))
+        if Task.isCancelled { return }
+        refreshToday()
+      }
+    }
+  }
+}
+
+extension DiaryView {
+  /// Follows the new day if the diary was showing the old one.
+  fileprivate func refreshToday() {
+    guard let now = TargetsForm.today(), now != today else { return }
+    if day == today { day = now }
+    today = now
+  }
+}
+
+/// When a day ends.
+enum DayRollover {
+  /// Seconds from `now` to the next midnight in `calendar`.
+  static func secondsUntilMidnight(now: Date, calendar: Calendar) -> TimeInterval {
+    let midnight =
+      calendar.nextDate(
+        after: now, matching: DateComponents(hour: 0, minute: 0, second: 0),
+        matchingPolicy: .nextTime) ?? now.addingTimeInterval(86_400)
+    return max(1, midnight.timeIntervalSince(now))
   }
 }
 
@@ -108,6 +135,8 @@ private struct DiaryDayList: View {
   @Query private var records: [DiaryEntryRecord]
   @Query private var weighIns: [WeighInRecord]
   @Query private var profiles: [BodyProfileRecord]
+  /// Weigh-ins in the check-in's window, to know whether a check-in is due.
+  @Query private var recentWeighIns: [WeighInRecord]
   @Environment(\.modelContext) private var context
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
@@ -126,6 +155,8 @@ private struct DiaryDayList: View {
     let key = day.description
     _records = Query(filter: #Predicate<DiaryEntryRecord> { $0.dayKey == key })
     _weighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey == key })
+    let from = CheckInRules.from(today: today).description
+    _recentWeighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey >= from })
   }
 
   private var log: DayLog { DayLog(day: day, records: records) }
@@ -134,6 +165,12 @@ private struct DiaryDayList: View {
     let log = log
     let byID = Dictionary(records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     List {
+      if checkInDue {
+        Section {
+          CheckInPrompt(context: context)
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
       Section {
         DayHeaderView(
           meters: MacroMeter.meters(totals: log.totals, targets: targets?.macroTargets),
@@ -219,6 +256,14 @@ private struct DiaryDayList: View {
     ) {
       Button(Copy.ui.close.text) { failure = nil }
     }
+  }
+
+  /// Offered on today only, once a week, when there is a week of weigh-ins to go on.
+  private var checkInDue: Bool {
+    day == today
+      && CheckInRules.isDue(
+        profile: Deduplication.keeper(of: profiles)?.profile, targets: targets?.targets,
+        weighInDays: recentWeighIns.compactMap(\.day), today: today)
   }
 
   private var weightUnit: WeightUnit { Deduplication.keeper(of: profiles)?.weightUnit ?? .kg }
