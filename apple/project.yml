@@ -56,7 +56,12 @@ targets:
     type: application
     platform: auto
     supportedDestinations: [iOS, macOS]
-    sources: [Cauldron]
+    sources:
+      - Cauldron
+      # A synced folder alone gets no Resources phase from XcodeGen. Naming one resource
+      # makes it emit the phase, and Xcode then bundles the folder's assets and fonts.
+      - path: Cauldron/Fonts/OFL.txt
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
     settings:
