@@ -33,6 +33,7 @@ public enum Copy {
   public static let settings = catalogue.settings
   public static let export = catalogue.export
   public static let recipeEditor = catalogue.recipeEditor
+  public static let brewMode = catalogue.brewMode
 
   public struct Catalogue: Sendable {
     public let errors = Errors()
@@ -54,6 +55,7 @@ public enum Copy {
     public let settings = Settings()
     public let export = Export()
     public let recipeEditor = RecipeEditorNative()
+    public let brewMode = BrewModeNative()
 
     public init() {}
   }

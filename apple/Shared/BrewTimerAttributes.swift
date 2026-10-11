@@ -14,6 +14,8 @@
       var finished: Bool
     }
 
+    /// The timer's id, which the app uses to find its activity again after a relaunch.
+    var key: String
     var recipeTitle: String
     /// The step the timer belongs to, counted from 1.
     var stepNumber: Int
