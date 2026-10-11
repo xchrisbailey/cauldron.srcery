@@ -1,6 +1,6 @@
 # Cauldron native: export format
 
-Settings has an **Export** section (`apple/Cauldron/Export/ExportSection.swift`) that writes everything the app holds to files the cook keeps. This note is the contract for those files. Import is not built, but the format is meant to be read back, and a person's saved exports must keep working.
+Settings has an **Export** section (`apple/Cauldron/Settings/Sections/ExportSection.swift`, with the work in `apple/Cauldron/Export/`) that writes everything the app holds to files the cook keeps. This note is the contract for those files. Import is not built, but the format is meant to be read back, and a person's saved exports must keep working.
 
 ## The files
 

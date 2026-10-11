@@ -1,9 +1,6 @@
 extension Copy {
-  /// The Export section of Settings. The native app's own, with nothing like it in the web
-  /// app's copy table, so it sits beside `catalogue` rather than in it, and the reference
-  /// comparison in `CopyTests` doesn't expect it. Plain nouns and plain errors.
-  public static let export = Export()
-
+  /// The Export section of Settings. It has no counterpart in the web copy, so the reference
+  /// fixture leaves it out. Plain nouns and plain errors.
   public struct Export: Sendable {
     public let title = plain("Export")
     public let explanation = plain(
