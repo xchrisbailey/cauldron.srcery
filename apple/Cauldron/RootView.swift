@@ -1,9 +1,13 @@
 import SwiftUI
 
-/// The empty first screen. The app shell replaces it.
+/// The first screen. The app shell replaces it; until then debug builds show the brand preview.
 struct RootView: View {
   var body: some View {
-    Color.clear
+    #if DEBUG
+      BrandPreview()
+    #else
+      Brand.Colors.base.ignoresSafeArea()
+    #endif
   }
 }
 

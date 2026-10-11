@@ -90,9 +90,9 @@ const favicon = () => {
  * leaves the corners square for the platform to mask; otherwise the icon is a
  * squircle like Grimoire's.
  */
-const appIcon = (p: Palette, maskable: boolean) => {
+const appIcon = (p: Palette, maskable: boolean, markScale = maskable ? 280 / 512 : 340 / 512) => {
   const size = 512;
-  const markSize = maskable ? 280 : 340;
+  const markSize = size * markScale;
   const offset = (size - markSize) / 2;
   const scale = markSize / 66;
   const shape = maskable
@@ -111,6 +111,72 @@ const appIcon = (p: Palette, maskable: boolean) => {
   ${maskable ? `<rect width="${size}" height="${size}" fill="url(#base)"/>` : `<rect width="${size}" height="${size}" rx="${size * 0.225}" fill="url(#base)"/>`}
   ${shape}
   <g transform="translate(${offset} ${offset}) scale(${scale}) translate(1 1)">${markBody(p, "i")}</g>`,
+  );
+};
+
+/** A palette in greys by luminance, for the iOS tinted icon (the system colours it). */
+const grayscale = (p: Palette): Palette => {
+  const gray = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+      .toString(16)
+      .padStart(2, "0");
+    return `#${y}${y}${y}`;
+  };
+  return Object.fromEntries(Object.entries(p).map(([k, v]) => [k, gray(v)])) as Palette;
+};
+
+// The native app's icons. iOS gets full-bleed 1024px squares (the system rounds them) in
+// light, dark and tinted; macOS gets the squircle on a transparent canvas, as 16 to 512 @1x/@2x.
+const appleIconSvg = (p: Palette, kind: "ios" | "mac") => {
+  const size = 1024;
+  if (kind === "ios") return appIcon(p, true, 0.62);
+  // The macOS icon grid keeps the squircle inside an 824px square on the 1024px canvas.
+  const inset = (size - 824) / 2;
+  const inner = appIcon(p, false).replace(/^<svg[^>]*>|<\/svg>\s*$/g, "");
+  return svg(
+    `0 0 ${size} ${size}`,
+    `<g transform="translate(${inset} ${inset}) scale(${824 / 512})">${inner}</g>`,
+  );
+};
+
+const macSizes = [16, 32, 128, 256, 512] as const;
+
+const writeAppleIcons = (dir: string) => {
+  mkdirSync(dir, { recursive: true });
+  const write = (name: string, svgText: string, px: number) =>
+    writeFileSync(join(dir, name), png(svgText, px));
+  write("ios-light.png", appleIconSvg(palettes.latte, "ios"), 1024);
+  write("ios-dark.png", appleIconSvg(palettes.mocha, "ios"), 1024);
+  write("ios-tinted.png", appleIconSvg(grayscale(palettes.mocha), "ios"), 1024);
+  const mac = appleIconSvg(palettes.latte, "mac");
+  const images: object[] = [
+    { filename: "ios-light.png", idiom: "universal", platform: "ios", size: "1024x1024" },
+    {
+      appearances: [{ appearance: "luminosity", value: "dark" }],
+      filename: "ios-dark.png",
+      idiom: "universal",
+      platform: "ios",
+      size: "1024x1024",
+    },
+    {
+      appearances: [{ appearance: "luminosity", value: "tinted" }],
+      filename: "ios-tinted.png",
+      idiom: "universal",
+      platform: "ios",
+      size: "1024x1024",
+    },
+  ];
+  for (const base of macSizes) {
+    for (const scale of [1, 2]) {
+      const filename = `mac-${base}@${scale}x.png`;
+      write(filename, mac, base * scale);
+      images.push({ filename, idiom: "mac", scale: `${scale}x`, size: `${base}x${base}` });
+    }
+  }
+  writeFileSync(
+    join(dir, "Contents.json"),
+    JSON.stringify({ images, info: { author: "xcode", version: 1 } }, null, 2) + "\n",
   );
 };
 
@@ -165,4 +231,6 @@ writeFileSync(join(publicDir, "apple-touch-icon.png"), png(appIcon(palettes.moch
 writeFileSync(join(publicDir, "icon-192.png"), png(appIcon(palettes.mocha, false), 192));
 writeFileSync(join(publicDir, "icon-512.png"), png(appIcon(palettes.mocha, false), 512));
 writeFileSync(join(publicDir, "icon-maskable-512.png"), png(appIcon(palettes.mocha, true), 512));
-console.log(`Wrote brand assets to ${brandDir} and ${publicDir}`);
+const appleIconDir = join(out, "apple/Cauldron/Assets.xcassets/AppIcon.appiconset");
+writeAppleIcons(appleIconDir);
+console.log(`Wrote brand assets to ${brandDir}, ${publicDir} and ${appleIconDir}`);
