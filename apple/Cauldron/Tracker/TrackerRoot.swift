@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 /// The tracker section's first screen. Until targets are set it is the set-up; after that it
-/// is the diary's place (an empty state for now), with the targets a tap away to change.
+/// is the diary, with the targets a tap away to change.
 struct TrackerRoot: View {
   @Environment(\.modelContext) private var context
   @Query private var targets: [TargetsRecord]
@@ -14,15 +14,13 @@ struct TrackerRoot: View {
       if Deduplication.keeper(of: targets) == nil {
         TargetsView(context: context)
       } else {
-        EmptyState(
-          systemImage: AppDestination.tracker.systemImage, message: Copy.tracker.diary.empty
-        )
-        .navigationTitle(AppDestination.tracker.title.text)
-        .toolbar {
-          ToolbarItem {
-            Button(Copy.tracker.targets.pageTitle.text) { changingTargets = true }
+        diary
+          .navigationTitle(AppDestination.tracker.title.text)
+          .toolbar {
+            ToolbarItem {
+              Button(Copy.tracker.targets.pageTitle.text) { changingTargets = true }
+            }
           }
-        }
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -37,6 +35,18 @@ struct TrackerRoot: View {
       #if os(macOS)
         .frame(minWidth: 480, minHeight: 640)
       #endif
+    }
+  }
+
+  @ViewBuilder
+  private var diary: some View {
+    if let today = TargetsForm.today() {
+      DiaryView(
+        today: today, targets: Deduplication.keeper(of: targets),
+        openTargets: { changingTargets = true })
+    } else {
+      EmptyState(
+        systemImage: AppDestination.tracker.systemImage, message: Copy.tracker.diary.couldntLoad)
     }
   }
 }
