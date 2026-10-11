@@ -1,19 +1,206 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
-/// The recipes section's first screen. Until the section is built it shows its empty state;
-/// replace the body and keep the name.
+/// The recipes section: the library as a list of cards with search and sort, and the recipe
+/// beside it. Where there is room (a Mac, an iPad) the two sit side by side; on iPhone a recipe
+/// opens over the list. The shell already has a sidebar, so this doesn't nest a split view in it.
 struct RecipesRoot: View {
+  @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
+  private var recipes: [RecipeRecord]
+  @State private var search = ""
+  @State private var sort = RecipeSort.recent
+  /// The recipe open beside the list.
+  @State private var selection: UUID?
+  /// The recipes open over the list, on iPhone.
+  @State private var path: [UUID] = []
+  @State private var banishing: RecipeRecord?
+  #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+  #endif
+
+  private var sideBySide: Bool {
+    #if os(iOS)
+      horizontalSizeClass != .compact
+    #else
+      true
+    #endif
+  }
+
   var body: some View {
-    NavigationStack {
-      EmptyState(
-        systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty
-      )
-      .navigationTitle(AppDestination.recipes.title.text)
+    Group {
+      if sideBySide {
+        split
+      } else {
+        stack
+      }
     }
+    .confirmationDialog(
+      Text(verbatim: banishing.map { Copy.recipes.banishConfirm($0.title).verb.text } ?? ""),
+      isPresented: Binding(get: { banishing != nil }, set: { if !$0 { banishing = nil } }),
+      titleVisibility: .visible, presenting: banishing
+    ) { recipe in
+      Button(role: .destructive) {
+        banish(recipe)
+      } label: {
+        Text(verbatim: Copy.recipes.banishConfirm(recipe.title).verb.text)
+      }
+      Button(role: .cancel) {
+      } label: {
+        Text(verbatim: Copy.recipeView.cancel.text)
+      }
+    } message: { recipe in
+      Text(verbatim: Copy.recipes.banishConfirm(recipe.title).confirm.text)
+    }
+  }
+
+  // MARK: Layouts
+
+  private var split: some View {
+    HStack(spacing: 0) {
+      library(opening: .beside)
+        .frame(width: 380)
+      Divider()
+      detail(of: selection)
+    }
+    .background(Brand.Colors.base)
+    .searchable(
+      text: $search, placement: .automatic,
+      prompt: Text(verbatim: Copy.library.searchPlaceholder.text)
+    )
+    .toolbar { sortMenu }
+    .navigationTitle(AppDestination.recipes.title.text)
+  }
+
+  private var stack: some View {
+    NavigationStack(path: $path) {
+      library(opening: .over)
+        .searchable(
+          text: $search, placement: searchPlacement,
+          prompt: Text(verbatim: Copy.library.searchPlaceholder.text)
+        )
+        .toolbar { sortMenu }
+        .navigationTitle(AppDestination.recipes.title.text)
+        .navigationDestination(for: UUID.self) { id in
+          detail(of: id)
+            .navigationTitle(recipes.first { $0.id == id }?.title ?? "")
+        }
+    }
+  }
+
+  private var searchPlacement: SearchFieldPlacement {
+    #if os(iOS)
+      .navigationBarDrawer(displayMode: .always)
+    #else
+      .automatic
+    #endif
+  }
+
+  private var sortMenu: some ToolbarContent {
+    ToolbarItem {
+      Menu {
+        Picker(selection: $sort) {
+          ForEach(RecipeSort.allCases) { choice in
+            Text(verbatim: choice.label.text).tag(choice)
+          }
+        } label: {
+          Text(verbatim: Copy.library.sort.text)
+        }
+      } label: {
+        Label {
+          Text(verbatim: Copy.library.sort.text)
+        } icon: {
+          Image(systemName: "arrow.up.arrow.down")
+        }
+      }
+    }
+  }
+
+  // MARK: Library
+
+  /// Where a tapped card opens its recipe.
+  private enum Opening { case beside, over }
+
+  @ViewBuilder
+  private func library(opening: Opening) -> some View {
+    let visible = RecipeLibrary.visible(recipes, matching: search, sort: sort)
+    if recipes.isEmpty {
+      EmptyState(systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty)
+    } else if visible.isEmpty {
+      EmptyState(systemImage: "magnifyingglass", message: Copy.library.noResults)
+    } else {
+      list(visible, opening: opening)
+    }
+  }
+
+  private func list(_ visible: [RecipeRecord], opening: Opening) -> some View {
+    List(selection: opening == .beside ? $selection : .constant(nil)) {
+      ForEach(visible) { recipe in
+        RecipeCardView(recipe: recipe, selected: opening == .beside && selection == recipe.id)
+          .tag(recipe.id)
+          .overlay {
+            // A link with no label of its own, so the row has no disclosure arrow.
+            if opening == .over {
+              NavigationLink(value: recipe.id) { EmptyView() }.opacity(0)
+            }
+          }
+          .listRowBackground(Color.clear)
+          .listRowSeparator(.hidden)
+          .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+          .swipeActions(edge: .trailing) { banishButton(recipe) }
+          .contextMenu { banishButton(recipe) }
+      }
+    }
+    .listStyle(.plain)
+    .scrollContentBackground(.hidden)
+    .background(Brand.Colors.base)
+    #if os(macOS)
+      .onDeleteCommand {
+        if let id = selection, let recipe = recipes.first(where: { $0.id == id }) {
+          banishing = recipe
+        }
+      }
+    #endif
+  }
+
+  private func banishButton(_ recipe: RecipeRecord) -> some View {
+    Button(role: .destructive) {
+      banishing = recipe
+    } label: {
+      Text(verbatim: Copy.recipes.banishConfirm(recipe.title).verb.text)
+    }
+    .tint(Brand.Colors.heat)
+  }
+
+  // MARK: Detail
+
+  @ViewBuilder
+  private func detail(of id: UUID?) -> some View {
+    if let id, let recipe = recipes.first(where: { $0.id == id }) {
+      RecipeDetailView(recipe: recipe) { banishing = recipe }
+        .id(recipe.id)
+    } else {
+      Image(systemName: AppDestination.recipes.systemImage)
+        .font(.system(size: 40, weight: .light))
+        .foregroundStyle(Brand.Colors.magic)
+        .accessibilityHidden(true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Brand.Colors.base)
+    }
+  }
+
+  private func banish(_ recipe: RecipeRecord) {
+    RecipeLibrary.banish(recipe)
+    if selection == recipe.id { selection = nil }
+    path.removeAll { $0 == recipe.id }
+    banishing = nil
   }
 }
 
-#Preview {
-  RecipesRoot()
-}
+#if DEBUG
+  #Preview("Library") {
+    let container = RecipePreviewData.container()
+    RecipesRoot()
+      .modelContainer(container)
+  }
+#endif
