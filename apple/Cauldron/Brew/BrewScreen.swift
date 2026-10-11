@@ -109,7 +109,7 @@ struct BrewScreen: View {
           .textCase(.uppercase)
       }
       Text(BrewStepText.attributed(step.text, size: stepSize))
-        .lineSpacing(stepSize * 0.4)
+        .lineSpacing(stepSize * 0.25)
         .accessibilityLabel(
           Text(
             verbatim: "\(Copy.brewing.stepOf(model.index + 1, model.plan.count).text). \(step.text)"
