@@ -7,55 +7,51 @@ import SwiftUI
 /// the first time; with a profile it opens on the targets, the profile an editable summary.
 /// The logic is `TargetsForm`; this draws it and saves it.
 struct TargetsView: View {
+  private let context: ModelContext
   /// Called after the targets are saved.
-  var onSaved: () -> Void = {}
+  private let onSaved: () -> Void
 
-  @Environment(\.modelContext) private var context
   @State private var form: TargetsForm?
-  @State private var loadFailed = false
   @State private var saveError: CopyString?
+
+  /// Reads the saved details as the view is made, so there is no frame without them (and no
+  /// state change after the first draw, which a view drawn off screen can't take).
+  init(context: ModelContext, onSaved: @escaping () -> Void = {}) {
+    self.context = context
+    self.onSaved = onSaved
+    let loaded = Self.load(from: context)
+    _form = State(initialValue: loaded)
+  }
 
   var body: some View {
     Group {
       if let form {
         TargetsEditor(
           form: Binding(get: { form }, set: { self.form = $0 }), saveError: saveError, save: save)
-      } else if loadFailed {
+      } else {
         VStack(spacing: 12) {
           Text(verbatim: Copy.tracker.targets.couldntLoad.text)
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
-          Button(Copy.ui.tryAgain.text, action: load)
-            .brandText(.control)
+          Button(Copy.ui.tryAgain.text) {
+            form = Self.load(from: context)
+          }
+          .brandText(.control)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.Colors.base)
-      } else {
-        ProgressView()
-          .accessibilityLabel(Copy.ui.loading.text)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .background(Brand.Colors.base)
       }
     }
     .navigationTitle(Copy.tracker.targets.title.text)
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
     #endif
-    .task { if form == nil { load() } }
   }
 
-  private func load() {
-    guard let today = TargetsForm.today() else {
-      loadFailed = true
-      return
-    }
-    do {
-      form = try TargetsForm.load(from: context, today: today)
-      loadFailed = false
-    } catch {
-      loadFailed = true
-    }
+  private static func load(from context: ModelContext) -> TargetsForm? {
+    guard let today = TargetsForm.today() else { return nil }
+    return try? TargetsForm.load(from: context, today: today)
   }
 
   private func save() {
