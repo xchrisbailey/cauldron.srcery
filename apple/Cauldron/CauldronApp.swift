@@ -1,3 +1,4 @@
+import CauldronKit
 import SwiftData
 import SwiftUI
 
@@ -50,6 +51,16 @@ struct CauldronApp: App {
     }
     .modelContainer(container)
     #if os(macOS)
+      // Brew mode, one window for each recipe being cooked.
+      WindowGroup(Copy.pageTitles.brew.text, id: "brew", for: BrewRequest.self) { $request in
+        if let request {
+          BrewWindow(request: request)
+            .environment(sync)
+            .cauldronAppearance()
+        }
+      }
+      .modelContainer(container)
+      .defaultSize(width: 760, height: 820)
       Settings {
         SettingsView()
           .environment(sync)

@@ -156,31 +156,45 @@ struct BrewModelTests {
 
   // MARK: Finishing
 
-  @Test func brewedMarksTheRecipeCookedThenEndsTheTimers() async {
+  @Test func brewedMarksTheRecipeCookedThenEndsTheTimers() async throws {
     let model = model()
     model.go(to: 1)
     await model.toggleTimer()
     model.go(to: 3)
     clock.advance(5)
     var marked = 0
-    let finished = await model.finish { marked += 1 }
+    let finished = try await model.finish { marked += 1 }
     #expect(finished)
     #expect(marked == 1)
     #expect(model.timers.board.timers.isEmpty)
     #expect(activities.ended.count == 1)
   }
 
-  @Test func aSecondTapRightAfterMovingToTheLastStepDoesNotFinish() async {
+  @Test func aSecondTapRightAfterMovingToTheLastStepDoesNotFinish() async throws {
     let model = model()
     model.go(to: 3)
     var marked = 0
     // The "Brewed" button took the place of "Next step" a moment ago.
     clock.advance(0.3)
-    let finished = await model.finish { marked += 1 }
+    let finished = try await model.finish { marked += 1 }
     #expect(!finished)
     #expect(marked == 0)
     clock.advance(1)
-    #expect(await model.finish { marked += 1 })
+    #expect(try await model.finish { marked += 1 })
     #expect(marked == 1)
+  }
+
+  @Test func ifRecordingFailsTheTimersKeepRunningAndTheErrorIsPassedOn() async {
+    struct Boom: Error {}
+    let model = model()
+    model.go(to: 1)
+    await model.toggleTimer()
+    model.go(to: 3)
+    clock.advance(5)
+    await #expect(throws: Boom.self) {
+      try await model.finish { throw Boom() }
+    }
+    #expect(model.timers.board.timers.count == 1)
+    #expect(activities.ended.isEmpty)
   }
 }

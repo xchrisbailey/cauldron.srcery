@@ -102,10 +102,11 @@ final class BrewModel {
   // MARK: Finishing
 
   /// "Brewed": records that the recipe was cooked (`markCooked`) and ends the timers. Returns
-  /// false, doing nothing, for a tap that came right after moving to the last step.
-  func finish(markCooked: () -> Void) async -> Bool {
+  /// false, doing nothing, for a tap that came right after moving to the last step. If
+  /// `markCooked` throws, the timers are left running and the error is passed on.
+  func finish(markCooked: () throws -> Void) async throws -> Bool {
     if let movedAt, now().timeIntervalSince(movedAt) < settle { return false }
-    markCooked()
+    try markCooked()
     await timers.resetAll()
     return true
   }
