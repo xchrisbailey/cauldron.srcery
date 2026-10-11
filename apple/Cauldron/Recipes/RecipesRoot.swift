@@ -15,6 +15,8 @@ struct RecipesRoot: View {
   /// The recipes open over the list, on iPhone.
   @State private var path: [UUID] = []
   @State private var banishing: RecipeRecord?
+  /// Whether the editor is open on a new recipe.
+  @State private var conjuring = false
   /// What the banner at the bottom says, and a count that restarts its timer.
   @State private var notice: RecipeNotice?
   @State private var noticeCount = 0
@@ -37,6 +39,9 @@ struct RecipesRoot: View {
       } else {
         stack
       }
+    }
+    .sheet(isPresented: $conjuring) {
+      RecipeEditorSheet(recipe: nil) { open($0) }
     }
     .overlay(alignment: .bottom) {
       if let notice {
@@ -84,7 +89,7 @@ struct RecipesRoot: View {
       text: $search, placement: .automatic,
       prompt: Text(verbatim: Copy.library.searchPlaceholder.text)
     )
-    .toolbar { sortMenu }
+    .toolbar { libraryTools }
     .navigationTitle(AppDestination.recipes.title.text)
   }
 
@@ -95,7 +100,7 @@ struct RecipesRoot: View {
           text: $search, placement: searchPlacement,
           prompt: Text(verbatim: Copy.library.searchPlaceholder.text)
         )
-        .toolbar { sortMenu }
+        .toolbar { libraryTools }
         .navigationTitle(AppDestination.recipes.title.text)
         .navigationDestination(for: UUID.self) { id in
           detail(of: id)
@@ -112,8 +117,17 @@ struct RecipesRoot: View {
     #endif
   }
 
-  private var sortMenu: some ToolbarContent {
-    ToolbarItem {
+  private var libraryTools: some ToolbarContent {
+    ToolbarItemGroup {
+      Button {
+        conjuring = true
+      } label: {
+        Label {
+          Text(verbatim: Copy.recipes.conjure.text)
+        } icon: {
+          Image(systemName: "plus")
+        }
+      }
       Menu {
         Picker(selection: $sort) {
           ForEach(RecipeSort.allCases) { choice in
@@ -203,6 +217,12 @@ struct RecipesRoot: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.Colors.base)
     }
+  }
+
+  /// Shows a recipe that was just made, whatever the search says.
+  private func open(_ recipe: RecipeRecord) {
+    search = ""
+    if sideBySide { selection = recipe.id } else { path = [recipe.id] }
   }
 
   private func banish(_ recipe: RecipeRecord) {
