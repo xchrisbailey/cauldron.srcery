@@ -1,3 +1,4 @@
+import CauldronKit
 import Foundation
 import Testing
 

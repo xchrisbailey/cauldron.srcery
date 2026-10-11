@@ -1,7 +1,6 @@
+import CauldronKit
 import Foundation
 import Testing
-
-@testable import Cauldron
 
 @Suite("Brew timer board")
 struct BrewTimerBoardTests {

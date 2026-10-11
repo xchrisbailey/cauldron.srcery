@@ -1,3 +1,4 @@
+import CauldronKit
 import Foundation
 
 // What brewing needs from the system, as protocols with a live implementation and a test
