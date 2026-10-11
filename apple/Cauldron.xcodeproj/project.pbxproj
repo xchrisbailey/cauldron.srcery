@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2B73EC8C88FC84B8A1FB237A /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = AA5B1D4AFCC1B249C22520A7 /* OFL.txt */; };
 		3BEACD04EC0FB0ADC59A2B75 /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B095F85BF8DE216FFC6A7E6 /* CauldronKit */; };
 		C7D21DA8AC090127F2D059FB /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F9BA2013686AF7CF58B9288 /* CauldronKit */; };
 /* End PBXBuildFile section */
@@ -24,6 +25,7 @@
 /* Begin PBXFileReference section */
 		2C867AD163DEFFF027318D9C /* CauldronTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CauldronTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F991AE14529F0FF243617B5 /* Cauldron.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Cauldron.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA5B1D4AFCC1B249C22520A7 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
 		ABE388FC6227175A3BF548F7 /* CauldronKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CauldronKit; path = CauldronKit; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -77,6 +79,15 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		D94BA9855C4BC9ABBEBE8DE9 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				AA5B1D4AFCC1B249C22520A7 /* OFL.txt */,
+			);
+			name = Fonts;
+			path = Cauldron/Fonts;
+			sourceTree = "<group>";
+		};
 		DBE63DD144F2F41305297219 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -90,6 +101,7 @@
 			children = (
 				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
 				302A41EEEF3008F8313D0454 /* CauldronTests */,
+				D94BA9855C4BC9ABBEBE8DE9 /* Fonts */,
 				DBE63DD144F2F41305297219 /* Packages */,
 				4825101513FB21FD6BC1EC0B /* Products */,
 			);
@@ -103,6 +115,7 @@
 			buildConfigurationList = 8D4D98BAECB6595CC34C73D1 /* Build configuration list for PBXNativeTarget "Cauldron" */;
 			buildPhases = (
 				918A7E913F1391316309FEF0 /* Sources */,
+				90A7866C3FB2725C9B848311 /* Resources */,
 				488050B4BD87E76D237DD90A /* Frameworks */,
 			);
 			buildRules = (
@@ -182,6 +195,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		90A7866C3FB2725C9B848311 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B73EC8C88FC84B8A1FB237A /* OFL.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5DCEDE1927D115E58A2CD7EC /* Sources */ = {
