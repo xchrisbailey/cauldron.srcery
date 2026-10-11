@@ -54,6 +54,18 @@ import UniformTypeIdentifiers
       #expect(ImageRenderer(content: view).cgImage != nil)
     }
 
+    @Test func theNoticeBannerRendersWithAndWithoutUndo() throws {
+      let (_, recipes) = try seeded()
+      for notice in [RecipeNotice.banished(recipes[0]), .restored] {
+        for scheme in [ColorScheme.light, .dark] {
+          let view = RecipeNoticeBanner(notice: notice) {}
+            .environment(\.colorScheme, scheme)
+            .frame(width: 390, height: 120)
+          #expect(ImageRenderer(content: view).cgImage != nil)
+        }
+      }
+    }
+
     // MARK: Photos
 
     private func png(width: Int, height: Int) throws -> Data {

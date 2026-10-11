@@ -37,6 +37,12 @@ enum RecipeLibrary {
     recipe.deletedAt = date
   }
 
+  /// Brings a banished recipe back. A recipe that wasn't banished is left alone.
+  static func restore(_ recipe: RecipeRecord) {
+    guard recipe.deletedAt != nil else { return }
+    recipe.deletedAt = nil
+  }
+
   private static func precedes(_ a: RecipeRecord, _ b: RecipeRecord, by sort: RecipeSort) -> Bool {
     switch sort {
     case .recent:
@@ -50,5 +56,26 @@ enum RecipeLibrary {
     }
     let (x, y) = (a.title.lowercased(), b.title.lowercased())
     return x != y ? x < y : a.id.uuidString < b.id.uuidString
+  }
+}
+
+/// What the library says after a banish or an undo.
+enum RecipeNotice {
+  case banished(RecipeRecord)
+  case restored
+
+  var text: String {
+    switch self {
+    case .banished(let recipe): Copy.recipeView.banished(recipe.title).text
+    case .restored: Copy.recipeView.restored.text
+    }
+  }
+
+  /// The label of the button that takes the banish back; only the banish notice has one.
+  var undoLabel: String? {
+    switch self {
+    case .banished: Copy.recipeView.undo.text
+    case .restored: nil
+    }
   }
 }

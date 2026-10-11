@@ -93,6 +93,36 @@ struct RecipeLibraryTests {
     #expect(soup.deletedAt == Date(timeIntervalSince1970: 1_000))
   }
 
+  @Test func restoringBringsABanishedRecipeBackIntoTheList() {
+    let soup = recipe("Soup")
+    let stew = recipe("Stew")
+    RecipeLibrary.banish(soup)
+    #expect(titles([soup, stew]) == ["Stew"])
+    RecipeLibrary.restore(soup)
+    #expect(soup.deletedAt == nil)
+    #expect(Set(titles([soup, stew])) == ["Soup", "Stew"])
+    #expect(titles([soup, stew], matching: "soup") == ["Soup"])
+  }
+
+  @Test func restoringARecipeThatWasNeverBanishedChangesNothing() {
+    let soup = recipe("Soup")
+    RecipeLibrary.restore(soup)
+    #expect(soup.deletedAt == nil)
+    #expect(titles([soup]) == ["Soup"])
+  }
+
+  // MARK: Notice
+
+  @Test func theNoticeAfterABanishOffersUndoAndAfterARestoreDoesNot() {
+    let soup = recipe("Soup")
+    let banished = RecipeNotice.banished(soup)
+    #expect(banished.text == "Banished Soup.")
+    #expect(banished.undoLabel == "Undo")
+    let restored = RecipeNotice.restored
+    #expect(restored.text == "Restored.")
+    #expect(restored.undoLabel == nil)
+  }
+
   // MARK: Sort
 
   @Test func newestFirstUsesTheCreatedDate() {

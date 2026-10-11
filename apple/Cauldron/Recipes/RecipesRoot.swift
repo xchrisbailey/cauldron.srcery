@@ -15,6 +15,9 @@ struct RecipesRoot: View {
   /// The recipes open over the list, on iPhone.
   @State private var path: [UUID] = []
   @State private var banishing: RecipeRecord?
+  /// What the banner at the bottom says, and a count that restarts its timer.
+  @State private var notice: RecipeNotice?
+  @State private var noticeCount = 0
   #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   #endif
@@ -34,6 +37,19 @@ struct RecipesRoot: View {
       } else {
         stack
       }
+    }
+    .overlay(alignment: .bottom) {
+      if let notice {
+        RecipeNoticeBanner(notice: notice, onUndo: undo)
+          .padding(16)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .task(id: noticeCount) {
+      guard let shown = notice else { return }
+      let seconds = shown.undoLabel == nil ? 3 : 6
+      try? await Task.sleep(for: .seconds(seconds))
+      if !Task.isCancelled { withAnimation { notice = nil } }
     }
     .confirmationDialog(
       Text(verbatim: banishing.map { Copy.recipes.banishConfirm($0.title).verb.text } ?? ""),
@@ -194,6 +210,20 @@ struct RecipesRoot: View {
     if selection == recipe.id { selection = nil }
     path.removeAll { $0 == recipe.id }
     banishing = nil
+    show(.banished(recipe))
+  }
+
+  /// Takes back the banish the banner is offering.
+  private func undo() {
+    guard case .banished(let recipe) = notice else { return }
+    RecipeLibrary.restore(recipe)
+    show(.restored)
+  }
+
+  private func show(_ next: RecipeNotice) {
+    withAnimation { notice = next }
+    noticeCount += 1
+    AccessibilityNotification.Announcement(next.text).post()
   }
 }
 
