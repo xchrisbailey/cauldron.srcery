@@ -48,7 +48,8 @@ Left out:
 
 ### Duplicates
 
-CloudKit can't enforce uniqueness (see `data-model.md`), so the store can hold two rows that should be one. The export writes the winner, chosen by the same rule the app reads with (`Deduplication.keeper`: most recently changed, then the id). Duplicate tags are merged: every recipe's `tagIds` names the winning tag. 
+CloudKit can't enforce uniqueness (see `data-model.md`), so the store can hold two rows that should be one. The export writes the winner, chosen by the same rule the app reads with (`Deduplication.keeper`: most recently changed, then the id). Duplicate tags are merged: every recipe's `tagIds` names the winning tag.
+
 ### What cannot be written
 
 The app never writes any of these, so each means a damaged store. The export leaves the item out, counts it in the result's `skipped`, and the section tells the cook, rather than failing the whole export or hiding it:
