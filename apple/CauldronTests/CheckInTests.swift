@@ -195,6 +195,40 @@ struct CheckInTests {
     }
   }
 
+  // MARK: What counts
+
+  @Test func aWeighInDatedAfterTodayChangesNothing() throws {
+    let before = try seeded().build(keepOverrides: true)
+    // From a device in a zone that is already tomorrow.
+    context.insert(WeighInRecord(day: today.adding(days: 1), weightKg: 60))
+    try context.save()
+    let inputs = try CheckInInputs.gather(from: context, today: today)
+    #expect(inputs.build(keepOverrides: true) == before)
+    #expect(inputs.weighIns.allSatisfy { $0.date <= today })
+  }
+
+  @Test func aDayWithAMealStillWaitingIsNotLoggedYet() throws {
+    let before = try #require(try seeded().build(keepOverrides: true))
+    // A fully logged day in the window gets one more meal that is waiting for its numbers.
+    let all = try context.fetch(FetchDescriptor<DiaryEntryRecord>())
+    let from = CheckInRules.from(today: today).description
+    let logged = try #require(
+      all.map(\.dayKey).filter { $0 >= from && $0 <= today.description }.first)
+    let waiting = DiaryEntryRecord(
+      day: try #require(LocalDate(logged)), slot: .snack, name: "Soup", source: .described)
+    waiting.macrosPending = true
+    context.insert(waiting)
+    try context.save()
+    let after = try #require(
+      try CheckInInputs.gather(from: context, today: today).build(keepOverrides: true))
+    // The whole day leaves the average, not just the meal.
+    #expect(after.estimate.loggedDays == before.estimate.loggedDays - 1)
+    #expect(
+      try CheckInInputs.gather(from: context, today: today).intake.allSatisfy {
+        $0.date.description != logged
+      })
+  }
+
   // MARK: Screens
 
   @Test func theCheckInDrawsInBothAppearances() throws {
@@ -210,5 +244,53 @@ struct CheckInTests {
       ImageRenderer(
         content: CheckInView(context: context, today: today).frame(width: 390, height: 800)
       ).cgImage != nil)
+  }
+
+  @Test func theCheckInStampsTheDayItIsAcceptedOn() throws {
+    // Left open past midnight, the diary's idea of today is stale; the check-in is stamped with
+    // the day it is given, which it reads from the clock when it opens.
+    try DebugSeed.populate(context, today: today)
+    let tomorrow = today.adding(days: 1)
+    try CheckInWrites.dismiss(today: tomorrow, in: context)
+    #expect(try targetsRow().checkedInOn == tomorrow)
+  }
+}
+
+@Suite("Day rollover")
+struct DayRolloverTests {
+  private let calendar: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/New_York") ?? .gmt
+    return calendar
+  }()
+
+  private func at(_ hour: Int, _ minute: Int, _ second: Int = 0, day: Int = 10) -> Date {
+    calendar.date(
+      from: DateComponents(
+        year: 2026, month: 10, day: day, hour: hour, minute: minute, second: second))
+      ?? .now
+  }
+
+  @Test func theWaitIsToTheNextMidnightOnTheWallClock() {
+    #expect(DayRollover.secondsUntilMidnight(now: at(23, 59, 30), calendar: calendar) == 30)
+    #expect(DayRollover.secondsUntilMidnight(now: at(12, 0), calendar: calendar) == 12 * 3600)
+    // At midnight itself the next one is a day off.
+    #expect(DayRollover.secondsUntilMidnight(now: at(0, 0), calendar: calendar) == 86_400)
+  }
+
+  @Test func aDayWithAClockChangeIsStillMeasuredToMidnight() {
+    // Clocks went back on 2026-11-01 in New York: 25 hours from midnight to midnight.
+    let start = at(0, 0, day: 1)
+    var november = DateComponents(year: 2026, month: 11, day: 1, hour: 0, minute: 0)
+    november.timeZone = calendar.timeZone
+    let midnight = calendar.date(from: november) ?? start
+    #expect(DayRollover.secondsUntilMidnight(now: midnight, calendar: calendar) == 25 * 3600)
+  }
+
+  @Test func todayFollowsTheClockPastMidnight() {
+    let before = TargetsForm.today(now: at(23, 59, 59), calendar: calendar)
+    let after = TargetsForm.today(now: at(0, 0, 1, day: 11), calendar: calendar)
+    #expect(before == LocalDate(year: 2026, month: 10, day: 10))
+    #expect(after == LocalDate(year: 2026, month: 10, day: 11))
   }
 }

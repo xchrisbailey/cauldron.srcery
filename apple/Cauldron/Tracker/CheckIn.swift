@@ -34,19 +34,25 @@ extension CheckInInputs {
   @MainActor
   static func gather(from context: ModelContext, today: LocalDate) throws -> CheckInInputs {
     let weighFrom = today.adding(days: -weighInDays).description
+    let weighTo = today.description
+    // Up to today: a weigh-in dated later (from a device in a zone ahead) isn't one yet.
     let weighIns = try context.fetch(
-      FetchDescriptor<WeighInRecord>(predicate: #Predicate { $0.dayKey >= weighFrom }))
+      FetchDescriptor<WeighInRecord>(
+        predicate: #Predicate { $0.dayKey >= weighFrom && $0.dayKey <= weighTo }))
     let foodFrom = CheckInRules.from(today: today).description
     let foodTo = today.description
     let meals = try context.fetch(
       FetchDescriptor<DiaryEntryRecord>(
         predicate: #Predicate { $0.dayKey >= foodFrom && $0.dayKey <= foodTo }))
+    // A day isn't logged until its numbers are in: one with a meal still waiting for them
+    // would count at part of what was eaten, or as nothing at all.
+    let waiting = Set(meals.filter(\.macrosPending).map(\.dayKey))
     return CheckInInputs(
       profile: try context.current(BodyProfileRecord.self)?.profile,
       targets: try context.current(TargetsRecord.self)?.targets,
       weighIns: WeightHistory.weighIns(of: weighIns),
-      // A meal still waiting for its numbers would count as a day of nothing eaten.
-      intake: IntakeAverages.days(of: meals.filter { !$0.macrosPending }), today: today)
+      intake: IntakeAverages.days(of: meals.filter { !waiting.contains($0.dayKey) }),
+      today: today)
   }
 }
 

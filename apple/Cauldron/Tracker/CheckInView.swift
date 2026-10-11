@@ -7,7 +7,8 @@ import SwiftUI
 /// accepts. The numbers are `CheckInInputs.build`; this only draws them.
 struct CheckInView: View {
   private let context: ModelContext
-  private let today: LocalDate
+  /// The day it was opened on, from the clock; nil only if the calendar can't say.
+  private let today: LocalDate?
 
   @Environment(\.dismiss) private var dismiss
   @State private var inputs: CheckInInputs?
@@ -16,11 +17,14 @@ struct CheckInView: View {
 
   private let t = Copy.tracker.checkIn
 
-  /// Reads what the check-in needs as the view is made, so there is no frame without it.
-  init(context: ModelContext, today: LocalDate) {
+  /// Reads what the check-in needs as the view is made, so there is no frame without it. It
+  /// takes today from the clock when it opens (never from a screen that has been open past
+  /// midnight), so what it checks in is today.
+  init(context: ModelContext, today: LocalDate? = TargetsForm.today()) {
     self.context = context
     self.today = today
-    _inputs = State(initialValue: try? CheckInInputs.gather(from: context, today: today))
+    _inputs = State(
+      initialValue: today.flatMap { try? CheckInInputs.gather(from: context, today: $0) })
   }
 
   var body: some View {
@@ -39,7 +43,7 @@ struct CheckInView: View {
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
           Button(t.retry.text) {
-            inputs = try? CheckInInputs.gather(from: context, today: today)
+            inputs = today.flatMap { try? CheckInInputs.gather(from: context, today: $0) }
           }
           .brandText(.control)
         }
@@ -230,6 +234,7 @@ struct CheckInView: View {
 
   /// Accepts the proposal, or with nil leaves the targets be; either way it is checked in.
   private func finish(accepting check: CheckIn?) {
+    guard let today else { return }
     do {
       if let check {
         try CheckInWrites.accept(check, keepOverrides: keepOverrides, today: today, in: context)
@@ -246,7 +251,6 @@ struct CheckInView: View {
 /// A gentle line on today's diary when a check-in is due.
 struct CheckInPrompt: View {
   let context: ModelContext
-  let today: LocalDate
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -254,7 +258,7 @@ struct CheckInPrompt: View {
         .brandText(.control)
         .foregroundStyle(Brand.Colors.subtext)
       NavigationLink {
-        CheckInView(context: context, today: today)
+        CheckInView(context: context)
       } label: {
         Text(verbatim: Copy.tracker.checkIn.bannerAction.text).brandText(.control)
       }

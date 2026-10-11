@@ -26,11 +26,38 @@ struct DiaryView: View {
     }
     .background(Brand.Colors.base)
     .onChange(of: scenePhase) { _, phase in
-      // A diary left open past midnight: follow the new day if it was showing the old one.
-      guard phase == .active, let now = TargetsForm.today(), now != today else { return }
-      if day == today { day = now }
-      today = now
+      if phase == .active { refreshToday() }
     }
+    // A diary left open past midnight rolls over to the new day when it comes.
+    .task(id: today) {
+      while !Task.isCancelled {
+        let wait = DayRollover.secondsUntilMidnight(now: .now, calendar: .current)
+        try? await Task.sleep(for: .seconds(wait + 1))
+        if Task.isCancelled { return }
+        refreshToday()
+      }
+    }
+  }
+}
+
+extension DiaryView {
+  /// Follows the new day if the diary was showing the old one.
+  fileprivate func refreshToday() {
+    guard let now = TargetsForm.today(), now != today else { return }
+    if day == today { day = now }
+    today = now
+  }
+}
+
+/// When a day ends.
+enum DayRollover {
+  /// Seconds from `now` to the next midnight in `calendar`.
+  static func secondsUntilMidnight(now: Date, calendar: Calendar) -> TimeInterval {
+    let midnight =
+      calendar.nextDate(
+        after: now, matching: DateComponents(hour: 0, minute: 0, second: 0),
+        matchingPolicy: .nextTime) ?? now.addingTimeInterval(86_400)
+    return max(1, midnight.timeIntervalSince(now))
   }
 }
 
@@ -140,7 +167,7 @@ private struct DiaryDayList: View {
     List {
       if checkInDue {
         Section {
-          CheckInPrompt(context: context, today: today)
+          CheckInPrompt(context: context)
         }
         .listRowBackground(Brand.Colors.mantle)
       }
