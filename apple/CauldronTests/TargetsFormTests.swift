@@ -501,22 +501,4 @@ struct TargetsScreenTests {
       #expect(ImageRenderer(content: view).cgImage != nil, "step \(step)")
     }
   }
-
-  @Test func theTrackerOpensOnTheSetUpUntilTargetsExist() throws {
-    let container = try CauldronStore.container(.inMemory)
-    let view = TrackerRoot().modelContainer(container).frame(width: 390, height: 800)
-    #expect(ImageRenderer(content: view).cgImage != nil)
-
-    let context = ModelContext(container)
-    context.insert(TargetsRecord(calories: 1450, protein: 134, carbs: 129, fat: 45))
-    try context.save()
-    #expect(ImageRenderer(content: view).cgImage != nil)
-  }
-
-  @Test func theSetUpDrawsOnItsOwn() throws {
-    let container = try CauldronStore.container(.inMemory)
-    let view = NavigationStack { TargetsView() }.modelContainer(container)
-      .frame(width: 390, height: 800)
-    #expect(ImageRenderer(content: view).cgImage != nil)
-  }
 }

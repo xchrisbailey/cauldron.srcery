@@ -5,14 +5,19 @@ import SwiftUI
 /// The tracker section's first screen. Until targets are set it is the set-up; after that it
 /// is the diary's place (an empty state for now), with the targets a tap away to change.
 struct TrackerRoot: View {
-  @Query private var targets: [TargetsRecord]
+  @Environment(\.modelContext) private var context
+  /// Nil until the store has been read.
+  @State private var hasTargets: Bool?
   @State private var changingTargets = false
 
   var body: some View {
     NavigationStack {
-      if targets.isEmpty {
-        TargetsView()
-      } else {
+      switch hasTargets {
+      case nil:
+        Brand.Colors.base.ignoresSafeArea()
+      case false?:
+        TargetsView(onSaved: refresh)
+      case true?:
         EmptyState(
           systemImage: AppDestination.tracker.systemImage, message: Copy.tracker.diary.empty
         )
@@ -22,6 +27,13 @@ struct TrackerRoot: View {
             Button(Copy.tracker.targets.pageTitle.text) { changingTargets = true }
           }
         }
+      }
+    }
+    .task {
+      refresh()
+      // Targets can arrive from another device too, and a save anywhere is a change.
+      for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+        refresh()
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -37,6 +49,10 @@ struct TrackerRoot: View {
         .frame(minWidth: 480, minHeight: 640)
       #endif
     }
+  }
+
+  private func refresh() {
+    hasTargets = (try? context.current(TargetsRecord.self)) != nil
   }
 }
 
