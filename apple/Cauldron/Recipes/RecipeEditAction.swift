@@ -1,17 +1,20 @@
 import CauldronKit
 import SwiftUI
 
-/// "Edit" on a recipe's page. The editor (#168) fills this in, with whatever presents it.
-/// Until then it shows disabled.
+/// "Edit" on a recipe's page: opens the editor on this recipe.
 struct RecipeEditAction: View {
   let recipe: RecipeRecord
+  @State private var editing = false
 
   var body: some View {
     Button {
+      editing = true
     } label: {
       Text(verbatim: Copy.recipeView.edit.text)
     }
     .buttonStyle(RecipeActionButtonStyle())
-    .disabled(true)
+    .sheet(isPresented: $editing) {
+      RecipeEditorSheet(recipe: recipe)
+    }
   }
 }

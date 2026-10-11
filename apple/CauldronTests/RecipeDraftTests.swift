@@ -154,8 +154,12 @@ struct RecipeDraftTests {
     #expect(
       draft.ingredients[0].reading
         == .init(amount: nil, unit: nil, item: "salt", note: nil, optional: false))
+    #expect(!draft.ingredients[0].readingAddsToText)
+    draft.setIngredientText(draft.ingredients[0].id, "2 eggs")
+    #expect(draft.ingredients[0].readingAddsToText)
     draft.setIngredientText(draft.ingredients[0].id, "")
     #expect(draft.ingredients[0].reading == nil)
+    #expect(!draft.ingredients[0].readingAddsToText)
   }
 
   @Test func aPastedHeadingBecomesASectionRow() {

@@ -267,6 +267,14 @@ struct IngredientRowDraft: Equatable, Identifiable {
       optional: parsed.optional)
   }
 
+  /// Whether the reading says more than the text does: an amount, a note, or an item that
+  /// isn't just the line. A plain "salt" has nothing to add.
+  var readingAddsToText: Bool {
+    guard let reading else { return false }
+    return reading.amount != nil || reading.note != nil || reading.optional
+      || reading.item != text.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
   struct Reading: Equatable {
     var amount: String?
     var unit: String?
