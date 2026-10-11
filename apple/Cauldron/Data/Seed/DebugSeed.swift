@@ -21,13 +21,14 @@
       return true
     }
 
-    /// Seeds when `arguments` carry `-seed`, and never when the app has no real store to put
-    /// it in (under test, `launchMode` is `.inMemory`).
+    /// Seeds when `arguments` carry `-seed`, and only into a store kept on this device: never
+    /// under test (`launchMode` is `.inMemory`), and never into a synced store, where demo
+    /// data would go up to iCloud.
     @discardableResult
     static func populateIfRequested(
       arguments: [String], mode: CauldronStore.Mode, context: ModelContext, today: LocalDate
     ) throws -> Bool {
-      guard mode != .inMemory, arguments.contains(launchArgument) else { return false }
+      guard mode == .local, arguments.contains(launchArgument) else { return false }
       return try populate(context, today: today)
     }
 
@@ -88,9 +89,7 @@
           tags[key] = created
           return created
         }
-        let words =
-          [seed.title] + record.ingredients.map(\.item) + seed.tags.map(\.name)
-        record.searchText = words.joined(separator: " ").lowercased()
+        record.refreshSearchText()
         return record
       }
     }

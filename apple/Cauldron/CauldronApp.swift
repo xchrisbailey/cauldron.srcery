@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct CauldronApp: App {
   private let container: ModelContainer
+  private let changeStamps: ChangeStamps
 
   init() {
     Brand.Fonts.register()
@@ -14,6 +15,7 @@ struct CauldronApp: App {
       // quietly lose whatever was entered.
       fatalError("Cauldron couldn't open its data store: \(error)")
     }
+    changeStamps = ChangeStamps(on: container.mainContext)
     #if DEBUG
       // Demo data, only when launched with `-seed`, and only into an empty store.
       do {

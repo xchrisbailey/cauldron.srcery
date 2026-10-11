@@ -18,10 +18,13 @@ lint: lint-store
 	swift format lint --strict --recursive --parallel $(SWIFT_SOURCES)
 
 ## Only CauldronStore may open a store. A container made anywhere else can land on
-## SwiftData's default file, which an unsandboxed Mac app shares with other apps.
+## SwiftData's default file, which an unsandboxed Mac app shares with other apps. Views take
+## the app's container as `.modelContainer(container)`.
 lint-store:
-	@if grep -rnE 'ModelContainer\(|ModelConfiguration\(|\.modelContainer\(for:' Cauldron CauldronTests \
-		| grep -v '^Cauldron/Data/CauldronStore.swift:'; then \
+	@if grep -rnE --include='*.swift' --exclude-dir=.build --exclude-dir=CauldronKit \
+		'ModelContainer(\.init)?\(|ModelContainer *= *(try +)?\.init|ModelConfiguration|\.modelContainer\(' . \
+		| grep -v '^\./Cauldron/Data/CauldronStore\.swift:' \
+		| grep -vF '.modelContainer(container)'; then \
 		echo "error: open stores through CauldronStore.container(_:) only"; exit 1; fi
 
 test: test-kit test-app

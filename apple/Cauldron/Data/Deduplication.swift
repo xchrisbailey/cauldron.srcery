@@ -20,8 +20,15 @@ extension CookRecord: Deduplicated { var lastChanged: Date { createdAt } }
 
 /// CloudKit can't enforce uniqueness, so two devices that both set targets, or both weigh in
 /// on the same day, before they sync leave two rows. The rule everywhere: the row changed
-/// most recently is the truth, and `tidy` removes the others once they have arrived.
+/// most recently is the truth. Reads apply it through `current(_:)` and `weighIn(on:)`, and
+/// `tidy` removes the losers once they have been left alone for a while.
 enum Deduplication {
+  /// How long a duplicate must go unchanged before `tidy` deletes it. A delete syncs and
+  /// beats any later edit of the same row, so a row another device may still be editing, or
+  /// whose relationships may still be arriving, has to be left in place. Reads already
+  /// ignore it.
+  static let grace: TimeInterval = 7 * 24 * 60 * 60
+
   /// The row to keep: the most recently changed, with the id breaking a tie so every device
   /// picks the same one.
   static func keeper<Row: Deduplicated>(of rows: [Row]) -> Row? {
@@ -30,9 +37,17 @@ enum Deduplication {
     }
   }
 
-  /// Deletes every duplicate, and returns how many rows went. Safe to run at any time.
+  /// Deletes every duplicate that has gone unchanged for `grace`, and returns how many rows
+  /// went. Newer duplicates stay until a later run.
   @discardableResult
-  static func tidy(_ context: ModelContext) throws -> Int {
+  static func tidy(_ context: ModelContext, now: Date = .now) throws -> Int {
+    let settled = now.addingTimeInterval(-grace)
+    func prune<Row: Deduplicated>(
+      _ type: Row.Type, in context: ModelContext, key: (Row) -> String?,
+      absorb: (_ keeper: Row, _ extra: Row) -> Void = { _, _ in }
+    ) throws -> Int {
+      try Deduplication.prune(type, in: context, settled: settled, key: key, absorb: absorb)
+    }
     var removed = 0
     removed += try prune(BodyProfileRecord.self, in: context) { _ in "" }
     removed += try prune(TargetsRecord.self, in: context) { _ in "" }
@@ -54,11 +69,12 @@ enum Deduplication {
     return removed
   }
 
-  /// Groups rows by `key` (nil leaves a row alone) and deletes all but the keeper of each
-  /// group, after `absorb` has moved anything worth keeping onto the keeper.
+  /// Groups rows by `key` (nil leaves a row alone) and deletes the rows of each group that
+  /// are not its keeper and last changed before `settled`, after `absorb` has moved anything
+  /// worth keeping onto the keeper.
   private static func prune<Row: Deduplicated>(
-    _ type: Row.Type, in context: ModelContext, key: (Row) -> String?,
-    absorb: (_ keeper: Row, _ extra: Row) -> Void = { _, _ in }
+    _ type: Row.Type, in context: ModelContext, settled: Date, key: (Row) -> String?,
+    absorb: (_ keeper: Row, _ extra: Row) -> Void
   ) throws -> Int {
     var groups: [String: [Row]] = [:]
     for row in try context.fetch(FetchDescriptor<Row>()) {
@@ -68,7 +84,7 @@ enum Deduplication {
     var removed = 0
     for rows in groups.values where rows.count > 1 {
       guard let keeper = keeper(of: rows) else { continue }
-      for extra in rows where extra !== keeper {
+      for extra in rows where extra !== keeper && extra.lastChanged < settled {
         absorb(keeper, extra)
         context.delete(extra)
         removed += 1

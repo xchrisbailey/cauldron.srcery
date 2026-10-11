@@ -23,19 +23,25 @@ CloudKit rejects a schema that breaks any of these, and only at runtime. `DataMo
 - **Days are stored as `YYYY-MM-DD` strings** (`LocalDate` keys), so a day means the same day on every device and time zone.
 - **Photos use external storage**, which CloudKit syncs as an asset.
 - **Enums are stored as raw strings** with a typed accessor, so an unknown value from a newer build doesn't crash an older one.
+- **The stored lists are read one line at a time.** A line an older build can't read (a unit added later, say) is skipped, not the whole list, and `canRewriteIngredients` / `canRewriteSteps` turn false. An editor must not save over a recipe while they are false, or it would drop that line on every device. A list that can't be encoded leaves the stored one untouched.
+- **Large lists still sync.** CloudKit's 1 MB record limit doesn't apply: the mirroring moves a large value into an asset by itself, so these columns don't need external storage.
+- **`updatedAt` is set for you.** `ChangeStamps` stamps every changed row as the app's main context saves. Work done in another context has to install its own or set `updatedAt` itself.
+- **`searchText` is rebuilt by `RecipeRecord.refreshSearchText()`**; call it after changing a title, ingredients or tags.
 - **Deleted recipes are soft-deleted** with `deletedAt`.
 
 ## Duplicates
 
-CloudKit can't enforce uniqueness, so two devices can each create a row that should exist once. `Deduplication.tidy(_:)` resolves them with one rule: **the most recently changed row wins, and the id breaks a tie.** It covers:
+CloudKit can't enforce uniqueness, so two devices can each create a row that should exist once. The rule: **the most recently changed row wins, and the id breaks a tie.**
+
+Reads apply it. `ModelContext.current(_:)` and `weighIn(on:)` return the winner, so the app shows one answer however many rows there are. Screens edit the row those return.
+
+`Deduplication.tidy(_:)` deletes the losers, but only once they have gone unchanged for a week (`Deduplication.grace`). A delete syncs and beats any later edit of the same row, and a tag's recipes can arrive after the tag, so a recent duplicate is left alone. It covers:
 
 - the single-row models (body profile, targets, preferences);
 - one weigh-in per day;
 - one favourite and one pantry item per key;
 - one cook per recipe per day;
 - tags by lower-cased name, merging their recipes onto the keeper.
-
-Reads go through `ModelContext.current(_:)` and `weighIn(on:)`, which apply the same rule, so the app shows one answer before a tidy has run.
 
 ## Where the store lives
 
@@ -44,3 +50,9 @@ Reads go through `ModelContext.current(_:)` and `weighIn(on:)`, which apply the 
 - Only `CauldronStore` creates a `ModelContainer` or `ModelConfiguration`; `make lint` fails on one anywhere else.
 - When the app is hosting a test run it uses an in-memory store. Tests create their own with `CauldronStore.container(.inMemory)`.
 - Until the iCloud entitlement lands (#162) the app runs in `.local` mode, with no sync. After that the store moves to the App Group container so the widget and share extension can read it.
+
+## Left for later tickets
+
+- **A store that won't open** stops the app at launch (`CauldronApp`). Before the first TestFlight build that changes the schema, give that failure a screen with a way to export, as part of #185.
+- **AI jobs have no owner**, so two devices could both run the same one. #170 decides how a device claims a job.
+- **Nothing calls `tidy` yet.** The app shell (#166) runs it at launch.

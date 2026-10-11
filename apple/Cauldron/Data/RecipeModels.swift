@@ -65,14 +65,33 @@ final class RecipeRecord {
     self.title = title
   }
 
+  /// The lines this build can read. A line it can't (written by a newer build) is left out
+  /// here but stays in `ingredientsData`; see `canRewriteIngredients`.
   var ingredients: [Ingredient] {
-    get { StoredJSON.decode([Ingredient].self, from: ingredientsData) ?? [] }
-    set { ingredientsData = StoredJSON.encode(newValue) }
+    get { StoredJSON.decodeList(Ingredient.self, from: ingredientsData).values }
+    set { StoredJSON.store(newValue, in: &ingredientsData) }
   }
 
   var steps: [Step] {
-    get { StoredJSON.decode([Step].self, from: stepsData) ?? [] }
-    set { stepsData = StoredJSON.encode(newValue) }
+    get { StoredJSON.decodeList(Step.self, from: stepsData).values }
+    set { StoredJSON.store(newValue, in: &stepsData) }
+  }
+
+  /// False when the stored lines hold something this build can't read. Saving `ingredients`
+  /// then would drop it for every device, so an editor must not offer to.
+  var canRewriteIngredients: Bool {
+    StoredJSON.decodeList(Ingredient.self, from: ingredientsData).complete
+  }
+
+  var canRewriteSteps: Bool {
+    StoredJSON.decodeList(Step.self, from: stepsData).complete
+  }
+
+  /// Rebuilds `searchText` from the title, ingredient items and tag names. Call it after
+  /// changing any of them.
+  func refreshSearchText() {
+    let words = [title] + ingredients.map(\.item) + (tags ?? []).map(\.name)
+    searchText = words.joined(separator: " ").lowercased()
   }
 
   var sourcePlatform: SourcePlatform {
@@ -276,14 +295,35 @@ final class PantryItemRecord {
   }
 }
 
+/// Lists of value types stored as JSON in one column.
 enum StoredJSON {
-  static func encode(_ value: some Encodable) -> Data {
+  /// Writes `values` into `data`. A list that can't be encoded (a quantity that isn't a
+  /// finite number) leaves what was stored untouched, so a bad edit can't empty a recipe.
+  static func store(_ values: [some Encodable], in data: inout Data) {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
-    return (try? encoder.encode(value)) ?? Data()
+    guard let encoded = try? encoder.encode(values) else { return }
+    data = encoded
   }
 
-  static func decode<Value: Decodable>(_ type: Value.Type, from data: Data) -> Value? {
-    data.isEmpty ? nil : try? JSONDecoder().decode(type, from: data)
+  /// Reads a list one element at a time, so an element this build can't read costs only
+  /// itself. `complete` is false when anything was skipped.
+  static func decodeList<Value: Decodable>(
+    _ type: Value.Type, from data: Data
+  ) -> (values: [Value], complete: Bool) {
+    guard !data.isEmpty else { return ([], true) }
+    guard let elements = try? JSONDecoder().decode([Lossy<Value>].self, from: data) else {
+      return ([], false)
+    }
+    let values = elements.compactMap(\.value)
+    return (values, values.count == elements.count)
+  }
+
+  private struct Lossy<Value: Decodable>: Decodable {
+    var value: Value?
+
+    init(from decoder: any Decoder) throws {
+      value = try? Value(from: decoder)
+    }
   }
 }

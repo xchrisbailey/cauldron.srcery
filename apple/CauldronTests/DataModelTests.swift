@@ -282,12 +282,117 @@ struct DataModelTests {
     context.insert(FavouriteRecord(key: "food:eggs|2", name: "Eggs", source: .manual))
     try context.save()
 
-    #expect(try Deduplication.tidy(context) == 3)
+    // Made a moment ago, so they are left for now.
+    #expect(try Deduplication.tidy(context) == 0)
+    let later = Date.now.addingTimeInterval(Deduplication.grace + 60)
+    #expect(try Deduplication.tidy(context, now: later) == 3)
     try context.save()
     #expect(try context.fetchCount(FetchDescriptor<FavouriteRecord>()) == 2)
     #expect(try context.fetchCount(FetchDescriptor<PantryItemRecord>()) == 1)
     #expect(try context.fetchCount(FetchDescriptor<CookRecord>()) == 2)
-    #expect(try Deduplication.tidy(context) == 0)
+    #expect(try Deduplication.tidy(context, now: later) == 0)
+  }
+
+  /// A delete syncs and beats a later edit of the same row, so a duplicate another device
+  /// may still be editing is not deleted. Reads ignore it in the meantime.
+  @Test func aRecentDuplicateIsLeftInPlace() throws {
+    let context = try context()
+    let day = try #require(LocalDate("2026-10-11"))
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    let phone = WeighInRecord(day: day, weightKg: 74.2)
+    phone.updatedAt = now.addingTimeInterval(-200)
+    let mac = WeighInRecord(day: day, weightKg: 73.9)
+    mac.updatedAt = now.addingTimeInterval(-100)
+    context.insert(phone)
+    context.insert(mac)
+    try context.save()
+
+    #expect(try Deduplication.tidy(context, now: now) == 0)
+    #expect(try context.weighIn(on: day)?.weightKg == 73.9)
+
+    // The phone's cook corrects their own row before the Mac's arrives: it now wins.
+    phone.weightKg = 74.5
+    phone.updatedAt = now
+    #expect(try context.weighIn(on: day)?.weightKg == 74.5)
+
+    let later = now.addingTimeInterval(Deduplication.grace + 1)
+    #expect(try Deduplication.tidy(context, now: later) == 1)
+    try context.save()
+    #expect(try context.fetch(FetchDescriptor<WeighInRecord>()).map(\.weightKg) == [74.5])
+  }
+
+  // MARK: Change stamps
+
+  @Test func savingAChangeStampsTheRow() throws {
+    let context = try context()
+    let stamp = Date(timeIntervalSince1970: 5_000)
+    let stamps = ChangeStamps(on: context) { stamp }
+    let targets = TargetsRecord(calories: 1800, protein: 120, carbs: 180, fat: 60)
+    targets.updatedAt = Date(timeIntervalSince1970: 100)
+    let untouched = RecipeRecord(title: "Soup")
+    untouched.updatedAt = Date(timeIntervalSince1970: 100)
+    context.insert(targets)
+    context.insert(untouched)
+    try context.save()
+    #expect(targets.updatedAt == Date(timeIntervalSince1970: 100))
+
+    targets.calories = 1450
+    try context.save()
+    #expect(targets.updatedAt == stamp)
+    #expect(untouched.updatedAt == Date(timeIntervalSince1970: 100))
+
+    let fresh = ModelContext(context.container)
+    #expect(try fresh.current(TargetsRecord.self)?.updatedAt == stamp)
+    withExtendedLifetime(stamps) {}
+  }
+
+  // MARK: Stored lists
+
+  @Test func aListThatCannotBeEncodedLeavesTheStoredOneAlone() {
+    let recipe = RecipeRecord(title: "Soup")
+    recipe.ingredients = parseLines(["1 onion", "2 cups stock"])
+    var broken = recipe.ingredients
+    broken[0].quantity = Quantity(min: .infinity, max: nil)
+    recipe.ingredients = broken
+    #expect(recipe.ingredients.map(\.item) == ["onion", "stock"])
+    #expect(recipe.ingredients.first?.quantity?.min == 1)
+  }
+
+  /// A newer build can write a line this one can't read. It costs only that line, and the
+  /// recipe says it must not be rewritten from here.
+  @Test func anUnreadableLineIsSkippedAndFlagged() throws {
+    let recipe = RecipeRecord(title: "Soup")
+    recipe.ingredients = parseLines(["1 onion", "2 cups stock"])
+    #expect(recipe.canRewriteIngredients)
+
+    var lines = try #require(
+      JSONSerialization.jsonObject(with: recipe.ingredientsData) as? [[String: Any]])
+    lines[1]["unit"] = "unit-from-the-future"
+    recipe.ingredientsData = try JSONSerialization.data(withJSONObject: lines)
+
+    #expect(recipe.ingredients.map(\.item) == ["onion"])
+    #expect(!recipe.canRewriteIngredients)
+  }
+
+  @Test func searchTextCoversTitleIngredientsAndTags() throws {
+    let context = try context()
+    let recipe = RecipeRecord(title: "Tomato Soup")
+    context.insert(recipe)
+    recipe.ingredients = parseLines(["1 Onion"])
+    let tag = TagRecord(name: "Weeknight", kind: .other)
+    context.insert(tag)
+    recipe.tags = [tag]
+    recipe.refreshSearchText()
+    #expect(recipe.searchText == "tomato soup onion weeknight")
+  }
+
+  private func parseLines(_ lines: [String]) -> [Ingredient] {
+    readIngredientBlock(lines).map { line in
+      Ingredient(
+        section: line.section, quantity: line.quantity, unit: line.unit, item: line.item,
+        note: line.note, optional: line.optional, alt: line.alt, original: line.original,
+        itemKey: ingredientKey(line.item))
+    }
   }
 }
 
