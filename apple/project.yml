@@ -58,15 +58,21 @@ targets:
     supportedDestinations: [iOS, macOS]
     sources:
       - Cauldron
+      # Types the app and its extensions both compile.
+      - Shared
       # A synced folder alone gets no Resources phase from XcodeGen. Naming one resource
       # makes it emit the phase, and Xcode then bundles the folder's assets and fonts.
       - path: Cauldron/Fonts/OFL.txt
         buildPhase: resources
     dependencies:
       - package: CauldronKit
+      - target: CauldronWidgets
+        platformFilter: iOS
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "Cauldron uses the camera to photograph a dish or a written recipe."
         # XcodeGen writes these empty on a multiplatform target unless they are set here.
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -84,6 +90,33 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Cauldron/Cauldron.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  # The widget extension: brew timers' Live Activity now, the macros widget with #183.
+  # iPhone and iPad only until it holds a widget the Mac can show.
+  CauldronWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - CauldronWidgets
+      - Shared
+    dependencies:
+      - package: CauldronKit
+    info:
+      path: CauldronWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Cauldron
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.widgets
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
   CauldronTests:
     type: bundle.unit-test
     platform: auto
