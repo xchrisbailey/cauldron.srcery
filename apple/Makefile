@@ -4,7 +4,7 @@ SWIFT_SOURCES := Cauldron CauldronTests CauldronKit/Package.swift CauldronKit/So
 XCODEBUILD := xcodebuild -project Cauldron.xcodeproj -scheme Cauldron -skipPackagePluginValidation
 IOS_SIMULATOR ?= platform=iOS Simulator,name=iPhone 17,OS=27.0
 
-.PHONY: ready format lint test test-kit test-app test-mac test-ios build project
+.PHONY: ready format lint lint-store test test-kit test-app test-mac test-ios build project
 
 ## format, lint, and every test
 ready: lint test
@@ -14,8 +14,18 @@ format:
 	swift format format --in-place --recursive --parallel $(SWIFT_SOURCES)
 
 ## fail on anything `make format` would change, and on lint rules
-lint:
+lint: lint-store
 	swift format lint --strict --recursive --parallel $(SWIFT_SOURCES)
+
+## Only CauldronStore may open a store. A container made anywhere else can land on
+## SwiftData's default file, which an unsandboxed Mac app shares with other apps. Views take
+## the app's container as `.modelContainer(container)`.
+lint-store:
+	@if grep -rnE --include='*.swift' --exclude-dir=.build --exclude-dir=CauldronKit \
+		'ModelContainer(\.init)?\(|ModelContainer *= *(try +)?\.init|ModelConfiguration|\.modelContainer\(' . \
+		| grep -v '^\./Cauldron/Data/CauldronStore\.swift:' \
+		| grep -vF '.modelContainer(container)'; then \
+		echo "error: open stores through CauldronStore.container(_:) only"; exit 1; fi
 
 test: test-kit test-app
 

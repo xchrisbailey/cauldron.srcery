@@ -79,6 +79,9 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         ENABLE_PREVIEWS: YES
         ENABLE_HARDENED_RUNTIME: YES
+        # The Mac app is sandboxed, so everything it writes stays in its own container.
+        # Unsandboxed, SwiftData's default store is a file shared with other apps.
+        CODE_SIGN_ENTITLEMENTS: Cauldron/Cauldron.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   CauldronTests:
