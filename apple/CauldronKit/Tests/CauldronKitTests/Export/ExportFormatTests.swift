@@ -439,4 +439,65 @@ struct ExportFormatTests {
     let data = try JSONSerialization.data(withJSONObject: object)
     #expect(try CauldronExport.decode(data) == Self.full)
   }
+
+  @Test(
+    "refuses milliseconds that are not three digits",
+    arguments: [".-12Z", ".+12Z", ".12Z", ".1234Z", ".5 0Z", ".abcZ"])
+  func rejectsOddMilliseconds(_ millis: String) throws {
+    let text = Self.fullJSON.replacingOccurrences(of: ".500Z", with: millis)
+    #expect(text != Self.fullJSON)
+    #expect(throws: ExportFormatError.unreadable) { try CauldronExport.decode(Data(text.utf8)) }
+  }
+
+  /// Version 1 as the first build wrote it, with only the fields every file has. A field added
+  /// later has to be optional, or decode with a default, or this stops reading old files.
+  // swift-format-ignore
+  static let minimalJSON = """
+    {
+      "formatVersion": 1,
+      "exportedAt": "2026-10-11T09:30:00.000Z",
+      "app": { "name": "Cauldron" },
+      "recipes": [
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "title": "Toast",
+          "source": { "platform": "manual" },
+          "macros": {},
+          "macrosPending": false,
+          "ingredients": [],
+          "steps": [],
+          "tagIds": [],
+          "createdAt": "2026-10-11T09:30:00.000Z",
+          "updatedAt": "2026-10-11T09:30:00.000Z"
+        }
+      ],
+      "photos": [],
+      "tags": [],
+      "cooks": [],
+      "planEntries": [],
+      "gatherItems": [],
+      "pantry": [],
+      "diary": [],
+      "favourites": [],
+      "weighIns": []
+    }
+    """
+
+  @Test func aFileWithOnlyTheRequiredFieldsKeepsDecoding() throws {
+    let document = try CauldronExport.decode(Data(Self.minimalJSON.utf8))
+    #expect(document.recipes.map(\.title) == ["Toast"])
+    #expect(document.recipes.first?.summary == nil)
+    #expect(document.bodyProfile == nil)
+  }
+
+  @Test func aMomentOutOfRangeFailsToEncodeInsteadOfCrashing() {
+    for seconds in [Double.nan, .infinity, 1e300] {
+      var document = Self.empty
+      document.pantry = [
+        ExportedPantryItem(
+          id: Self.id(1), itemKey: "salt", createdAt: Date(timeIntervalSince1970: seconds))
+      ]
+      #expect(throws: EncodingError.self) { try document.encoded() }
+    }
+  }
 }

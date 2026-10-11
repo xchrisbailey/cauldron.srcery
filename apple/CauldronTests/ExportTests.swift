@@ -33,11 +33,6 @@
   struct ExportTests {
     private let today: LocalDate
     private let now = Date(timeIntervalSince1970: 1_791_711_000)  // 2026-10-11T09:30:00Z
-    private let utc: Calendar = {
-      var calendar = Calendar(identifier: .gregorian)
-      calendar.timeZone = .gmt
-      return calendar
-    }()
 
     init() throws {
       today = try #require(LocalDate("2026-10-11"))
@@ -53,7 +48,7 @@
       progress: @escaping @Sendable (ExportProgress) -> Void = { _ in }
     ) throws -> ExportResult {
       try StoreExporter.export(
-        from: container, into: folder, now: now, appVersion: "1.2.3", calendar: utc,
+        from: container, into: folder, now: now, appVersion: "1.2.3", timeZone: .gmt,
         progress: progress)
     }
 
@@ -469,12 +464,171 @@
       #expect(try fixture.context.fetchCount(FetchDescriptor<RecipeRecord>()) == before)
     }
 
+    // MARK: Numbers and lists the file can't hold
+
+    // SQLite stores a NaN as NULL, which the models read back as their default, so a saved
+    // store can't hold one. These rows are only in memory, so the mapping is tested on the
+    // context that holds them, unsaved.
+
+    private func mapped(_ context: ModelContext) throws -> ExportMapping.Mapped {
+      try ExportMapping.document(from: context, exportedAt: now, appVersion: nil)
+    }
+
+    @Test func aNonFiniteWeighInIsLeftOutAndCounted() throws {
+      let context = ModelContext(try CauldronStore.container(.inMemory))
+      let broken = WeighInRecord(day: today.adding(days: -1), weightKg: .nan)
+      let fine = WeighInRecord(day: today, weightKg: 74)
+      context.insert(broken)
+      context.insert(fine)
+
+      let result = try mapped(context)
+      #expect(result.skipped == 1)
+      #expect(result.document.weighIns.map(\.id) == [fine.id])
+      // And the file still encodes.
+      _ = try result.document.encoded()
+    }
+
+    @Test func nonFiniteOptionalNumbersBecomeUnknownAndAreCounted() throws {
+      let context = ModelContext(try CauldronStore.container(.inMemory))
+      let recipe = RecipeRecord(title: "Odd")
+      recipe.calories = .nan
+      recipe.protein = 12
+      context.insert(recipe)
+      let item = GatherItemRecord(weekStart: today, item: "rice", itemKey: "rice")
+      item.quantityMin = 1
+      item.quantityMax = .infinity
+      context.insert(item)
+      let profile = BodyProfileRecord()
+      profile.heightCm = .infinity
+      context.insert(profile)
+
+      let result = try mapped(context)
+      #expect(result.skipped == 3)
+      let exported = try #require(result.document.recipes.first)
+      #expect(exported.macros == ExportedMacros(calories: nil, protein: 12, carbs: nil, fat: nil))
+      #expect(
+        result.document.gatherItems.first?.quantity == ExportedQuantity(min: 1, max: nil))
+      #expect(result.document.bodyProfile != nil)
+      #expect(result.document.bodyProfile?.heightCm == nil)
+      _ = try result.document.encoded()
+    }
+
+    @Test func aMealWithNoUsableServingsIsLeftOutAndCounted() throws {
+      let context = ModelContext(try CauldronStore.container(.inMemory))
+      context.insert(
+        DiaryEntryRecord(day: today, slot: .lunch, name: "Soup", servings: .nan, source: .manual))
+      context.insert(DiaryEntryRecord(day: today, slot: .lunch, name: "Bread", source: .manual))
+      context.insert(
+        FavouriteRecord(key: "soup", name: "Soup", servings: .infinity, source: .manual))
+
+      let result = try mapped(context)
+      #expect(result.skipped == 2)
+      #expect(result.document.diary.map(\.name) == ["Bread"])
+      #expect(result.document.favourites.isEmpty)
+      _ = try result.document.encoded()
+    }
+
+    @Test func aProfileWithNonFiniteRatesIsLeftOutWhole() throws {
+      let context = ModelContext(try CauldronStore.container(.inMemory))
+      let profile = BodyProfileRecord()
+      profile.fatShare = .nan
+      context.insert(profile)
+
+      let result = try mapped(context)
+      #expect(result.document.bodyProfile == nil)
+      #expect(result.skipped == 1)
+    }
+
+    @Test func anUnreadableIngredientOrStepListIsCountedNotHidden() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let recipe = RecipeRecord(title: "Garbled")
+      recipe.ingredientsData = Data("not json".utf8)
+      recipe.stepsData = Data(#"[{"text":"Stir"},{"nonsense":true}]"#.utf8)
+      context.insert(recipe)
+      try context.save()
+      let folder = folder()
+      defer { try? FileManager.default.removeItem(at: folder) }
+
+      let result = try export(container, into: folder)
+      let exported = try #require(try read(result).recipes.first)
+      #expect(exported.ingredients.isEmpty)
+      #expect(exported.steps.map(\.text) == ["Stir"])
+      #expect(result.skipped == 2)
+    }
+
+    // MARK: File names
+
+    @Test func theFileNameDayFollowsTheTimeZoneInTheGregorianCalendar() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let folder = folder()
+      defer { try? FileManager.default.removeItem(at: folder) }
+      // 23:30 UTC on the 11th is already the 12th in Kiritimati (UTC+14).
+      let late = Date(timeIntervalSince1970: 1_791_761_400)
+      let zone = try #require(TimeZone(identifier: "Pacific/Kiritimati"))
+
+      let result = try StoreExporter.export(
+        from: container, into: folder, now: late, timeZone: zone)
+      #expect(result.jsonURL.lastPathComponent == "cauldron-export-2026-10-12.json")
+    }
+
+    // MARK: Temporary files
+
+    @Test func sweepingRemovesOnlyExportFolders() throws {
+      let temporary = folder()
+      defer { try? FileManager.default.removeItem(at: temporary) }
+      let old = ExportFiles.newFolder(in: temporary)
+      let other = temporary.appending(path: "Unrelated", directoryHint: .isDirectory)
+      for url in [old, other] {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try Data([1]).write(to: url.appending(path: "file"))
+      }
+
+      ExportFiles.sweep(in: temporary)
+      #expect(!FileManager.default.fileExists(atPath: old.path()))
+      #expect(FileManager.default.fileExists(atPath: other.path()))
+    }
+
+    @Test func startingAnExportSweepsFoldersLeftByEarlierOnes() async throws {
+      let leftover = ExportFiles.newFolder()
+      try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
+      try Data([1]).write(to: leftover.appending(path: "cauldron-export-2020-01-01.json"))
+      let fixture = try fixture()
+      let controller = ExportController()
+
+      await controller.start(fixture.context)
+      defer { ExportFiles.sweep() }
+      #expect(!FileManager.default.fileExists(atPath: leftover.path()))
+      guard case .ready = controller.phase else {
+        Issue.record("expected a finished export, got \(controller.phase)")
+        return
+      }
+    }
+
+    // MARK: Unsaved edits
+
+    @Test func theSectionSavesWhatIsOnScreenBeforeExporting() async throws {
+      let fixture = try fixture()
+      fixture.context.insert(RecipeRecord(title: "Typed a moment ago"))
+      #expect(fixture.context.hasChanges)
+      let controller = ExportController()
+
+      await controller.start(fixture.context)
+      defer { ExportFiles.sweep() }
+      guard case .ready(let result) = controller.phase else {
+        Issue.record("expected a finished export, got \(controller.phase)")
+        return
+      }
+      #expect(result.recipeCount == 6)
+      #expect(try read(result).recipes.contains { $0.title == "Typed a moment ago" })
+    }
+
     @Test func theSectionsControllerEndsReadyWithFilesToShare() async throws {
       let fixture = try fixture()
       let controller = ExportController()
       #expect(controller.isWorking == false)
 
-      await controller.start(fixture.container)
+      await controller.start(fixture.context)
       guard case .ready(let result) = controller.phase else {
         Issue.record("expected a finished export, got \(controller.phase)")
         return

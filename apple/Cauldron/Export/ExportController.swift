@@ -3,6 +3,31 @@ import Foundation
 import Observation
 import SwiftData
 
+/// The folders exports are written to. Each holds a full copy of the cook's data, so none is
+/// left lying in the temporary directory longer than it has to be.
+enum ExportFiles {
+  static let folderPrefix = "CauldronExport-"
+
+  /// A new, unused folder name for one export.
+  static func newFolder(
+    in temporary: URL = FileManager.default.temporaryDirectory
+  ) -> URL {
+    temporary.appending(
+      path: "\(folderPrefix)\(UUID().uuidString)", directoryHint: .isDirectory)
+  }
+
+  /// Removes every export folder in `temporary`. Call it at launch (nothing from the last run
+  /// is wanted), and it runs again at the start of each export.
+  static func sweep(in temporary: URL = FileManager.default.temporaryDirectory) {
+    let fileManager = FileManager.default
+    let names =
+      (try? fileManager.contentsOfDirectory(atPath: temporary.path(percentEncoded: false))) ?? []
+    for name in names where name.hasPrefix(folderPrefix) {
+      try? fileManager.removeItem(at: temporary.appending(path: name))
+    }
+  }
+}
+
 /// Runs one export at a time and holds what the section shows. The work happens off the main
 /// actor on a context of its own; progress comes back here.
 @MainActor
@@ -23,15 +48,24 @@ final class ExportController {
     return false
   }
 
-  /// Exports `container` into a fresh folder in the temporary directory, replacing the
-  /// folder of the last export. Does nothing while one is running.
-  func start(_ container: ModelContainer) async {
+  /// Saves `context`, so the export sees what is on screen, then exports its store into a
+  /// fresh folder in the temporary directory, replacing the folder of the last export. Does
+  /// nothing while one is running.
+  func start(_ context: ModelContext) async {
     guard !isWorking else { return }
-    discardFiles()
-    let folder = FileManager.default.temporaryDirectory
-      .appending(path: "CauldronExport-\(UUID().uuidString)", directoryHint: .isDirectory)
-    directory = folder
+    ExportFiles.sweep()
+    directory = nil
     phase = .working(ExportProgress(completed: 0, total: 2))
+    do {
+      // The exporter reads through a context of its own, which sees only what is saved.
+      if context.hasChanges { try context.save() }
+    } catch {
+      phase = .failed
+      return
+    }
+    let container = context.container
+    let folder = ExportFiles.newFolder()
+    directory = folder
     let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     do {
       let result = try await Task.detached(priority: .userInitiated) {

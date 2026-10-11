@@ -104,8 +104,14 @@ public enum ExportCoding {
     Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1000).rounded() / 1000)
   }
 
-  static func format(_ date: Date) -> String {
-    let total = Int64((date.timeIntervalSince1970 * 1000).rounded())
+  static func format(_ date: Date) throws -> String {
+    let milliseconds = (date.timeIntervalSince1970 * 1000).rounded()
+    // A date out of range can't be written (and converting it to an integer would trap).
+    guard milliseconds.isFinite, abs(milliseconds) < 1e14 else {
+      throw EncodingError.invalidValue(
+        date, .init(codingPath: [], debugDescription: "\(date) is out of range for the export"))
+    }
+    let total = Int64(milliseconds)
     let seconds = Int64((Double(total) / 1000).rounded(.down))
     let wholeSeconds = Date(timeIntervalSince1970: Double(seconds))
     var text = wholeSeconds.formatted(Date.ISO8601FormatStyle())
@@ -115,10 +121,13 @@ public enum ExportCoding {
   }
 
   static func parse(_ text: String) -> Date? {
-    // "2026-10-11T09:30:00.123Z": the whole seconds, then the milliseconds.
+    // "2026-10-11T09:30:00.123Z": the whole seconds, then exactly three digits of milliseconds.
     guard let dot = text.lastIndex(of: "."), text.hasSuffix("Z"),
-      let millis = Int64(text[text.index(after: dot)..<text.index(before: text.endIndex)]),
-      text.distance(from: dot, to: text.endIndex) == 5,
+      text.distance(from: dot, to: text.endIndex) == 5
+    else { return nil }
+    let digits = text[text.index(after: dot)..<text.index(before: text.endIndex)]
+    guard digits.utf8.allSatisfy({ (UInt8(ascii: "0")...UInt8(ascii: "9")).contains($0) }),
+      let millis = Int64(digits),
       let whole = try? Date.ISO8601FormatStyle().parse(text[..<dot] + "Z")
     else { return nil }
     let seconds = Int64(whole.timeIntervalSince1970)
@@ -132,7 +141,7 @@ extension JSONEncoder {
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     encoder.dateEncodingStrategy = .custom { date, encoder in
       var container = encoder.singleValueContainer()
-      try container.encode(ExportCoding.format(date))
+      try container.encode(try ExportCoding.format(date))
     }
     return encoder
   }

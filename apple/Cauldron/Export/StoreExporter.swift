@@ -19,7 +19,7 @@ struct ExportResult: Sendable, Equatable {
   var recipeCount: Int
   /// Images written to the zip.
   var photoCount: Int
-  /// Rows left out for want of a readable day.
+  /// Rows and values left out because they couldn't be written (see `ExportMapping`).
   var skipped: Int
 
   /// The files to hand to the share sheet.
@@ -37,12 +37,12 @@ enum StoreExporter {
   /// actor, and writes the files into `directory`. A failure removes what it wrote.
   static func export(
     from container: ModelContainer, into directory: URL, now: Date = .now,
-    appVersion: String? = nil, calendar: Calendar = .current,
+    appVersion: String? = nil, timeZone: TimeZone = .current,
     progress: @Sendable (ExportProgress) -> Void = { _ in }
   ) throws -> ExportResult {
     let fileManager = FileManager.default
     try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-    let stamp = dayStamp(now, calendar: calendar)
+    let stamp = dayStamp(now, in: timeZone)
     let jsonURL = directory.appending(path: "cauldron-export-\(stamp).json")
     let photosURL = directory.appending(path: "cauldron-photos-\(stamp).zip")
 
@@ -91,8 +91,11 @@ enum StoreExporter {
     return try context.fetch(descriptor).first?.imageData
   }
 
-  /// The day the export was made, in the cook's calendar, for the file names.
-  private static func dayStamp(_ date: Date, calendar: Calendar) -> String {
+  /// The day the export was made, for the file names. It is always a Gregorian date, so a
+  /// device set to the Buddhist or Japanese calendar still gets a date a person can read.
+  private static func dayStamp(_ date: Date, in timeZone: TimeZone) -> String {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = timeZone
     let parts = calendar.dateComponents([.year, .month, .day], from: date)
     guard let year = parts.year, let month = parts.month, let day = parts.day,
       let local = LocalDate(year: year, month: month, day: day)

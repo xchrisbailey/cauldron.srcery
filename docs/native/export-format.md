@@ -9,7 +9,7 @@ An export is one folder with two files, handed to the share sheet (Save to Files
 - `cauldron-export-YYYY-MM-DD.json`: the data, versioned.
 - `cauldron-photos-YYYY-MM-DD.zip`: the recipe photos, one entry each at `photos/<photo id>.<ext>`. It is left out when no recipe has an image. The extension comes from the image's first bytes (`jpg`, `png`, `heic`, `webp`, `gif`, `avif`, or `bin` when unknown).
 
-The date is the day the export was made, in the cook's calendar. The zip is written by `ZipWriter` in CauldronKit: stored entries (no compression, since photos are already compressed), UTF-8 names, no Zip64. It needs only Foundation, writes one photo at a time, and `unzip`, Archive Utility and Files all open it.
+The date is the day the export was made, in the device's time zone and always in the Gregorian calendar, so a device set to another calendar still gets a readable name. The zip is written by `ZipWriter` in CauldronKit: stored entries (no compression, since photos are already compressed), UTF-8 names, no Zip64. It needs only Foundation, writes one photo at a time, and `unzip`, Archive Utility and Files all open it.
 
 ## The JSON
 
@@ -48,13 +48,24 @@ Left out:
 
 ### Duplicates
 
-CloudKit can't enforce uniqueness (see `data-model.md`), so the store can hold two rows that should be one. The export writes the winner, chosen by the same rule the app reads with (`Deduplication.keeper`: most recently changed, then the id). Duplicate tags are merged: every recipe's `tagIds` names the winning tag. Rows with a day that is not a real day are not exported; the result counts them and the section says so.
+CloudKit can't enforce uniqueness (see `data-model.md`), so the store can hold two rows that should be one. The export writes the winner, chosen by the same rule the app reads with (`Deduplication.keeper`: most recently changed, then the id). Duplicate tags are merged: every recipe's `tagIds` names the winning tag. 
+### What cannot be written
+
+The app never writes any of these, so each means a damaged store. The export leaves the item out, counts it in the result's `skipped`, and the section tells the cook, rather than failing the whole export or hiding it:
+
+- A row whose day is not a real day.
+- A number that is not finite (JSON has no NaN or infinity). A value that is optional in the format (a macro, a height, a quantity or its upper end) becomes unknown. A row that is its number (a weigh-in, a diary entry or favourite's servings) is left out, and so is a body profile whose rates are not finite.
+- An ingredient or step list that cannot be read in full. What reads is exported, and the recipe adds one to the count.
+
+### Temporary files
+
+The files are written to a `CauldronExport-<uuid>` folder in the temporary directory, and each is a full copy of the data. `ExportFiles.sweep()` removes every such folder; it runs at the start of each export, and the app calls it once at launch. The section saves its context before exporting, because the exporter reads the saved store through a context of its own.
 
 ## Versions
 
 `formatVersion` is an integer. `CauldronExport.decode` reads the version first and refuses a file from a newer format (`ExportFormatError.newerFormat`) instead of half reading it, and refuses a file that is not an export (`unreadable`).
 
-- **Additive changes keep the version.** A new optional field, or a new record list that a reader can treat as empty when absent, is not a new version. Readers ignore keys they don't know. Add the field to the type, extend the fixture and the format test, and note it here.
+- **Additive changes keep the version, if old files still decode.** Readers ignore keys they don't know, but the synthesized `Decodable` demands every non-optional property. So a field added after version 1 must be optional, or the type must get an `init(from:)` that uses `decodeIfPresent` with a default (a new record list defaults to `[]`). Otherwise a build that writes the new field could not read the files written before it. `ExportFormatTests.aFileWithOnlyTheRequiredFieldsKeepsDecoding` holds a minimal version 1 file and must keep passing. Add the field to the type, extend the fixture, and note it here.
 - **Anything else is a new version:** renaming or removing a field, changing what a value means or how it is written, making a field required. Bump `CauldronExport.currentVersion`, keep the version 1 types and decoder (the fixture test for version 1 stays), and have `decode` migrate older files to the current types. Write the new fixture beside the old one.
 - Never edit the version 1 expectation in `ExportFormatTests` to make a change pass. That test failing means a file people already saved would no longer read the same.
 

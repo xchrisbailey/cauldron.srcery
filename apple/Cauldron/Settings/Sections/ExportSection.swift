@@ -42,8 +42,7 @@ struct ExportSection: View {
 
   private var exportButton: some View {
     Button(Copy.export.action.text) {
-      let container = modelContext.container
-      Task { await controller.start(container) }
+      Task { await controller.start(modelContext) }
     }
     .disabled(controller.isWorking)
   }
