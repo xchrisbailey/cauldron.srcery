@@ -56,7 +56,11 @@ targets:
     type: application
     platform: auto
     supportedDestinations: [iOS, macOS]
-    sources: [Cauldron]
+    sources:
+      - Cauldron
+      # This file entry exists to make XcodeGen emit the Resources phase, which a synced folder alone doesn't get.
+      - path: Cauldron/Fonts/OFL.txt
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
     settings:
