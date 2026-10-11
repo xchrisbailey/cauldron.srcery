@@ -22,7 +22,7 @@ struct DiaryView: View {
   var body: some View {
     VStack(spacing: 0) {
       DayNavigator(day: $day, today: today)
-      DiaryDayList(day: day, targets: targets, openTargets: openTargets)
+      DiaryDayList(day: day, today: today, targets: targets, openTargets: openTargets)
     }
     .background(Brand.Colors.base)
     .onChange(of: scenePhase) { _, phase in
@@ -101,21 +101,31 @@ private struct AddRequest: Identifiable {
 /// One day's entries. The entries are read live with `@Query`, so every change shows at once.
 private struct DiaryDayList: View {
   let day: LocalDate
+  let today: LocalDate
   let targets: TargetsRecord?
   let openTargets: () -> Void
 
   @Query private var records: [DiaryEntryRecord]
+  @Query private var weighIns: [WeighInRecord]
+  @Query private var profiles: [BodyProfileRecord]
   @Environment(\.modelContext) private var context
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
+  @State private var weighing = false
   @State private var failure: CopyString?
+  /// The line at the bottom after a delete, with Undo; the count restarts its timer.
+  @State private var notice: DiaryWrites.Removed?
+  @State private var noticeCount = 0
 
-  init(day: LocalDate, targets: TargetsRecord?, openTargets: @escaping () -> Void) {
+  init(day: LocalDate, today: LocalDate, targets: TargetsRecord?, openTargets: @escaping () -> Void)
+  {
     self.day = day
+    self.today = today
     self.targets = targets
     self.openTargets = openTargets
     let key = day.description
     _records = Query(filter: #Predicate<DiaryEntryRecord> { $0.dayKey == key })
+    _weighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey == key })
   }
 
   private var log: DayLog { DayLog(day: day, records: records) }
@@ -128,6 +138,7 @@ private struct DiaryDayList: View {
         DayHeaderView(
           meters: MacroMeter.meters(totals: log.totals, targets: targets?.macroTargets),
           openTargets: openTargets)
+        weighInRow
       }
       .listRowBackground(Brand.Colors.mantle)
 
@@ -174,16 +185,33 @@ private struct DiaryDayList: View {
       }
     }
     .scrollContentBackground(.hidden)
+    .sheet(isPresented: $weighing) {
+      WeightEntrySheet(
+        day: day, today: today, unit: weightUnit, existing: Deduplication.keeper(of: weighIns),
+        pickDay: false, onClose: { weighing = false })
+    }
     .sheet(item: $adding) { request in
       DiaryAddSheet(day: day, slot: request.slot) { adding = nil }
     }
     .sheet(item: $editing) { record in
       DiaryEntrySheet(
-        record: record, onClose: { editing = nil },
+        record: record, onClose: { editing = nil }, onRemoved: show,
         onFailure: { message in
           editing = nil
           failure = message
         })
+    }
+    .overlay(alignment: .bottom) {
+      if let notice {
+        DiaryNoticeBanner(name: notice.name, onUndo: undo)
+          .padding(16)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .task(id: noticeCount) {
+      guard notice != nil else { return }
+      try? await Task.sleep(for: .seconds(6))
+      if !Task.isCancelled { withAnimation { notice = nil } }
     }
     .alert(
       Text(verbatim: failure?.text ?? ""),
@@ -193,10 +221,58 @@ private struct DiaryDayList: View {
     }
   }
 
+  private var weightUnit: WeightUnit { Deduplication.keeper(of: profiles)?.weightUnit ?? .kg }
+
+  /// The day's weigh-in (tap to change it) or a way to log one, and the way to the trend.
+  private var weighInRow: some View {
+    HStack {
+      if let weighIn = Deduplication.keeper(of: weighIns) {
+        let shown =
+          "\(WeightText.label(kg: weighIn.weightKg, unit: weightUnit)) \(Copy.tracker.targets.weightUnits[weightUnit].text)"
+        Button {
+          weighing = true
+        } label: {
+          Text(verbatim: shown).brandText(.quantity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Copy.tracker.weight.change(shown).text)
+      } else if day <= today {
+        Button(Copy.tracker.weight.logWeight.text) { weighing = true }
+          .brandText(.control)
+      }
+      Spacer()
+      NavigationLink {
+        WeightView(today: today)
+      } label: {
+        Text(verbatim: Copy.tracker.weight.seeTrend.text).brandText(.control)
+      }
+      .fixedSize()
+    }
+  }
+
   private func remove(_ record: DiaryEntryRecord) {
     do {
-      try DiaryWrites.remove(record, in: context)
+      show(try DiaryEditor(context: context).remove(record))
     } catch {
+      failure = Copy.tracker.diary.couldntSave
+    }
+  }
+
+  private func show(_ removed: DiaryWrites.Removed) {
+    withAnimation { notice = removed }
+    noticeCount += 1
+  }
+
+  private func undo() {
+    guard let removed = notice else { return }
+    do {
+      try DiaryEditor(context: context).restore(removed)
+      withAnimation { notice = nil }
+    } catch DiaryWrites.Failure.dayFull {
+      notice = nil
+      failure = Copy.tracker.dayFull
+    } catch {
+      notice = nil
       failure = Copy.tracker.diary.couldntSave
     }
   }
@@ -275,5 +351,32 @@ private struct EntryRow: View {
       }
     }
     .contentShape(Rectangle())
+  }
+}
+
+/// "Removed Soup." with Undo, for a few seconds after a delete.
+struct DiaryNoticeBanner: View {
+  let name: String
+  let onUndo: () -> Void
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Text(verbatim: Copy.tracker.diary.removed(name).text)
+        .brandText(.body)
+        .lineLimit(2)
+      Button(action: onUndo) {
+        Text(verbatim: Copy.tracker.diary.undo.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.magic)
+          .frame(minHeight: 44)
+      }
+      .buttonStyle(.plain)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 4)
+    .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
+    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface1, lineWidth: 1))
+    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+    .accessibilityElement(children: .contain)
   }
 }

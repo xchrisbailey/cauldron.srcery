@@ -88,14 +88,18 @@ enum DiaryWrites {
     return added
   }
 
-  /// Changes an entry's name, amount, servings, numbers and meal. Moving it to another meal puts
-  /// it last there.
+  /// Changes an entry's name, amount, servings, numbers, meal and day. Moving it to another meal
+  /// or day puts it last there; a day that is already full refuses.
   static func update(
     _ record: DiaryEntryRecord, with valid: EntryDraft.Valid, in context: ModelContext
   ) throws {
     let new = NewEntry(valid, source: record.source)
-    guard new.isStorable, let day = record.day else { throw Failure.invalid }
-    let moved = valid.slot != record.slot
+    guard new.isStorable, let currentDay = record.day else { throw Failure.invalid }
+    let day = valid.day ?? currentDay
+    let moved = valid.slot != record.slot || day != currentDay
+    if day != currentDay, try count(on: day, in: context) >= TrackerLimits.perDay {
+      throw Failure.dayFull
+    }
     // Placed before the fields change, while the entry still counts in its old meal.
     let position =
       moved ? try nextPosition(on: day, slot: valid.slot, in: context) : record.position
@@ -104,13 +108,73 @@ enum DiaryWrites {
     record.servings = valid.servings
     record.macros = valid.macros
     record.slot = valid.slot
+    record.day = day
     record.position = position
     try commit(context)
   }
 
-  static func remove(_ record: DiaryEntryRecord, in context: ModelContext) throws {
+  /// What an entry was, kept so a delete can be taken back: the same id, day, meal, position and
+  /// numbers.
+  struct Removed: Equatable {
+    var id: UUID
+    var day: LocalDate
+    var slot: MealSlot
+    var position: Int
+    var name: String
+    var amount: String?
+    var servings: Double
+    var macros: Macros
+    var source: DiarySource
+    var macrosPending: Bool
+    var createdAt: Date
+    var recipeID: UUID?
+  }
+
+  /// Deletes the entry for good, and returns what it was for `restore`.
+  @discardableResult
+  static func remove(_ record: DiaryEntryRecord, in context: ModelContext) throws -> Removed {
+    guard let day = record.day else { throw Failure.invalid }
+    let removed = Removed(
+      id: record.id, day: day,
+      slot: record.slot, position: record.position, name: record.name, amount: record.amount,
+      servings: record.servings, macros: record.macros, source: record.source,
+      macrosPending: record.macrosPending, createdAt: record.createdAt, recipeID: record.recipe?.id)
     context.delete(record)
     try commit(context)
+    return removed
+  }
+
+  /// Puts a removed entry back as it was. Doing it twice, or after the entry came back some
+  /// other way, changes nothing. A day that filled up in the meantime refuses; a recipe that is
+  /// gone is let go (the entry keeps its own numbers).
+  @discardableResult
+  static func restore(_ removed: Removed, in context: ModelContext) throws -> DiaryEntryRecord {
+    let id = removed.id
+    if let already = try context.fetch(
+      FetchDescriptor<DiaryEntryRecord>(predicate: #Predicate { $0.id == id })
+    ).first {
+      return already
+    }
+    guard try count(on: removed.day, in: context) < TrackerLimits.perDay else {
+      throw Failure.dayFull
+    }
+    let record = DiaryEntryRecord(
+      day: removed.day, slot: removed.slot, name: removed.name, servings: removed.servings,
+      source: removed.source)
+    record.id = removed.id
+    record.amount = removed.amount
+    record.macros = removed.macros
+    record.macrosPending = removed.macrosPending
+    record.position = removed.position
+    record.createdAt = removed.createdAt
+    if let recipeID = removed.recipeID {
+      record.recipe = try context.fetch(
+        FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == recipeID })
+      ).first
+    }
+    context.insert(record)
+    try commit(context)
+    return record
   }
 
   /// Saves, and puts the context back as it was if that fails.

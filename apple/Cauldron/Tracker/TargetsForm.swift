@@ -68,7 +68,8 @@ struct TargetsForm: Equatable {
     return LocalDate(year: year, month: month, day: day)
   }
 
-  /// The weight the form opens with. HealthKit pre-fill (#181) goes here.
+  /// The weight the form opens with: the latest weigh-in. Weights from Health are imported as
+  /// weigh-ins (`HealthSync`), so this includes them.
   static func startingWeightKg(latestWeighIn: Double?) -> Double? {
     latestWeighIn
   }
@@ -311,7 +312,14 @@ struct TargetsForm: Equatable {
     if weighsIn {
       let kg = (weightKg * 100).rounded() / 100
       if let existing = try context.weighIn(on: today) {
-        existing.weightKg = kg
+        // Only a weight the cook changed makes it theirs; one left as shown (a Health reading,
+        // say) stays as it is.
+        if showWeight(existing.weightKg, unit: weightUnit)
+          != showNumber(roundWeight(parseNumber(weight) ?? 0))
+        {
+          existing.weightKg = kg
+          WeightWrites.claim(existing, in: context)
+        }
       } else {
         context.insert(WeighInRecord(day: today, weightKg: kg))
       }
