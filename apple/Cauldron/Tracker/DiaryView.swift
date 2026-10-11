@@ -108,6 +108,8 @@ private struct DiaryDayList: View {
   @Query private var records: [DiaryEntryRecord]
   @Query private var weighIns: [WeighInRecord]
   @Query private var profiles: [BodyProfileRecord]
+  /// Weigh-ins in the check-in's window, to know whether a check-in is due.
+  @Query private var recentWeighIns: [WeighInRecord]
   @Environment(\.modelContext) private var context
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
@@ -126,6 +128,8 @@ private struct DiaryDayList: View {
     let key = day.description
     _records = Query(filter: #Predicate<DiaryEntryRecord> { $0.dayKey == key })
     _weighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey == key })
+    let from = CheckInRules.from(today: today).description
+    _recentWeighIns = Query(filter: #Predicate<WeighInRecord> { $0.dayKey >= from })
   }
 
   private var log: DayLog { DayLog(day: day, records: records) }
@@ -134,6 +138,12 @@ private struct DiaryDayList: View {
     let log = log
     let byID = Dictionary(records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     List {
+      if checkInDue {
+        Section {
+          CheckInPrompt(context: context, today: today)
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
       Section {
         DayHeaderView(
           meters: MacroMeter.meters(totals: log.totals, targets: targets?.macroTargets),
@@ -219,6 +229,14 @@ private struct DiaryDayList: View {
     ) {
       Button(Copy.ui.close.text) { failure = nil }
     }
+  }
+
+  /// Offered on today only, once a week, when there is a week of weigh-ins to go on.
+  private var checkInDue: Bool {
+    day == today
+      && CheckInRules.isDue(
+        profile: Deduplication.keeper(of: profiles)?.profile, targets: targets?.targets,
+        weighInDays: recentWeighIns.compactMap(\.day), today: today)
   }
 
   private var weightUnit: WeightUnit { Deduplication.keeper(of: profiles)?.weightUnit ?? .kg }
