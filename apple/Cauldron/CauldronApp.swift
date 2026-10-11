@@ -23,6 +23,9 @@ struct CauldronApp: App {
     CauldronStore.tidyAtLaunch(container.mainContext, mode: CauldronStore.launchMode)
     // An export left in the temporary folder is a full copy of the cook's data.
     ExportFiles.sweep()
+    // Takes the notification delegate now, so a timer that ends with the app open shows its
+    // banner even when no recipe has been brewed since launch.
+    _ = LiveBrewAlerts.shared
     #if DEBUG
       // Demo data, only when launched with `-seed`, and only into an empty store.
       do {
