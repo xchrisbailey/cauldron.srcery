@@ -34,7 +34,7 @@ struct DiaryEntryFields: View {
             .accessibilityHidden(true)
           Text(verbatim: meter.name.text).brandText(.body)
           Spacer()
-          TextField(meter.name.text, text: $draft[macro: key])
+          TextField(meter.name.text, text: $draft[macro: key], prompt: Text(verbatim: "0"))
             .labelsHidden()
             .multilineTextAlignment(.trailing)
             .brandText(.quantity)

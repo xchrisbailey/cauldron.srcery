@@ -147,10 +147,13 @@ struct DiaryQuickAdd: View {
       Section {
         HStack {
           Spacer()
-          Button(Copy.tracker.entry.log.text, action: log)
-            .buttonStyle(.borderedProminent)
-            .tint(Brand.Colors.magic)
-            .brandText(.control)
+          Button(action: log) {
+            // `base` reads on the brand colour in both appearances.
+            Text(verbatim: Copy.tracker.entry.log.text).foregroundStyle(Brand.Colors.base)
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(Brand.Colors.magic)
+          .brandText(.control)
         }
         .listRowBackground(Color.clear)
       }
