@@ -5,6 +5,7 @@ extension Copy {
     public let title = plain("Settings")
     public let appearance = Appearance()
     public let iCloud = ICloud()
+    public let health = Health()
 
     public init() {}
 
@@ -38,6 +39,49 @@ extension Copy {
         "iCloud isn't available right now. Everything is saved on this device.")
 
       public init() {}
+    }
+
+    /// The Health section, and the text of the two permission prompts. `shareUsage` and
+    /// `updateUsage` are copied into `project.yml` as `INFOPLIST_KEY_NSHealthShareUsageDescription`
+    /// and `INFOPLIST_KEY_NSHealthUpdateUsageDescription`.
+    public struct Health: Sendable {
+      public let title = plain("Health")
+      public let explanation = plain(
+        "Cauldron reads your weight from Health, so weigh-ins from a scale appear on their own, and saves the calories, protein, carbs and fat you log to Health's nutrition data. It never reads your activity."
+      )
+      public let connect = plain("Connect to Health")
+      public let connected = plain("Connected to Health.")
+      public let checkNow = plain("Check for new weights")
+      public let upToDate = plain("Weigh-ins are up to date.")
+      public let notSetUp = plain("Health isn't set up on this build.")
+      public let unavailable = plain(
+        "Health isn't available on this device. Weigh-ins reach the Mac through iCloud.")
+      public let couldntConnect = plain(
+        "Couldn't connect to Health. You can allow access in Settings, under Health, Data Access & Devices."
+      )
+      public let couldntUpdate = plain(
+        "Couldn't update Health just now. Cauldron will keep trying.")
+      /// `NSHealthShareUsageDescription`: what reading is for.
+      public let shareUsage = plain(
+        "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity."
+      )
+      /// `NSHealthUpdateUsageDescription`: what writing is for.
+      public let updateUsage = plain(
+        "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry."
+      )
+
+      public init() {}
+
+      /// `names` is a plain list such as "protein and fat".
+      public func someOff(_ names: String) -> CopyString {
+        plain(
+          "Health isn't taking \(names) from Cauldron. Allow it in Settings, under Health, Data Access & Devices."
+        )
+      }
+
+      public func imported(_ n: Int) -> CopyString {
+        plain(n == 1 ? "Added 1 weigh-in from Health." : "Added \(n) weigh-ins from Health.")
+      }
     }
   }
 }

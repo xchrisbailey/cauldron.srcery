@@ -120,6 +120,20 @@ final class WeighInRecord {
   var day: LocalDate? { LocalDate(dayKey) }
 }
 
+/// A Health weight reading the cook removed from Cauldron, so no device brings it back.
+/// It syncs, because the iPhone that reads Health may not be where it was removed.
+@Model
+final class HealthDismissalRecord {
+  var id: UUID = UUID()
+  /// The HealthKit sample's id, as `WeighInRecord.healthSampleID` held it.
+  var sampleID: String = ""
+  var createdAt: Date = Date.now
+
+  init(sampleID: String) {
+    self.sampleID = sampleID
+  }
+}
+
 /// The inputs to the macro calculator. There is one; see `Deduplication`.
 @Model
 final class BodyProfileRecord {
