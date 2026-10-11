@@ -109,6 +109,9 @@ private struct DiaryDayList: View {
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
   @State private var failure: CopyString?
+  /// The line at the bottom after a delete, with Undo; the count restarts its timer.
+  @State private var notice: DiaryWrites.Removed?
+  @State private var noticeCount = 0
 
   init(day: LocalDate, targets: TargetsRecord?, openTargets: @escaping () -> Void) {
     self.day = day
@@ -179,11 +182,23 @@ private struct DiaryDayList: View {
     }
     .sheet(item: $editing) { record in
       DiaryEntrySheet(
-        record: record, onClose: { editing = nil },
+        record: record, onClose: { editing = nil }, onRemoved: show,
         onFailure: { message in
           editing = nil
           failure = message
         })
+    }
+    .overlay(alignment: .bottom) {
+      if let notice {
+        DiaryNoticeBanner(name: notice.name, onUndo: undo)
+          .padding(16)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .task(id: noticeCount) {
+      guard notice != nil else { return }
+      try? await Task.sleep(for: .seconds(6))
+      if !Task.isCancelled { withAnimation { notice = nil } }
     }
     .alert(
       Text(verbatim: failure?.text ?? ""),
@@ -195,8 +210,27 @@ private struct DiaryDayList: View {
 
   private func remove(_ record: DiaryEntryRecord) {
     do {
-      try DiaryWrites.remove(record, in: context)
+      show(try DiaryWrites.remove(record, in: context))
     } catch {
+      failure = Copy.tracker.diary.couldntSave
+    }
+  }
+
+  private func show(_ removed: DiaryWrites.Removed) {
+    withAnimation { notice = removed }
+    noticeCount += 1
+  }
+
+  private func undo() {
+    guard let removed = notice else { return }
+    do {
+      try DiaryWrites.restore(removed, in: context)
+      withAnimation { notice = nil }
+    } catch DiaryWrites.Failure.dayFull {
+      notice = nil
+      failure = Copy.tracker.dayFull
+    } catch {
+      notice = nil
       failure = Copy.tracker.diary.couldntSave
     }
   }
@@ -275,5 +309,32 @@ private struct EntryRow: View {
       }
     }
     .contentShape(Rectangle())
+  }
+}
+
+/// "Removed Soup." with Undo, for a few seconds after a delete.
+struct DiaryNoticeBanner: View {
+  let name: String
+  let onUndo: () -> Void
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Text(verbatim: Copy.tracker.diary.removed(name).text)
+        .brandText(.body)
+        .lineLimit(2)
+      Button(action: onUndo) {
+        Text(verbatim: Copy.tracker.diary.undo.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.magic)
+          .frame(minHeight: 44)
+      }
+      .buttonStyle(.plain)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 4)
+    .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
+    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface1, lineWidth: 1))
+    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+    .accessibilityElement(children: .contain)
   }
 }

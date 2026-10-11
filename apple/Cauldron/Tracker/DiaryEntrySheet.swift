@@ -7,6 +7,8 @@ import SwiftUI
 struct DiaryEntrySheet: View {
   let record: DiaryEntryRecord
   let onClose: () -> Void
+  /// Called with what the entry was when it is removed, so the diary can offer to undo it.
+  let onRemoved: (DiaryWrites.Removed) -> Void
   /// Called with the message to show when a change could not be saved.
   let onFailure: (CopyString) -> Void
 
@@ -18,10 +20,12 @@ struct DiaryEntrySheet: View {
 
   init(
     record: DiaryEntryRecord, onClose: @escaping () -> Void,
+    onRemoved: @escaping (DiaryWrites.Removed) -> Void = { _ in },
     onFailure: @escaping (CopyString) -> Void
   ) {
     self.record = record
     self.onClose = onClose
+    self.onRemoved = onRemoved
     self.onFailure = onFailure
     _draft = State(initialValue: EntryDraft(record))
   }
@@ -41,6 +45,13 @@ struct DiaryEntrySheet: View {
             Text(verbatim: entry.meal.text)
           }
           .brandText(.body)
+          .listRowBackground(Brand.Colors.mantle)
+          DatePicker(
+            selection: day, in: dayRange, displayedComponents: .date
+          ) {
+            Text(verbatim: entry.day.text)
+          }
+          .brandText(.quantity)
           .listRowBackground(Brand.Colors.mantle)
         }
         Section {
@@ -123,12 +134,29 @@ struct DiaryEntrySheet: View {
     ].joined(separator: " · ")
   }
 
+  /// A year back from the entry's day or today, and a year ahead of it.
+  private var dayRange: ClosedRange<Date> {
+    let calendar = Calendar.current
+    let anchor = record.day ?? TargetsForm.today() ?? LocalDate(Date.now, in: calendar)
+    let earliest = anchor?.adding(days: -365).date(in: calendar) ?? .distantPast
+    let latest = anchor?.adding(days: 365).date(in: calendar) ?? .distantFuture
+    return earliest...latest
+  }
+
+  private var day: Binding<Date> {
+    Binding(
+      get: { (draft.day ?? record.day)?.date(in: .current) ?? .now },
+      set: { draft.day = LocalDate($0, in: .current) })
+  }
+
   private func save() {
     attempted = true
     guard let valid = draft.valid(requireCalories: false) else { return }
     do {
       try DiaryWrites.update(record, with: valid, in: context)
       onClose()
+    } catch DiaryWrites.Failure.dayFull {
+      onFailure(Copy.tracker.dayFull)
     } catch {
       onFailure(Copy.tracker.diary.couldntSave)
     }
@@ -136,8 +164,9 @@ struct DiaryEntrySheet: View {
 
   private func remove() {
     do {
-      try DiaryWrites.remove(record, in: context)
+      let removed = try DiaryWrites.remove(record, in: context)
       onClose()
+      onRemoved(removed)
     } catch {
       onFailure(Copy.tracker.diary.couldntSave)
     }

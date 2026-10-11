@@ -20,6 +20,8 @@ struct EntryDraft: Equatable {
     var servings: Double
     var macros: Macros
     var slot: MealSlot
+    /// The day to move the entry to; nil leaves it where it is (and for a new entry).
+    var day: LocalDate?
   }
 
   var name = ""
@@ -30,6 +32,8 @@ struct EntryDraft: Equatable {
   var carbs = ""
   var fat = ""
   var slot: MealSlot
+  /// The entry's day, which an edit can change. Nil for a new entry.
+  var day: LocalDate?
 
   /// Servings change by this much with the plus and minus buttons.
   static let servingStep = 0.25
@@ -48,6 +52,7 @@ struct EntryDraft: Equatable {
     carbs = record.carbs.map { showNumber($0) } ?? ""
     fat = record.fat.map { showNumber($0) } ?? ""
     slot = record.slot
+    day = record.day
   }
 
   /// The text of one macro field.
@@ -142,7 +147,7 @@ struct EntryDraft: Equatable {
       macros: Macros(
         calories: number(.calories), protein: number(.protein), carbs: number(.carbs),
         fat: number(.fat)),
-      slot: slot)
+      slot: slot, day: day)
   }
 
   /// The servings after the plus (`by` positive) or minus button.

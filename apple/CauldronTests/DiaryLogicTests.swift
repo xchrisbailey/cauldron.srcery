@@ -485,4 +485,110 @@ struct DiaryWritesTests {
     let added = try DiaryWrites.add([food("Extra")], on: day, slot: .snack, in: context)
     #expect(added[0].position == before + 1)
   }
+
+  // MARK: Undo
+
+  @Test func aRemovedEntryComesBackAsItWas() throws {
+    let added = try DiaryWrites.add(
+      [food("A"), food("B"), food("C")], on: day, slot: .lunch, in: context)
+    let middle = added[1]
+    middle.amount = "1 bowl"
+    middle.servings = 1.5
+    middle.macros = Macros(calories: 210, protein: 8.5, carbs: nil, fat: 6)
+    middle.createdAt = Date(timeIntervalSince1970: 12345)
+    let id = middle.id
+    let removed = try DiaryWrites.remove(middle, in: context)
+    #expect(try rows().map(\.name) == ["A", "C"])
+
+    let back = try DiaryWrites.restore(removed, in: context)
+    #expect(back.id == id)
+    #expect(back.day == day && back.slot == .lunch && back.position == 1)
+    #expect(back.name == "B" && back.amount == "1 bowl" && back.servings == 1.5)
+    #expect(back.macros == Macros(calories: 210, protein: 8.5, carbs: nil, fat: 6))
+    #expect(back.source == .manual && back.createdAt == Date(timeIntervalSince1970: 12345))
+    #expect(try rows().map(\.name) == ["A", "B", "C"])
+  }
+
+  @Test func undoingTwiceDoesNotAddItTwice() throws {
+    let only = try DiaryWrites.add([food("A")], on: day, slot: .lunch, in: context)[0]
+    let removed = try DiaryWrites.remove(only, in: context)
+    try DiaryWrites.restore(removed, in: context)
+    try DiaryWrites.restore(removed, in: context)
+    #expect(try DiaryWrites.count(on: day, in: context) == 1)
+  }
+
+  @Test func undoIntoADayThatFilledUpIsRefused() throws {
+    let first = try DiaryWrites.add([food("A")], on: day, slot: .lunch, in: context)[0]
+    let removed = try DiaryWrites.remove(first, in: context)
+    try DiaryWrites.add(
+      (0..<TrackerLimits.perDay).map { food("Food \($0)") }, on: day, slot: .snack, in: context)
+    #expect(throws: DiaryWrites.Failure.dayFull) {
+      try DiaryWrites.restore(removed, in: context)
+    }
+    #expect(try DiaryWrites.count(on: day, in: context) == 100)
+  }
+
+  @Test func undoKeepsTheRecipeLinkWhileTheRecipeExists() throws {
+    let recipe = RecipeRecord(title: "Soup")
+    context.insert(recipe)
+    let added = try DiaryWrites.add(
+      [NewEntry(name: "Soup", macros: Macros(calories: 100), source: .recipe, recipe: recipe)],
+      on: day, slot: .dinner, in: context)[0]
+    let removed = try DiaryWrites.remove(added, in: context)
+    #expect(removed.recipeID == recipe.id)
+    #expect(try DiaryWrites.restore(removed, in: context).recipe?.id == recipe.id)
+
+    // A recipe that is gone is let go, and the entry keeps its numbers.
+    let again = try DiaryWrites.remove(try rows()[0], in: context)
+    context.delete(recipe)
+    try context.save()
+    let restored = try DiaryWrites.restore(again, in: context)
+    #expect(restored.recipe == nil && restored.macros.calories == 100)
+  }
+
+  // MARK: Moving to another day
+
+  @Test func anEntryCanMoveToAnotherDayAndGoesLastInItsMeal() throws {
+    let tomorrow = day.adding(days: 1)
+    let toast = try DiaryWrites.add(
+      [food("Toast"), food("Eggs")], on: day, slot: .breakfast, in: context)[0]
+    try DiaryWrites.add(
+      [food("Porridge"), food("Tea")], on: tomorrow, slot: .breakfast, in: context)
+    try DiaryWrites.update(toast, with: valid(toast) { $0.day = tomorrow }, in: context)
+    #expect(toast.day == tomorrow && toast.slot == .breakfast)
+    #expect(try rows(tomorrow, slot: .breakfast).map(\.name) == ["Porridge", "Tea", "Toast"])
+    #expect(try rows(day).map(\.name) == ["Eggs"])
+  }
+
+  @Test func movingToAnotherDayAndMealTogether() throws {
+    let tomorrow = day.adding(days: 1)
+    let toast = try DiaryWrites.add([food("Toast")], on: day, slot: .breakfast, in: context)[0]
+    try DiaryWrites.update(
+      toast,
+      with: valid(toast) {
+        $0.day = tomorrow; $0.slot = .dinner
+      }, in: context)
+    #expect(toast.day == tomorrow && toast.slot == .dinner && toast.position == 0)
+  }
+
+  @Test func aFullDayRefusesAnEntryMovedToIt() throws {
+    let tomorrow = day.adding(days: 1)
+    let toast = try DiaryWrites.add([food("Toast")], on: day, slot: .breakfast, in: context)[0]
+    try DiaryWrites.add(
+      (0..<TrackerLimits.perDay).map { food("Food \($0)") }, on: tomorrow, slot: .snack, in: context
+    )
+    #expect(throws: DiaryWrites.Failure.dayFull) {
+      try DiaryWrites.update(toast, with: valid(toast) { $0.day = tomorrow }, in: context)
+    }
+    #expect(toast.day == day && toast.position == 0)
+    #expect(try DiaryWrites.count(on: tomorrow, in: context) == 100)
+  }
+
+  @Test func leavingTheDayAloneKeepsPositionsEvenOnAFullDay() throws {
+    try DiaryWrites.add(
+      (0..<TrackerLimits.perDay).map { food("Food \($0)") }, on: day, slot: .snack, in: context)
+    let some = try rows()[5]
+    try DiaryWrites.update(some, with: valid(some) { $0.servings = "2" }, in: context)
+    #expect(some.servings == 2 && some.position == 5)
+  }
 }
