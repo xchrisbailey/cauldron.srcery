@@ -46,7 +46,7 @@ struct DiaryViewsTests {
     let container = try CauldronStore.container(.inMemory)
     let view = DiaryAddSheet(day: today, slot: .lunch) {}.modelContainer(container)
     #expect(draws(view))
-    #expect(AddWay.available == [.quick])
+    #expect(AddWay.available == [.recents, .recipe, .quick])
   }
 
   @Test func theEntrySheetDrawsAnEntry() throws {
