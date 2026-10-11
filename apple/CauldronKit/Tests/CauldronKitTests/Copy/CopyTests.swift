@@ -28,6 +28,13 @@ private let catalogue: Walk = {
   return result
 }()
 
+/// Sections that exist only in the native app, so the TypeScript reference has no copy of them.
+private let nativeOnlyPrefixes = ["settings."]
+
+private func isNativeOnly(_ path: String) -> Bool {
+  nativeOnlyPrefixes.contains { path.hasPrefix($0) }
+}
+
 @Suite("Copy module")
 struct CopyTests {
   @Test func everyEntryIsAMarkedCopyString() {
@@ -40,7 +47,7 @@ struct CopyTests {
 
   @Test func holdsExactlyTheReferenceStringsWithoutArguments() {
     let expected = Set(CopyReference.strings.map(\.path))
-    let actual = Set(catalogue.strings.keys)
+    let actual = Set(catalogue.strings.keys.filter { !isNativeOnly($0) })
     #expect(actual.subtracting(expected).sorted() == [], "extra strings")
     #expect(expected.subtracting(actual).sorted() == [], "missing strings")
   }
@@ -59,6 +66,12 @@ struct CopyTests {
   func matchesTheReferenceWithArguments(_ reference: CopyReferenceCall) {
     #expect(reference.actual.text == reference.text, "\(reference.call)")
     #expect(reference.actual.tone == reference.tone, "\(reference.call)")
+  }
+
+  @Test func settingsIsNativeOnlyAndPlain() {
+    let settings = catalogue.strings.filter { isNativeOnly($0.key) }
+    #expect(settings.count > 8)
+    #expect(settings.values.allSatisfy { $0.tone == .plain })
   }
 
   @Test func leavesOutTheAuthAndAccountStrings() {
