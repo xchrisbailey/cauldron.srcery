@@ -35,10 +35,12 @@ struct AppShellTests {
 
   @Test func everyDestinationRendersInBothAppearances() throws {
     let sync = SyncStatusModel(account: FakeICloudAccount(.synced))
+    let container = try CauldronStore.container(.inMemory)
     for destination in AppDestination.allCases {
       for scheme in [ColorScheme.light, .dark] {
         let view = AppDestinationView(destination: destination)
           .environment(sync)
+          .modelContainer(container)
           .environment(\.colorScheme, scheme)
           .frame(width: 390, height: 800)
         let renderer = ImageRenderer(content: view)
@@ -47,10 +49,12 @@ struct AppShellTests {
     }
   }
 
-  @Test func theShellRenders() {
+  @Test func theShellRenders() throws {
     let sync = SyncStatusModel(account: FakeICloudAccount(.signedOut))
+    let container = try CauldronStore.container(.inMemory)
     let renderer = ImageRenderer(
-      content: AppShell().environment(sync).frame(width: 390, height: 800))
+      content: AppShell().environment(sync).modelContainer(container).frame(
+        width: 390, height: 800))
     #expect(renderer.cgImage != nil)
   }
 }
