@@ -10,6 +10,7 @@ enum CauldronStore {
     PlanEntryRecord.self, GatherItemRecord.self, GatherSourceRecord.self, PantryItemRecord.self,
     DiaryEntryRecord.self, FavouriteRecord.self, WeighInRecord.self, BodyProfileRecord.self,
     TargetsRecord.self, PreferencesRecord.self, AIJobRecord.self,
+    HealthDismissalRecord.self,
   ]
 
   static var schema: Schema { Schema(models) }
