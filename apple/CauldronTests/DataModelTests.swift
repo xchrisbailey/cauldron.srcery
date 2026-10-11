@@ -290,3 +290,16 @@ struct DataModelTests {
     #expect(try Deduplication.tidy(context) == 0)
   }
 }
+
+#if os(macOS)
+  @Suite("Mac sandbox")
+  struct MacSandboxTests {
+    /// Sandboxed, every path the app can write resolves inside its own container, so no
+    /// default location can land on a file another app owns.
+    @Test("the Mac app runs sandboxed, in its own container")
+    func sandboxed() {
+      #expect(ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil)
+      #expect(NSHomeDirectory().contains("/Library/Containers/"))
+    }
+  }
+#endif

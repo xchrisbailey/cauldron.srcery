@@ -40,5 +40,7 @@ Reads go through `ModelContext.current(_:)` and `weighIn(on:)`, which apply the 
 ## Where the store lives
 
 - The store is opened at an explicit URL, `Application Support/computer.srcery.cauldron/Cauldron.store`. **Never open a `ModelContainer` at SwiftData's default location**: for an unsandboxed Mac app that is `~/Library/Application Support/default.store`, one file shared by every such app.
+- The Mac app is sandboxed (`Cauldron.entitlements`), so that path, and any default one, resolves inside `~/Library/Containers/computer.srcery.cauldron`. A test pins this.
+- Only `CauldronStore` creates a `ModelContainer` or `ModelConfiguration`; `make lint` fails on one anywhere else.
 - When the app is hosting a test run it uses an in-memory store. Tests create their own with `CauldronStore.container(.inMemory)`.
 - Until the iCloud entitlement lands (#162) the app runs in `.local` mode, with no sync. After that the store moves to the App Group container so the widget and share extension can read it.
