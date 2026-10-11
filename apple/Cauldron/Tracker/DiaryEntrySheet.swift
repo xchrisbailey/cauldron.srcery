@@ -15,6 +15,7 @@ struct DiaryEntrySheet: View {
   @Environment(\.modelContext) private var context
   @State private var draft: EntryDraft
   @State private var attempted = false
+  @Query private var favourites: [FavouriteRecord]
 
   private let entry = Copy.tracker.entry
 
@@ -53,6 +54,23 @@ struct DiaryEntrySheet: View {
           }
           .brandText(.quantity)
           .listRowBackground(Brand.Colors.mantle)
+        }
+        if !record.macrosPending {
+          Section {
+            Button(action: toggleFavourite) {
+              Label {
+                Text(
+                  verbatim: (starred
+                    ? Copy.tracker.quick.unfavourite : Copy.tracker.quick.favourite).text
+                )
+                .brandText(.body)
+              } icon: {
+                Image(systemName: starred ? "star.fill" : "star")
+                  .foregroundStyle(starred ? Brand.Colors.tips : Brand.Colors.overlay1)
+              }
+            }
+            .listRowBackground(Brand.Colors.mantle)
+          }
         }
         Section {
           Button(role: .destructive, action: remove) {
@@ -147,6 +165,24 @@ struct DiaryEntrySheet: View {
     Binding(
       get: { (draft.day ?? record.day)?.date(in: .current) ?? .now },
       set: { draft.day = LocalDate($0, in: .current) })
+  }
+
+  /// Whether this entry's food is a favourite.
+  private var starred: Bool {
+    let key = FavouriteWrites.key(of: record)
+    return favourites.contains { $0.key == key }
+  }
+
+  private func toggleFavourite() {
+    do {
+      if starred {
+        try FavouriteWrites.unstar(key: FavouriteWrites.key(of: record), in: context)
+      } else {
+        try FavouriteWrites.star(record, in: context)
+      }
+    } catch {
+      onFailure(Copy.tracker.diary.couldntSave)
+    }
   }
 
   private func save() {
