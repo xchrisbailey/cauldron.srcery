@@ -1,3 +1,4 @@
+import CauldronKit
 import SwiftData
 import SwiftUI
 
@@ -22,6 +23,9 @@ struct CauldronApp: App {
     CauldronStore.tidyAtLaunch(container.mainContext, mode: CauldronStore.launchMode)
     // An export left in the temporary folder is a full copy of the cook's data.
     ExportFiles.sweep()
+    // Takes the notification delegate now, so a timer that ends with the app open shows its
+    // banner even when no recipe has been brewed since launch.
+    _ = LiveBrewAlerts.shared
     #if DEBUG
       // Demo data, only when launched with `-seed`, and only into an empty store.
       do {
@@ -50,6 +54,16 @@ struct CauldronApp: App {
     }
     .modelContainer(container)
     #if os(macOS)
+      // Brew mode, one window for each recipe being cooked.
+      WindowGroup(Copy.pageTitles.brew.text, id: "brew", for: BrewRequest.self) { $request in
+        if let request {
+          BrewWindow(request: request)
+            .environment(sync)
+            .cauldronAppearance()
+        }
+      }
+      .modelContainer(container)
+      .defaultSize(width: 760, height: 820)
       Settings {
         SettingsView()
           .environment(sync)

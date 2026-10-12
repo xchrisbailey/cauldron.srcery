@@ -58,6 +58,9 @@ extension Brand {
 
     /// A font of `family` at `size` with the given weight (100 to 900, so 650 is real).
     static func ctFont(_ family: Family, size: CGFloat, weight: CGFloat) -> CTFont {
+      // Until the bundled file is registered, the name can resolve to a copy of Geist installed
+      // on the Mac, which is a fixed instance and ignores the weight.
+      register()
       let attributes: [CFString: Any] = [
         kCTFontNameAttribute: family.postScriptName,
         kCTFontVariationAttribute: [NSNumber(value: weightAxis): NSNumber(value: Double(weight))],

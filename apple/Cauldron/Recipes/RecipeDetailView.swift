@@ -162,6 +162,7 @@ struct RecipeDetailView: View {
   private var actionButtons: some View {
     RecipeBrewAction(recipe: recipe, scale: scale)
     RecipeAddToWeekAction(recipe: recipe, scale: scale)
+    RecipeLogAction(recipe: recipe)
     RecipeEditAction(recipe: recipe)
   }
 
