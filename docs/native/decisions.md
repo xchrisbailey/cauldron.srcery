@@ -39,3 +39,11 @@ Grilling session with Chris, started 2026-10-09. Background and costs: [ios-swit
 24. **Remove the existing GitHub workflows now** (PR CI and the weekly live-import check).
 25. **Name "Cauldron"**, bundle ID `computer.srcery.cauldron`, iCloud container `iCloud.computer.srcery.cauldron`.
 26. **Conventions:** Swift 6 strict concurrency, SwiftUI with Observation, SwiftData `@Query`, Swift Testing, Apple `swift-format` (run locally). CLAUDE.md is rewritten for the Swift stack in the first native PR.
+
+## Round 5 (2026-10-12)
+
+27. **Gemini Flash does the heavy AI for now** (recipe extraction, divine macros, describe-it), not Apple's Private Cloud Compute model. Chris is putting off the PCC entitlement, which needs App Store Small Business Program enrolment. The app calls the Gemini REST API directly from the device (`gemini-3.5-flash-lite` by default, overridable in Settings) with structured JSON output. There's still no server.
+    - **The key is never compiled into the app.** Chris pastes his Gemini API key into Settings once. It's stored in the Keychain with iCloud Keychain sync, so iPhone and Mac both get it.
+    - `RecipeAI` stays a protocol with a Gemini provider now. A PCC provider can be added later behind the same interface without touching callers.
+    - The decision 10 rules still apply with Gemini as the primary: offline or no key means recipe parsing falls back to the on-device model (marked rough), and macro estimates are queued.
+    - Decision 6 (iOS/macOS 27 minimum) stays, since SwiftData and on-device Foundation Models want it and PCC may come back.

@@ -2,14 +2,14 @@
 
 From the decisions in [decisions.md](decisions.md) (2026-10-09). This plan becomes a new epic that replaces #22, with tickets in the existing format ("Depends on", "Done when").
 
-**Shape:** an iOS 27 / macOS 27 multiplatform SwiftUI app. Data is in SwiftData synced through the iCloud private database. AI runs on Apple Foundation Models (Private Cloud Compute, falling back to on-device), with no server. A pure Swift package `CauldronKit` holds the domain logic and is tested on Linux by cloud threads and locally by Chris. App builds run through Remote Control on Chris's Mac. Xcode Cloud ships TestFlight on `v*` tags. It has full parity with the web app, then the TypeScript is removed.
+**Shape:** an iOS 27 / macOS 27 multiplatform SwiftUI app. Data is in SwiftData synced through the iCloud private database. AI calls Gemini Flash directly from the device with Chris's own key from the Keychain (decision 27), falling back to the on-device Apple model for parsing, with no server. A pure Swift package `CauldronKit` holds the domain logic and is tested on Linux by cloud threads and locally by Chris. App builds run through Remote Control on Chris's Mac. Xcode Cloud ships TestFlight on `v*` tags. It has full parity with the web app, then the TypeScript is removed.
 
 ## Phase 0: Foundation
 - **Housekeeping:** close #17, #24, #21 and deploy PRs #153–#155 as not planned. Remove `.github/workflows`. File the native epic and its tickets.
 - **Project skeleton:** Xcode multiplatform app (`computer.srcery.cauldron`), the `CauldronKit` package, `swift-format` config, Swift 6 strict concurrency. Rewrite CLAUDE.md for the Swift stack.
 - **Data model:** SwiftData models for recipes (structured ingredients), photos, plan entries, gather items, diary entries, foods/favourites, weigh-ins and targets. Must be CloudKit-compatible (optional or defaulted properties, no unique constraints). Debug-only demo seed.
 - **Brand in Swift:** Catppuccin Mocha/Latte colour assets, bundled Geist and Geist Mono, type and quantity styles, app icon from `brand/`.
-- **TestFlight:** Xcode Cloud workflow on `v*` tags, plus iCloud, HealthKit and Foundation Models PCC entitlements. Applying for the PCC entitlement starts here.
+- **TestFlight:** Xcode Cloud workflow on `v*` tags, plus iCloud and HealthKit entitlements. The PCC entitlement is deferred (decision 27).
 
 ## Phase 1: CauldronKit ports (Linux-testable, can run in parallel)
 - Ingredient line parser, ported with its full test corpus from `packages/shared`.
@@ -25,7 +25,7 @@ From the decisions in [decisions.md](decisions.md) (2026-10-09). This plan becom
 - Brew mode: steps, timers, screen kept awake, Lock Screen Live Activity.
 
 ## Phase 3: Imports and AI
-- `RecipeAI` service: PCC model with `@Generable` output, falling back to on-device for parsing (marked rough). Macro estimates are queued when unavailable. Quota state is shown in the UI.
+- `RecipeAI` service: Gemini provider (REST, structured JSON output, key in Keychain), falling back to on-device for parsing (marked rough). Macro estimates are queued when unavailable. Missing-key and rate-limit states are shown in the UI.
 - Import by URL (on-device fetch and page extraction), by paste, and by photo (on-device text recognition).
 - Share extension for Safari, Instagram and TikTok captions.
 - "Divine macros" for recipes, run automatically on imports that have no page nutrition.
@@ -49,6 +49,6 @@ From the decisions in [decisions.md](decisions.md) (2026-10-09). This plan becom
 - Tag `web-final`, then remove the TypeScript workspace in one PR.
 
 ## Risks to watch
-- **PCC entitlement approval:** apply in Phase 0. On-device fallback keeps parsing working meanwhile.
+- **PCC entitlement:** deferred. It needs Small Business Program enrolment. Gemini covers it until then.
 - **CloudKit schema:** additive changes only once synced data exists, and deploy the schema to production before the first TestFlight build.
-- **Macro estimate quality from Apple's model is untested.** Compare a sample against Gemini's results early in Phase 3.
+- **Gemini free-tier rate limits** apply per key. That's fine for one person, but surface 429s plainly and queue the work rather than failing.
