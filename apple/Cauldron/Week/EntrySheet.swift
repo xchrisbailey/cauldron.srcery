@@ -16,7 +16,7 @@ struct EntrySheet: View {
   let onRemove: () -> Void
 
   @Environment(\.dismiss) private var dismiss
-  @State private var draft: EntryDraft
+  @State private var draft: PlannedMealDraft
 
   init(
     meal: PlanEntry, days: [LocalDate], slotSize: Int, onSave: @escaping (EntryChange) -> Void,
@@ -28,7 +28,7 @@ struct EntrySheet: View {
     self.onSave = onSave
     self.onShift = onShift
     self.onRemove = onRemove
-    _draft = State(initialValue: EntryDraft(meal))
+    _draft = State(initialValue: PlannedMealDraft(meal))
   }
 
   var body: some View {

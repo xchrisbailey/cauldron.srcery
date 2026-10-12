@@ -176,7 +176,7 @@ struct SpreadPlan: Equatable {
 }
 
 /// The fields of the sheet that changes one entry.
-struct EntryDraft: Equatable {
+struct PlannedMealDraft: Equatable {
   var day: LocalDate
   var slot: MealSlot
   /// Nil follows the recipe's own servings.

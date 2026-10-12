@@ -149,12 +149,12 @@ struct WeekPresentationTests {
   }
 
   @Test func anUntouchedDraftChangesNothing() {
-    #expect(EntryDraft(meal(recipe: soup, servings: 2)).change == nil)
-    #expect(EntryDraft(meal()).change == nil)
+    #expect(PlannedMealDraft(meal(recipe: soup, servings: 2)).change == nil)
+    #expect(PlannedMealDraft(meal()).change == nil)
   }
 
   @Test func aDraftSaysOnlyWhatChanged() {
-    var draft = EntryDraft(meal(recipe: soup, servings: 2))
+    var draft = PlannedMealDraft(meal(recipe: soup, servings: 2))
     draft.day = monday.adding(days: 1)
     draft.servings = nil
     #expect(draft.change == EntryChange(day: monday.adding(days: 1), servings: .some(nil)))
@@ -163,11 +163,11 @@ struct WeekPresentationTests {
   }
 
   @Test func aRecipeEntryCantBeRenamedButFreeTextCan() {
-    var recipeDraft = EntryDraft(meal(recipe: soup))
+    var recipeDraft = PlannedMealDraft(meal(recipe: soup))
     recipeDraft.title = "Other"
     #expect(recipeDraft.change == nil && !recipeDraft.canRename)
 
-    var text = EntryDraft(meal(title: "Leftovers"))
+    var text = PlannedMealDraft(meal(title: "Leftovers"))
     #expect(text.canRename)
     text.title = "  Takeaway "
     #expect(text.change == EntryChange(title: "Takeaway"))
@@ -176,7 +176,7 @@ struct WeekPresentationTests {
   }
 
   @Test func freeTextHasNoServingsToChange() {
-    var draft = EntryDraft(meal(title: "Leftovers"))
+    var draft = PlannedMealDraft(meal(title: "Leftovers"))
     draft.servings = 3
     #expect(draft.change == nil)
   }
