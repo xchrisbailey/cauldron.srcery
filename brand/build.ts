@@ -1,7 +1,7 @@
 // Draws Cauldron's brand assets from one definition of the mark (the brand
 // book's m-pot symbol on its 64×64 grid) for both themes.
 import { Resvg } from "@resvg/resvg-js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const palettes = {
@@ -165,4 +165,154 @@ writeFileSync(join(publicDir, "apple-touch-icon.png"), png(appIcon(palettes.moch
 writeFileSync(join(publicDir, "icon-192.png"), png(appIcon(palettes.mocha, false), 192));
 writeFileSync(join(publicDir, "icon-512.png"), png(appIcon(palettes.mocha, false), 512));
 writeFileSync(join(publicDir, "icon-maskable-512.png"), png(appIcon(palettes.mocha, true), 512));
-console.log(`Wrote brand assets to ${brandDir} and ${publicDir}`);
+// The native app's asset catalogue: a colour set per brand role and the app icons.
+const catalogDir = join(out, "apple/Cauldron/Assets.xcassets");
+const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
+const catalogInfo = { author: "xcode", version: 1 };
+
+/** The `--ctp-*` values in one block of tokens.css, which stays the only source of the hex. */
+const cssPalette = (css: string, selector: string) => {
+  const start = css.indexOf(`${selector} {`);
+  if (start < 0) throw new Error(`tokens.css has no "${selector}" block`);
+  const block = css.slice(start, css.indexOf("}", start));
+  return new Map([...block.matchAll(/--ctp-([a-z0-9]+):\s*#([0-9a-f]{6})/g)].map((m) => [m[1]!, m[2]!]));
+};
+const stylesDir = join(out, "apps/web/src/styles");
+const tokensCss = readFileSync(join(stylesDir, "tokens.css"), "utf8");
+const mocha = cssPalette(tokensCss, ":root");
+const latte = cssPalette(tokensCss, ':root[data-theme="light"]');
+// Role names (base, ink, magic, heat, ...) come from the `colors` block of tokens.stylex.ts.
+const stylexTokens = readFileSync(join(stylesDir, "tokens.stylex.ts"), "utf8");
+const colorsBlock = stylexTokens.slice(
+  stylexTokens.indexOf("export const colors"),
+  stylexTokens.indexOf("export const fonts"),
+);
+const roles = [...colorsBlock.matchAll(/(\w+): "var\(--ctp-([a-z0-9]+)\)"/g)].map(
+  (m) => [m[1]!, m[2]!] as const,
+);
+if (roles.length === 0) throw new Error("tokens.stylex.ts has no color roles");
+
+const srgb = (hex: string) => ({
+  "color-space": "srgb",
+  components: {
+    alpha: "1.000",
+    red: `0x${hex.slice(0, 2).toUpperCase()}`,
+    green: `0x${hex.slice(2, 4).toUpperCase()}`,
+    blue: `0x${hex.slice(4, 6).toUpperCase()}`,
+  },
+});
+/** Latte is the light appearance and Mocha the dark one. */
+const colorSet = (token: string) => {
+  const light = latte.get(token);
+  const dark = mocha.get(token);
+  if (!light || !dark) throw new Error(`tokens.css is missing --ctp-${token}`);
+  return json({
+    colors: [
+      { color: srgb(light), idiom: "universal" },
+      {
+        appearances: [{ appearance: "luminosity", value: "dark" }],
+        color: srgb(dark),
+        idiom: "universal",
+      },
+    ],
+    info: catalogInfo,
+  });
+};
+const writeColorSet = (dir: string, token: string) => {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "Contents.json"), colorSet(token));
+};
+// Swift reads these as "Brand/<role>", through `Brand.Colors`.
+const brandColorsDir = join(catalogDir, "Brand");
+rmSync(brandColorsDir, { recursive: true, force: true });
+mkdirSync(brandColorsDir, { recursive: true });
+writeFileSync(
+  join(brandColorsDir, "Contents.json"),
+  json({ info: catalogInfo, properties: { "provides-namespace": true } }),
+);
+for (const [role, token] of roles) writeColorSet(join(brandColorsDir, `${role}.colorset`), token);
+writeColorSet(join(catalogDir, "AccentColor.colorset"), "mauve");
+
+// iOS tints a grayscale icon itself, so the tinted variant keeps only lightness.
+const tinted: Palette = {
+  bg: "#000000",
+  crust: "#000000",
+  fg: "#ffffff",
+  mauve: "#d9d9d9",
+  peach: "#b3b3b3",
+  yellow: "#e6e6e6",
+  pink: "#c4c4c4",
+  lavender: "#a6a6a6",
+};
+
+/**
+ * An icon for Apple platforms on a 1024 canvas. iOS masks a full-bleed square itself.
+ * macOS wants the shape drawn: an 824 squircle with the system's margin around it.
+ */
+const appleIcon = (p: Palette, platform: "ios" | "mac", glow = true) => {
+  const size = 1024;
+  const box = platform === "mac" ? 824 : size;
+  const inset = (size - box) / 2;
+  const rx = platform === "mac" ? box * 0.225 : 0;
+  const markSize = box * 0.62;
+  const offset = (size - markSize) / 2;
+  const rect = (fill: string) =>
+    `<rect x="${inset}" y="${inset}" width="${box}" height="${box}" rx="${rx}" fill="${fill}"/>`;
+  return svg(
+    `0 0 ${size} ${size}`,
+    `
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="0%" r="95%" fx="50%" fy="0%">
+      <stop offset="0" stop-color="${p.mauve}" stop-opacity=".24"/>
+      <stop offset=".55" stop-color="${p.mauve}" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1"><stop offset=".55" stop-color="${p.bg}"/><stop offset="1" stop-color="${p.crust}"/></linearGradient>
+  </defs>
+  ${rect("url(#base)")}
+  ${glow ? rect("url(#bg)") : ""}
+  <g transform="translate(${offset} ${offset}) scale(${markSize / 66}) translate(1 1)">${markBody(p, "i")}</g>`,
+  );
+};
+
+const iconDir = join(catalogDir, "AppIcon.appiconset");
+rmSync(iconDir, { recursive: true, force: true });
+mkdirSync(iconDir, { recursive: true });
+const iosIcons = [
+  { file: "ios-light.png", svg: appleIcon(palettes.latte, "ios") },
+  { file: "ios-dark.png", svg: appleIcon(palettes.mocha, "ios"), appearance: "dark" },
+  { file: "ios-tinted.png", svg: appleIcon(tinted, "ios", false), appearance: "tinted" },
+];
+for (const icon of iosIcons) writeFileSync(join(iconDir, icon.file), png(icon.svg, 1024));
+// The Mac has one icon for both appearances: Mocha, the brand's default.
+const macIcon = appleIcon(palettes.mocha, "mac");
+const macSizes = [16, 32, 128, 256, 512];
+for (const pixels of new Set(macSizes.flatMap((s) => [s, s * 2]))) {
+  writeFileSync(join(iconDir, `mac-${pixels}.png`), png(macIcon, pixels));
+}
+writeFileSync(
+  join(iconDir, "Contents.json"),
+  json({
+    images: [
+      ...iosIcons.map((icon) => ({
+        ...(icon.appearance
+          ? { appearances: [{ appearance: "luminosity", value: icon.appearance }] }
+          : {}),
+        filename: icon.file,
+        idiom: "universal",
+        platform: "ios",
+        size: "1024x1024",
+      })),
+      ...macSizes.flatMap((s) =>
+        [1, 2].map((scale) => ({
+          filename: `mac-${s * scale}.png`,
+          idiom: "mac",
+          scale: `${scale}x`,
+          size: `${s}x${s}`,
+        })),
+      ),
+    ],
+    info: catalogInfo,
+  }),
+);
+
+console.log(`Wrote brand assets to ${brandDir}, ${publicDir} and ${catalogDir}`);
