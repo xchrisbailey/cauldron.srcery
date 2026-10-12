@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1CD25A340334ED8043EA19A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D4F8C4FEF0DF2C62958416B9 /* PrivacyInfo.xcprivacy */; };
 		C7D21DA8AC090127F2D059FB /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F9BA2013686AF7CF58B9288 /* CauldronKit */; };
 /* End PBXBuildFile section */
 
@@ -24,6 +25,7 @@
 		2C867AD163DEFFF027318D9C /* CauldronTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CauldronTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F991AE14529F0FF243617B5 /* Cauldron.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Cauldron.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABE388FC6227175A3BF548F7 /* CauldronKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CauldronKit; path = CauldronKit; sourceTree = SOURCE_ROOT; };
+		D4F8C4FEF0DF2C62958416B9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -68,6 +70,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		CD9947413D9901970CD8C4AE /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				D4F8C4FEF0DF2C62958416B9 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
 		DBE63DD144F2F41305297219 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -82,6 +92,7 @@
 				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
 				302A41EEEF3008F8313D0454 /* CauldronTests */,
 				DBE63DD144F2F41305297219 /* Packages */,
+				CD9947413D9901970CD8C4AE /* Support */,
 				4825101513FB21FD6BC1EC0B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,6 +105,7 @@
 			buildConfigurationList = 8D4D98BAECB6595CC34C73D1 /* Build configuration list for PBXNativeTarget "Cauldron" */;
 			buildPhases = (
 				918A7E913F1391316309FEF0 /* Sources */,
+				90A7866C3FB2725C9B848311 /* Resources */,
 				488050B4BD87E76D237DD90A /* Frameworks */,
 			);
 			buildRules = (
@@ -168,6 +180,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		90A7866C3FB2725C9B848311 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1CD25A340334ED8043EA19A /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5DCEDE1927D115E58A2CD7EC /* Sources */ = {

@@ -48,6 +48,11 @@ targets:
     sources:
       - path: Cauldron
         type: syncedFolder
+      # Listed outside the synced folder on purpose. XcodeGen only gives a target a Resources
+      # build phase when it has a resource of its own, and without that phase nothing in the
+      # synced folder (the asset catalogue, fonts) is copied into the app.
+      - path: Support/PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
     settings:
