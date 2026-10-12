@@ -2,6 +2,8 @@
 
 A personal recipe box and weekly meal planner, by srcery. The plan lives in [#2](https://github.com/xchrisbailey/cauldron.srcery/issues/2); conventions for contributors (human or agent) are in [`CLAUDE.md`](CLAUDE.md).
 
+> **Native rebuild under way.** Cauldron is becoming a native iOS and Mac app, in [`apple/`](apple) (epic [#157](https://github.com/xchrisbailey/cauldron.srcery/issues/157)). Everything below describes the TypeScript web app and API, which are frozen as the reference implementation until the native app reaches parity.
+
 ## Layout
 
 | Path                | What                                                                               |
