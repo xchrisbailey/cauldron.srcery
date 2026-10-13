@@ -16,32 +16,6 @@ private final class Flag {
   var isSet = false
 }
 
-/// Answers requests from a list, in order, and keeps what it was sent.
-private final class ScriptedTransport: AITransport {
-  enum Reply {
-    case status(Int, String)
-    case offline
-  }
-
-  private let replies: Mutex<[Reply]>
-  private let seen = Mutex<[URLRequest]>([])
-
-  init(_ replies: [Reply]) {
-    self.replies = Mutex(replies)
-  }
-
-  var requests: [URLRequest] { seen.withLock { $0 } }
-
-  func send(_ request: URLRequest) async throws -> (status: Int, body: Data) {
-    seen.withLock { $0.append(request) }
-    let reply = replies.withLock { $0.isEmpty ? Reply.offline : $0.removeFirst() }
-    switch reply {
-    case .status(let status, let body): return (status, Data(body.utf8))
-    case .offline: throw URLError(.notConnectedToInternet)
-    }
-  }
-}
-
 /// Takes a long time to answer, and stops when cancelled, as `URLSession` does.
 private final class SlowTransport: AITransport {
   private let count = Mutex(0)
@@ -53,15 +27,6 @@ private final class SlowTransport: AITransport {
     try await Task.sleep(for: .seconds(8))
     return (200, Data())
   }
-}
-
-/// A Gemini response whose answer is `json`.
-private func answer(_ json: String) -> String {
-  let body: [String: Any] = [
-    "candidates": [["content": ["parts": [["text": json]]], "finishReason": "STOP"]],
-    "usageMetadata": ["promptTokenCount": 10, "candidatesTokenCount": 5],
-  ]
-  return String(decoding: try! JSONSerialization.data(withJSONObject: body), as: UTF8.self)
 }
 
 private func food(
@@ -82,14 +47,10 @@ private let eggsAndToast = meal(
   food("Toast", amount: "1 slice", calories: "100", protein: "4", carbs: "19", fat: "1"))
 
 @MainActor
-private func service(
+private func scripted(
   key: String? = "test-key", _ replies: [ScriptedTransport.Reply]
 ) -> (RecipeAIService, ScriptedTransport) {
-  let keys = MemoryKeyStore(key)
-  let transport = ScriptedTransport(replies)
-  let ai = RecipeAIService(
-    keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: transport) { "gemini-test" },
-    onDevice: nil)
+  let (ai, transport, _) = service(key: key, replies)
   return (ai, transport)
 }
 
@@ -166,7 +127,7 @@ struct DescribeItTests {
 
   @Test func aDescriptionBecomesFoodsWithRoundedBoundedNumbers() async throws {
     // Ported: "splits a meal into foods with rounded, bounded numbers".
-    let (ai, transport) = service([
+    let (ai, transport) = scripted([
       .status(
         200,
         meal(
@@ -198,7 +159,7 @@ struct DescribeItTests {
 
   @Test func somethingThatIsntFoodHasNoNumbersAndCanBeRemovedOrLogged() async throws {
     // Ported: "returns null numbers for a non-food item, whatever the model said".
-    let (ai, _) = service([
+    let (ai, _) = scripted([
       .status(
         200, meal(food("A stapler", food: false, calories: "500", protein: "3")))
     ])
@@ -216,7 +177,7 @@ struct DescribeItTests {
 
   @Test func anUnreadableAnswerFailsPlainlyKeepsTheTextAndSavesNothing() async throws {
     // Ported: "fails plainly when the reply can't be read".
-    let (ai, _) = service([.status(200, answer(#"{"items":[{"name":"Eggs"}]}"#))])
+    let (ai, _) = scripted([.status(200, answer(#"{"items":[{"name":"Eggs"}]}"#))])
     let model = await divine("eggs", ai)
     #expect(model.phase == .writing)
     #expect(model.failure == Copy.tracker.describe.failed)
@@ -224,14 +185,14 @@ struct DescribeItTests {
     #expect(try entries().isEmpty && jobs().isEmpty)
 
     // The cook can ask again.
-    let (again, _) = service([.status(200, eggsAndToast)])
+    let (again, _) = scripted([.status(200, eggsAndToast)])
     await model.startDivining(using: again, in: context)?.value
     #expect(model.phase == .reviewing && model.failure == nil)
   }
 
   @Test func noFoodFoundSaysSoAndSavesNothing() async throws {
     // Ported: "says so when no food was found".
-    let (ai, _) = service([.status(200, answer(#"{"items":[]}"#))])
+    let (ai, _) = scripted([.status(200, answer(#"{"items":[]}"#))])
     let model = await divine("hmm", ai)
     #expect(model.phase == .writing)
     #expect(model.failure == Copy.tracker.describe.unreadable)
@@ -241,7 +202,7 @@ struct DescribeItTests {
   @Test func foodNamesAndAmountsAreTrimmedBlankOnesDroppedAndThirtyKept() async throws {
     // Ported: "fromModelMeal" (drops blank names and trims, keeps at most 30).
     let many = (0..<40).map { food("Food \($0)", calories: "10") }
-    let (ai, _) = service([
+    let (ai, _) = scripted([
       .status(
         200,
         meal(
@@ -251,7 +212,8 @@ struct DescribeItTests {
     #expect(tidy.rows.map(\.draft.name) == ["Rice", "Salt"])
     #expect(tidy.rows.map(\.draft.amount) == ["1 cup", ""])
 
-    let (more, _) = service([.status(200, answer(#"{"items":[\#(many.joined(separator: ","))]}"#))])
+    let (more, _) = scripted([.status(200, answer(#"{"items":[\#(many.joined(separator: ","))]}"#))]
+    )
     let capped = await divine("everything", more)
     #expect(capped.rows.count == 30)
     #expect(capped.rows.first?.draft.name == "Food 0" && capped.rows.last?.draft.name == "Food 29")
@@ -259,7 +221,7 @@ struct DescribeItTests {
 
   @Test func blankAndOverLongTextIsNeverSent() async throws {
     // Ported: "refuses empty, blank and over-long text".
-    let (ai, transport) = service([.status(200, eggsAndToast)])
+    let (ai, transport) = scripted([.status(200, eggsAndToast)])
     for text in ["", "   \n\t "] {
       let blank = model(text)
       #expect(blank.startDivining(using: ai, in: context) == nil)
@@ -283,7 +245,7 @@ struct DescribeItTests {
 
   @Test func loggingWritesOneEntryPerFoodInTheChosenMealAndDay() async throws {
     // Ported: "logs the reviewed items as separate entries in the chosen slot".
-    let (ai, _) = service([.status(200, eggsAndToast)])
+    let (ai, _) = scripted([.status(200, eggsAndToast)])
     let model = await divine("eggs and toast", ai, slot: .dinner)
     let closed = Flag()
     model.log(through: sheet(for: model, closed: closed))
@@ -305,7 +267,7 @@ struct DescribeItTests {
     try DiaryWrites.add(
       [NewEntry(name: "Porridge", macros: Macros(calories: 200), source: .manual)],
       on: day, slot: .lunch, in: context)
-    let (ai, _) = service([.status(200, eggsAndToast)])
+    let (ai, _) = scripted([.status(200, eggsAndToast)])
     let model = await divine("eggs and toast", ai)
     model.log(through: sheet(for: model))
     let lunch = try entries().filter { $0.slot == .lunch }
@@ -314,7 +276,7 @@ struct DescribeItTests {
   }
 
   @Test func foodsCanBeAdjustedAndRemovedBeforeLoggingAndTheTotalFollows() async throws {
-    let (ai, _) = service([
+    let (ai, _) = scripted([
       .status(
         200,
         meal(
@@ -340,7 +302,7 @@ struct DescribeItTests {
   }
 
   @Test func nothingIsLoggedWhileAnyNumberIsWrongAndTheReviewShowsWhich() async throws {
-    let (ai, _) = service([.status(200, eggsAndToast)])
+    let (ai, _) = scripted([.status(200, eggsAndToast)])
     let model = await divine("eggs and toast", ai)
     let row = model.rows[0]
     #expect(model.errors(for: row).isEmpty)
@@ -360,7 +322,7 @@ struct DescribeItTests {
   }
 
   @Test func removingEverythingLeavesNothingToLogAndStartOverKeepsTheText() async throws {
-    let (ai, transport) = service([.status(200, eggsAndToast)])
+    let (ai, transport) = scripted([.status(200, eggsAndToast)])
     let model = await divine("eggs and toast", ai)
     for row in model.rows { model.remove(row) }
     model.log(through: sheet(for: model))
@@ -375,7 +337,7 @@ struct DescribeItTests {
     try DiaryWrites.add(
       (0..<TrackerLimits.perDay).map { NewEntry(name: "F\($0)", macros: .none, source: .manual) },
       on: day, slot: .snack, in: context)
-    let (ai, _) = service([.status(200, eggsAndToast)])
+    let (ai, _) = scripted([.status(200, eggsAndToast)])
     let model = await divine("eggs and toast", ai)
     model.log(through: sheet(for: model))
     #expect(model.failure == Copy.tracker.dayFull)
@@ -389,7 +351,7 @@ struct DescribeItTests {
     "an unreachable model saves one waiting entry that fills in later", arguments: unreachableCases)
   fileprivate func waitingEntry(_ case: Unreachable) async throws {
     let words = "Two eggs and toast with butter"
-    let (down, transport) = service(key: `case`.key, [`case`.reply ?? .offline])
+    let (down, transport) = scripted(key: `case`.key, [`case`.reply ?? .offline])
     let model = await divine("  \(words)\n", down, slot: .breakfast)
 
     // One entry, named with the cook's words, waiting, with the job to fill it in.
@@ -413,7 +375,7 @@ struct DescribeItTests {
     #expect(waiting.macrosPending && waiting.macros == .none && waiting.name == words)
 
     // Back: the same entry fills in with the foods added up, keeping the cook's words.
-    let (back, _) = service([.status(200, eggsAndToast)])
+    let (back, _) = scripted([.status(200, eggsAndToast)])
     #expect(await AIJobQueue.drain(in: context, using: back.estimator) == 1)
     #expect(try entries().count == 1)
     #expect(!waiting.macrosPending && waiting.name == words)
@@ -424,7 +386,7 @@ struct DescribeItTests {
   @Test func aLongDescriptionIsNamedByItsFirstWordsButTheJobKeepsAllOfIt() async throws {
     let words = "toast " + String(repeating: "and butter ", count: 60)
     #expect(words.count > TrackerLimits.name && words.count <= DescribeModel.maxLength)
-    let (down, _) = service([.offline])
+    let (down, _) = scripted([.offline])
     let model = await divine(words, down)
     #expect(model.phase == .waiting)
     let waiting = try #require(try entries().first)
@@ -437,7 +399,7 @@ struct DescribeItTests {
   }
 
   @Test func aWaitingEntryCanBeRemovedAndTakesItsJobWithIt() async throws {
-    let (down, _) = service([.offline])
+    let (down, _) = scripted([.offline])
     _ = await divine("eggs", down)
     let waiting = try #require(try entries().first)
     try DiaryEditor(context: context).remove(waiting)
@@ -448,7 +410,7 @@ struct DescribeItTests {
     try DiaryWrites.add(
       (0..<TrackerLimits.perDay).map { NewEntry(name: "F\($0)", macros: .none, source: .manual) },
       on: day, slot: .snack, in: context)
-    let (down, _) = service([.offline])
+    let (down, _) = scripted([.offline])
     let model = await divine("eggs", down)
     #expect(model.phase == .writing && model.failure == Copy.tracker.dayFull)
     #expect(model.text == "eggs")
@@ -459,7 +421,7 @@ struct DescribeItTests {
 
   @Test func aBadAnswerSavesNoWaitingEntryEvenWithoutAnyFoodsInIt() async throws {
     for body in [#"{"nope":1}"#, "not json"] {
-      let (ai, _) = service([.status(200, answer(body))])
+      let (ai, _) = scripted([.status(200, answer(body))])
       let model = await divine("eggs", ai)
       #expect(model.phase == .writing && model.failure == Copy.tracker.describe.failed)
     }
@@ -562,7 +524,7 @@ struct DescribeItViewsTests {
     while held.requestCount == 0 { await Task.yield() }
     #expect(typed.phase == .asking)
 
-    let (online, _) = service([
+    let (online, _) = scripted([
       .status(
         200,
         meal(
@@ -575,13 +537,13 @@ struct DescribeItViewsTests {
     #expect(reviewing.phase == .reviewing)
     reviewing.log(through: AddContext(day: day, slot: .lunch) { _ in nil })
 
-    let (offline, _) = service([.offline])
+    let (offline, _) = scripted([.offline])
     let waiting = DescribeModel(day: day, slot: .lunch)
     waiting.text = "Two eggs and toast with butter"
     await waiting.startDivining(using: offline, in: context)?.value
     #expect(waiting.phase == .waiting)
 
-    let (broken, _) = service([.status(200, answer("{}"))])
+    let (broken, _) = scripted([.status(200, answer("{}"))])
     let failed = DescribeModel(day: day, slot: .lunch)
     failed.text = "eggs"
     await failed.startDivining(using: broken, in: context)?.value
@@ -625,5 +587,100 @@ struct DescribeItViewsTests {
   @Test func theWaitingWordsAreInTheCopyModuleAndPlain() {
     #expect(Copy.describeNative.waitingRow.tone == .plain)
     #expect(Copy.describeNative.waitingSheet.tone == .plain)
+  }
+}
+
+private let gregorian: Calendar = {
+  var calendar = Calendar(identifier: .gregorian)
+  calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+  return calendar
+}()
+
+@MainActor
+@Suite("Waiting described meals")
+struct WaitingMealTests {
+  private let day = LocalDate(year: 2026, month: 10, day: 10)!
+  private let container: ModelContainer
+  private var context: ModelContext { container.mainContext }
+
+  init() throws {
+    container = try CauldronStore.container(.inMemory)
+  }
+
+  /// A described meal saved while Gemini was out of reach.
+  private func waitingMeal(_ words: String = "eggs and toast") async throws -> DiaryEntryRecord {
+    let (down, _) = scripted([.offline])
+    let model = DescribeModel(day: day, slot: .breakfast)
+    model.text = words
+    await model.startDivining(using: down, in: context)?.value
+    #expect(model.phase == .waiting)
+    return try #require(try context.fetch(FetchDescriptor<DiaryEntryRecord>()).first)
+  }
+
+  private func jobs() throws -> [AIJobRecord] {
+    try context.fetch(FetchDescriptor<AIJobRecord>())
+  }
+
+  @Test func numbersTypedIntoAWaitingMealStandWhenTheEstimateArrives() async throws {
+    let waiting = try await waitingMeal()
+    var draft = EntryDraft(waiting)
+    draft.calories = "320"
+    draft.protein = "21"
+    try DiaryEditor(context: context).update(
+      waiting, with: try #require(draft.valid(requireCalories: false)))
+    #expect(!waiting.macrosPending)
+
+    // A good answer arrives: nothing is asked, nothing is written over, and no job is left.
+    let (back, transport) = scripted([.status(200, eggsAndToast)])
+    await AIJobQueue.drain(in: context, using: back.estimator)
+    #expect(transport.requests.isEmpty)
+    #expect(waiting.macros == Macros(calories: 320, protein: 21))
+    #expect(!waiting.macrosPending && waiting.name == "eggs and toast")
+    #expect(try jobs().isEmpty)
+  }
+
+  @Test func anEditWithNoNumbersKeepsTheMealWaitingAndItStillFillsIn() async throws {
+    let waiting = try await waitingMeal()
+    var draft = EntryDraft(waiting)
+    draft.name = "eggs and toast, breakfast"
+    draft.slot = .snack
+    try DiaryEditor(context: context).update(
+      waiting, with: try #require(draft.valid(requireCalories: false)))
+    #expect(waiting.macrosPending && waiting.slot == .snack)
+    #expect(try jobs().count == 1)
+
+    let (back, _) = scripted([.status(200, eggsAndToast)])
+    await AIJobQueue.drain(in: context, using: back.estimator)
+    #expect(!waiting.macrosPending && waiting.macros.calories == 243)
+    #expect(try jobs().isEmpty)
+  }
+
+  @Test func healthGetsTheMealOnceTheQueueHasFilledItIn() async throws {
+    let store = FakeHealthStore()
+    let defaults = try #require(UserDefaults(suiteName: "waiting-meal-\(UUID().uuidString)"))
+    let health = HealthSync(
+      store: store, setup: HealthSetup(isConfigured: true), defaults: defaults,
+      calendar: gregorian,
+      now: { [day] in
+        gregorian.date(
+          from: DateComponents(year: day.year, month: day.month, day: day.day, hour: 12))
+          ?? .now
+      })
+    await health.connect()
+    let waiting = try await waitingMeal()
+
+    // Still down: nothing finished, nothing to tell Health.
+    let (down, _) = scripted([.offline])
+    #expect(await AIQueueRunner.drain(in: context, using: down.estimator, health: health) == 0)
+    await health.settle()
+    #expect(await store.held.isEmpty)
+
+    // Back: the numbers arrive and the nutrition reaches Health without any diary edit.
+    let (back, _) = scripted([.status(200, eggsAndToast)])
+    #expect(await AIQueueRunner.drain(in: context, using: back.estimator, health: health) == 1)
+    await health.settle()
+    let held = await store.held
+    #expect(held[HealthNutrition.syncID(entry: waiting.id, nutrient: .energy)]?.value == 243)
+    #expect(held.count == 4)
   }
 }
