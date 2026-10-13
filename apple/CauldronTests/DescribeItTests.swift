@@ -599,10 +599,8 @@ struct DescribeItViewsTests {
       #expect(draws(tab(writing, ai: keyless, scheme: scheme)), "attention \(scheme)")
       #expect(draws(tab(waiting, ai: keyless, scheme: scheme)), "waiting, attention \(scheme)")
     }
-    // The tab inside the sheet's own stack, as the app has it.
-    let stacked = NavigationStack { tab(reviewing, ai: online, scheme: .light) }
-    #expect(draws(stacked))
-
+    // Not drawn inside a navigation stack: iOS stops when one is drawn off screen (see
+    // `DiaryViewsTests`).
     typed.cancel()
     await work.value
   }
