@@ -1,19 +1,22 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
-/// The gather section's first screen. Until the section is built it shows its empty state;
-/// replace the body and keep the name.
+/// The Gather section: the week's shopping, merged and grouped by aisle. It follows the same
+/// week cursor as the Week section (the cook's first day of the week, and the weeks either
+/// side) and hands one week at a time to `GatherScreen`.
 struct GatherRoot: View {
   var body: some View {
-    NavigationStack {
-      EmptyState(
-        systemImage: AppDestination.gather.systemImage, message: Copy.gather.empty
-      )
-      .navigationTitle(AppDestination.gather.title.text)
+    WeekCursorHost { cursor in
+      GatherScreen(cursor: cursor)
     }
   }
 }
 
-#Preview {
-  GatherRoot()
-}
+#if DEBUG
+  #Preview("Gather") {
+    let container = RecipePreviewData.container()
+    GatherRoot()
+      .modelContainer(container)
+  }
+#endif

@@ -16,6 +16,7 @@ extension WeighInRecord: Deduplicated { var lastChanged: Date { updatedAt } }
 extension FavouriteRecord: Deduplicated { var lastChanged: Date { updatedAt } }
 extension TagRecord: Deduplicated { var lastChanged: Date { updatedAt } }
 extension PantryItemRecord: Deduplicated { var lastChanged: Date { createdAt } }
+extension GatherItemRecord: Deduplicated { var lastChanged: Date { updatedAt } }
 extension CookRecord: Deduplicated { var lastChanged: Date { createdAt } }
 
 /// CloudKit can't enforce uniqueness, so two devices that both set targets, or both weigh in
@@ -55,6 +56,17 @@ enum Deduplication {
     removed += try prune(WeighInRecord.self, in: context) { $0.dayKey }
     removed += try prune(FavouriteRecord.self, in: context) { $0.key }
     removed += try prune(PantryItemRecord.self, in: context) { $0.itemKey }
+    // A gathered line is one per week and merge key; lines added by hand are each their own.
+    removed += try prune(
+      GatherItemRecord.self, in: context,
+      key: { item in
+        item.manual
+          ? nil : "\(item.weekStartKey)|\(mergeKeyOf(item.itemKey, item.quantity, item.unit))"
+      }
+    ) { keeper, extra in
+      // A tick belongs to the line, so it outlives the row that held it.
+      if extra.checked { keeper.checked = true }
+    }
     removed += try prune(CookRecord.self, in: context) { cook in
       cook.recipe.map { "\($0.id.uuidString)|\(cook.cookedOnKey)" }
     }
