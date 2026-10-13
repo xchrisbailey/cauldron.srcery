@@ -6,8 +6,45 @@ extension Copy {
     public let appearance = Appearance()
     public let iCloud = ICloud()
     public let health = Health()
+    public let ai = AI()
 
     public init() {}
+
+    /// The Gemini key and the state of the AI. A problem shows as a line that stays, here and
+    /// beside AI actions, never as an alert.
+    public struct AI: Sendable {
+      public let title = plain("AI")
+      public let keyLabel = plain("Gemini API key")
+      public let keyPlaceholder = plain("Paste your key")
+      public let saveKey = plain("Save key")
+      public let removeKey = plain("Remove key")
+      public let keySaved = plain("A key is saved in your keychain.")
+      public let keyNotSaved = plain("Couldn't save the key to your keychain.")
+      public let modelLabel = plain("Model")
+      public let hint = plain(
+        "Cauldron sends recipe text and meal descriptions to Google's Gemini with your own key. The key stays in your keychain."
+      )
+      public let ready = plain("Gemini is set up.")
+      public let missingKey = plain(
+        "Add a Gemini API key to read recipes and estimate macros with Gemini. Until then recipes are read on this device, and estimates wait."
+      )
+      public let invalidKey = plain("Gemini didn't accept that key. Check it and save it again.")
+      public let rateLimited = plain(
+        "Your Gemini key has reached its limit for now. Estimates wait and finish later.")
+
+      public let invalidModel = plain(
+        "Gemini doesn't know that model. Check its name below, or clear it to use the usual one.")
+
+      public func modelHint(_ model: String) -> CopyString {
+        plain("Leave empty to use \(model).")
+      }
+
+      public func waiting(_ count: Int) -> CopyString {
+        plain(count == 1 ? "1 estimate is waiting." : "\(count) estimates are waiting.")
+      }
+
+      public init() {}
+    }
 
     public struct Appearance: Sendable {
       public let title = plain("Appearance")

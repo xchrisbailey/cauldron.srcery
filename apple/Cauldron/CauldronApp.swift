@@ -1,4 +1,5 @@
 import CauldronKit
+import Network
 import SwiftData
 import SwiftUI
 
@@ -9,6 +10,7 @@ struct CauldronApp: App {
   @Environment(\.scenePhase) private var scenePhase
   @State private var sync = SyncStatusModel(
     account: LiveICloudAccount(mode: CauldronStore.launchMode))
+  @State private var ai = RecipeAIService.forLaunch(mode: CauldronStore.launchMode)
 
   init() {
     Brand.Fonts.register()
@@ -42,7 +44,20 @@ struct CauldronApp: App {
     WindowGroup {
       AppShell()
         .environment(sync)
+        .environment(ai)
         .task { await sync.run() }
+        // Estimates that waited for Gemini run when the app comes forward and whenever the
+        // network comes back.
+        .task(id: scenePhase) {
+          guard scenePhase == .active else { return }
+          ai.refreshKey()
+          await AIJobQueue.drain(in: container.mainContext, using: ai.estimator)
+        }
+        .task {
+          for await path in NWPathMonitor() where path.status == .satisfied {
+            await AIJobQueue.drain(in: container.mainContext, using: ai.estimator)
+          }
+        }
         // Health follows the diary whichever section is open: weights come in and the
         // diary's nutrition is put right each time the app comes forward. It does nothing
         // until Health is connected.
@@ -67,6 +82,7 @@ struct CauldronApp: App {
       Settings {
         SettingsView()
           .environment(sync)
+          .environment(ai)
           .frame(minWidth: 420, minHeight: 360)
           .cauldronAppearance()
       }

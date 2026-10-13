@@ -66,4 +66,5 @@ struct SyncStatusRow: View {
 #Preview {
   SettingsView()
     .environment(SyncStatusModel(account: LiveICloudAccount(mode: .inMemory)))
+    .environment(RecipeAIService.offline())
 }
