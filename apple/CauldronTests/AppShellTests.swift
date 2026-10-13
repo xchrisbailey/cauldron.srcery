@@ -40,6 +40,7 @@ struct AppShellTests {
       for scheme in [ColorScheme.light, .dark] {
         let view = AppDestinationView(destination: destination)
           .environment(sync)
+          .environment(RecipeAIService.offline())
           .modelContainer(container)
           .environment(\.colorScheme, scheme)
           .frame(width: 390, height: 800)
@@ -52,9 +53,12 @@ struct AppShellTests {
   @Test func theShellRenders() throws {
     let sync = SyncStatusModel(account: FakeICloudAccount(.signedOut))
     let container = try CauldronStore.container(.inMemory)
-    let renderer = ImageRenderer(
-      content: AppShell().environment(sync).modelContainer(container).frame(
-        width: 390, height: 800))
+    let shell = AppShell()
+      .environment(sync)
+      .environment(RecipeAIService.offline())
+      .modelContainer(container)
+      .frame(width: 390, height: 800)
+    let renderer = ImageRenderer(content: shell)
     #expect(renderer.cgImage != nil)
   }
 }

@@ -105,6 +105,25 @@ struct ModelAnswerTests {
     }
   }
 
+  @Test func everyKeyMustBeThereThoughItMayBeNull() throws {
+    #expect(throws: (any Error).self) { try decode(ModelMacros.self, #"{"nope":1}"#) }
+    #expect(throws: (any Error).self) {
+      try decode(ModelMacros.self, #"{"servings":4,"calories":300,"protein":20,"carbs":10}"#)
+    }
+    let unknown = try decode(
+      ModelMacros.self, #"{"servings":null,"calories":null,"protein":null,"carbs":null,"fat":null}"#
+    )
+    #expect(unknown.macros == Macros.none)
+    #expect(throws: (any Error).self) {
+      try decode(ModelMeal.self, #"{"items":[{"name":"Eggs","food":true}]}"#)
+    }
+    #expect(throws: (any Error).self) {
+      try decode(
+        ModelRecipe.self,
+        #"{"recipe":"found","title":"Dal","ingredients":[],"steps":[],"tags":[],"unsure":[]}"#)
+    }
+  }
+
   @Test func macrosAreRoundedAndBoundedLikeARecipesOwn() throws {
     let model = try decode(
       ModelMacros.self, #"{"servings":4,"calories":412.5,"protein":31.26,"carbs":0.24,"fat":null}"#)

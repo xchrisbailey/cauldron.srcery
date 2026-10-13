@@ -25,6 +25,29 @@ public struct ModelRecipe: Sendable, Hashable, Decodable {
   public var notes: String?
   public var unsure: [DraftField]
 
+  private enum CodingKeys: String, CodingKey {
+    case recipe, title, description, servings, prepMinutes, cookMinutes, totalMinutes
+    case ingredients, steps, tags, notes, unsure
+  }
+
+  // Every key has to be there, though it may be null, as the reference's schema demands. An
+  // answer that leaves keys out is some other shape, not a recipe with gaps.
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    recipe = try container.decode(ExtractOutcome.self, forKey: .recipe)
+    title = try container.decode(String?.self, forKey: .title)
+    description = try container.decode(String?.self, forKey: .description)
+    servings = try container.decode(Double?.self, forKey: .servings)
+    prepMinutes = try container.decode(Double?.self, forKey: .prepMinutes)
+    cookMinutes = try container.decode(Double?.self, forKey: .cookMinutes)
+    totalMinutes = try container.decode(Double?.self, forKey: .totalMinutes)
+    ingredients = try container.decode([ExtractedLine].self, forKey: .ingredients)
+    steps = try container.decode([ExtractedStep].self, forKey: .steps)
+    tags = try container.decode([String].self, forKey: .tags)
+    notes = try container.decode(String?.self, forKey: .notes)
+    unsure = try container.decode([DraftField].self, forKey: .unsure)
+  }
+
   /// A whole number of minutes or servings: nothing negative, and halves round up.
   private static func whole(_ value: Double?) -> Int? {
     // Past 2^53 a double isn't a whole number any more, and no recipe gets near it.
@@ -60,6 +83,20 @@ public struct ModelMacros: Sendable, Hashable, Decodable {
     self.fat = fat
   }
 
+  private enum CodingKeys: String, CodingKey {
+    case servings, calories, protein, carbs, fat
+  }
+
+  // Every key has to be there, though it may be null.
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    servings = try container.decode(Double?.self, forKey: .servings)
+    calories = try container.decode(Double?.self, forKey: .calories)
+    protein = try container.decode(Double?.self, forKey: .protein)
+    carbs = try container.decode(Double?.self, forKey: .carbs)
+    fat = try container.decode(Double?.self, forKey: .fat)
+  }
+
   private static func within(_ value: Double?, max: Double, step: Double) -> Double? {
     guard let value, value.isFinite, value >= 0, value <= max else { return nil }
     return jsRound(value / step) * step
@@ -86,6 +123,22 @@ public struct ModelMeal: Sendable, Hashable, Decodable {
     public var protein: Double?
     public var carbs: Double?
     public var fat: Double?
+
+    private enum CodingKeys: String, CodingKey {
+      case name, amount, food, calories, protein, carbs, fat
+    }
+
+    // Every key has to be there, though the amount and the numbers may be null.
+    public init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      name = try container.decode(String.self, forKey: .name)
+      amount = try container.decode(String?.self, forKey: .amount)
+      food = try container.decode(Bool.self, forKey: .food)
+      calories = try container.decode(Double?.self, forKey: .calories)
+      protein = try container.decode(Double?.self, forKey: .protein)
+      carbs = try container.decode(Double?.self, forKey: .carbs)
+      fat = try container.decode(Double?.self, forKey: .fat)
+    }
   }
 
   public var items: [Item]
