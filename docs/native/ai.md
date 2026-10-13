@@ -26,5 +26,5 @@ Decision 27: Gemini Flash does the heavy AI, called straight from the device wit
 ## Not verified yet
 
 - A real call to Gemini. The request and response mapping is tested against response bodies written by hand from Gemini's documented shapes, not recorded from the live API.
-- The on-device fallback on a device. The simulator has no model.
+- The on-device fallback. It has only been compiled, never run against Apple's model, so its prompts and trimming are untested.
 - The key reaching a second device through iCloud Keychain.
