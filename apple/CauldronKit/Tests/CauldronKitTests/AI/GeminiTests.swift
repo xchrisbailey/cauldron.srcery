@@ -224,8 +224,16 @@ struct GeminiResponseTests {
     #expect(throws: RecipeAIError.failed(detail: "rejected: INVALID_ARGUMENT")) {
       try Gemini.answer(status: 400, body: rejected)
     }
-    #expect(throws: RecipeAIError.failed(detail: "status 404")) {
-      try Gemini.answer(status: 404, body: Data())
+    #expect(throws: RecipeAIError.failed(detail: "status 418")) {
+      try Gemini.answer(status: 418, body: Data())
+    }
+  }
+
+  @Test func anUnknownModelIsItsOwnProblemAndATimeoutIsUnreachable() {
+    let unknown = failure(404, status: "NOT_FOUND", message: "models/nope is not found.")
+    #expect(throws: RecipeAIError.invalidModel) { try Gemini.answer(status: 404, body: unknown) }
+    for status in [408, 0] {
+      #expect(throws: RecipeAIError.unreachable) { try Gemini.answer(status: status, body: Data()) }
     }
   }
 }

@@ -30,6 +30,7 @@ struct OnDeviceRecipeAI: RecipeAI {
         return Extraction(
           outcome: response.content.outcome, recipe: response.content.extracted, usage: nil)
       } catch {
+        if Task.isCancelled { throw .cancelled }
         budget /= 2
       }
     }

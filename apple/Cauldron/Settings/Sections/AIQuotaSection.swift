@@ -34,7 +34,6 @@ struct AIQuotaSection: View {
       ) {
         Text(verbatim: Copy.settings.ai.keyLabel.text)
       }
-      .textContentType(.password)
       .autocorrectionDisabled()
       .listRowBackground(Brand.Colors.mantle)
       if ai.keyNotSaved {
@@ -90,6 +89,7 @@ extension RecipeAIStatus {
     case .missingKey: Copy.settings.ai.missingKey
     case .invalidKey: Copy.settings.ai.invalidKey
     case .rateLimited: Copy.settings.ai.rateLimited
+    case .invalidModel: Copy.settings.ai.invalidModel
     }
   }
 

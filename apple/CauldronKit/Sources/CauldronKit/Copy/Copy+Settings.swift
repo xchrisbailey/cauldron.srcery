@@ -32,6 +32,9 @@ extension Copy {
       public let rateLimited = plain(
         "Your Gemini key has reached its limit for now. Estimates wait and finish later.")
 
+      public let invalidModel = plain(
+        "Gemini doesn't know that model. Check its name below, or clear it to use the usual one.")
+
       public func modelHint(_ model: String) -> CopyString {
         plain("Leave empty to use \(model).")
       }

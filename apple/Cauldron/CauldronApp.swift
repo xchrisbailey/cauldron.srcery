@@ -50,6 +50,7 @@ struct CauldronApp: App {
         // network comes back.
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
+          ai.refreshKey()
           await AIJobQueue.drain(in: container.mainContext, using: ai.estimator)
         }
         .task {

@@ -33,6 +33,33 @@ private final class ScriptedTransport: AITransport {
   }
 }
 
+/// Holds every request until `release()`, so two callers can be caught mid-flight.
+private final class HeldTransport: AITransport {
+  private let body: String
+  private let count = Mutex(0)
+  private let waiters = Mutex<[CheckedContinuation<Void, Never>]>([])
+
+  init(answering body: String) {
+    self.body = body
+  }
+
+  var requestCount: Int { count.withLock { $0 } }
+
+  func release() {
+    let held = waiters.withLock { held in
+      defer { held = [] }
+      return held
+    }
+    for waiter in held { waiter.resume() }
+  }
+
+  func send(_ request: URLRequest) async throws -> (status: Int, body: Data) {
+    count.withLock { $0 += 1 }
+    await withCheckedContinuation { waiter in waiters.withLock { $0.append(waiter) } }
+    return (200, Data(body.utf8))
+  }
+}
+
 /// A Gemini response whose answer is `json`.
 private func answer(_ json: String) -> String {
   let body: [String: Any] = [
@@ -165,6 +192,34 @@ struct RecipeAIServiceTests {
     #expect(ai.removeKey())
     #expect(keys.key() == nil)
     #expect(!ai.hasKey && ai.status == .missingKey)
+  }
+
+  @Test func aKeyThatArrivesFromAnotherDeviceIsNoticed() {
+    let (ai, _, keys) = service(key: nil, [])
+    #expect(!ai.hasKey && ai.status == .missingKey)
+    // iCloud Keychain puts it there without telling the app.
+    #expect(throws: Never.self) { try keys.setKey("from-the-iphone") }
+    ai.refreshKey()
+    #expect(ai.hasKey && ai.status == .ready)
+    #expect(throws: Never.self) { try keys.setKey(nil) }
+    ai.refreshKey()
+    #expect(!ai.hasKey && ai.status == .missingKey)
+  }
+
+  @Test func aCancelledRequestIsntMistakenForBeingOffline() async {
+    let (ai, _, _) = service([.offline], onDevice: true)
+    let input = input
+    let task = Task { @MainActor () -> RecipeAIError? in
+      // Cancelled before it starts, as closing the sheet that asked would do.
+      withUnsafeCurrentTask { $0?.cancel() }
+      do throws(RecipeAIError) {
+        _ = try await ai.extract(input)
+        return nil
+      } catch {
+        return error
+      }
+    }
+    #expect(await task.value == .cancelled)
   }
 
   @Test func aKeychainThatRefusesIsReported() {
@@ -300,40 +355,116 @@ struct AIJobQueueTests {
     #expect(!gone.macrosPending && !empty.macrosPending)
   }
 
-  @Test func aDescribedMealFillsItsEntryAndAddsTheOtherFoods() async throws {
-    let day = try #require(LocalDate("2026-10-12"))
-    let entry = DiaryEntryRecord(
-      day: day, slot: .breakfast, name: "eggs on toast", source: .described)
-    entry.position = 2
-    context.insert(entry)
-    AIJobQueue.enqueueMeal("eggs on toast", for: entry, in: context)
-    #expect(entry.macrosPending)
+  private let mealJSON =
+    #"{"items":[{"name":"Eggs","amount":"2 large","food":true,"calories":143,"protein":12.5,"carbs":1,"fat":9.5},{"name":"Toast","amount":"1 slice","food":true,"calories":100,"protein":4,"carbs":19,"fat":null},{"name":"A walk","amount":null,"food":false,"calories":null,"protein":null,"carbs":null,"fat":null}]}"#
 
-    let meal =
-      #"{"items":[{"name":"Eggs","amount":"2 large","food":true,"calories":143,"protein":12.5,"carbs":1,"fat":9.5},{"name":"Toast","amount":"1 slice","food":true,"calories":100,"protein":4,"carbs":19,"fat":1}]}"#
-    let (ai, _, _) = service([.status(200, answer(meal))])
+  private func describedEntry(_ text: String = "eggs on toast") throws -> DiaryEntryRecord {
+    let day = try #require(LocalDate("2026-10-12"))
+    let entry = DiaryEntryRecord(day: day, slot: .breakfast, name: text, source: .described)
+    context.insert(entry)
+    AIJobQueue.enqueueMeal(text, for: entry, in: context)
+    return entry
+  }
+
+  @Test func aDescribedMealGetsItsFoodsAddedUpAndKeepsTheCooksWords() async throws {
+    let entry = try describedEntry()
+    #expect(entry.macrosPending)
+    let (ai, _, _) = service([.status(200, answer(mealJSON))])
     #expect(await AIJobQueue.drain(in: context, using: ai.estimator) == 1)
 
-    let entries = try context.fetch(
-      FetchDescriptor<DiaryEntryRecord>(sortBy: [SortDescriptor(\.position)]))
-    #expect(entries.map(\.name) == ["Eggs", "Toast"])
-    #expect(entries.map(\.position) == [2, 3])
-    #expect(entries.allSatisfy { !$0.macrosPending && $0.slot == .breakfast && $0.day == day })
-    #expect(entries[0].amount == "2 large")
-    #expect(entries[0].macros == Macros(calories: 143, protein: 12.5, carbs: 1, fat: 9.5))
-    #expect(entries[1].source == .described)
+    // One entry, however many foods: a job never adds rows, so running it twice (here or on
+    // another device) can't duplicate anything.
+    let entries = try context.fetch(FetchDescriptor<DiaryEntryRecord>())
+    #expect(entries.count == 1)
+    #expect(entry.name == "eggs on toast")
+    #expect(!entry.macrosPending)
+    #expect(entry.macros == Macros(calories: 243, protein: 16.5, carbs: 20, fat: 9.5))
     #expect(try jobs().isEmpty)
   }
 
   @Test func aMealThatIsntFoodLeavesTheEntryAsWrittenAndStopsWaiting() async throws {
-    let day = try #require(LocalDate("2026-10-12"))
-    let entry = DiaryEntryRecord(day: day, slot: .snack, name: "a long walk", source: .described)
-    context.insert(entry)
-    AIJobQueue.enqueueMeal("a long walk", for: entry, in: context)
+    let entry = try describedEntry("a long walk")
     let (ai, _, _) = service([.status(200, answer(#"{"items":[]}"#))])
     await AIJobQueue.drain(in: context, using: ai.estimator)
     #expect(entry.name == "a long walk")
     #expect(!entry.macrosPending && entry.macros == .none)
+  }
+
+  @Test func twoDrainsAtOnceAskOnceAndWriteOnce() async throws {
+    let entry = try describedEntry()
+    let keys = MemoryKeyStore("test-key")
+    let transport = HeldTransport(answering: answer(mealJSON))
+    let ai = GeminiRecipeAI(keys: keys, transport: transport) { "gemini-test" }
+    let context = context
+
+    let first = Task { @MainActor in await AIJobQueue.drain(in: context, using: ai) }
+    // Let the first drain reach the network, then start a second while it waits there.
+    while transport.requestCount == 0 { await Task.yield() }
+    let second = await AIJobQueue.drain(in: context, using: ai)
+    #expect(second == 0)
+    transport.release()
+    // The second call asked for another pass, which finds nothing left to do.
+    #expect(await first.value == 1)
+
+    #expect(transport.requestCount == 1)
+    #expect(try context.fetch(FetchDescriptor<DiaryEntryRecord>()).count == 1)
+    #expect(entry.macros.calories == 243)
+  }
+
+  @Test func aRemovedEntryThatIsPutBackIsQueuedAgain() async throws {
+    let entry = try describedEntry()
+    // Removing the entry takes its job with it; putting it back restores only the entry.
+    for job in try jobs() { context.delete(job) }
+    try context.save()
+    #expect(entry.macrosPending)
+    #expect(try jobs().isEmpty)
+
+    let (ai, transport, _) = service([.status(200, answer(mealJSON))])
+    #expect(await AIJobQueue.drain(in: context, using: ai.estimator) == 1)
+    #expect(!entry.macrosPending)
+    #expect(entry.macros.calories == 243)
+    let body = String(decoding: try #require(transport.requests.first?.httpBody), as: UTF8.self)
+    #expect(body.contains("eggs on toast"))
+  }
+
+  @Test func aRecipeMarkedWaitingWithNoJobIsQueuedAgain() async throws {
+    let recipe = recipe()
+    recipe.macrosPending = true
+    let (ai, _, _) = service([.status(200, answer(macrosJSON))])
+    #expect(await AIJobQueue.drain(in: context, using: ai.estimator) == 1)
+    #expect(!recipe.macrosPending)
+    #expect(recipe.macros.calories == 310)
+  }
+
+  @Test func aJobWhoseRecipeHasntArrivedWaitsAWeekBeforeItIsDropped() async throws {
+    // Over sync a job can arrive before the recipe it is for.
+    let job = AIJobRecord(kind: .recipeMacros)
+    context.insert(job)
+    let (ai, transport, _) = service([])
+    #expect(await AIJobQueue.drain(in: context, using: ai.estimator) == 0)
+    #expect(try jobs().count == 1)
+    #expect(try jobs().first?.status == .waiting)
+    #expect(transport.requests.isEmpty)
+
+    let later = job.createdAt.addingTimeInterval(AIJobQueue.orphanGrace + 60)
+    await AIJobQueue.drain(in: context, using: ai.estimator, now: later)
+    #expect(try jobs().isEmpty)
+  }
+
+  @Test func anUnknownModelMakesEverythingWaitAndSaysSo() async throws {
+    let one = recipe("One")
+    AIJobQueue.enqueueMacros(for: one, in: context)
+    AIJobQueue.enqueueMacros(for: recipe("Two"), in: context)
+    let notFound = ScriptedTransport.Reply.status(
+      404, #"{"error":{"code":404,"status":"NOT_FOUND"}}"#)
+    let (ai, transport, _) = service([notFound, notFound, notFound])
+    for _ in 0..<3 { await AIJobQueue.drain(in: context, using: ai.estimator) }
+    // A mistyped model name costs no attempts and fails nothing.
+    #expect(try jobs().count == 2)
+    #expect(try jobs().allSatisfy { $0.status == .waiting && $0.attempts == 0 })
+    #expect(one.macrosPending)
+    #expect(transport.requests.count == 3)
+    #expect(ai.status == .invalidModel)
   }
 }
 
@@ -341,10 +472,13 @@ struct AIJobQueueTests {
 @Suite("AI settings")
 struct AISettingsTests {
   @Test func everyStatusHasItsOwnLine() {
-    let statuses: [RecipeAIStatus] = [.ready, .missingKey, .invalidKey, .rateLimited]
-    #expect(Set(statuses.map(\.message.text)).count == 4)
+    let statuses: [RecipeAIStatus] = [
+      .ready, .missingKey, .invalidKey, .rateLimited, .invalidModel,
+    ]
+    #expect(Set(statuses.map(\.message.text)).count == 5)
     #expect(statuses.allSatisfy { $0.message.tone == .plain })
-    #expect(statuses.filter(\.needsAttention) == [.missingKey, .invalidKey, .rateLimited])
+    #expect(
+      statuses.filter(\.needsAttention) == [.missingKey, .invalidKey, .rateLimited, .invalidModel])
     #expect(Copy.settings.ai.waiting(1).text == "1 estimate is waiting.")
     #expect(Copy.settings.ai.waiting(3).text == "3 estimates are waiting.")
   }

@@ -6,17 +6,22 @@ public enum RecipeAIError: Error, Sendable, Hashable {
   case invalidKey
   /// The key's quota is spent for now (HTTP 429).
   case rateLimited
+  /// Gemini doesn't know the model named in Settings.
+  case invalidModel
   /// Offline, timed out, or Gemini answered with a server error.
   case unreachable
+  /// The work was cancelled before an answer came, such as by closing the sheet that asked.
+  case cancelled
   /// The model answered, but not with something usable. Asking again may not help.
   case failed(detail: String)
 
   /// True when the model simply can't be reached right now, so the work should fall back or
-  /// wait instead of failing: no key, a refused key, a spent quota, or no connection.
+  /// wait instead of failing: no key, a refused key, a spent quota, an unknown model, or no
+  /// connection. A cancelled request is neither: nobody wants its answer any more.
   public var isUnavailable: Bool {
     switch self {
-    case .missingKey, .invalidKey, .rateLimited, .unreachable: true
-    case .failed: false
+    case .missingKey, .invalidKey, .rateLimited, .invalidModel, .unreachable: true
+    case .cancelled, .failed: false
     }
   }
 }
@@ -38,6 +43,7 @@ public enum RecipeAIStatus: Sendable, Hashable {
   case missingKey
   case invalidKey
   case rateLimited
+  case invalidModel
 
   /// The status an error leaves behind, or nil when it says nothing lasting (a dropped
   /// connection, a bad answer).
@@ -46,7 +52,8 @@ public enum RecipeAIStatus: Sendable, Hashable {
     case .missingKey: self = .missingKey
     case .invalidKey: self = .invalidKey
     case .rateLimited: self = .rateLimited
-    case .unreachable, .failed: return nil
+    case .invalidModel: self = .invalidModel
+    case .unreachable, .cancelled, .failed: return nil
     }
   }
 }
@@ -99,7 +106,8 @@ public enum AIJobRules {
   /// A job waits as long as the model can't be reached, however long that is. Only real
   /// failures use up its attempts.
   public static func decide(after error: RecipeAIError, attempts: Int) -> AIJobDecision {
-    if error.isUnavailable { return .wait }
+    // A cancelled run says nothing about the job, so it waits like any other.
+    if error.isUnavailable || error == .cancelled { return .wait }
     return attempts + 1 >= maxAttempts ? .fail : .retry
   }
 }

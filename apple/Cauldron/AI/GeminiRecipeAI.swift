@@ -8,12 +8,23 @@ protocol AITransport: Sendable {
 }
 
 struct URLSessionTransport: AITransport {
+  /// Refuses every redirect. A request carries the key in a header, and following a redirect
+  /// would hand that header to wherever it pointed.
+  private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+      _ session: URLSession, task: URLSessionTask,
+      willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest
+    ) async -> URLRequest? {
+      nil
+    }
+  }
+
   /// No cache and no cookies: nothing about a request is left on disk.
   private static let session: URLSession = {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 90
     configuration.waitsForConnectivity = false
-    return URLSession(configuration: configuration)
+    return URLSession(configuration: configuration, delegate: NoRedirects(), delegateQueue: nil)
   }()
 
   func send(_ request: URLRequest) async throws -> (status: Int, body: Data) {
@@ -39,9 +50,7 @@ struct GeminiRecipeAI: RecipeAI {
   private func ask(_ task: Gemini.Task) async throws(RecipeAIError) -> (Gemini.Answer, String) {
     guard let key = keys.key() else { throw .missingKey }
     let model = model()
-    guard let url = Gemini.endpoint(model: model) else {
-      throw .failed(detail: "model name")
-    }
+    guard let url = Gemini.endpoint(model: model) else { throw .invalidModel }
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -55,8 +64,8 @@ struct GeminiRecipeAI: RecipeAI {
     do {
       response = try await transport.send(request)
     } catch {
-      // Offline, timed out, cancelled: no answer, whatever the reason.
-      throw .unreachable
+      // Cancelled by whoever asked, or else offline or timed out: no answer either way.
+      throw Task.isCancelled ? .cancelled : .unreachable
     }
     return (try Gemini.answer(status: response.status, body: response.body), model)
   }

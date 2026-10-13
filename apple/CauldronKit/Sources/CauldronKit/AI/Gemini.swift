@@ -83,13 +83,16 @@ public enum Gemini {
   }
 
   /// What a refusal means. Gemini reports a bad key as 400 with `API_KEY_INVALID`, or as 401
-  /// or 403.
+  /// or 403, and a model it doesn't know as 404. Only a request it understood and rejected is
+  /// a failure; the rest are reasons to wait.
   static func error(status: Int, body: Data) -> RecipeAIError {
     let failure = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error
     switch status {
     case 429: return .rateLimited
     case 401, 403: return .invalidKey
-    case 500...599: return .unreachable
+    case 404: return .invalidModel
+    // A timeout, or a status that isn't HTTP at all.
+    case 408, ..<100, 500...599: return .unreachable
     case 400:
       let reasons = (failure?.details ?? []).compactMap(\.reason)
       let message = failure?.message ?? ""

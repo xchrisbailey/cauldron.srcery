@@ -45,8 +45,13 @@ struct FallbackExtractorTests {
     #expect(!extraction.rough)
   }
 
+  @Test func aCancelledRequestDoesntFallBack() async {
+    let extractor = FallbackExtractor(primary: failing(.cancelled), onDevice: answering("Device"))
+    await #expect(throws: RecipeAIError.cancelled) { try await extractor.extract(input) }
+  }
+
   @Test(arguments: [
-    RecipeAIError.missingKey, .invalidKey, .rateLimited, .unreachable,
+    RecipeAIError.missingKey, .invalidKey, .rateLimited, .invalidModel, .unreachable,
   ])
   func theDeviceReadsItWhenGeminiCantBeReachedAndTheResultIsRough(error: RecipeAIError)
     async throws
@@ -90,7 +95,7 @@ struct FallbackExtractorTests {
 @Suite("Queued job rules")
 struct AIJobRulesTests {
   @Test(arguments: [
-    RecipeAIError.missingKey, .invalidKey, .rateLimited, .unreachable,
+    RecipeAIError.missingKey, .invalidKey, .rateLimited, .invalidModel, .unreachable, .cancelled,
   ])
   func aJobWaitsHoweverLongTheModelIsOutOfReach(error: RecipeAIError) {
     for attempts in [0, 1, 2, 50] {
@@ -110,6 +115,8 @@ struct AIJobRulesTests {
     #expect(RecipeAIStatus(after: .missingKey) == .missingKey)
     #expect(RecipeAIStatus(after: .invalidKey) == .invalidKey)
     #expect(RecipeAIStatus(after: .rateLimited) == .rateLimited)
+    #expect(RecipeAIStatus(after: .invalidModel) == .invalidModel)
+    #expect(RecipeAIStatus(after: .cancelled) == nil)
     #expect(RecipeAIStatus(after: .unreachable) == nil)
     #expect(RecipeAIStatus(after: .failed(detail: "x")) == nil)
   }

@@ -84,6 +84,19 @@ final class RecipeAIService {
     saveKey("")
   }
 
+  /// Looks at the keychain again. A key saved on another device arrives through iCloud
+  /// Keychain without this device being told.
+  func refreshKey() {
+    let found = keys.key() != nil
+    guard found != hasKey else { return }
+    hasKey = found
+    if !found {
+      status = .missingKey
+    } else if status == .missingKey {
+      status = .ready
+    }
+  }
+
   // MARK: Asking
 
   /// Reads a recipe out of text: Gemini first, the on-device model when Gemini can't be
@@ -100,6 +113,7 @@ final class RecipeAIService {
 
   fileprivate func succeeded() {
     status = .ready
+    hasKey = true
   }
 
   fileprivate func failed(_ error: RecipeAIError) {
