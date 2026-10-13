@@ -78,13 +78,15 @@ enum RecipeMacroEstimates {
   }
 
   /// After the editor saved `recipe` from `draft`: queues the estimate Gemini couldn't give
-  /// while the cook was editing, using the ingredients as saved. Numbers typed in the meantime
-  /// stand in for it. Returns whether one was queued, in which case the caller runs the queue.
+  /// while the cook was editing, using the ingredients as saved. An imported recipe whose page
+  /// gave no nutrition is queued the same way (the pipeline leaves the estimate to the app).
+  /// Numbers typed or read from the page stand in for it. Returns whether one was queued, in
+  /// which case the caller runs the queue.
   @discardableResult
   static func queueAfterSave(
     of draft: RecipeDraft, saved recipe: RecipeRecord, in context: ModelContext
   ) -> Bool {
-    draft.estimateOnSave && requestIfMissing(for: recipe, in: context)
+    (draft.estimateOnSave || draft.imported != nil) && requestIfMissing(for: recipe, in: context)
   }
 
   /// `requestIfMissing(for:in:)`, then runs the queue so the numbers appear as soon as Gemini

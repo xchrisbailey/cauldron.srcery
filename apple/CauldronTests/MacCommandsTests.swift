@@ -97,9 +97,16 @@ struct MacCommandsTests {
     #expect(enabled == [.goRecipes, .goWeek, .goGather, .goTracker])
   }
 
-  @Test func theLibraryEnablesNewRecipeAndFind() {
-    let front = FrontWindow(library: LibraryCommands(newRecipe: {}, find: {}))
-    #expect(MenuCommand.allCases.filter(front.isEnabled) == [.newRecipe, .findRecipes])
+  @Test func theLibraryEnablesNewRecipeImportAndFind() {
+    let front = FrontWindow(library: LibraryCommands(newRecipe: {}, find: {}, importRecipe: {}))
+    #expect(
+      MenuCommand.allCases.filter(front.isEnabled) == [.newRecipe, .importRecipe, .findRecipes])
+  }
+
+  @Test func importRecipeIsDistillOnShiftCommandD() {
+    #expect(MenuCommand.importRecipe.shortcut.key == "d")
+    #expect(MenuCommand.importRecipe.shortcut.modifiers == [.command, .shift])
+    #expect(FrontWindow().title(of: .importRecipe) == "Import Recipe…")
   }
 
   @Test func eachSectionEnablesOnlyItsOwnAdd() {
@@ -155,6 +162,7 @@ struct MacCommandsTests {
 
   @Test func eachCommandRunsItsOwnClosureOnce() {
     let new = Calls()
+    let importing = Calls()
     let find = Calls()
     let add = Calls()
     let edit = Calls()
@@ -162,19 +170,22 @@ struct MacCommandsTests {
     let stir = Calls()
     let window = Calls()
     let front = FrontWindow(
-      library: LibraryCommands(newRecipe: new.tick, find: find.tick),
+      library: LibraryCommands(
+        newRecipe: new.tick, find: find.tick, importRecipe: importing.tick),
       recipe: RecipeCommands(
         isBanished: false, edit: edit.tick, brew: brew.tick, stir: stir.tick,
         openInWindow: window.tick),
       add: AddCommand(kind: .food, perform: add.tick))
     for command in [
-      MenuCommand.newRecipe, .findRecipes, .logFood, .editRecipe, .brewRecipe, .stirRecipe,
+      MenuCommand.newRecipe, .importRecipe, .findRecipes, .logFood, .editRecipe, .brewRecipe,
+      .stirRecipe,
       .openRecipeInWindow,
     ] {
       front.perform(command)
     }
     #expect(
-      [new, find, add, edit, brew, stir, window].map(\.count) == [1, 1, 1, 1, 1, 1, 1])
+      [new, importing, find, add, edit, brew, stir, window].map(\.count)
+        == [1, 1, 1, 1, 1, 1, 1, 1])
   }
 
   @Test func aCommandTheWindowCantAnswerDoesNothing() {

@@ -29,6 +29,7 @@
       // New Recipe takes Command-N; New Window moves to Shift-Command-N.
       CommandGroup(replacing: .newItem) {
         item(.newRecipe)
+        item(.importRecipe)
         Button(Copy.macMenu.newWindow.text) { openWindow(id: WindowID.main) }
           .keyboardShortcut(MenuCommand.newWindowShortcut)
         Divider()

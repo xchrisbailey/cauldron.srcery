@@ -6,8 +6,13 @@ import SwiftUI
 /// so Cancel changes nothing and Save writes the whole of it at once.
 struct RecipeEditorSheet: View {
   let recipe: RecipeRecord?
+  /// For a draft from Distill: what was read, and the recipe already saved from the same link.
+  /// Nothing is stored until the cook saves it, and leaving asks first.
+  let importing: ImportReview?
   /// Called with the saved recipe, just before the sheet closes.
   var onSaved: (RecipeRecord) -> Void = { _ in }
+  /// Opens the recipe already saved from the same link, instead of saving a second copy.
+  var onOpenDuplicate: (UUID) -> Void = { _ in }
 
   @Environment(\.modelContext) private var context
   @Environment(\.dismiss) private var dismiss
@@ -21,11 +26,18 @@ struct RecipeEditorSheet: View {
   @State private var divining = false
   @State private var divineMessage: CopyString?
 
-  init(recipe: RecipeRecord?, onSaved: @escaping (RecipeRecord) -> Void = { _ in }) {
+  init(
+    recipe: RecipeRecord?, importing: ImportReview? = nil,
+    onSaved: @escaping (RecipeRecord) -> Void = { _ in },
+    onOpenDuplicate: @escaping (UUID) -> Void = { _ in }
+  ) {
     self.recipe = recipe
+    self.importing = importing
     self.onSaved = onSaved
-    let start = recipe.map(RecipeDraft.init) ?? RecipeDraft()
-    initial = start
+    self.onOpenDuplicate = onOpenDuplicate
+    let start = importing?.draft ?? recipe.map(RecipeDraft.init) ?? RecipeDraft()
+    // An import was never saved, so leaving it always asks first.
+    initial = importing == nil ? start : RecipeDraft()
     _draft = State(initialValue: start)
   }
 
@@ -36,10 +48,15 @@ struct RecipeEditorSheet: View {
       RecipeEditorForm(
         draft: $draft, recipe: recipe, errors: triedToSave ? draft.validate() : nil,
         couldntSave: couldntSave, divining: divining, divineMessage: divineMessage,
-        onDivine: divine
+        onDivine: divine, duplicate: importing?.duplicate,
+        onOpenDuplicate: {
+          if let id = importing?.duplicate?.id { onOpenDuplicate(id) }
+        }
       )
       .navigationTitle(
-        recipe == nil ? Copy.editor.newTitle.text : Copy.editor.editTitle.text
+        importing != nil
+          ? Copy.imports.title.text
+          : recipe == nil ? Copy.editor.newTitle.text : Copy.editor.editTitle.text
       )
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

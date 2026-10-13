@@ -9,11 +9,14 @@ import SwiftUI
 struct RecipeTagsSection: View {
   @Binding var draft: RecipeDraft
   let error: CopyString?
+  /// An importer wasn't sure of the tags.
+  var flagged = false
   @Query(sort: \TagRecord.name) private var existing: [TagRecord]
   @State private var typed = ""
 
   var body: some View {
     Section {
+      if flagged { FlagNote() }
       if !draft.tags.isEmpty {
         FlowLayout(spacing: 6) {
           ForEach(draft.tags, id: \.self) { name in

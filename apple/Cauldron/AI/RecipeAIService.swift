@@ -102,8 +102,13 @@ final class RecipeAIService {
   /// Reads a recipe out of text: Gemini first, the on-device model when Gemini can't be
   /// reached, with that result marked rough.
   func extract(_ input: ExtractInput) async throws(RecipeAIError) -> Extraction {
-    try await FallbackExtractor(primary: Watched(base: gemini, service: self), onDevice: onDevice)
-      .extract(input)
+    try await extractor.extract(input)
+  }
+
+  /// `extract(_:)` as a value the import pipeline can take: the same fallback rule, and the
+  /// same effect on `status`.
+  var extractor: any RecipeExtracting {
+    FallbackExtractor(primary: Watched(base: gemini, service: self), onDevice: onDevice)
   }
 
   /// Gemini alone, for the queue. Macro estimates never fall back.

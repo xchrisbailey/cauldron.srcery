@@ -13,6 +13,9 @@ struct RecipeEditorForm: View {
   var divining = false
   var divineMessage: CopyString?
   var onDivine: () -> Void = {}
+  /// For a draft from Distill: the recipe already saved from the same link, and opening it.
+  var duplicate: ImportReview.Duplicate?
+  var onOpenDuplicate: () -> Void = {}
 
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
 
@@ -35,31 +38,37 @@ struct RecipeEditorForm: View {
         .listRowBackground(Brand.Colors.mantle)
       }
 
+      if let imported = draft.imported {
+        ImportSourceSection(
+          draft: draft, imported: imported, duplicate: duplicate, onOpenDuplicate: onOpenDuplicate)
+      }
+
       RecipePhotoSection(draft: $draft, recipe: recipe)
 
       Section {
         EditorField(
           label: Copy.editor.title, text: $draft.title, error: errors?[.title], axis: .vertical,
-          optional: false)
+          optional: false, flagged: draft.review.contains(.title))
         EditorField(
           label: Copy.editor.description, text: $draft.summary, error: errors?[.summary],
-          axis: .vertical)
+          axis: .vertical, flagged: draft.review.contains(.description))
       }
       .listRowBackground(Brand.Colors.mantle)
 
       Section {
         EditorField(
           label: Copy.editor.servings, text: $draft.servings, error: errors?[.servings],
-          mono: true, numeric: true)
+          mono: true, numeric: true, flagged: draft.review.contains(.servings))
         EditorField(
           label: Copy.editor.prepMinutes, text: $draft.prepMinutes, error: errors?[.prepMinutes],
-          mono: true, numeric: true)
+          mono: true, numeric: true, flagged: draft.review.contains(.prepMinutes))
         EditorField(
           label: Copy.editor.cookMinutes, text: $draft.cookMinutes, error: errors?[.cookMinutes],
-          mono: true, numeric: true)
+          mono: true, numeric: true, flagged: draft.review.contains(.cookMinutes))
         EditorField(
           label: Copy.editor.totalMinutes, text: $draft.totalMinutes,
-          error: errors?[.totalMinutes], mono: true, numeric: true)
+          error: errors?[.totalMinutes], mono: true, numeric: true,
+          flagged: draft.review.contains(.totalMinutes))
       }
       .listRowBackground(Brand.Colors.mantle)
 
@@ -67,16 +76,17 @@ struct RecipeEditorForm: View {
         divineRow
         EditorField(
           label: Copy.editor.macroFields.calories, text: $draft.calories,
-          error: errors?[.calories], mono: true, numeric: true)
+          error: errors?[.calories], mono: true, numeric: true,
+          flagged: draft.review.contains(.macros))
         EditorField(
           label: Copy.editor.macroFields.protein, text: $draft.protein, error: errors?[.protein],
-          mono: true, numeric: true)
+          mono: true, numeric: true, flagged: draft.review.contains(.macros))
         EditorField(
           label: Copy.editor.macroFields.carbs, text: $draft.carbs, error: errors?[.carbs],
-          mono: true, numeric: true)
+          mono: true, numeric: true, flagged: draft.review.contains(.macros))
         EditorField(
           label: Copy.editor.macroFields.fat, text: $draft.fat, error: errors?[.fat], mono: true,
-          numeric: true)
+          numeric: true, flagged: draft.review.contains(.macros))
       } header: {
         Text(verbatim: Copy.editor.macros.text)
       } footer: {
@@ -84,12 +94,13 @@ struct RecipeEditorForm: View {
       }
       .listRowBackground(Brand.Colors.mantle)
 
-      RecipeTagsSection(draft: $draft, error: errors?[.tags])
+      RecipeTagsSection(
+        draft: $draft, error: errors?[.tags], flagged: draft.review.contains(.tags))
 
       Section {
         EditorField(
           label: Copy.editor.sourceUrl, text: $draft.sourceURL, error: errors?[.sourceURL],
-          url: true)
+          url: true, flagged: draft.review.contains(.sourceUrl))
       }
       .listRowBackground(Brand.Colors.mantle)
 
@@ -98,7 +109,8 @@ struct RecipeEditorForm: View {
 
       Section {
         EditorField(
-          label: Copy.editor.notes, text: $draft.notes, error: errors?[.notes], axis: .vertical)
+          label: Copy.editor.notes, text: $draft.notes, error: errors?[.notes], axis: .vertical,
+          flagged: draft.review.contains(.notes))
       }
       .listRowBackground(Brand.Colors.mantle)
     }
@@ -171,12 +183,17 @@ struct EditorField: View {
   var url = false
   /// Shows "Optional" in an empty field, for everything but the title.
   var optional = true
+  /// An importer wasn't sure of this field: it is shown in the Tips colour until it is changed.
+  var flagged = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      Text(verbatim: label.text)
-        .brandText(.control)
-        .foregroundStyle(Brand.Colors.subtext)
+      HStack(spacing: 6) {
+        Text(verbatim: label.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+        if flagged { FlagNote() }
+      }
       field
         .textFieldStyle(.plain)
         .multilineTextAlignment(.leading)
@@ -194,6 +211,7 @@ struct EditorField: View {
           .foregroundStyle(Brand.Colors.heat)
       }
     }
+    .flagged(flagged)
   }
 
   private var prompt: Text? {
@@ -207,5 +225,33 @@ struct EditorField: View {
     } else {
       TextField("", text: $text, prompt: prompt)
     }
+  }
+}
+
+/// "Check this", beside what an importer wasn't sure of.
+struct FlagNote: View {
+  var detail: CopyString?
+
+  var body: some View {
+    Text(
+      verbatim: ([Copy.editor.needsALook.text] + (detail.map { [$0.text] } ?? [])).joined(
+        separator: ": ")
+    )
+    .brandText(.control)
+    .foregroundStyle(Brand.Colors.tips)
+  }
+}
+
+extension View {
+  /// The Tips colour around a field an importer wasn't sure of (`flagged` in the web editor).
+  func flagged(_ on: Bool) -> some View {
+    padding(on ? 8 : 0)
+      .background(
+        Brand.Colors.tips.opacity(on ? 0.1 : 0), in: RoundedRectangle(cornerRadius: 12)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 12).stroke(
+          Brand.Colors.tips.opacity(on ? 0.45 : 0), lineWidth: 1)
+      )
   }
 }

@@ -42,7 +42,9 @@ struct RecipeIngredientsSection: View {
             if let error = errors?[.ingredient(row.id)] {
               Text(verbatim: error.text).brandText(.control).foregroundStyle(Brand.Colors.heat)
             }
+            if row.flagged { FlagNote(detail: Copy.imports.unsureLine) }
           }
+          .flagged(row.flagged)
           .contextMenu {
             Button(role: .destructive) {
               draft.removeIngredient(row.id)
@@ -189,7 +191,9 @@ struct RecipeStepsSection: View {
             if let error = errors?[.step(step.id)] {
               Text(verbatim: error.text).brandText(.control).foregroundStyle(Brand.Colors.heat)
             }
+            if step.flagged { FlagNote(detail: Copy.imports.unsureLine) }
           }
+          .flagged(step.flagged)
           .contextMenu {
             Button(role: .destructive) {
               draft.removeStep(step.id)

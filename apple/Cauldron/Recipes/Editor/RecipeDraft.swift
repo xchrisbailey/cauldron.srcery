@@ -5,26 +5,56 @@ import Foundation
 /// editor changes this, not the saved recipe, so cancelling changes nothing and Save writes the
 /// whole of it at once (`RecipeSaver`). Plain values, so all of it runs without a view.
 struct RecipeDraft: Equatable {
-  var title = ""
-  var summary = ""
-  var servings = ""
-  var prepMinutes = ""
-  var cookMinutes = ""
-  var totalMinutes = ""
+  // A field the importer flagged (`review`) stops being flagged once the cook changes it.
+  var title = "" {
+    didSet { if title != oldValue { review.remove(.title) } }
+  }
+  var summary = "" {
+    didSet { if summary != oldValue { review.remove(.description) } }
+  }
+  var servings = "" {
+    didSet { if servings != oldValue { review.remove(.servings) } }
+  }
+  var prepMinutes = "" {
+    didSet { if prepMinutes != oldValue { review.remove(.prepMinutes) } }
+  }
+  var cookMinutes = "" {
+    didSet { if cookMinutes != oldValue { review.remove(.cookMinutes) } }
+  }
+  var totalMinutes = "" {
+    didSet { if totalMinutes != oldValue { review.remove(.totalMinutes) } }
+  }
   /// Per serving, as typed.
-  var calories = ""
-  var protein = ""
-  var carbs = ""
-  var fat = ""
+  var calories = "" {
+    didSet { if calories != oldValue { review.remove(.macros) } }
+  }
+  var protein = "" {
+    didSet { if protein != oldValue { review.remove(.macros) } }
+  }
+  var carbs = "" {
+    didSet { if carbs != oldValue { review.remove(.macros) } }
+  }
+  var fat = "" {
+    didSet { if fat != oldValue { review.remove(.macros) } }
+  }
   /// What the model estimated into the four fields above. Save keeps those numbers marked as
   /// an estimate for as long as the fields still hold them; changing one makes it the cook's.
   var estimatedMacros: Macros?
+  /// What the imported page published, the same way: Save marks those numbers as the page's
+  /// for as long as the fields still hold them.
+  var pageMacros: Macros?
   /// Gemini couldn't be reached when the cook asked for an estimate, so Save queues one for
   /// the saved recipe (if the cook has typed no numbers by then).
   var estimateOnSave = false
-  var sourceURL = ""
-  var notes = ""
-  var tags: [String] = []
+  var sourceURL = "" {
+    didSet { if sourceURL != oldValue { review.remove(.sourceUrl) } }
+  }
+  var notes = "" {
+    didSet { if notes != oldValue { review.remove(.notes) } }
+  }
+  var tags: [String] = [] {
+    didSet { if tags != oldValue { review.remove(.tags) } }
+  }
   var ingredients: [IngredientRowDraft] = [.line("")]
   var steps: [StepRowDraft] = [.blank()]
   var photo = PhotoChange.keep
@@ -32,6 +62,10 @@ struct RecipeDraft: Equatable {
   /// (see `canRewriteIngredients` in docs/native/data-model.md). The rows are for showing.
   var ingredientsLocked = false
   var stepsLocked = false
+  /// Set when the draft came from Distill: where it came from, which Save records.
+  var imported: ImportedFrom?
+  /// The fields an importer wasn't sure of, shown in the Tips colour until the cook changes them.
+  var review: Set<DraftField> = []
 
   /// A new, empty recipe.
   init() {}
@@ -83,6 +117,15 @@ struct RecipeDraft: Equatable {
     // Read back from the fields, so what Save compares is what the cook sees.
     estimatedMacros = typedMacros
     estimateOnSave = false
+  }
+
+  /// Puts the numbers an imported page published into the macro fields.
+  mutating func fill(withPage macros: Macros) {
+    calories = Self.text(macros.calories)
+    protein = Self.text(macros.protein)
+    carbs = Self.text(macros.carbs)
+    fat = Self.text(macros.fat)
+    pageMacros = typedMacros
   }
 
   /// What the model is asked to estimate from: the ingredient lines as currently typed, with
@@ -252,6 +295,18 @@ struct RecipeDraft: Equatable {
   }
 }
 
+/// Where a draft from Distill came from, and how far to trust it.
+struct ImportedFrom: Equatable {
+  var platform: SourcePlatform
+  var author: String?
+  /// The site or account, for the source note. Not stored on the recipe.
+  var siteName: String?
+  /// When the page was fetched; nil for pasted text.
+  var fetchedAt: Date?
+  /// The on-device model read it because Gemini couldn't be reached.
+  var rough: Bool
+}
+
 /// What Save does to the recipe's photo.
 enum PhotoChange: Equatable {
   case keep
@@ -269,10 +324,19 @@ struct IngredientRowDraft: Equatable, Identifiable {
   /// How the line was read; nil for a heading. A stored line keeps its stored reading until
   /// its text changes.
   private(set) var parsed: ParsedIngredient?
+  /// The importer wasn't sure it read this line right. Editing the line clears it.
+  private(set) var flagged = false
 
   static func line(_ text: String) -> IngredientRowDraft {
     IngredientRowDraft(
       isHeading: false, text: text, parsed: text.isEmpty ? nil : parseIngredientLine(text))
+  }
+
+  /// A line from an importer, flagged when it wasn't sure of it.
+  static func imported(_ text: String, flagged: Bool) -> IngredientRowDraft {
+    var row = IngredientRowDraft.line(text)
+    row.flagged = flagged
+    return row
   }
 
   static func heading(_ text: String, id: UUID = UUID()) -> IngredientRowDraft {
@@ -294,6 +358,7 @@ struct IngredientRowDraft: Equatable, Identifiable {
   }
 
   mutating func setText(_ newText: String) {
+    if newText != text { flagged = false }
     text = newText
     if !isHeading { parsed = newText.isEmpty ? nil : parseIngredientLine(newText) }
   }
@@ -335,6 +400,17 @@ struct StepRowDraft: Equatable, Identifiable {
   /// The cook cleared the timer, or it came with a stored recipe that doesn't follow its text,
   /// so editing the text no longer changes it.
   var timerSet: Bool
+  /// The importer wasn't sure it read this step right. Editing the step clears it.
+  private(set) var flagged = false
+
+  /// A step from an importer, flagged when it wasn't sure of it.
+  static func imported(_ text: String, section: String?, flagged: Bool) -> StepRowDraft {
+    var row = StepRowDraft.blank()
+    row.section = section
+    row.setText(text)
+    row.flagged = flagged
+    return row
+  }
 
   static func blank() -> StepRowDraft {
     StepRowDraft(text: "", section: nil, timerSeconds: nil, timerSet: false)
@@ -347,6 +423,7 @@ struct StepRowDraft: Equatable, Identifiable {
   }
 
   mutating func setText(_ newText: String) {
+    if newText != text { flagged = false }
     text = newText
     if !timerSet { timerSeconds = detectTimer(newText) }
   }
