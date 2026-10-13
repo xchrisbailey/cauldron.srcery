@@ -57,9 +57,15 @@ enum Deduplication {
     removed += try prune(FavouriteRecord.self, in: context) { $0.key }
     removed += try prune(PantryItemRecord.self, in: context) { $0.itemKey }
     // A gathered line is one per week and merge key; lines added by hand are each their own.
-    removed += try prune(GatherItemRecord.self, in: context) { item in
-      item.manual
-        ? nil : "\(item.weekStartKey)|\(mergeKeyOf(item.itemKey, item.quantity, item.unit))"
+    removed += try prune(
+      GatherItemRecord.self, in: context,
+      key: { item in
+        item.manual
+          ? nil : "\(item.weekStartKey)|\(mergeKeyOf(item.itemKey, item.quantity, item.unit))"
+      }
+    ) { keeper, extra in
+      // A tick belongs to the line, so it outlives the row that held it.
+      if extra.checked { keeper.checked = true }
     }
     removed += try prune(CookRecord.self, in: context) { cook in
       cook.recipe.map { "\($0.id.uuidString)|\(cook.cookedOnKey)" }

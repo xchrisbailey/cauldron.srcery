@@ -43,8 +43,13 @@ Reads apply it. `ModelContext.current(_:)` and `weighIn(on:)` return the winner,
 - one weigh-in per day;
 - one favourite and one pantry item per key;
 - one cook per recipe per day;
-- one gathered Gather line per week and merge key (lines added by hand are never merged);
+- one gathered Gather line per week and merge key (lines added by hand are never merged). **A tick belongs to the line, not to one row of it:** the newest row is usually the one nobody touched (a second device builds its own set of rows before the first one's have synced), so the most-recently-changed rule would lose the tick. A line reads as ticked when any of its rows is; `setChecked` writes the value to every row of the line; a rebuild that unticks a line (the week now needs more) clears every row; and `tidy` carries a deleted row's tick onto the row it keeps. The winning row still decides which text and amount are shown;
 - tags by lower-cased name, merging their recipes onto the keeper.
+
+## Gather weeks
+
+- A Gather list belongs to a week start, as in the web app. Changing the first day of the week re-keys the list: the week's hand-added items and ticks stay stored under the old week start and are no longer shown.
+- **Known limit:** a device that rebuilds a week against a plan it has only half received (Gather rows before the plan entries, or the reverse) can delete lines or untick them, because the rebuild believes the week no longer needs them. This needs a design decision once sync is on (#162).
 
 ## Where the store lives
 

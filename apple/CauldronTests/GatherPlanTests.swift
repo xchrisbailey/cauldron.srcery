@@ -421,24 +421,94 @@ import Testing
       return copy
     }
 
-    @Test func twoRowsForOneLineShowAsTheMostRecentlyChanged() throws {
+    @Test func twoRowsForOneLineShowTheTextOfTheMostRecentlyChanged() throws {
       let context = try seeded()
       let records = try context.fetch(FetchDescriptor<GatherItemRecord>())
       let garlic = try #require(records.first { $0.itemKey == "garlic" })
       garlic.updatedAt = Date(timeIntervalSince1970: 2_000)
       let older = duplicate(of: garlic, changed: Date(timeIntervalSince1970: 1_000), in: context)
-      older.checked = true
+      older.item = "garlic cloves"
       try context.save()
 
       var shown = try snapshot(context).items.filter { $0.itemKey == "garlic" }
-      #expect(shown.count == 1)
-      #expect(shown[0].id == garlic.id && !shown[0].checked)
+      #expect(shown.count == 1 && shown[0].id == garlic.id && shown[0].item == "garlic")
 
-      // The other one is edited more recently, so now it is the answer.
+      // The other one is edited more recently, so now its text is the answer.
       older.updatedAt = Date(timeIntervalSince1970: 3_000)
       shown = try snapshot(context).items.filter { $0.itemKey == "garlic" }
-      #expect(shown.count == 1 && shown[0].id == older.id && shown[0].checked)
+      #expect(shown.count == 1 && shown[0].id == older.id && shown[0].item == "garlic cloves")
       #expect(try snapshot(context).items.count == SeededGatherReference.rows.count)
+    }
+
+    /// Device A ticked a row; device B built its own set before A's synced, so B's untouched
+    /// row is the newer one.
+    private func tickedOlderRowWithNewerTwin(
+      _ context: ModelContext
+    ) throws -> (newer: GatherItemRecord, older: GatherItemRecord) {
+      let garlic = try #require(
+        try context.fetch(FetchDescriptor<GatherItemRecord>()).first { $0.itemKey == "garlic" })
+      garlic.updatedAt = Date(timeIntervalSince1970: 2_000)
+      let older = duplicate(of: garlic, changed: Date(timeIntervalSince1970: 1_000), in: context)
+      older.checked = true
+      try context.save()
+      return (garlic, older)
+    }
+
+    @Test func aTickOnAnOlderRowStillReadsAsTickedBesideANewerUntickedTwin() throws {
+      let context = try seeded()
+      let (newer, _) = try tickedOlderRowWithNewerTwin(context)
+      let line = try item("garlic", in: context)
+      #expect(line.id == newer.id)
+      #expect(line.checked)
+      let all = try snapshot(context)
+      #expect(all.checkedCount == 1 && all.items.count == SeededGatherReference.rows.count)
+    }
+
+    @Test func untickingALineClearsEveryRowOfIt() throws {
+      let context = try seeded()
+      let (newer, older) = try tickedOlderRowWithNewerTwin(context)
+      try GatherPlan.commit(in: context) { try GatherPlan.setChecked(newer.id, false, in: context) }
+      #expect(!newer.checked && !older.checked)
+      #expect(!(try item("garlic", in: context).checked))
+
+      try GatherPlan.commit(in: context) { try GatherPlan.setChecked(newer.id, true, in: context) }
+      #expect(newer.checked && older.checked)
+    }
+
+    @Test func aRebuildThatGrowsALineUnticksEveryRowOfIt() throws {
+      let context = try seeded()
+      let (newer, older) = try tickedOlderRowWithNewerTwin(context)
+      let shakshuka = try #require(try entries(context).first { $0.title.hasPrefix("Shakshuka") })
+      try GatherPlan.commit(in: context) {
+        try WeekPlan.apply(EntryChange(servings: .some(8)), to: shakshuka, in: context)
+      }
+      let result = try rebuild(context)
+      #expect(result.updates.contains { $0.id == newer.id && $0.uncheck })
+      #expect(!newer.checked && !older.checked)
+      #expect(!(try item("garlic", in: context).checked))
+    }
+
+    @Test func aRebuildThatNeedsLessKeepsALineTickedOnlyOnAnOlderRow() throws {
+      let context = try seeded()
+      let (_, older) = try tickedOlderRowWithNewerTwin(context)
+      let soup = try #require(try entries(context).first { $0.title.hasPrefix("Tomato") })
+      try GatherPlan.commit(in: context) { _ = try WeekPlan.remove(soup, in: context) }
+      _ = try rebuild(context)
+      #expect(older.checked)
+      #expect(try item("garlic", in: context).checked)
+    }
+
+    @Test func tidyingARowAwayLeavesTheLineAsTickedAsItWas() throws {
+      let context = try seeded()
+      let (newer, older) = try tickedOlderRowWithNewerTwin(context)
+      let before = try context.fetchCount(FetchDescriptor<GatherItemRecord>())
+      #expect(try Deduplication.tidy(context, now: Date(timeIntervalSince1970: 1_000_000)) == 1)
+      #expect(try context.fetchCount(FetchDescriptor<GatherItemRecord>()) == before - 1)
+      let olderId = older.id
+      #expect(
+        try context.fetch(FetchDescriptor<GatherItemRecord>()).allSatisfy { $0.id != olderId })
+      #expect(newer.checked)
+      #expect(try item("garlic", in: context).checked)
     }
 
     @Test func aTieBetweenDuplicatesIsBrokenByIdOnEveryDevice() throws {
@@ -473,7 +543,8 @@ import Testing
       #expect(try context.fetchCount(FetchDescriptor<GatherItemRecord>()) == before)
       #expect(garlic.quantity == Quantity(min: 16, max: nil))
       // The duplicate was neither updated nor deleted.
-      #expect(twin.quantity == Quantity(min: 13, max: nil) && twin.checked)
+      // The line was ticked on the duplicate, and the week now needs more, so it is unticked.
+      #expect(twin.quantity == Quantity(min: 13, max: nil) && !twin.checked)
       #expect(try snapshot(context).items.filter { $0.itemKey == "garlic" }.count == 1)
     }
 
@@ -509,6 +580,90 @@ import Testing
       #expect(try context.fetchCount(FetchDescriptor<GatherItemRecord>()) == before - 1)
       #expect(
         try context.fetch(FetchDescriptor<GatherItemRecord>()).filter { $0.manual }.count == 2)
+    }
+
+    // MARK: Ids, limits and opening
+
+    @Test func rowsThatShareAnIdInDifferentGroupsDontTrapARebuild() throws {
+      let context = try context()
+      let cups = GatherItemRecord(weekStart: monday, item: "milk", itemKey: "milk")
+      cups.quantity = Quantity(min: 1, max: nil)
+      cups.unit = .cup
+      let bare = GatherItemRecord(weekStart: monday, item: "milk", itemKey: "milk")
+      bare.quantity = Quantity(min: 2, max: nil)
+      bare.id = cups.id
+      context.insert(cups)
+      context.insert(bare)
+      try context.save()
+      // Nothing is planned, so both lines have left the week.
+      let result = try rebuild(context)
+      #expect(result.removals.count == 2)
+      #expect(try context.fetchCount(FetchDescriptor<GatherItemRecord>()) == 0)
+    }
+
+    @Test func aSharedIdDoesntStopTheRestOfTheListBeingKeptUpToDate() throws {
+      let context = try seeded()
+      let records = try context.fetch(FetchDescriptor<GatherItemRecord>())
+      let garlic = try #require(records.first { $0.itemKey == "garlic" })
+      let oil = try #require(records.first { $0.itemKey == "olive oil" })
+      oil.id = garlic.id
+      try context.save()
+      let shakshuka = try #require(try entries(context).first { $0.title.hasPrefix("Shakshuka") })
+      try GatherPlan.commit(in: context) {
+        try WeekPlan.apply(EntryChange(servings: .some(8)), to: shakshuka, in: context)
+      }
+      _ = try rebuild(context)
+      #expect(garlic.quantity == Quantity(min: 16, max: nil))
+      #expect(oil.quantity != Quantity(min: 8, max: nil))
+    }
+
+    @Test func theLimitCountsUTF16UnitsAsTheReferenceDoes() throws {
+      let context = try context()
+      // One character each, but eight UTF-16 units: 125 fit, 126 don't.
+      let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"
+      #expect(family.count == 1 && family.utf16.count == 8)
+      let tooLong = String(repeating: family, count: 126)
+      #expect(tooLong.count < GatherLimits.line)
+      #expect(throws: GatherError.tooLong) {
+        try GatherPlan.add(tooLong, week: monday, in: context)
+      }
+      let thousand = String(repeating: family, count: 1000)
+      #expect(throws: GatherError.tooLong) {
+        try GatherPlan.add(thousand, week: monday, in: context)
+      }
+      try GatherPlan.add(String(repeating: family, count: 125), week: monday, in: context)
+      #expect(try context.fetchCount(FetchDescriptor<GatherItemRecord>()) == 1)
+    }
+
+    @Test func theFieldCapKeepsWholeCharactersWithinTheLimit() {
+      let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"
+      let capped = GatherLimits.capped(String(repeating: family, count: 200))
+      #expect(capped.utf16.count == 1000 && capped.count == 125)
+      #expect(GatherLimits.capped("milk") == "milk")
+      #expect(GatherLimits.capped(String(repeating: "a", count: 1500)).count == 1000)
+    }
+
+    @Test func openingTheScreenNeverWipesATickedWeek() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let first = ModelContext(container)
+      try DebugSeed.populate(first, today: monday)
+      try GatherPlan.open(week: monday, in: first)
+      let garlic = try item("garlic", in: first)
+      try GatherPlan.commit(in: first) { try GatherPlan.setChecked(garlic.id, true, in: first) }
+      let count = try first.fetchCount(FetchDescriptor<GatherItemRecord>())
+
+      // What the screen's task runs on appear, from the context the view reads with.
+      let screen = ModelContext(container)
+      let result = try GatherPlan.open(week: monday, in: screen)
+      #expect(result == Reconciled(inserts: [], updates: [], removals: []))
+      #expect(try screen.fetchCount(FetchDescriptor<GatherItemRecord>()) == count)
+      let kept = try #require(
+        try screen.fetch(FetchDescriptor<GatherItemRecord>()).first { $0.id == garlic.id })
+      #expect(kept.checked)
+
+      // Another week, with nothing planned, builds nothing and takes nothing from this one.
+      try GatherPlan.open(week: nextMonday, in: screen)
+      #expect(try screen.fetchCount(FetchDescriptor<GatherItemRecord>()) == count)
     }
 
     // MARK: The week the rebuild is for

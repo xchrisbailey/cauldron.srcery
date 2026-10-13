@@ -11,6 +11,23 @@ import SwiftData
 enum GatherLimits {
   /// An item added by hand is written like an ingredient line.
   static let line = RecipeLimits.line
+
+  /// Whether `text` is within the limit. The reference counts UTF-16 units (JavaScript string
+  /// length), so an emoji counts as two or more.
+  static func fits(_ text: String) -> Bool { text.utf16.count <= line }
+
+  /// `text` cut to the limit, without splitting a character.
+  static func capped(_ text: String) -> String {
+    var units = 0
+    var kept = text.startIndex
+    for index in text.indices {
+      let next = text.index(after: index)
+      units += text[index..<next].utf16.count
+      if units > line { break }
+      kept = next
+    }
+    return String(text[..<kept])
+  }
 }
 
 /// Why the list refused a change.
@@ -102,6 +119,30 @@ enum GatherPlan {
     }
   }
 
+  /// The merge keys of a week's gathered lines that read as ticked. A tick belongs to the line,
+  /// not to one row of it: device B can build a second set of rows before device A's have
+  /// synced, and its untouched rows are newer than A's ticks. A line is ticked when any of
+  /// its rows is.
+  static func tickedKeys(_ rows: [GatherItemRecord], week start: LocalDate) -> Set<String> {
+    let key = start.description
+    return Set(
+      rows.filter { $0.weekStartKey == key && $0.checked }.compactMap(mergeKey(of:)))
+  }
+
+  /// Whether the line a row shows reads as ticked.
+  static func isChecked(_ row: GatherItemRecord, ticked: Set<String>) -> Bool {
+    mergeKey(of: row).map(ticked.contains) ?? row.checked
+  }
+
+  /// Every row of the line `row` shows: itself for a line added by hand, otherwise all rows of
+  /// its week and merge key.
+  private static func group(
+    of row: GatherItemRecord, in context: ModelContext
+  ) throws -> [GatherItemRecord] {
+    guard let key = mergeKey(of: row), let start = row.weekStart else { return [row] }
+    return try fetchRows(week: start, in: context).filter { mergeKey(of: $0) == key }
+  }
+
   private static func fetchRows(
     week start: LocalDate, in context: ModelContext
   ) throws -> [GatherItemRecord] {
@@ -125,10 +166,11 @@ enum GatherPlan {
     let planned = try planned(week: start, in: context)
     let all = try fetchRows(week: start, in: context)
     let current = shown(all, week: start).filter { !$0.manual }
+    let ticked = tickedKeys(all, week: start)
     let existing = current.map { row in
       ExistingGatherRow(
         id: row.id, item: row.item, itemKey: row.itemKey, quantity: row.quantity,
-        unit: row.unit, aisle: row.aisle, checked: row.checked,
+        unit: row.unit, aisle: row.aisle, checked: isChecked(row, ticked: ticked),
         sources: (row.sources ?? []).compactMap { source in
           source.recipe.map {
             GatherContribution(recipeId: $0.id, quantity: source.quantity, unit: source.unit)
@@ -138,7 +180,11 @@ enum GatherPlan {
     let result = reconcile(
       existing: existing, wanted: gatherWeek(planned.entries), round: stored)
 
-    let byId = Dictionary(uniqueKeysWithValues: current.map { ($0.id, $0) })
+    // The shown rows are one per merge key. Ids aren't unique (a CloudKit re-import can repeat
+    // one), so rows are found by merge key, and removals by id.
+    let byKey = Dictionary(
+      current.compactMap { row in mergeKey(of: row).map { ($0, row) } },
+      uniquingKeysWith: { first, _ in first })
     for row in result.inserts {
       let record = GatherItemRecord(weekStart: start, item: row.item, itemKey: row.itemKey)
       record.quantity = row.quantity
@@ -148,23 +194,37 @@ enum GatherPlan {
       writeSources(row.sources, to: record, planned: planned, in: context)
     }
     for update in result.updates {
-      guard let record = byId[update.id] else { continue }
+      guard let record = byKey[update.row.mergeKey] else { continue }
       if update.changed || update.uncheck {
         record.item = update.row.item
         record.quantity = update.row.quantity
         record.unit = update.row.unit
         record.aisle = update.row.aisle
-        if update.uncheck { record.checked = false }
+        if update.uncheck {
+          // The line is unticked, whichever of its rows held the tick.
+          for twin in all where mergeKey(of: twin) == update.row.mergeKey { twin.checked = false }
+        }
       }
       if update.sources {
         for source in record.sources ?? [] { context.delete(source) }
         writeSources(update.row.sources, to: record, planned: planned, in: context)
       }
     }
-    let gone = Set(result.removals.compactMap { byId[$0] }.compactMap(mergeKey(of:)))
+    let removed = Set(result.removals)
+    let gone = Set(current.filter { removed.contains($0.id) }.compactMap(mergeKey(of:)))
     for row in all where mergeKey(of: row).map(gone.contains) ?? false {
       context.delete(row)
     }
+    return result
+  }
+
+  /// What opening a week does: rebuilds its rows from the plan and saves. It reads the plan
+  /// from the store, not from what a screen has loaded, so it can't build against a plan the
+  /// screen hasn't seen yet.
+  @discardableResult
+  static func open(week start: LocalDate, in context: ModelContext) throws -> Reconciled {
+    var result = Reconciled(inserts: [], updates: [], removals: [])
+    try commit(in: context) { result = try rebuild(week: start, in: context) }
     return result
   }
 
@@ -190,7 +250,7 @@ enum GatherPlan {
   ) throws -> GatherItemRecord {
     let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !line.isEmpty else { throw GatherError.blank }
-    guard line.count <= GatherLimits.line else { throw GatherError.tooLong }
+    guard GatherLimits.fits(line) else { throw GatherError.tooLong }
     let parsed = parseIngredientLine(line)
     let item =
       parsed.item.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? line : parsed.item
@@ -213,13 +273,16 @@ enum GatherPlan {
     return row
   }
 
-  /// Ticks an item off, or puts it back. It is stored on the item, so it follows the item to
-  /// every device.
+  /// Ticks an item off, or puts it back. It is stored on the item's rows, so it follows the
+  /// item to every device.
   static func setChecked(
     _ id: GatherItemId, _ checked: Bool, in context: ModelContext
   ) throws {
     let item = try row(id, in: context)
-    if item.checked != checked { item.checked = checked }
+    // Every row of the line, so unticking really unticks it.
+    for twin in try group(of: item, in: context) where twin.checked != checked {
+      twin.checked = checked
+    }
   }
 
   /// Removes an item added by hand.

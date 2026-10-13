@@ -21,12 +21,13 @@ struct GatherSnapshot {
   init(start: LocalDate, records: [GatherItemRecord], pantry: [PantryItemRecord]) {
     self.start = start
     let atHome = Set(pantry.map(\.itemKey))
+    let ticked = GatherPlan.tickedKeys(records, week: start)
     items = sortRows(
       GatherPlan.shown(records, week: start).map { record in
         GatherItem(
           id: record.id, item: record.item, itemKey: record.itemKey, quantity: record.quantity,
           unit: record.unit, aisle: record.aisle ?? aisleFor(record.itemKey),
-          checked: record.checked, manual: record.manual,
+          checked: GatherPlan.isChecked(record, ticked: ticked), manual: record.manual,
           inPantry: atHome.contains(record.itemKey), sources: Self.sources(of: record))
       })
   }

@@ -57,7 +57,11 @@ struct GatherScreen: View {
       }
     }
     .task(id: GatherSignature(week: cursor.start, entries: plan)) {
-      perform { try GatherPlan.rebuild(week: cursor.start, in: context) }
+      do {
+        try GatherPlan.open(week: cursor.start, in: context)
+      } catch {
+        show(GatherPlan.message(for: error).text)
+      }
     }
     .task(id: noticeCount) {
       guard notice != nil else { return }
@@ -96,7 +100,7 @@ struct GatherScreen: View {
     HStack(spacing: 8) {
       TextField(
         text: Binding(
-          get: { line }, set: { line = String($0.prefix(GatherLimits.line)) }),
+          get: { line }, set: { line = GatherLimits.capped($0) }),
         prompt: Text(verbatim: Copy.gather.addPlaceholder.text)
       ) {
         Text(verbatim: Copy.gather.addItem.text)
