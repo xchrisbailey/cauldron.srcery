@@ -323,3 +323,26 @@ struct RecipeSaverTests {
     #expect(recipe.photo?.imageData == Data([1]))
   }
 }
+
+@Suite("Save latch")
+struct SaveLatchTests {
+  @Test func onlyTheFirstSaveGetsThrough() {
+    var latch = SaveLatch()
+    #expect(!latch.isSaving)
+    let first = latch.begin()
+    let second = latch.begin()  // a second tap before the sheet has gone
+    let third = latch.begin()
+    #expect(first)
+    #expect(!second && !third)
+    #expect(latch.isSaving)
+  }
+
+  @Test func aSaveThatFailedLetsTheCookTryAgain() {
+    var latch = SaveLatch()
+    let first = latch.begin()
+    latch.reopen()
+    #expect(!latch.isSaving)
+    let again = latch.begin()
+    #expect(first && again)
+  }
+}

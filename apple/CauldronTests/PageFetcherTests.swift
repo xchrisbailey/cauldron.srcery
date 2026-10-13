@@ -1,5 +1,6 @@
 import CauldronKit
 import Foundation
+import SwiftUI
 import Synchronization
 import Testing
 
@@ -69,8 +70,8 @@ struct PageFetcherTests {
   private let fetcher = URLSessionPageFetcher(protocolClasses: [StubNetwork.self])
   private let html = Data("<html>hello</html>".utf8)
 
-  private func request(_ url: String, max: Int = 1_000_000) -> FetchRequest {
-    FetchRequest(url: url, maxBytes: max, accept: "text/html")
+  private func request(_ url: String, max: Int = 1_000_000) -> CauldronKit.FetchRequest {
+    CauldronKit.FetchRequest(url: url, maxBytes: max, accept: "text/html")
   }
 
   private func failure(_ url: String, max: Int = 1_000_000) async -> FetchError? {
@@ -196,7 +197,7 @@ struct PageFetcherTests {
     let task = Task { () -> FetchError? in
       do {
         _ = try await fetcher.fetch(
-          FetchRequest(url: "https://hang.test/a", maxBytes: 1000, accept: "*/*"))
+          CauldronKit.FetchRequest(url: "https://hang.test/a", maxBytes: 1000, accept: "*/*"))
         return nil
       } catch {
         return error as? FetchError
@@ -230,5 +231,52 @@ struct PageFetcherTests {
     #expect(
       URLSessionPageFetcher.fetchError(from: NSError(domain: "x", code: 1))
         == .unreachable(detail: "read"))
+  }
+
+  // MARK: Where a link may point
+
+  @Test func aRedirectHopToTheCooksOwnNetworkIsBlockedAndNeverRequested() async {
+    for (index, target) in [
+      "http://192.168.0.1/reboot", "http://localhost/", "http://[::1]/", "http://2130706433/",
+      "https://printer.local/", "http://example.com:8080/",
+    ].enumerated() {
+      let start = "https://hop\(index).test/a"
+      StubNetwork.set(start, .redirect(to: target))
+      StubNetwork.set(target, .respond(chunks: [html]))
+      #expect(await failure(start) == .blocked(detail: "redirect"), "\(target)")
+      #expect(StubNetwork.started(target) == 0, "\(target) was requested")
+    }
+  }
+
+  @Test func theFirstRequestToAPrivateAddressIsBlockedWithoutBeingMade() async {
+    for link in ["http://127.0.0.1/", "http://192.168.1.1/", "http://printer.local/"] {
+      StubNetwork.set(link, .respond(chunks: [html]))
+      guard case .blocked? = await failure(link) else {
+        Issue.record("\(link) should be blocked")
+        continue
+      }
+      #expect(StubNetwork.started(link) == 0)
+    }
+  }
+
+  // MARK: Internationalised links
+
+  @Test func aLinkWithANonASCIIHostIsFetchedUnderItsPunycodeName() async throws {
+    // What the pipeline hands over is the link as typed; `URL` writes the host in punycode.
+    #expect(Distill.isAcceptedLink("https://пример.рф/x"))
+    StubNetwork.set(
+      "https://xn--e1afmkfd.xn--p1ai/x",
+      .respond(headers: ["Content-Type": "text/html"], chunks: [html]))
+    let page = try await fetcher.fetch(request("https://пример.рф/x"))
+    #expect(page.bytes == html)
+    #expect(page.url == "https://xn--e1afmkfd.xn--p1ai/x")
+  }
+}
+
+@Suite("Shared fetcher")
+struct SharedFetcherTests {
+  @Test func theEnvironmentsDefaultMakesOneFetcherHoweverOftenItIsRead() {
+    for _ in 0..<10 { _ = EnvironmentValues().pageFetcher }
+    #expect(URLSessionPageFetcher.liveCreations.withLock { $0 } == 1)
   }
 }

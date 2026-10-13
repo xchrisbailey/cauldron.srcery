@@ -48,7 +48,10 @@ final class ImportModel: Identifiable {
 
   var link = "" {
     didSet {
-      if link != oldValue { linkError = nil }
+      guard link != oldValue else { return }
+      linkError = nil
+      // A new link means the cook has moved on: text pasted from here on isn't from the old one.
+      if !trimmed(link).isEmpty { pastingFor = nil }
     }
   }
   var text = ""
@@ -123,8 +126,8 @@ final class ImportModel: Identifiable {
     guard case .failed(let notice) = phase, notice.canPaste,
       case .link(let address)? = lastRequest
     else { return }
-    pastingFor = address
     link = ""
+    pastingFor = address
     stopped = false
     phase = .editing
   }

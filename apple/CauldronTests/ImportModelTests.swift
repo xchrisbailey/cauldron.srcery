@@ -369,4 +369,34 @@ struct ImportModelTests {
       #expect(ready.draft.title == "Smoky black bean tacos")
     }
   }
+
+  @Test func aPasteIsNotAttributedToALinkTheCookHasMovedOnFrom() async throws {
+    let fetcher = ScriptedFetcher([
+      "https://a.example/soup": .fail(.blocked())
+    ])
+    let flow = model(fetcher, extractor: ScriptedExtractor(recipe: readRecipe()))
+    await run(flow, link: "https://a.example/soup")
+    flow.pasteInstead()
+    #expect(flow.pastingFor == "https://a.example/soup")
+
+    // Typing another link ends it; clearing that link again doesn't bring A back.
+    flow.link = "https://b.example/pie"
+    #expect(flow.pastingFor == nil)
+    flow.link = ""
+    flow.text = "Soup. 1 onion, 2 carrots. Chop them and simmer for twenty minutes."
+    flow.start()
+    await flow.finished()
+    let ready = try review(flow)
+    #expect(ready.draft.sourceURL.isEmpty)
+    #expect(ready.draft.imported?.platform == .text)
+  }
+
+  @Test func clearingTheLinkFieldAfterPasteInsteadKeepsTheLink() async throws {
+    let fetcher = ScriptedFetcher(["https://a.example/soup": .fail(.blocked())])
+    let flow = model(fetcher, extractor: ScriptedExtractor(recipe: readRecipe()))
+    await run(flow, link: "https://a.example/soup")
+    flow.pasteInstead()
+    flow.link = ""
+    #expect(flow.pastingFor == "https://a.example/soup")
+  }
 }

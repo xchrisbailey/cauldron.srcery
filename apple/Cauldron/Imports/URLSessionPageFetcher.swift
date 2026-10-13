@@ -6,8 +6,8 @@ import Synchronization
 /// address checks, which guard a server and mean nothing on the cook's own device).
 ///
 /// - An ephemeral session, so no cookie, cache or credential is kept.
-/// - http and https only, with no credentials in the link, for the first request and every
-///   redirect. At most `maxRedirects` redirects are followed; a fourth is the answer itself.
+/// - Only links `AddressRules` allows (http and https, no credentials, the default port, no
+///   local or private address) for the first request and every redirect. At most `maxRedirects` redirects are followed; a fourth is the answer itself.
 /// - The body is read as it arrives and stops at `maxBytes`.
 /// - Failures end as the `FetchError` that `Seams.swift` documents.
 struct URLSessionPageFetcher: PageFetcher {
@@ -38,6 +38,15 @@ struct URLSessionPageFetcher: PageFetcher {
     if let protocolClasses { configuration.protocolClasses = protocolClasses }
     session = URLSession(configuration: configuration)
   }
+
+  /// The one fetcher the app uses, so a session isn't made for every screen that wants one.
+  static let live: URLSessionPageFetcher = {
+    liveCreations.withLock { $0 += 1 }
+    return URLSessionPageFetcher()
+  }()
+
+  /// How many times `live` was made, for a test to check it is once.
+  static let liveCreations = Mutex(0)
 
   func fetch(_ request: FetchRequest) async throws(FetchError) -> FetchedPage {
     let url = try Self.checked(request.url)
@@ -78,12 +87,12 @@ struct URLSessionPageFetcher: PageFetcher {
 
   // MARK: Rules
 
-  /// The link as a URL, or why it isn't one to open.
+  /// The link as a URL, or why it isn't one to open (`AddressRules`). `URL(string:)` writes an
+  /// internationalised host in punycode, so a link the pipeline accepts as typed
+  /// (`https://пример.рф/x`) is fetched under its ASCII name.
   static func checked(_ link: String) throws(FetchError) -> URL {
-    guard let url = URL(string: link), let scheme = url.scheme?.lowercased(),
-      scheme == "http" || scheme == "https", url.host?.isEmpty == false
-    else { throw .blocked(detail: "scheme") }
-    guard url.user == nil, url.password == nil else { throw .blocked(detail: "credentials") }
+    guard let url = URL(string: link) else { throw .blocked(detail: "scheme") }
+    if let reason = AddressRules.refusal(for: url) { throw .blocked(detail: reason) }
     return url
   }
 

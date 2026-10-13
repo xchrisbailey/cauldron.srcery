@@ -22,6 +22,7 @@ struct RecipeEditorSheet: View {
   /// Problems show once Save has been tried, and then follow the cook's fixes.
   @State private var triedToSave = false
   @State private var couldntSave = false
+  @State private var saveLatch = SaveLatch()
   @State private var confirmingLeave = false
   @State private var divining = false
   @State private var divineMessage: CopyString?
@@ -73,6 +74,7 @@ struct RecipeEditorSheet: View {
           Button(action: save) {
             Text(verbatim: Copy.editor.save.text)
           }
+          .disabled(saveLatch.isSaving)
         }
       }
     }
@@ -119,6 +121,8 @@ struct RecipeEditorSheet: View {
   }
 
   private func save() {
+    // A second tap or click before the sheet has gone would save the recipe again.
+    guard saveLatch.begin() else { return }
     couldntSave = false
     do {
       let saved = try RecipeSaver.save(draft, into: recipe, context: context)
@@ -132,9 +136,29 @@ struct RecipeEditorSheet: View {
       dismiss()
     } catch RecipeSaver.Failure.invalid {
       triedToSave = true
+      saveLatch.reopen()
     } catch {
       triedToSave = true
       couldntSave = true
+      saveLatch.reopen()
     }
+  }
+}
+
+/// Lets one save through at a time. It closes when a save starts and stays closed once the
+/// recipe is saved (the sheet is on its way out); a save that fails opens it again so the cook
+/// can fix the problem and try again.
+struct SaveLatch {
+  private(set) var isSaving = false
+
+  /// True for the first call, false for every call after it until `reopen()`.
+  mutating func begin() -> Bool {
+    guard !isSaving else { return false }
+    isSaving = true
+    return true
+  }
+
+  mutating func reopen() {
+    isSaving = false
   }
 }
