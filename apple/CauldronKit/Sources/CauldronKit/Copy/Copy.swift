@@ -7,10 +7,11 @@
 /// `String` inside a `CopyString`, so a String Catalog can take over the lookup later without
 /// touching the call sites.
 ///
-/// `settings`, `export`, `recipeEditor`, `brewMode`, `macMenu` and `importNative` are the
-/// native-only sections (see `Copy+Settings.swift`, `Copy+Export.swift`,
-/// `Copy+RecipeEditor.swift`, `Copy+BrewMode.swift`, `Copy+MacMenu.swift` and
-/// `Copy+ImportNative.swift`); the rest is the web table.
+/// `settings`, `export`, `recipeEditor`, `brewMode`, `macMenu`, `describeNative` and
+/// `importNative` are the native-only sections (see `Copy+Settings.swift`,
+/// `Copy+Export.swift`, `Copy+RecipeEditor.swift`, `Copy+BrewMode.swift`,
+/// `Copy+MacMenu.swift`, `Copy+DescribeNative.swift` and `Copy+ImportNative.swift`); the rest
+/// is the web table.
 public enum Copy {
   /// The whole table as one value, so tests can walk it.
   public static let catalogue = Catalogue()
@@ -36,6 +37,7 @@ public enum Copy {
   public static let recipeEditor = catalogue.recipeEditor
   public static let brewMode = catalogue.brewMode
   public static let macMenu = catalogue.macMenu
+  public static let describeNative = catalogue.describeNative
   public static let importNative = catalogue.importNative
 
   public struct Catalogue: Sendable {
@@ -60,6 +62,7 @@ public enum Copy {
     public let recipeEditor = RecipeEditorNative()
     public let brewMode = BrewModeNative()
     public let macMenu = MacMenu()
+    public let describeNative = DescribeNative()
     public let importNative = ImportNative()
 
     public init() {}

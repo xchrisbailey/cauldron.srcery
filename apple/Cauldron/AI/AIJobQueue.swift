@@ -162,7 +162,8 @@ enum AIJobQueue {
         dropIfLongOrphaned(job, in: context, now: now)
         return false
       }
-      guard let text = job.input, !text.isEmpty else {
+      // Nothing is waiting any more (the cook typed the numbers in), so there is nothing to ask.
+      guard entry.macrosPending, let text = job.input, !text.isEmpty else {
         entry.macrosPending = false
         context.delete(job)
         return true

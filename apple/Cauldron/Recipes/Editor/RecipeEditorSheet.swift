@@ -126,7 +126,7 @@ struct RecipeEditorSheet: View {
       // ingredients; if Gemini is still out of reach it waits in the queue.
       if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {
         let context = context
-        Task { await AIJobQueue.drain(in: context, using: ai.estimator) }
+        Task { await AIQueueRunner.drain(in: context, using: ai.estimator) }
       }
       onSaved(saved)
       dismiss()

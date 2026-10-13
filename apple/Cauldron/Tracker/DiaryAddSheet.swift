@@ -9,6 +9,15 @@ struct AddContext {
   /// Logs the entries at the end of the meal and closes the sheet. When it can't, nothing is
   /// logged and the answer is the message to show.
   let log: ([NewEntry]) -> CopyString?
+
+  /// What to tell the cook when a write to the diary was refused.
+  static func message(for error: any Error) -> CopyString {
+    switch error {
+    case DiaryWrites.Failure.dayFull: Copy.tracker.dayFull
+    case DiaryWrites.Failure.invalid: Copy.tracker.targets.fixThese
+    default: Copy.tracker.diary.couldntSave
+    }
+  }
 }
 
 /// The ways into the add sheet. The sheet shows the ones that are ready: each way is a view in
@@ -92,12 +101,8 @@ struct DiaryAddSheet: View {
         try DiaryEditor(context: context).add(entries, on: day, slot: slot)
         onClose()
         return nil
-      } catch DiaryWrites.Failure.dayFull {
-        return Copy.tracker.dayFull
-      } catch DiaryWrites.Failure.invalid {
-        return Copy.tracker.targets.fixThese
       } catch {
-        return Copy.tracker.diary.couldntSave
+        return AddContext.message(for: error)
       }
     }
   }
@@ -106,7 +111,7 @@ struct DiaryAddSheet: View {
   private var content: some View {
     switch way {
     case .recents: AddRecentsTab(context: addContext)
-    case .describe: AddDescribeTab(context: addContext)
+    case .describe: AddDescribeTab(context: addContext, onClose: onClose)
     case .recipe: AddRecipeTab(context: addContext)
     case .quick: DiaryQuickAdd(context: addContext)
     }
