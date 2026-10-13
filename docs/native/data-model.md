@@ -43,6 +43,7 @@ Reads apply it. `ModelContext.current(_:)` and `weighIn(on:)` return the winner,
 - one weigh-in per day;
 - one favourite and one pantry item per key;
 - one cook per recipe per day;
+- one gathered Gather line per week and merge key (lines added by hand are never merged);
 - tags by lower-cased name, merging their recipes onto the keeper.
 
 ## Where the store lives
