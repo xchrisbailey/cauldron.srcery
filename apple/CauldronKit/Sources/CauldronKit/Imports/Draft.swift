@@ -21,15 +21,37 @@ extension ImportDraft {
   private static let manyBlankLines = JSRegex("\\n{3,}")
   private static let leadingHash = JSRegex("^#")
 
+  /// Control characters and bidirectional embedding, override and isolate characters dropped
+  /// (a departure from the reference, which kept them): a title like "Cake\u{202E}\u{0}"
+  /// would otherwise reverse the text after it or hide a character. White space the reader
+  /// already collapses, ordinary right-to-left letters, zero-width joiners and combining
+  /// marks stay.
+  static func withoutUnsafeCharacters(_ text: String) -> String {
+    guard text.unicodeScalars.contains(where: isUnsafe) else { return text }
+    var out = String.UnicodeScalarView()
+    out.append(contentsOf: text.unicodeScalars.filter { !isUnsafe($0) })
+    return String(out)
+  }
+
+  private static func isUnsafe(_ c: Unicode.Scalar) -> Bool {
+    switch c.value {
+    case 0x09...0x0D: false
+    case 0x00...0x1F, 0x7F...0x9F: true
+    case 0x202A...0x202E, 0x2066...0x2069: true
+    default: false
+    }
+  }
+
   private static func text(_ value: String?, _ max: Int) -> String? {
-    let trimmed = (value ?? "").jsSpacesCollapsed().jsTrimmed()
+    let trimmed = withoutUnsafeCharacters(value ?? "").jsSpacesCollapsed().jsTrimmed()
     return trimmed.isEmpty ? nil : trimmed.jsPrefix(max)
   }
 
   /// Keeps line breaks, for notes.
   private static func block(_ value: String?, _ max: Int) -> String? {
     let trimmed = manyBlankLines.replacing(
-      in: lineBreaksInNotes.replacing(in: value ?? "", with: " "), with: "\n\n"
+      in: lineBreaksInNotes.replacing(in: withoutUnsafeCharacters(value ?? ""), with: " "),
+      with: "\n\n"
     ).jsTrimmed()
     return trimmed.isEmpty ? nil : trimmed.jsPrefix(max)
   }
@@ -97,7 +119,9 @@ extension ImportDraft {
           protein: Self.grams($0.protein), carbs: Self.grams($0.carbs), fat: Self.grams($0.fat))
       },
       sourcePlatform: source.source,
-      sourceUrl: source.sourceUrl?.jsPrefix(RecipeLimits.url),
+      sourceUrl: source.sourceUrl.map {
+        Self.withoutUnsafeCharacters($0).jsPrefix(RecipeLimits.url)
+      },
       sourceAuthor: Self.text(recipe.author, RecipeLimits.author),
       siteName: Self.text(recipe.siteName, RecipeLimits.author),
       notes: Self.block(recipe.notes, RecipeLimits.notes),

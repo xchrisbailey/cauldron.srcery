@@ -94,7 +94,37 @@ struct HTMLElement: Equatable {
     return out
   }
 
-  private var childElements: [HTMLElement] {
+  /// Descendant elements in document order, visiting at most `budget` of them and charging
+  /// each one to it, so work over a hostile page's nesting stays bounded.
+  func descendants(budget: inout Int) -> [HTMLElement] {
+    var out: [HTMLElement] = []
+    var stack = Array(childElements.reversed())
+    while budget > 0, let next = stack.popLast() {
+      budget -= 1
+      out.append(next)
+      stack.append(contentsOf: next.childElements.reversed())
+    }
+    return out
+  }
+
+  /// `textContent`, visiting at most `budget` nodes and charging each one to it.
+  func textContent(budget: inout Int) -> String {
+    var out = ""
+    var stack: [Node] = Array(element.getChildNodes().reversed())
+    while budget > 0, let node = stack.popLast() {
+      budget -= 1
+      if let text = node as? TextNode {
+        out += text.getWholeText()
+      } else if let data = node as? DataNode {
+        out += data.getWholeData()
+      } else if node is SwiftSoup.Element {
+        stack.append(contentsOf: node.getChildNodes().reversed())
+      }
+    }
+    return out
+  }
+
+  var childElements: [HTMLElement] {
     element.getChildNodes().compactMap { ($0 as? SwiftSoup.Element).map(HTMLElement.init) }
   }
 

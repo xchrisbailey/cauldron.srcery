@@ -74,7 +74,9 @@ extension Distill {
         reading: imported.recipe,
         from: DraftSource(source: source, sourceUrl: link.map(normalizeURL))),
       extractor: imported.extractor, raw: imported.raw, usage: imported.usage,
-      rough: imported.rough, imageUrl: imported.recipe.imageUrl,
+      rough: imported.rough,
+      // Whatever route the link took here, the app is only handed one it may fetch.
+      imageUrl: PageText.imageLink(imported.recipe.imageUrl, base: nil),
       macroEstimate: macroEstimateInput(for: imported.recipe))
   }
 
@@ -181,11 +183,11 @@ extension Distill {
       accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5")
     let page = try await fetchWithRetries(request, fetcher, options)
     if page.bytes.count > options.maxPageBytes { throw .failed(.tooLarge) }
-    if let finalURL = WebURL.parse(page.url),
-      !finalURL.username.isEmpty || !finalURL.password.isEmpty
-    {
-      throw .failed(.blocked)
-    }
+    // Where the page came from becomes the recipe's source link, so it has to be an http(s)
+    // link with no credentials in it; anything else a fetcher reports is refused.
+    guard let finalURL = WebURL.parse(page.url), finalURL.username.isEmpty,
+      finalURL.password.isEmpty
+    else { throw .failed(.blocked) }
     if let contentType = page.contentType, !htmlTypes.test(contentType) {
       throw .failed(.couldntRead)
     }
@@ -256,7 +258,8 @@ extension Distill {
       do throws(FetchError) {
         let response = try await fetcher.fetch(
           FetchRequest(url: endpoint, maxBytes: 512 * 1024, accept: "application/json"))
-        embedded = Social.fromOEmbed(Charset.decode(response.bytes, label: "utf-8") ?? "")
+        embedded = Social.fromOEmbed(
+          Charset.decode(response.bytes, label: "utf-8") ?? "", base: post)
       } catch {
         // A missing or private post fails here too; the page may still say more.
         if case .blocked = error { throw failure(error) }
@@ -266,7 +269,7 @@ extension Distill {
     if let embedded, let caption = embedded.caption, !caption.isEmpty { return (post, embedded) }
     let loaded: (html: String, url: String)
     if let page { loaded = page } else { loaded = try await fetchPage(post, fetcher, options) }
-    let graph = Social.fromOpenGraph(loaded.html, source: source)
+    let graph = Social.fromOpenGraph(loaded.html, source: source, base: post)
     return (
       post,
       SocialCapture(

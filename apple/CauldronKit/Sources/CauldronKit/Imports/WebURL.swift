@@ -6,8 +6,8 @@ import Foundation
 // the draft's source link, the canonical-link checks and the tracking-parameter strip all
 // compare the written form, so the standard's rules are applied here directly. Only http and
 // https are understood; any other scheme fails to parse, which is how every caller treats it.
-// Internationalised host names are lower-cased but not converted to punycode: Foundation does
-// that when the link is fetched.
+// Hosts are read by `WebHost`: IPv4 and IPv6 in canonical form, internationalised names as
+// punycode (with the reduced IDNA mapping its comment describes).
 
 struct WebURL: Sendable, Hashable {
   var scheme: String
@@ -175,113 +175,8 @@ struct WebURL: Sendable, Hashable {
     return (input[..<hash], encode(input[(hash + 1)...], fragmentSet))
   }
 
-  /// The host, lower-cased, or nil when it is empty or holds a character no host can.
-  private static func parseHost(_ input: Part) -> String? {
-    if input.first == "[" {
-      guard input.last == "]", input.count > 2 else { return nil }
-      let inner = input.dropFirst().dropLast()
-      guard inner.allSatisfy({ $0.isASCIIHexDigit || $0 == ":" || $0 == "." }) else { return nil }
-      return "[" + inner.string.lowercased() + "]"
-    }
-    let decoded = percentDecoded(input)
-    guard !decoded.isEmpty else { return nil }
-    let forbidden: Set<Unicode.Scalar> = [
-      " ", "#", "%", "/", ":", "<", ">", "?", "@", "[", "\\", "]", "^", "|", "\u{7F}",
-    ]
-    guard !decoded.contains(where: { $0.value <= 0x20 || forbidden.contains($0) }) else {
-      return nil
-    }
-    let host = decoded.string.lowercased()
-    guard decoded.contains(where: { $0.value > 0x7F }) else { return host }
-    // Names with letters outside ASCII are written as punycode, label by label.
-    let labels = host.precomposedStringWithCanonicalMapping.components(separatedBy: ".")
-    var out: [String] = []
-    for label in labels {
-      if label.unicodeScalars.allSatisfy({ $0.value < 0x80 }) {
-        out.append(label)
-      } else if let encoded = punycode(Array(label.unicodeScalars.map(\.value))) {
-        out.append("xn--" + encoded)
-      } else {
-        return nil
-      }
-    }
-    return out.joined(separator: ".")
-  }
-
-  /// RFC 3492 Punycode for one label.
-  private static func punycode(_ input: [UInt32]) -> String? {
-    let base: UInt32 = 36
-    let tMin: UInt32 = 1
-    let tMax: UInt32 = 26
-    let skew: UInt32 = 38
-    let damp: UInt32 = 700
-    func digit(_ d: UInt32) -> Character {
-      Character(Unicode.Scalar(d < 26 ? d + 97 : d + 22) ?? "a")
-    }
-    func adapt(_ delta: UInt32, _ points: UInt32, _ first: Bool) -> UInt32 {
-      var delta = first ? delta / damp : delta / 2
-      delta += delta / points
-      var k: UInt32 = 0
-      while delta > ((base - tMin) * tMax) / 2 {
-        delta /= base - tMin
-        k += base
-      }
-      return k + (base - tMin + 1) * delta / (delta + skew)
-    }
-    var output = input.filter { $0 < 0x80 }.compactMap { Unicode.Scalar($0).map(Character.init) }
-    let basic = UInt32(output.count)
-    var handled = basic
-    if basic > 0 { output.append("-") }
-    var n: UInt32 = 128
-    var delta: UInt32 = 0
-    var bias: UInt32 = 72
-    while handled < UInt32(input.count) {
-      guard let m = input.filter({ $0 >= n }).min() else { return nil }
-      let (step, overflow) = (m - n).multipliedReportingOverflow(by: handled + 1)
-      guard !overflow else { return nil }
-      delta += step
-      n = m
-      for c in input {
-        if c < n { delta += 1 }
-        if c == n {
-          var q = delta
-          var k = base
-          while true {
-            let t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias)
-            if q < t { break }
-            output.append(digit(t + (q - t) % (base - t)))
-            q = (q - t) / (base - t)
-            k += base
-          }
-          output.append(digit(q))
-          bias = adapt(delta, handled + 1, handled == basic)
-          delta = 0
-          handled += 1
-        }
-      }
-      delta += 1
-      n += 1
-    }
-    return String(output)
-  }
-
-  private static func percentDecoded(_ input: Part) -> Scalars {
-    var bytes: [UInt8] = []
-    let scalars = Array(input)
-    var i = 0
-    while i < scalars.count {
-      if scalars[i] == "%", i + 2 < scalars.count,
-        let high = hexValue(scalars[i + 1]), let low = hexValue(scalars[i + 2])
-      {
-        bytes.append(UInt8(high << 4 | low))
-        i += 3
-      } else {
-        bytes.append(contentsOf: Array(String(scalars[i]).utf8))
-        i += 1
-      }
-    }
-    return Array(String(decoding: bytes, as: UTF8.self).unicodeScalars)
-  }
+  /// The host as the standard writes it (see `WebHost`), or nil when it refuses it.
+  private static func parseHost(_ input: Part) -> String? { WebHost.parse(Array(input)) }
 
   private static func hexValue(_ c: Unicode.Scalar) -> Int? {
     switch c.value {

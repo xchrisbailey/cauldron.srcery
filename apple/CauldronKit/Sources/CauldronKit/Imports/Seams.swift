@@ -98,7 +98,9 @@ public enum DistillError: Error, Sendable, Hashable {
 
 /// Limits and timings a distill runs with.
 public struct DistillOptions: Sendable, Hashable {
-  /// A distill gets this long; past it, it fails as timed out.
+  /// A distill gets this long; past it, it fails as timed out. This bounds waiting on the
+  /// fetcher and the extractor, not parsing: reading a page or text is linear in its size and
+  /// does not watch the clock.
   public var timeout: Duration
   /// The wait before the first retry of a transient fetch failure; it doubles for the second.
   public var retryDelay: Duration

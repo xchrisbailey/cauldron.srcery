@@ -45,6 +45,19 @@ enum PageText {
     return WebURL.parse(href.jsTrimmed(), base: baseURL)?.string
   }
 
+  /// An image link the app may fetch: http(s) with no credentials in it, resolved against
+  /// `base` when it is relative, else nil. Departs from the reference, which took whatever a
+  /// page or a platform's response said, so `javascript:` and `file:` links and links with
+  /// embedded passwords never reach `Distilled.imageUrl`.
+  static func imageLink(_ href: String?, base: String?) -> String? {
+    guard let href, !href.isEmpty else { return nil }
+    let baseURL = base.flatMap { WebURL.parse($0) }
+    guard let url = WebURL.parse(href.jsTrimmed(), base: baseURL), url.username.isEmpty,
+      url.password.isEmpty
+    else { return nil }
+    return url.string
+  }
+
   private static func isTrackingName(_ name: String) -> Bool {
     let lowered = name.lowercased()
     if lowered.hasPrefix("utm_") {

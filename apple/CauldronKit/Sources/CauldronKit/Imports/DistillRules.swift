@@ -55,7 +55,7 @@ public enum Distill {
   public static let textMax = 50_000
 
   private static let sourceLink = JSRegex(
-    "^https?://[^\(JS.space)/]+[^\(JS.space)]*\\z", ignoreCase: true)
+    "^https?://[^\(JS.space)/][^\(JS.space)]*\\z", ignoreCase: true)
 
   /// The link to read, or the failure for one that isn't: http or https only, no credentials
   /// in it, at most `RecipeLimits.url` long. A link the field's own check let through can't

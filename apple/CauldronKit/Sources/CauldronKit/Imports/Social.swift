@@ -87,7 +87,7 @@ enum Social {
   ]
 
   /// What an oEmbed response says about a post (`fromOEmbed`).
-  static func fromOEmbed(_ json: String) -> SocialCapture? {
+  static func fromOEmbed(_ json: String, base: String? = nil) -> SocialCapture? {
     guard case .object(let object) = JSONValue.parse(json) else { return nil }
     var fields: [String: String] = [:]
     for key in oEmbedKeys {
@@ -103,7 +103,7 @@ enum Social {
       caption: caption.flatMap { $0.isEmpty ? nil : $0 },
       author: uniqueID.map { "@" + $0 } ?? handle(from: fields["author_url"])
         ?? fields["author_name"],
-      imageUrl: fields["thumbnail_url"])
+      imageUrl: PageText.imageLink(fields["thumbnail_url"], base: base))
   }
 
   private static func meta(_ elements: [HTMLElement], _ key: String) -> String? {
@@ -123,11 +123,13 @@ enum Social {
   private static let captionMax = 8000
   private static let quoted = JSRegex(":\(JS.s)*[\"“]([\\s\\S]+)[\"”]\(JS.s)*\\.?\(JS.s)*\\z")
   private static let instagramHandle = JSRegex(
-    "[0-9][0-9,.]*\(JS.s)*[KM]?\(JS.s)+(?:likes?|comments?)[^-]*-\(JS.s)*([\(word).]+)\(JS.s)+on\(JS.s)",
+    "[0-9][0-9,.]*(?:\(JS.s)+[KM]\(JS.s)+|[KM]?\(JS.s)+)(?:likes?|comments?)[^-]*-\(JS.s)*([\(word).]+)\(JS.s)+on\(JS.s)",
     ignoreCase: true)
 
   /// What a post page's Open Graph tags say about it (`fromOpenGraph`).
-  static func fromOpenGraph(_ html: String, source: ImportSource) -> SocialCapture? {
+  static func fromOpenGraph(
+    _ html: String, source: ImportSource, base: String? = nil
+  ) -> SocialCapture? {
     let elements = HTMLDocument(html).elements
     // Captions are a few thousand characters at most; the cap also bounds the regexes.
     let description = (meta(elements, "og:description") ?? meta(elements, "description"))?
@@ -147,7 +149,7 @@ enum Social {
     let caption = (inQuotes ?? raw).jsTrimmed()
     return SocialCapture(
       caption: caption.isEmpty ? nil : caption, author: handle.map { "@" + $0 },
-      imageUrl: meta(elements, "og:image"))
+      imageUrl: PageText.imageLink(meta(elements, "og:image"), base: base))
   }
 }
 
@@ -159,10 +161,20 @@ extension Distill {
   }
 
   /// What a TikTok oEmbed response says about a post (`fromOEmbed`).
-  public static func readOEmbed(_ json: String) -> SocialCapture? { Social.fromOEmbed(json) }
+  ///
+  /// The image link is kept only when it is an http(s) link with no credentials; a relative one
+  /// is resolved against `base`, and dropped when there is none.
+  public static func readOEmbed(_ json: String, base: String? = nil) -> SocialCapture? {
+    Social.fromOEmbed(json, base: base)
+  }
 
   /// What a post page's Open Graph tags say about it (`fromOpenGraph`).
-  public static func readOpenGraph(html: String, source: ImportSource) -> SocialCapture? {
-    Social.fromOpenGraph(html, source: source)
+  ///
+  /// The image link is kept only when it is an http(s) link with no credentials; a relative one
+  /// is resolved against `base`, and dropped when there is none.
+  public static func readOpenGraph(
+    html: String, source: ImportSource, base: String? = nil
+  ) -> SocialCapture? {
+    Social.fromOpenGraph(html, source: source, base: base)
   }
 }

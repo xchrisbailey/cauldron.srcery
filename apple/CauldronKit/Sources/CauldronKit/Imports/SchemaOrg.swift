@@ -131,7 +131,7 @@ enum SchemaOrg {
       case .object(let node): url = firstPresent(node["url"], node["contentUrl"])
       default: url = nil
       }
-      if let link = url?.string, let resolved = PageText.absolute(link, base: base) {
+      if let link = url?.string, let resolved = PageText.imageLink(link, base: base) {
         return resolved
       }
     }
@@ -257,35 +257,61 @@ enum SchemaOrg {
 
   // MARK: Microdata
 
-  private static func hasItemprop(_ element: HTMLElement, _ name: String) -> Bool {
-    (element.attribute("itemprop") ?? "")
-      .split(whereSeparator: { " \t\n\u{0C}\r".contains($0) }).contains { $0 == name }
-  }
+  /// What a microdata item's properties are, found in one pass over the item: the elements
+  /// that carry each `itemprop` word, in document order, not counting those inside a nested
+  /// item. (An element belongs to the nearest enclosing `itemscope` above it, so the pass
+  /// carries that down instead of walking back up from every element.)
+  struct MicrodataItem {
+    let scope: HTMLElement
+    private(set) var props: [String: [HTMLElement]] = [:]
 
-  private static func nearestScope(_ element: HTMLElement?) -> HTMLElement? {
-    element?.inclusiveAncestors.first { $0.hasAttribute("itemscope") }
-  }
+    init(_ scope: HTMLElement) {
+      self.scope = scope
+      var stack: [(element: HTMLElement, direct: Bool)] =
+        scope.childElements.reversed().map { ($0, true) }
+      while let (element, direct) = stack.popLast() {
+        if direct, let words = element.attribute("itemprop") {
+          var seen: [String] = []
+          for word in words.utf8.split(whereSeparator: { Self.isSpace($0) }) {
+            let name = String(decoding: word, as: UTF8.self)
+            if !seen.contains(name) {
+              seen.append(name)
+              props[name, default: []].append(element)
+            }
+          }
+        }
+        // The children of an element with its own itemscope belong to that item, not this one.
+        let childrenDirect = direct && !element.hasAttribute("itemscope")
+        for child in element.childElements.reversed() { stack.append((child, childrenDirect)) }
+      }
+    }
 
-  /// Elements with an itemprop inside `scope`, not inside a nested item.
-  private static func props(_ scope: HTMLElement, _ name: String) -> [HTMLElement] {
-    scope.descendants.filter { element in
-      hasItemprop(element, name)
-        && (nearestScope(element.parent) == scope || nearestScope(element) == scope)
+    func props(_ name: String) -> [HTMLElement] { props[name] ?? [] }
+
+    /// The white space that separates the words of an attribute (not a Unicode test).
+    private static func isSpace(_ byte: UInt8) -> Bool {
+      byte == 0x20 || byte == 0x09 || byte == 0x0A || byte == 0x0C || byte == 0x0D
     }
   }
 
-  private static func value(of element: HTMLElement) -> String? {
+  /// Work a page may cost in node visits across all the text it reads for one item: a real
+  /// recipe uses a few thousand, so this is about fifty times what one needs, and a page of
+  /// thousands of nested properties (each of which would otherwise read everything below it)
+  /// can't make the reading quadratic.
+  private static let microdataBudget = 150_000
+
+  private static func value(of element: HTMLElement, work: inout Int) -> String? {
     let raw =
       element.attribute("content") ?? element.attribute("datetime")
-      ?? (element.tagName == "meta" ? nil : element.textContent)
+      ?? (element.tagName == "meta" ? nil : element.textContent(budget: &work))
     guard let raw, !raw.isEmpty else { return nil }
     let text = PageText.plain(raw)
     return text.isEmpty ? nil : text
   }
 
-  private static func first(_ scope: HTMLElement, _ name: String) -> String? {
-    for element in props(scope, name) {
-      if let value = value(of: element) { return value }
+  private static func first(_ item: MicrodataItem, _ name: String, work: inout Int) -> String? {
+    for element in item.props(name) {
+      if let value = value(of: element, work: &work) { return value }
     }
     return nil
   }
@@ -301,39 +327,62 @@ enum SchemaOrg {
           && recipeType.test($0.attribute("itemtype") ?? "")
       })
     else { return nil }
-    let ingredients = (props(scope, "recipeIngredient") + props(scope, "ingredients"))
-      .compactMap(value(of:)).map { ExtractedLine(line: $0, section: nil, unsure: false) }
+    let item = MicrodataItem(scope)
+    var work = microdataBudget
+    // Only the first `RecipeLimits.ingredients` ingredients and `RecipeLimits.steps` steps can
+    // reach a draft, so reading more would only cost time (a departure from the reference,
+    // which read them all and cut later; nothing below those limits differs).
+    var ingredients: [ExtractedLine] = []
+    for element in item.props("recipeIngredient") + item.props("ingredients") {
+      if ingredients.count >= RecipeLimits.ingredients || work <= 0 { break }
+      if let line = value(of: element, work: &work) {
+        ingredients.append(ExtractedLine(line: line, section: nil, unsure: false))
+      }
+    }
     var steps: [ExtractedStep] = []
-    for element in props(scope, "recipeInstructions") {
-      let items = element.descendants.filter { $0.tagName == "li" }
+    for element in item.props("recipeInstructions") {
+      if steps.count >= RecipeLimits.steps || work <= 0 { break }
+      let below = element.descendants(budget: &work)
+      let items = below.filter { $0.tagName == "li" }
       if !items.isEmpty {
         for item in items {
-          let text = PageText.plain(item.textContent)
+          let text = PageText.plain(item.textContent(budget: &work))
           if !text.isEmpty { steps.append(ExtractedStep(text: text, section: nil, unsure: false)) }
         }
       } else {
         // Paragraphs and line breaks split steps; source newlines are just pretty-printing.
+        // Writing the markup out costs several times what walking it did.
+        work -= below.count * 10
+        if work < 0 { break }
         for part in instructionBreaks.split(element.innerHTML) {
           let text = PageText.plain(part)
           if !text.isEmpty { steps.append(ExtractedStep(text: text, section: nil, unsure: false)) }
         }
       }
     }
-    let image = props(scope, "image").first
-    let author = props(scope, "author").first
+    let image = item.props("image").first
+    let author = item.props("author").first
+    var authorName: String?
+    if let author {
+      authorName =
+        author.hasAttribute("itemscope")
+        ? first(MicrodataItem(author), "name", work: &work) : value(of: author, work: &work)
+    }
     return ExtractedRecipe(
-      title: first(scope, "name"),
-      description: first(scope, "description"),
-      servings: servings(first(scope, "recipeYield").map(JSONValue.string)),
-      prepMinutes: isoMinutes(first(scope, "prepTime").map(JSONValue.string)),
-      cookMinutes: isoMinutes(first(scope, "cookTime").map(JSONValue.string)),
-      totalMinutes: isoMinutes(first(scope, "totalTime").map(JSONValue.string)),
-      author: author.flatMap { $0.hasAttribute("itemscope") ? first($0, "name") : value(of: $0) },
+      title: first(item, "name", work: &work),
+      description: first(item, "description", work: &work),
+      servings: servings(first(item, "recipeYield", work: &work).map(JSONValue.string)),
+      prepMinutes: isoMinutes(first(item, "prepTime", work: &work).map(JSONValue.string)),
+      cookMinutes: isoMinutes(first(item, "cookTime", work: &work).map(JSONValue.string)),
+      totalMinutes: isoMinutes(first(item, "totalTime", work: &work).map(JSONValue.string)),
+      author: authorName,
       imageUrl: image.flatMap {
-        PageText.absolute(
+        PageText.imageLink(
           $0.attribute("src") ?? $0.attribute("content") ?? $0.attribute("href"), base: base)
       },
-      tags: [first(scope, "recipeCuisine"), first(scope, "recipeCategory")].compactMap { $0 },
+      tags: [
+        first(item, "recipeCuisine", work: &work), first(item, "recipeCategory", work: &work),
+      ].compactMap { $0 },
       ingredients: ingredients,
       steps: steps)
   }

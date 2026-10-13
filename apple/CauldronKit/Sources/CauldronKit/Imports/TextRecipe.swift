@@ -27,8 +27,10 @@ enum TextRecipe {
   // Decoration around a heading: markdown, bullets, emoji, trailing colons.
   private static let leadingDecoration = JSRegex(
     "^[\(JS.space)#*_>•\\-–—=~|▢□◦‣\(pictographic)]+")
+  // Matched only from the start of a run, so a long run that doesn't reach the end is scanned
+  // once, not from every position in it.
   private static let trailingDecoration = JSRegex(
-    "[\(JS.space)#*_:：=~|\(pictographic)]+\\z")
+    "(?<![\(JS.space)#*_:：=~|\(pictographic)])[\(JS.space)#*_:：=~|\(pictographic)]+\\z")
 
   private static func bare(_ line: String) -> String {
     trailingDecoration.replacing(in: leadingDecoration.replacing(in: line, with: ""), with: "")
@@ -67,13 +69,58 @@ enum TextRecipe {
     "^(prep(?:aration)?|cook(?:ing)?|bake|baking|total|ready\(JS.s)+in)(?:\(JS.s)+time)?"
       + "\(JS.s)*[:：\\-]?\(JS.s)*(\(JS.dot)+)\\z", ignoreCase: true)
 
-  // What is left of a time line once the label is gone: only a duration.
-  private static let duration = JSRegex(
-    "^(?:about\(JS.s)+|approx\\.?\(JS.s)+)?[0-9½¼¾.,\(JS.space)\\-–]+"
-      + "(?:\(JS.s)*(?:hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|and|to)\(JS.endWord)"
-      + "[0-9½¼¾.,\(JS.space)\\-–]*)*\\z", ignoreCase: true)
+  // What is left of a time line once the label is gone: only a duration. The reference tests
+  // this with one regular expression (`DURATION`): an optional "about " or "approx. ", a run of
+  // digits, fractions, dots, commas, spaces and dashes, then any number of unit words each
+  // followed by more of that run. Its repeated group can split a run of short words many ways,
+  // so a failing line takes exponential time ("Prep: 1 m m m m m m m m m m m m m m x" ran for
+  // 14 seconds here). This reads the same language in one pass: every run of letters must be a
+  // whole unit word, and the rest must be in the run alphabet.
+  private static let unitWords: Set<String> = [
+    "hour", "hours", "hr", "hrs", "h", "minute", "minutes", "min", "mins", "m", "second",
+    "seconds", "sec", "secs", "and", "to",
+  ]
 
-  private static let metaSeparators = JSRegex("\(JS.s)*[|•·,;]\(JS.s)*")
+  private static func inDurationRun(_ c: Unicode.Scalar) -> Bool {
+    c.isASCIIDigit || c.isJSSpace || "½¼¾.,-–".unicodeScalars.contains(c)
+  }
+
+  static func isDuration(_ text: String) -> Bool {
+    var rest = Array(text.unicodeScalars)[...]
+    // An optional "about " or "approx. ": the word, then white space.
+    for prefix in ["about", "approx"]
+    where Array(rest.prefix(prefix.count)).string.lowercased() == prefix {
+      rest = rest.dropFirst(prefix.count)
+      if prefix == "approx", rest.first == "." { rest = rest.dropFirst() }
+      guard let space = rest.first, space.isJSSpace else { return false }
+      rest = rest.dropFirst()
+      break
+    }
+    // Then at least one character of the run.
+    guard let first = rest.first, inDurationRun(first) else { return false }
+    var i = rest.startIndex
+    while i < rest.endIndex {
+      let c = rest[i]
+      if c.isASCIILetter || c == "_" {
+        var j = i
+        while j < rest.endIndex, rest[j].isASCIIWord, !rest[j].isASCIIDigit { j += 1 }
+        // The word must end where a word boundary does: not on a digit.
+        if j < rest.endIndex, rest[j].isASCIIDigit { return false }
+        guard unitWords.contains(Array(rest[i..<j]).string.lowercased()) else { return false }
+        i = j
+      } else if inDurationRun(c) {
+        i += 1
+      } else {
+        return false
+      }
+    }
+    return true
+  }
+
+  // Starts at the beginning of a run of white space, never inside one, so a long run with no
+  // separator after it is scanned once.
+  private static let metaSeparators = JSRegex(
+    "(?<![\(JS.space)])\(JS.s)*[|•·,;]\(JS.s)*")
 
   /// Minutes in a duration like "1 hr 20 mins", or nil.
   static func parseMinutes(_ text: String) -> Int? {
@@ -101,7 +148,7 @@ enum TextRecipe {
       }
       // "Bake at 200C for 10 minutes." is a step; "Bake: 10 minutes" is metadata.
       guard let found = time.firstMatch(in: text), let rest = found.group(2),
-        duration.test(rest), let minutes = parseMinutes(rest), let label = found.group(1)
+        isDuration(rest), let minutes = parseMinutes(rest), let label = found.group(1)
       else { continue }
       let kind = label.lowercased()
       if kind.hasPrefix("prep") {
@@ -179,7 +226,7 @@ enum TextRecipe {
         if numberedStep.test(line) || steps.isEmpty {
           steps.append(bullet.replacingFirst(in: line, with: "").jsTrimmed())
         } else {
-          steps[steps.count - 1] = "\(steps[steps.count - 1]) \(line.jsTrimmed())"
+          steps[steps.count - 1] += " " + line.jsTrimmed()
         }
       }
       return steps.filter { !$0.isEmpty }

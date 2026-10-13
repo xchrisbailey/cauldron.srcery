@@ -1,0 +1,390 @@
+[
+ {
+  "in": "127.0.0.1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "0x7f.1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "2130706433",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "1.2.3",
+  "out": "https://1.2.0.3/p?q=1"
+ },
+ {
+  "in": "999.1.1.1",
+  "out": null
+ },
+ {
+  "in": "0x7f.0.0.1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "0177.0.0.1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "1.2.3.4.5",
+  "out": null
+ },
+ {
+  "in": "1.2.3.4.",
+  "out": "https://1.2.3.4/p?q=1"
+ },
+ {
+  "in": "256.1.1.1",
+  "out": null
+ },
+ {
+  "in": "4294967295",
+  "out": "https://255.255.255.255/p?q=1"
+ },
+ {
+  "in": "4294967296",
+  "out": null
+ },
+ {
+  "in": "0x100000000",
+  "out": null
+ },
+ {
+  "in": "0xffffffff",
+  "out": "https://255.255.255.255/p?q=1"
+ },
+ {
+  "in": "1.0x10000",
+  "out": "https://1.1.0.0/p?q=1"
+ },
+ {
+  "in": "08.1.1.1",
+  "out": null
+ },
+ {
+  "in": "0x",
+  "out": "https://0.0.0.0/p?q=1"
+ },
+ {
+  "in": "0x.1",
+  "out": "https://0.0.0.1/p?q=1"
+ },
+ {
+  "in": "1..2",
+  "out": null
+ },
+ {
+  "in": "192.168.1.1",
+  "out": "https://192.168.1.1/p?q=1"
+ },
+ {
+  "in": "10.0.0.1",
+  "out": "https://10.0.0.1/p?q=1"
+ },
+ {
+  "in": "1.2.3.04",
+  "out": "https://1.2.3.4/p?q=1"
+ },
+ {
+  "in": "[::1]",
+  "out": "https://[::1]/p?q=1"
+ },
+ {
+  "in": "[0:0:0:0:0:0:0:1]",
+  "out": "https://[::1]/p?q=1"
+ },
+ {
+  "in": "[::ffff:127.0.0.1]",
+  "out": "https://[::ffff:7f00:1]/p?q=1"
+ },
+ {
+  "in": "[2001:db8::1]",
+  "out": "https://[2001:db8::1]/p?q=1"
+ },
+ {
+  "in": "[2001:0db8:0000:0000:0000:0000:0000:0001]",
+  "out": "https://[2001:db8::1]/p?q=1"
+ },
+ {
+  "in": "[1:0:0:2:0:0:0:3]",
+  "out": "https://[1:0:0:2::3]/p?q=1"
+ },
+ {
+  "in": "[::]",
+  "out": "https://[::]/p?q=1"
+ },
+ {
+  "in": "[1::]",
+  "out": "https://[1::]/p?q=1"
+ },
+ {
+  "in": "[::1.2.3.4]",
+  "out": "https://[::102:304]/p?q=1"
+ },
+ {
+  "in": "[fe80::1]",
+  "out": "https://[fe80::1]/p?q=1"
+ },
+ {
+  "in": "[FE80::1]",
+  "out": "https://[fe80::1]/p?q=1"
+ },
+ {
+  "in": "[1:2:3:4:5:6:7:8]",
+  "out": "https://[1:2:3:4:5:6:7:8]/p?q=1"
+ },
+ {
+  "in": "[1:2:3:4:5:6:7::]",
+  "out": "https://[1:2:3:4:5:6:7:0]/p?q=1"
+ },
+ {
+  "in": "[::1%25eth0]",
+  "out": null
+ },
+ {
+  "in": "[gggg::]",
+  "out": null
+ },
+ {
+  "in": "[1:2:3]",
+  "out": null
+ },
+ {
+  "in": "[::ffff:1.2.3.4]",
+  "out": "https://[::ffff:102:304]/p?q=1"
+ },
+ {
+  "in": "[1:2:3:4:5:6:1.2.3.4]",
+  "out": "https://[1:2:3:4:5:6:102:304]/p?q=1"
+ },
+ {
+  "in": "[1::2::3]",
+  "out": null
+ },
+ {
+  "in": "[:1]",
+  "out": null
+ },
+ {
+  "in": "[1:]",
+  "out": null
+ },
+ {
+  "in": "[::01]",
+  "out": "https://[::1]/p?q=1"
+ },
+ {
+  "in": "[::1.2.3]",
+  "out": null
+ },
+ {
+  "in": "[::1.2.3.256]",
+  "out": null
+ },
+ {
+  "in": "ｉｎｓｔａｇｒａｍ.com",
+  "out": "https://instagram.com/p?q=1"
+ },
+ {
+  "in": "ＥＸＡＭＰＬＥ.com",
+  "out": "https://example.com/p?q=1"
+ },
+ {
+  "in": "bücher.example",
+  "out": "https://xn--bcher-kva.example/p?q=1"
+ },
+ {
+  "in": "BÜCHER.example",
+  "out": "https://xn--bcher-kva.example/p?q=1"
+ },
+ {
+  "in": "ΒΌΛΟΣ.com",
+  "out": "https://xn--nxasmq6b.com/p?q=1"
+ },
+ {
+  "in": "faß.de",
+  "out": "https://xn--fa-hia.de/p?q=1"
+ },
+ {
+  "in": "☃.net",
+  "out": "https://xn--n3h.net/p?q=1"
+ },
+ {
+  "in": "例え.jp",
+  "out": "https://xn--r8jz45g.jp/p?q=1"
+ },
+ {
+  "in": "EXAMPLE.COM",
+  "out": "https://example.com/p?q=1"
+ },
+ {
+  "in": "example.com.",
+  "out": "https://example.com./p?q=1"
+ },
+ {
+  "in": "example.com..",
+  "out": "https://example.com../p?q=1"
+ },
+ {
+  "in": "a.b..c",
+  "out": "https://a.b..c/p?q=1"
+ },
+ {
+  "in": "-bad.com",
+  "out": "https://-bad.com/p?q=1"
+ },
+ {
+  "in": "ex ample.com",
+  "out": null
+ },
+ {
+  "in": "exa%6Dple.com",
+  "out": "https://example.com/p?q=1"
+ },
+ {
+  "in": "%41.com",
+  "out": "https://a.com/p?q=1"
+ },
+ {
+  "in": "e‍xample.com",
+  "out": null
+ },
+ {
+  "in": "ex­ample.com",
+  "out": "https://example.com/p?q=1"
+ },
+ {
+  "in": "example。com",
+  "out": "https://example.com/p?q=1"
+ },
+ {
+  "in": "ex$ample.com",
+  "out": "https://ex$ample.com/p?q=1"
+ },
+ {
+  "in": "ex_ample.com",
+  "out": "https://ex_ample.com/p?q=1"
+ },
+ {
+  "in": "例え。jp",
+  "out": "https://xn--r8jz45g.jp/p?q=1"
+ },
+ {
+  "in": "xn--bcher-kva.example",
+  "out": "https://xn--bcher-kva.example/p?q=1"
+ },
+ {
+  "in": "localhost",
+  "out": "https://localhost/p?q=1"
+ },
+ {
+  "in": "LOCALHOST",
+  "out": "https://localhost/p?q=1"
+ },
+ {
+  "in": "foo.localhost",
+  "out": "https://foo.localhost/p?q=1"
+ },
+ {
+  "in": "1.2.3.4.example",
+  "out": "https://1.2.3.4.example/p?q=1"
+ },
+ {
+  "in": "1.2.3.4a",
+  "out": "https://1.2.3.4a/p?q=1"
+ },
+ {
+  "in": "0x7f.0x0.0x0.0x1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "00000177.1",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "１２７.０.０.１",
+  "out": "https://127.0.0.1/p?q=1"
+ },
+ {
+  "in": "ｉｎｓｔａｇｒａｍ。com",
+  "out": "https://instagram.com/p?q=1"
+ },
+ {
+  "in": "tiktok.com",
+  "out": "https://tiktok.com/p?q=1"
+ },
+ {
+  "in": "TIKTOK.COM",
+  "out": "https://tiktok.com/p?q=1"
+ },
+ {
+  "in": "www.tiktok.com",
+  "out": "https://www.tiktok.com/p?q=1"
+ },
+ {
+  "in": "%",
+  "out": null
+ },
+ {
+  "in": "%zz",
+  "out": null
+ },
+ {
+  "in": "a%00b",
+  "out": null
+ },
+ {
+  "in": "",
+  "out": "https://p/?q=1"
+ },
+ {
+  "in": "a b",
+  "out": null
+ },
+ {
+  "in": "a|b",
+  "out": null
+ },
+ {
+  "in": "a<b",
+  "out": null
+ },
+ {
+  "in": "a^b",
+  "out": null
+ },
+ {
+  "in": "1.2.3.4:80",
+  "out": "https://1.2.3.4:80/p?q=1"
+ },
+ {
+  "in": "user@host.com",
+  "out": "https://user@host.com/p?q=1"
+ },
+ {
+  "in": "a.b.c.d.e.f",
+  "out": "https://a.b.c.d.e.f/p?q=1"
+ },
+ {
+  "in": "0",
+  "out": "https://0.0.0.0/p?q=1"
+ },
+ {
+  "in": "0.0.0.0",
+  "out": "https://0.0.0.0/p?q=1"
+ },
+ {
+  "in": "1",
+  "out": "https://0.0.0.1/p?q=1"
+ },
+ {
+  "in": "255.255.255.255",
+  "out": "https://255.255.255.255/p?q=1"
+ },
+ {
+  "in": "0xA.0xB.0xC.0xD",
+  "out": "https://10.11.12.13/p?q=1"
+ }
+]
