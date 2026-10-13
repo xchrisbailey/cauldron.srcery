@@ -17,13 +17,13 @@ enum AIJobQueue {
   private static var draining = false
   private static var drainAgain = false
 
-  /// Queues a macro estimate for `recipe`, unless one is already waiting.
+  /// Queues a macro estimate for `recipe`, unless one is already waiting. A job that gave up
+  /// is replaced by the new one, so asking again after a failure doesn't pile up failed rows.
   static func enqueueMacros(for recipe: RecipeRecord, in context: ModelContext) {
     recipe.macrosPending = true
-    let waiting = (recipe.aiJobs ?? []).contains {
-      $0.kind == .recipeMacros && $0.status != .failed
-    }
-    guard !waiting else { return }
+    let jobs = (recipe.aiJobs ?? []).filter { $0.kind == .recipeMacros }
+    guard !jobs.contains(where: { $0.status != .failed }) else { return }
+    for failed in jobs { context.delete(failed) }
     let job = AIJobRecord(kind: .recipeMacros)
     context.insert(job)
     job.recipe = recipe
