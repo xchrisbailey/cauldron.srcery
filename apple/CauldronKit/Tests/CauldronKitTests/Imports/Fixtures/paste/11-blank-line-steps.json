@@ -1,0 +1,9 @@
+{
+  "title": "Pancakes",
+  "ingredients": ["1 cup flour", "1 cup milk", "1 egg", "1 tbsp sugar"],
+  "steps": [
+    "Whisk the flour, milk, egg and sugar until smooth. Let the batter rest for 10 minutes.",
+    "Heat a lightly oiled pan over medium heat and pour in a ladle of batter.",
+    "Flip when bubbles appear and cook until golden."
+  ]
+}

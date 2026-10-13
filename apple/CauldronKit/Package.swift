@@ -7,9 +7,16 @@ let package = Package(
   products: [
     .library(name: "CauldronKit", targets: ["CauldronKit"])
   ],
+  dependencies: [
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.14.2")
+  ],
   targets: [
-    .target(name: "CauldronKit"),
-    .testTarget(name: "CauldronKitTests", dependencies: ["CauldronKit"]),
+    .target(
+      name: "CauldronKit",
+      dependencies: [.product(name: "SwiftSoup", package: "SwiftSoup")]),
+    .testTarget(
+      name: "CauldronKitTests", dependencies: ["CauldronKit"],
+      resources: [.copy("Imports/Fixtures")]),
   ],
   swiftLanguageModes: [.v6]
 )

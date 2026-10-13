@@ -1,0 +1,11 @@
+{
+  "extractor": "json-ld",
+  "title": "Fried Rice for One",
+  "ingredients": ["1 cup cooked rice, cold", "1 egg", "2 tbsp frozen peas", "1 tbsp soy sauce"],
+  "steps": [
+    "Scramble the egg in a hot pan and set it aside.",
+    "Fry the rice and peas for 3 minutes.",
+    "Stir in the soy sauce and the egg."
+  ],
+  "servings": 1
+}

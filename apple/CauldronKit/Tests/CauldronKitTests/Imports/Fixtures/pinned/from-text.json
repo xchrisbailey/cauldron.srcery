@@ -1,0 +1,569 @@
+[
+ {
+  "text": "Lemon cake\n\n3 eggs\n200g sugar\n1 lemon, zested\n\nBeat the eggs and sugar until pale. Fold in the zest, then bake at 180C for 30 minutes.",
+  "kind": "text",
+  "none": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Lemon cake",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 eggs",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "200g sugar",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1 lemon, zested",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "steps": [
+     {
+      "text": "Beat the eggs and sugar until pale. Fold in the zest, then bake at 180C for 30 minutes.",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "unsure": [
+     "title",
+     "description"
+    ]
+   }
+  },
+  "fake": {
+   "extractor": "model",
+   "recipe": {
+    "title": null,
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix and bake.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "failure": "noRecipe"
+  },
+  "video": {
+   "failure": "spokenOnly"
+  }
+ },
+ {
+  "text": "Soup\n\nIngredients\n1 onion\n\nMethod\nCook it.\n\nNotes\nKeeps 3 days.\nFreezes well.\n\nTips\nUse stock.",
+  "kind": "text",
+  "none": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "fake": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "video": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "text": "Soup\n\nIngredients\n1 onion\n\nMethod\nCook it.\n\nNotes\nKeeps 3 days.\nFreezes well.\n\nTips\nUse stock.",
+  "kind": "page",
+  "none": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "fake": {
+   "extractor": "model",
+   "recipe": {
+    "title": null,
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix and bake.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "failure": "noRecipe"
+  },
+  "video": {
+   "failure": "spokenOnly"
+  }
+ },
+ {
+  "text": "Soup\n\nIngredients\n1 onion\n\nMethod\nCook it.\n\nNotes\nKeeps 3 days.\nFreezes well.\n\nTips\nUse stock.",
+  "kind": "caption",
+  "none": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "fake": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "video": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps 3 days.\nFreezes well.\n\nUse stock.",
+    "ingredients": [
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "text": "Tacos\n\n1 lb beef\n2 tbsp chili powder\n1 cup salsa\n\nBrown the beef.\nAdd the spices.\nServe with salsa.",
+  "kind": "text",
+  "none": {
+   "extractor": "text",
+   "recipe": {
+    "title": "Tacos",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 lb beef",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "2 tbsp chili powder",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1 cup salsa",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "steps": [
+     {
+      "text": "Brown the beef.",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "text": "Add the spices.",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "text": "Serve with salsa.",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "unsure": [
+     "title",
+     "description"
+    ]
+   }
+  },
+  "fake": {
+   "extractor": "model",
+   "recipe": {
+    "title": null,
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix and bake.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "failure": "noRecipe"
+  },
+  "video": {
+   "failure": "spokenOnly"
+  }
+ },
+ {
+  "text": "just some thoughts about dinner\nno recipe here\nat all",
+  "kind": "text",
+  "none": {
+   "failure": "noRecipe"
+  },
+  "fake": {
+   "extractor": "model",
+   "recipe": {
+    "title": null,
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix and bake.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  },
+  "missing": {
+   "failure": "noRecipe"
+  },
+  "video": {
+   "failure": "spokenOnly"
+  }
+ }
+]

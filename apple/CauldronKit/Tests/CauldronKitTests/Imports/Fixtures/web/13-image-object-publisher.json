@@ -1,0 +1,9 @@
+{
+  "extractor": "json-ld",
+  "title": "Miso Salmon",
+  "author": "Kenji Ito",
+  "siteName": "Plate & Pan",
+  "imageUrl": "https://cdn.example.com/salmon.jpg",
+  "canonicalUrl": "https://example.com/recipes/image-object-publisher",
+  "servings": 2
+}

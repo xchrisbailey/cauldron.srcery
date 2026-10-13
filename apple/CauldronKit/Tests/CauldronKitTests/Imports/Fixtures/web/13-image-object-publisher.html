@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Miso Salmon</title>
+    <link rel="canonical" href="https://example.com/recipes/image-object-publisher" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Recipe",
+        "name": "Miso Salmon",
+        "url": "/recipes/image-object-publisher",
+        "image": {
+          "@type": "ImageObject",
+          "@id": "#primaryimage",
+          "contentUrl": "https://cdn.example.com/salmon-full.jpg",
+          "url": "https://cdn.example.com/salmon.jpg"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Kenji Ito",
+          "url": "https://example.com/authors/kenji"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Plate &amp; Pan",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://example.com/logo.png"
+          }
+        },
+        "recipeYield": "2",
+        "recipeIngredient": ["2 salmon fillets", "2 tbsp white miso", "1 tbsp mirin"],
+        "recipeInstructions": [
+          {
+            "@type": "HowToStep",
+            "text": "Whisk the miso and mirin, then brush it on the salmon."
+          },
+          {
+            "@type": "HowToStep",
+            "text": "Broil for 8 minutes."
+          }
+        ]
+      }
+    </script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+    </script>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a href="/">Home</a> <a href="/recipes">Recipes</a> <a href="/about">About</a>
+      <a href="/shop">Shop</a>
+    </nav>
+    <main class="content">
+      <h1>Page heading</h1>
+      <article><h2>Miso Salmon</h2></article>
+    </main>
+    <div class="advertisement">Advertisement: save 20% on cookware today</div>
+    <aside class="sidebar">
+      <h3>Popular posts</h3>
+      <ul>
+        <li>Ten dinners under twenty minutes</li>
+      </ul>
+    </aside>
+    <div id="comments">
+      <h3>14 Comments</h3>
+      <div class="comment">Jo says: made this twice, love it! Subscribe to my channel.</div>
+    </div>
+    <footer>Copyright 2026 Example Kitchen. All rights reserved.</footer>
+  </body>
+</html>

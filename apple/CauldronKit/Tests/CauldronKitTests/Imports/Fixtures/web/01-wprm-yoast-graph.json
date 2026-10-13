@@ -1,0 +1,32 @@
+{
+  "extractor": "json-ld",
+  "title": "Lemon Ricotta Pancakes",
+  "ingredients": [
+    "1 cup all-purpose flour",
+    "1 cup ricotta",
+    "2 eggs",
+    "1 lemon, zested",
+    "1 tbsp butter, for the pan"
+  ],
+  "steps": [
+    "Whisk the eggs and ricotta together.",
+    "Fold in the flour and lemon zest.",
+    "Melt butter in a pan over medium heat.",
+    "Cook spoonfuls until golden, about 2 minutes a side."
+  ],
+  "sections": {
+    "Whisk the eggs and ricotta together.": "Make the batter",
+    "Fold in the flour and lemon zest.": "Make the batter",
+    "Melt butter in a pan over medium heat.": "Cook",
+    "Cook spoonfuls until golden, about 2 minutes a side.": "Cook"
+  },
+  "servings": 4,
+  "prepMinutes": 10,
+  "cookMinutes": 15,
+  "totalMinutes": 25,
+  "author": "Dana Whitfield",
+  "siteName": "Sunny Spoon",
+  "imageUrl": "https://example.com/wp-content/uploads/pancakes-500x500.jpg",
+  "canonicalUrl": "https://example.com/recipes/wprm-yoast-graph/",
+  "tags": ["American", "Breakfast"]
+}

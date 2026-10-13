@@ -1,0 +1,12 @@
+{
+  "extractor": "json-ld",
+  "title": "Spinach Dal",
+  "servings": 4,
+  "tags": ["Indian"],
+  "ingredients": ["1 cup yellow split peas", "4 cups spinach", "1 tsp turmeric"],
+  "steps": ["Boil the split peas with turmeric until soft.", "Wilt in the spinach and season."],
+  "sections": {
+    "Boil the split peas with turmeric until soft.": "Cook the dal",
+    "Wilt in the spinach and season.": "Finish"
+  }
+}

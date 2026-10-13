@@ -1,0 +1,828 @@
+{
+ "iso": [
+  {
+   "in": "PT1H20M",
+   "out": 80
+  },
+  {
+   "in": "P0DT45M",
+   "out": 45
+  },
+  {
+   "in": "PT90M",
+   "out": 90
+  },
+  {
+   "in": "P1DT2H",
+   "out": 1560
+  },
+  {
+   "in": "P1W",
+   "out": 10080
+  },
+  {
+   "in": "PT0S",
+   "out": null
+  },
+  {
+   "in": "PT",
+   "out": null
+  },
+  {
+   "in": "P",
+   "out": null
+  },
+  {
+   "in": "pt10m",
+   "out": 10
+  },
+  {
+   "in": "PT1.5H",
+   "out": 90
+  },
+  {
+   "in": "PT30S",
+   "out": 1
+  },
+  {
+   "in": "PT45S",
+   "out": 1
+  },
+  {
+   "in": "1 hr 20 mins",
+   "out": 80
+  },
+  {
+   "in": "45 minutes",
+   "out": 45
+  },
+  {
+   "in": "1.5 hours",
+   "out": 90
+  },
+  {
+   "in": "2h30m",
+   "out": 30
+  },
+  {
+   "in": "90",
+   "out": null
+  },
+  {
+   "in": "an hour",
+   "out": null
+  },
+  {
+   "in": "",
+   "out": null
+  },
+  {
+   "in": "  PT5M ",
+   "out": 5
+  },
+  {
+   "in": "PT5M extra",
+   "out": 5
+  },
+  {
+   "in": 45,
+   "out": null
+  },
+  {
+   "in": [
+    "PT5M"
+   ],
+   "out": 5
+  },
+  {
+   "in": {
+    "name": "PT7M"
+   },
+   "out": 7
+  },
+  {
+   "in": "P1Y2M3DT4H5M6S",
+   "out": 4565
+  },
+  {
+   "in": "5 mins 30 secs",
+   "out": 5
+  },
+  {
+   "in": "12h",
+   "out": 720
+  },
+  {
+   "in": "1,5 h",
+   "out": 300
+  },
+  {
+   "in": "300 minutes",
+   "out": 300
+  },
+  {
+   "in": "0 min",
+   "out": null
+  },
+  {
+   "in": "PT0.4M",
+   "out": 0
+  },
+  {
+   "in": "PT0.5M",
+   "out": 1
+  },
+  {
+   "in": "10 min.",
+   "out": 10
+  },
+  {
+   "in": "20mins",
+   "out": 20
+  },
+  {
+   "in": "1 hour 5 minutes",
+   "out": 65
+  },
+  {
+   "in": "2 hrs",
+   "out": 120
+  },
+  {
+   "in": "1000000 hours",
+   "out": null
+  },
+  {
+   "in": "PT99999999999999999999H",
+   "out": 6e+21
+  },
+  {
+   "in": null,
+   "out": null
+  },
+  {
+   "in": true,
+   "out": null
+  },
+  {
+   "in": {
+    "@value": "PT3M"
+   },
+   "out": 3
+  },
+  {
+   "in": {
+    "text": "PT4M"
+   },
+   "out": 4
+  },
+  {
+   "in": [
+    "",
+    "PT2M"
+   ],
+   "out": null
+  },
+  {
+   "in": "15 months",
+   "out": null
+  },
+  {
+   "in": "3 days",
+   "out": null
+  },
+  {
+   "in": "P0D",
+   "out": null
+  },
+  {
+   "in": "P1.5D",
+   "out": 2160
+  },
+  {
+   "in": "PT1H 30M",
+   "out": 90
+  },
+  {
+   "in": "ca. 45 min",
+   "out": 45
+  },
+  {
+   "in": "&lt;b&gt;PT5M&lt;/b&gt;",
+   "out": 5
+  },
+  {
+   "in": "<b>PT5M</b>",
+   "out": 5
+  },
+  {
+   "in": "10 m",
+   "out": 10
+  },
+  {
+   "in": "10m5s",
+   "out": null
+  },
+  {
+   "in": "1h",
+   "out": 60
+  },
+  {
+   "in": "1 H",
+   "out": 60
+  }
+ ],
+ "macros": [
+  {
+   "in": {
+    "@type": "NutritionInformation",
+    "calories": "1,250 kcal",
+    "proteinContent": "31.5 g",
+    "carbohydrateContent": "12,5 g",
+    "fatContent": 18
+   },
+   "out": {
+    "calories": 1250,
+    "protein": 31.5,
+    "carbs": 12.5,
+    "fat": 18
+   }
+  },
+  {
+   "in": {
+    "calories": "240 calories"
+   },
+   "out": {
+    "calories": 240,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": "__undefined__",
+   "out": null
+  },
+  {
+   "in": {
+    "servingSize": "1 bowl"
+   },
+   "out": null
+  },
+  {
+   "in": "lots",
+   "out": null
+  },
+  {
+   "in": null,
+   "out": null
+  },
+  {
+   "in": [],
+   "out": null
+  },
+  {
+   "in": [
+    {
+     "calories": 5
+    }
+   ],
+   "out": {
+    "calories": 5,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": [
+    "x",
+    {
+     "fatContent": "3g"
+    }
+   ],
+   "out": {
+    "calories": null,
+    "protein": null,
+    "carbs": null,
+    "fat": 3
+   }
+  },
+  {
+   "in": {
+    "calories": "1,2345 kcal"
+   },
+   "out": {
+    "calories": 1.2345,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": "12,345,678"
+   },
+   "out": {
+    "calories": 12345678,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": "1.250,5"
+   },
+   "out": {
+    "calories": 1.25,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": "abc"
+   },
+   "out": null
+  },
+  {
+   "in": {
+    "calories": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "out": null
+  },
+  {
+   "in": {
+    "calories": {
+     "name": "12 kcal"
+    }
+   },
+   "out": {
+    "calories": 12,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": [
+     "13 kcal"
+    ]
+   },
+   "out": {
+    "calories": 13,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": 0
+   },
+   "out": {
+    "calories": 0,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "calories": "-5 kcal"
+   },
+   "out": {
+    "calories": 5,
+    "protein": null,
+    "carbs": null,
+    "fat": null
+   }
+  },
+  {
+   "in": {
+    "proteinContent": "0.5g",
+    "fatContent": "<b>2</b> g"
+   },
+   "out": {
+    "calories": null,
+    "protein": 0.5,
+    "carbs": null,
+    "fat": 2
+   }
+  }
+ ],
+ "plain": [
+  {
+   "in": "plain  text\n here",
+   "out": "plain text here"
+  },
+  {
+   "in": "  a &amp; b ",
+   "out": "a & b"
+  },
+  {
+   "in": "x<br>y",
+   "out": "x y"
+  },
+  {
+   "in": "x<BR />y",
+   "out": "x y"
+  },
+  {
+   "in": "<b>bold</b> text",
+   "out": "bold text"
+  },
+  {
+   "in": "1&nbsp;cup",
+   "out": "1 cup"
+  },
+  {
+   "in": "a &lt; b",
+   "out": "a < b"
+  },
+  {
+   "in": "Tom & Jerry",
+   "out": "Tom & Jerry"
+  },
+  {
+   "in": "&#x41;&#66;",
+   "out": "AB"
+  },
+  {
+   "in": "caf&eacute;",
+   "out": "café"
+  },
+  {
+   "in": "<script>alert(1)</script>after",
+   "out": "alert(1)after"
+  },
+  {
+   "in": "5 < 6 and 7 > 3",
+   "out": "5 < 6 and 7 > 3"
+  },
+  {
+   "in": "<p>one</p><p>two</p>",
+   "out": "onetwo"
+  },
+  {
+   "in": "&unknown; entity",
+   "out": "&unknown; entity"
+  },
+  {
+   "in": "&amp",
+   "out": "&"
+  },
+  {
+   "in": "x &copy y",
+   "out": "x © y"
+  },
+  {
+   "in": "<!-- c -->vis",
+   "out": "vis"
+  },
+  {
+   "in": "a<",
+   "out": "a<"
+  },
+  {
+   "in": "<div>a</div><div>b</div>",
+   "out": "ab"
+  },
+  {
+   "in": " lead and trail ",
+   "out": "lead and trail"
+  },
+  {
+   "in": "2 &frac12; cups",
+   "out": "2 ½ cups"
+  },
+  {
+   "in": "<li>item</li>",
+   "out": "item"
+  }
+ ],
+ "decode": [
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    67,
+    114,
+    195,
+    168,
+    109,
+    101,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html; charset=utf-8",
+   "out": "<p>Crème</p>"
+  },
+  {
+   "bytes": [
+    239,
+    187,
+    191,
+    60,
+    112,
+    62,
+    67,
+    114,
+    195,
+    168,
+    109,
+    101,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html",
+   "out": "<p>Crème</p>"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    67,
+    114,
+    232,
+    109,
+    101,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html; charset=iso-8859-1",
+   "out": "<p>Crème</p>"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    67,
+    114,
+    232,
+    109,
+    101,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html; charset=\"ISO-8859-1\"",
+   "out": "<p>Crème</p>"
+  },
+  {
+   "bytes": [
+    60,
+    109,
+    101,
+    116,
+    97,
+    32,
+    99,
+    104,
+    97,
+    114,
+    115,
+    101,
+    116,
+    61,
+    34,
+    119,
+    105,
+    110,
+    100,
+    111,
+    119,
+    115,
+    45,
+    49,
+    50,
+    53,
+    50,
+    34,
+    62,
+    60,
+    112,
+    62,
+    147,
+    148,
+    128,
+    129,
+    159,
+    160,
+    233
+   ],
+   "contentType": "text/html",
+   "out": "<meta charset=\"windows-1252\"><p>“”€Ÿ é"
+  },
+  {
+   "bytes": [
+    60,
+    109,
+    101,
+    116,
+    97,
+    32,
+    104,
+    116,
+    116,
+    112,
+    45,
+    101,
+    113,
+    117,
+    105,
+    118,
+    61,
+    34,
+    67,
+    111,
+    110,
+    116,
+    101,
+    110,
+    116,
+    45,
+    84,
+    121,
+    112,
+    101,
+    34,
+    32,
+    99,
+    111,
+    110,
+    116,
+    101,
+    110,
+    116,
+    61,
+    34,
+    116,
+    101,
+    120,
+    116,
+    47,
+    104,
+    116,
+    109,
+    108,
+    59,
+    32,
+    99,
+    104,
+    97,
+    114,
+    115,
+    101,
+    116,
+    61,
+    108,
+    97,
+    116,
+    105,
+    110,
+    49,
+    34,
+    62,
+    60,
+    112,
+    62,
+    147,
+    233
+   ],
+   "contentType": null,
+   "out": "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=latin1\"><p>“é"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    67,
+    114,
+    232,
+    109,
+    101,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html",
+   "out": "<p>Cr�me</p>"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    120,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": "text/html; charset=x-nonsense",
+   "out": "<p>x</p>"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    65,
+    0,
+    66,
+    0
+   ],
+   "contentType": "text/html; charset=utf-16le",
+   "out": "瀼䄾䈀�"
+  },
+  {
+   "bytes": [
+    255,
+    254,
+    65,
+    0,
+    233,
+    0
+   ],
+   "contentType": "text/html; charset=utf-16",
+   "out": "Aé"
+  },
+  {
+   "bytes": [
+    254,
+    255,
+    0,
+    65,
+    0,
+    233
+   ],
+   "contentType": "text/html; charset=utf-16be",
+   "out": "Aé"
+  },
+  {
+   "bytes": [
+    65,
+    195
+   ],
+   "contentType": "text/html",
+   "out": "A�"
+  },
+  {
+   "bytes": [
+    65,
+    255,
+    66,
+    226,
+    130
+   ],
+   "contentType": "text/html; charset=utf-8",
+   "out": "A�B�"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    233
+   ],
+   "contentType": "text/html; CHARSET=Latin1",
+   "out": "<p>é"
+  },
+  {
+   "bytes": [
+    60,
+    112,
+    62,
+    111,
+    107,
+    60,
+    47,
+    112,
+    62
+   ],
+   "contentType": null,
+   "out": "<p>ok</p>"
+  },
+  {
+   "bytes": [],
+   "contentType": null,
+   "out": ""
+  }
+ ]
+}

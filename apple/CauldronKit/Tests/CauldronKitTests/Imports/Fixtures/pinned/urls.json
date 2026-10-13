@@ -1,0 +1,457 @@
+{
+ "normalize": [
+  {
+   "in": "https://Example.com/recipes/dal/?utm_source=share&id=2#jump",
+   "out": "https://example.com/recipes/dal?id=2"
+  },
+  {
+   "in": "https://example.com",
+   "out": "https://example.com/"
+  },
+  {
+   "in": "https://example.com/",
+   "out": "https://example.com/"
+  },
+  {
+   "in": "https://example.com//a///",
+   "out": "https://example.com//a"
+  },
+  {
+   "in": "http://EXAMPLE.com:80/a/b/../c/./d?x=1&fbclid=abc",
+   "out": "http://example.com/a/c/d?x=1"
+  },
+  {
+   "in": "https://example.com:8080/x?a=b%20c&utm_medium=x",
+   "out": "https://example.com:8080/x?a=b+c"
+  },
+  {
+   "in": "https://example.com/p?ref=x&s=1&si=2&q=a+b",
+   "out": "https://example.com/p?q=a+b"
+  },
+  {
+   "in": "https://example.com/a b/ü?q=ü ü",
+   "out": "https://example.com/a%20b/%C3%BC?q=%C3%BC%20%C3%BC"
+  },
+  {
+   "in": "https://user:pw@example.com/x",
+   "out": "https://user:pw@example.com/x"
+  },
+  {
+   "in": "https://example.com/x?UTM_Source=a&FBCLID=b&k=1",
+   "out": "https://example.com/x?k=1"
+  },
+  {
+   "in": "https://example.com/x?a=1&a=2&utm_x=3",
+   "out": "https://example.com/x?a=1&a=2"
+  },
+  {
+   "in": "https://example.com/x?%75tm_source=1&b=2",
+   "out": "https://example.com/x?b=2"
+  },
+  {
+   "in": "not a url",
+   "out": "not a url"
+  },
+  {
+   "in": "ftp://x.com/a",
+   "out": "ftp://x.com/a"
+  },
+  {
+   "in": "https://exa mple.com",
+   "out": "https://exa mple.com"
+  },
+  {
+   "in": "https://example.com:99999/",
+   "out": "https://example.com:99999/"
+  },
+  {
+   "in": "HTTPS://EXAMPLE.COM/Path?Query#Frag",
+   "out": "https://example.com/Path?Query"
+  },
+  {
+   "in": "https://[::1]:3000/a/",
+   "out": "https://[::1]:3000/a"
+  },
+  {
+   "in": "https://example.com/%7Euser/%2e%2e/x",
+   "out": "https://example.com/x"
+  },
+  {
+   "in": "//example.com/x",
+   "out": "//example.com/x"
+  },
+  {
+   "in": "https://example.com/?",
+   "out": "https://example.com/?"
+  },
+  {
+   "in": "https://example.com/?#",
+   "out": "https://example.com/?"
+  },
+  {
+   "in": "https://example.com/a?b=c&",
+   "out": "https://example.com/a?b=c&"
+  },
+  {
+   "in": "  https://example.com/x  ",
+   "out": "https://example.com/x"
+  },
+  {
+   "in": "https://example.com\\a\\b",
+   "out": "https://example.com/a/b"
+  },
+  {
+   "in": "https://xn--bcher-kva.example/x",
+   "out": "https://xn--bcher-kva.example/x"
+  },
+  {
+   "in": "https://Bücher.example/x",
+   "out": "https://xn--bcher-kva.example/x"
+  },
+  {
+   "in": "https://example.com/x?a=ü&utm_a=1",
+   "out": "https://example.com/x?a=%C3%BC"
+  },
+  {
+   "in": "https://example.com/x?a=1&utm_a=1&b=~*'()!",
+   "out": "https://example.com/x?a=1&b=%7E*%27%28%29%21"
+  },
+  {
+   "in": "https://example.com/recipe?id=1&igsh=abc&igshid=2",
+   "out": "https://example.com/recipe?id=1"
+  },
+  {
+   "in": "https://example.com/x/?utm_source=a",
+   "out": "https://example.com/x"
+  },
+  {
+   "in": "https://example.com:443/x",
+   "out": "https://example.com/x"
+  },
+  {
+   "in": "http://example.com:443/x",
+   "out": "http://example.com:443/x"
+  },
+  {
+   "in": "https://example.com/a%20b",
+   "out": "https://example.com/a%20b"
+  },
+  {
+   "in": "https://example.com/a|b{c}",
+   "out": "https://example.com/a|b%7Bc%7D"
+  },
+  {
+   "in": "https://example.com/?q=a|b{c}'d",
+   "out": "https://example.com/?q=a|b{c}%27d"
+  },
+  {
+   "in": "https://example.com/#a b",
+   "out": "https://example.com/"
+  },
+  {
+   "in": "https://a.b.c.d.example.co.uk/x",
+   "out": "https://a.b.c.d.example.co.uk/x"
+  },
+  {
+   "in": "https://example.com./x",
+   "out": "https://example.com./x"
+  }
+ ],
+ "classify": [
+  {
+   "in": "https://www.instagram.com/reel/abc123/",
+   "out": "instagram"
+  },
+  {
+   "in": "https://instagr.am/p/abc123/",
+   "out": "instagram"
+  },
+  {
+   "in": "https://vm.tiktok.com/ZM123/",
+   "out": "tiktok"
+  },
+  {
+   "in": "https://example.com/dal",
+   "out": "web"
+  },
+  {
+   "in": "https://notinstagram.com/dal",
+   "out": "web"
+  },
+  {
+   "in": "https://INSTAGRAM.com/p/x",
+   "out": "instagram"
+  },
+  {
+   "in": "https://instagram.com.evil.example/p/x",
+   "out": "web"
+  },
+  {
+   "in": "https://m.tiktok.com/@a/video/1",
+   "out": "tiktok"
+  },
+  {
+   "in": "garbage",
+   "out": "web"
+  },
+  {
+   "in": "https://tiktok.com",
+   "out": "tiktok"
+  },
+  {
+   "in": "https://www.facebook.com/x",
+   "out": "web"
+  }
+ ],
+ "absolute": [
+  {
+   "href": "/img/x.png",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/img/x.png"
+  },
+  {
+   "href": "img/x.png",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/recipes/img/x.png"
+  },
+  {
+   "href": "../x.png",
+   "base": "https://cook.example/recipes/a/b",
+   "out": "https://cook.example/recipes/x.png"
+  },
+  {
+   "href": "//cdn.example/x.png",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cdn.example/x.png"
+  },
+  {
+   "href": "https://other.example/x.png#f",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://other.example/x.png#f"
+  },
+  {
+   "href": "  /x.png  ",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/x.png"
+  },
+  {
+   "href": "data:image/png;base64,AAA",
+   "base": "https://cook.example/recipes/a",
+   "out": null
+  },
+  {
+   "href": "javascript:alert(1)",
+   "base": "https://cook.example/recipes/a",
+   "out": null
+  },
+  {
+   "href": "mailto:a@b.c",
+   "base": "https://cook.example/recipes/a",
+   "out": null
+  },
+  {
+   "href": "",
+   "base": "https://cook.example/recipes/a",
+   "out": null
+  },
+  {
+   "href": "?page=2",
+   "base": "https://cook.example/recipes/a?x=1#h",
+   "out": "https://cook.example/recipes/a?page=2"
+  },
+  {
+   "href": "#top",
+   "base": "https://cook.example/recipes/a?x=1",
+   "out": "https://cook.example/recipes/a?x=1#top"
+  },
+  {
+   "href": "x.png?a=b c",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/recipes/x.png?a=b%20c"
+  },
+  {
+   "href": "http:foo",
+   "base": "https://cook.example/recipes/a",
+   "out": "http://foo/"
+  },
+  {
+   "href": "https:foo",
+   "base": "https://cook.example/a/b",
+   "out": "https://cook.example/a/foo"
+  },
+  {
+   "href": "/a\\b",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/a/b"
+  },
+  {
+   "href": "/ü.png",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/%C3%BC.png"
+  },
+  {
+   "href": " ",
+   "base": "https://cook.example/recipes/a",
+   "out": "https://cook.example/recipes/a"
+  },
+  {
+   "href": "/x.png",
+   "base": "not a base",
+   "out": null
+  },
+  {
+   "href": ".",
+   "base": "https://cook.example/a/b/c",
+   "out": "https://cook.example/a/b/"
+  },
+  {
+   "href": "./",
+   "base": "https://cook.example/a/b/c",
+   "out": "https://cook.example/a/b/"
+  },
+  {
+   "href": "..",
+   "base": "https://cook.example/a/b/c",
+   "out": "https://cook.example/a/"
+  },
+  {
+   "href": "../../../../x",
+   "base": "https://cook.example/a/b/c",
+   "out": "https://cook.example/x"
+  },
+  {
+   "href": "x",
+   "base": "https://cook.example",
+   "out": "https://cook.example/x"
+  },
+  {
+   "href": "https://cook.example",
+   "base": "https://other.example/",
+   "out": "https://cook.example/"
+  },
+  {
+   "href": "/a/./b/../c",
+   "base": "https://cook.example/",
+   "out": "https://cook.example/a/c"
+  },
+  {
+   "href": "//",
+   "base": "https://cook.example/",
+   "out": null
+  },
+  {
+   "href": "///x.example/y",
+   "base": "https://cook.example/",
+   "out": "https://x.example/y"
+  }
+ ],
+ "tracking": [
+  {
+   "in": "https://a.example/x?utm_source=1&id=2",
+   "out": "https://a.example/x?id=2"
+  },
+  {
+   "in": "https://a.example/x?id=2",
+   "out": "https://a.example/x?id=2"
+  },
+  {
+   "in": "not a url",
+   "out": "not a url"
+  },
+  {
+   "in": "https://a.example/x?msclkid=1",
+   "out": "https://a.example/x"
+  },
+  {
+   "in": "https://a.example/x?mc_cid=1&mc_eid=2&_ga=1&_gl=2&ref=3",
+   "out": "https://a.example/x"
+  },
+  {
+   "in": "https://a.example/x?s=1&si=2",
+   "out": "https://a.example/x?s=1&si=2"
+  },
+  {
+   "in": "https://a.example/x?Q=a b&utm_x=1",
+   "out": "https://a.example/x?Q=a+b"
+  },
+  {
+   "in": "https://a.example/x?a=%7E&utm_x=1",
+   "out": "https://a.example/x?a=%7E"
+  },
+  {
+   "in": "https://a.example",
+   "out": "https://a.example/"
+  },
+  {
+   "in": "https://A.example/%7e?gclid=1",
+   "out": "https://a.example/%7e"
+  }
+ ],
+ "posts": [
+  {
+   "source": "instagram",
+   "url": "https://instagram.com/p/AbC_12-3/?igsh=xyz",
+   "out": "https://www.instagram.com/p/AbC_12-3/"
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/reels/AbC123/",
+   "out": "https://www.instagram.com/reel/AbC123/"
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/sunsetcook/reel/AbC123/",
+   "out": "https://www.instagram.com/reel/AbC123/"
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/share/reel/BAGxyz123/",
+   "out": null
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/share/p/BAGxyz123/",
+   "out": null
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/sunsetcook/",
+   "out": null
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/TV/AbC123/",
+   "out": "https://www.instagram.com/tv/AbC123/"
+  },
+  {
+   "source": "instagram",
+   "url": "http://m.instagram.com/P/AbC123",
+   "out": "https://www.instagram.com/p/AbC123/"
+  },
+  {
+   "source": "instagram",
+   "url": "https://www.instagram.com/stories/x/p/abc/",
+   "out": null
+  },
+  {
+   "source": "tiktok",
+   "url": "https://www.tiktok.com/@noodlecook/video/7301234567890123456?is_from_webapp=1",
+   "out": "https://www.tiktok.com/@noodlecook/video/7301234567890123456"
+  },
+  {
+   "source": "tiktok",
+   "url": "https://vm.tiktok.com/ZMabc123/",
+   "out": null
+  },
+  {
+   "source": "tiktok",
+   "url": "https://www.tiktok.com/@a.b-c/PHOTO/123",
+   "out": "https://www.tiktok.com/@a.b-c/photo/123"
+  },
+  {
+   "source": "tiktok",
+   "url": "https://www.tiktok.com/@a/video/",
+   "out": null
+  }
+ ]
+}
