@@ -22,6 +22,9 @@ struct RecipesRoot: View {
   @State private var noticeCount = 0
   #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+  #else
+    @Environment(\.openWindow) private var openWindow
+    @FocusState private var searchFocused: Bool
   #endif
 
   private var sideBySide: Bool {
@@ -43,6 +46,11 @@ struct RecipesRoot: View {
     .sheet(isPresented: $conjuring) {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
+    #if os(macOS)
+      .focusedSceneValue(
+        \.libraryCommands,
+        LibraryCommands(newRecipe: { conjuring = true }, find: { searchFocused = true }))
+    #endif
     .overlay(alignment: .bottom) {
       if let notice {
         RecipeNoticeBanner(notice: notice, onUndo: undo)
@@ -89,6 +97,9 @@ struct RecipesRoot: View {
       text: $search, placement: .automatic,
       prompt: Text(verbatim: Copy.library.searchPlaceholder.text)
     )
+    #if os(macOS)
+      .searchFocused($searchFocused)
+    #endif
     .toolbar { libraryTools }
     .navigationTitle(AppDestination.recipes.title.text)
   }
@@ -178,13 +189,32 @@ struct RecipesRoot: View {
           .listRowSeparator(.hidden)
           .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
           .swipeActions(edge: .trailing) { banishButton(recipe) }
-          .contextMenu { banishButton(recipe) }
+          #if os(iOS)
+            .contextMenu { banishButton(recipe) }
+          #else
+            // Drag it onto a day in the week, in another window.
+            .draggable(RecipeDrag(id: recipe.id))
+          #endif
       }
     }
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
     .background(Brand.Colors.base)
     #if os(macOS)
+      // Double-click opens a recipe in a window of its own; so does the menu.
+      .contextMenu(forSelectionType: UUID.self) { ids in
+        if let id = ids.first, let recipe = recipes.first(where: { $0.id == id }) {
+          Button {
+            openWindow(value: RecipeWindowRequest(recipeID: id))
+          } label: {
+            Text(verbatim: Copy.macMenu.openInNewWindow.text)
+          }
+          Divider()
+          banishButton(recipe)
+        }
+      } primaryAction: { ids in
+        for id in ids { openWindow(value: RecipeWindowRequest(recipeID: id)) }
+      }
       .onDeleteCommand {
         if let id = selection, let recipe = recipes.first(where: { $0.id == id }) {
           banishing = recipe

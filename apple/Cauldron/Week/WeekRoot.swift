@@ -13,6 +13,9 @@ struct WeekRoot: View {
         isCurrent: cursor.isCurrent, onPrevious: cursor.previous, onNext: cursor.next,
         onThisWeek: cursor.thisWeek, onStartsOn: cursor.setStartsOn
       )
+      #if os(macOS)
+        .focusedSceneValue(\.stepCommands, StepCommands.weeks(cursor))
+      #endif
     }
   }
 }

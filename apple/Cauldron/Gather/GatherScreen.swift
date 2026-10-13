@@ -16,6 +16,7 @@ struct GatherScreen: View {
   @Query private var pantry: [PantryItemRecord]
   @AppStorage("cauldron:gather-hide-checked") private var hideChecked = false
   @State private var line = ""
+  @FocusState private var addFocused: Bool
   @State private var notice: String?
   @State private var noticeCount = 0
 
@@ -49,6 +50,9 @@ struct GatherScreen: View {
       .background(Brand.Colors.base)
       .navigationTitle(AppDestination.gather.title.text)
     }
+    #if os(macOS)
+      .focusedSceneValue(\.addCommand, AddCommand(kind: .item) { addFocused = true })
+    #endif
     .overlay(alignment: .bottom) {
       if let notice {
         WeekNoticeBanner(text: notice, canUndo: false, onUndo: {})
@@ -111,6 +115,7 @@ struct GatherScreen: View {
       .frame(minHeight: 44)
       .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 10))
       .overlay(RoundedRectangle(cornerRadius: 10).stroke(Brand.Colors.surface1, lineWidth: 1))
+      .focused($addFocused)
       .onSubmit(add)
       Button(action: add) {
         Text(verbatim: Copy.gather.add.text)

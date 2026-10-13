@@ -7,22 +7,26 @@ import SwiftUI
 struct RecipeAddToWeekAction: View {
   let recipe: RecipeRecord
   let scale: Scale
+  /// Where the page keeps whether the sheet is open, so the Recipe menu can open it too.
+  var isChoosing: Binding<Bool>?
 
-  @State private var choosing = false
+  @State private var ownChoosing = false
   @State private var confirmation: String?
   @State private var confirmationCount = 0
 
+  private var choosing: Binding<Bool> { isChoosing ?? $ownChoosing }
+
   var body: some View {
     Button {
-      choosing = true
+      choosing.wrappedValue = true
     } label: {
       Text(verbatim: confirmation ?? Copy.week.stirIntoWeek.text)
     }
     .buttonStyle(RecipeActionButtonStyle())
     .disabled(recipe.isBanished)
-    .sheet(isPresented: $choosing) {
+    .sheet(isPresented: choosing) {
       StirRecipeSheet(recipe: recipe, scale: scale, today: WeekDates.today()) { text in
-        choosing = false
+        choosing.wrappedValue = false
         confirmation = text
         confirmationCount += 1
         AccessibilityNotification.Announcement(text).post()

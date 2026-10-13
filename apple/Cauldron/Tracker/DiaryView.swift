@@ -24,7 +24,12 @@ struct DiaryView: View {
       DayNavigator(day: $day, today: today)
       DiaryDayList(day: day, today: today, targets: targets, openTargets: openTargets)
     }
+    .readingColumn()
     .background(Brand.Colors.base)
+    #if os(macOS)
+      .focusedSceneValue(
+        \.stepCommands, StepCommands.days(showing: day, today: today) { day = $0 })
+    #endif
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { refreshToday() }
     }
@@ -222,6 +227,20 @@ private struct DiaryDayList: View {
       }
     }
     .scrollContentBackground(.hidden)
+    #if os(macOS)
+      .toolbar {
+        ToolbarItem {
+          Button(action: logFood) {
+            Label {
+              Text(verbatim: Copy.macMenu.logFood.text)
+            } icon: {
+              Image(systemName: "plus")
+            }
+          }
+        }
+      }
+      .focusedSceneValue(\.addCommand, AddCommand(kind: .food, perform: logFood))
+    #endif
     .sheet(isPresented: $weighing) {
       WeightEntrySheet(
         day: day, today: today, unit: weightUnit, existing: Deduplication.keeper(of: weighIns),
@@ -293,6 +312,11 @@ private struct DiaryDayList: View {
       }
       .fixedSize()
     }
+  }
+
+  /// Opens the add sheet on the meal the hour suggests.
+  private func logFood() {
+    adding = AddRequest(slot: suggestedSlot(hour: Calendar.current.component(.hour, from: .now)))
   }
 
   private func remove(_ record: DiaryEntryRecord) {

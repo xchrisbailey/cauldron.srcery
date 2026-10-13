@@ -12,6 +12,8 @@ struct WeekDayList<Top: View, Bottom: View>: View {
   let onAdd: (MealTarget) -> Void
   let onOpen: (UUID) -> Void
   let onRemove: (UUID) -> Void
+  /// A recipe dropped on a day's tab, which means its default meal, or on a meal's heading.
+  let onPlanRecipe: (UUID, MealTarget) -> Void
   @ViewBuilder let top: () -> Top
   @ViewBuilder let bottom: () -> Bottom
 
@@ -44,6 +46,11 @@ struct WeekDayList<Top: View, Bottom: View>: View {
           .listRowSeparator(.hidden)
           .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 8))
           .accessibilityAddTraits(.isHeader)
+          .dropDestination(for: RecipeDrag.self) { items, _ in
+            guard let item = items.first else { return false }
+            onPlanRecipe(item.id, target)
+            return true
+          }
           ForEach(snapshot.meals(on: day, slot: slot), id: \.id) { meal in
             MealCardView(
               meal: meal, isToday: day == today, isPast: day < today,
@@ -120,6 +127,11 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: WeekDates.label(tabDay, long: true)))
         .accessibilityAddTraits(isShown ? .isSelected : [])
+        .dropDestination(for: RecipeDrag.self) { items, _ in
+          guard let item = items.first else { return false }
+          onPlanRecipe(item.id, MealTarget(day: tabDay, slot: WeekPlan.defaultSlot))
+          return true
+        }
       }
     }
     .accessibilityElement(children: .contain)

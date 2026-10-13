@@ -2,7 +2,8 @@ import CauldronKit
 import SwiftUI
 
 /// The week as seven columns of four meals, for a window with room: drag a meal to another
-/// meal or day to move it, or press + on a meal to stir one in.
+/// meal or day to move it, drag a recipe from the library onto a meal or a day to plan it, or
+/// press + on a meal to stir one in.
 struct WeekCalendarGrid: View {
   let snapshot: WeekSnapshot
   let today: LocalDate
@@ -12,6 +13,8 @@ struct WeekCalendarGrid: View {
   let onRemove: (UUID) -> Void
   /// A meal dropped on a meal, before another meal when it landed on one.
   let onDrop: (UUID, MealTarget, UUID?) -> Void
+  /// A recipe dropped on a meal, or on a day's heading, which means its default meal.
+  let onPlanRecipe: (UUID, MealTarget) -> Void
 
   var body: some View {
     Grid(horizontalSpacing: 6, verticalSpacing: 6) {
@@ -69,6 +72,11 @@ struct WeekCalendarGrid: View {
       Text(verbatim: Copy.week.tally.showDay(WeekDates.label(day, long: true)).text)
     )
     .accessibilityAddTraits(chosen ? .isSelected : [])
+    .dropDestination(for: RecipeDrag.self) { items, _ in
+      guard let item = items.first else { return false }
+      onPlanRecipe(item.id, MealTarget(day: day, slot: WeekPlan.defaultSlot))
+      return true
+    }
   }
 
   private func cell(_ target: MealTarget) -> some View {
@@ -101,6 +109,11 @@ struct WeekCalendarGrid: View {
     .dropDestination(for: MealDrag.self) { items, _ in
       guard let item = items.first else { return false }
       onDrop(item.id, target, nil)
+      return true
+    }
+    .dropDestination(for: RecipeDrag.self) { items, _ in
+      guard let item = items.first else { return false }
+      onPlanRecipe(item.id, target)
       return true
     }
   }
