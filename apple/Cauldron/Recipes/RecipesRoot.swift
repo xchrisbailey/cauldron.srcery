@@ -21,6 +21,7 @@ struct RecipesRoot: View {
   @State private var distilling: ImportModel?
   @Environment(\.modelContext) private var context
   @Environment(\.pageFetcher) private var fetcher
+  @Environment(\.recipeTextReader) private var reader
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   /// What the banner at the bottom says, and a count that restarts its timer.
   @State private var notice: RecipeNotice?
@@ -276,7 +277,7 @@ struct RecipesRoot: View {
     guard distilling == nil else { return }
     let context = context
     distilling = ImportModel(
-      fetcher: fetcher, extractor: ai?.extractor,
+      fetcher: fetcher, extractor: ai?.extractor, reader: reader,
       findDuplicate: { links in
         let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
         return DuplicateLinks.find(in: saved, links: links).map {

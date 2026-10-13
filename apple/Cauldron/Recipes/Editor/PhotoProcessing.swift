@@ -49,20 +49,13 @@ enum PhotoProcessing {
     _ data: Data, maxPixel: Int = PhotoProcessing.maxPixel,
     maxPixels: Int = PhotoProcessing.maxPixels
   ) -> Result<ProcessedPhoto, PhotoError> {
-    guard data.count <= maxBytes else { return .failure(.tooLarge) }
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-      let type = CGImageSourceGetType(source), UTType(type as String)?.conforms(to: .image) == true,
-      CGImageSourceGetCount(source) > 0
-    else { return .failure(.unsupported) }
-
-    guard
-      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-      let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int,
-      let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int,
-      pixelWidth > 0, pixelHeight > 0
-    else { return .failure(.unreadable) }
-    // Read from the header, before anything is decoded: a tiny file can declare a huge image.
-    guard pixelWidth * pixelHeight <= maxPixels else { return .failure(.tooBig) }
+    let source: CGImageSource
+    let pixelWidth: Int
+    let pixelHeight: Int
+    switch header(of: data, maxPixels: maxPixels) {
+    case .success(let found): (source, pixelWidth, pixelHeight) = found
+    case .failure(let error): return .failure(error)
+    }
 
     // Never enlarges: a small photo is only re-encoded.
     let side = min(maxPixel, max(pixelWidth, pixelHeight))
@@ -86,6 +79,34 @@ enum PhotoProcessing {
     guard CGImageDestinationFinalize(destination) else { return .failure(.unreadable) }
     return .success(
       ProcessedPhoto(data: output as Data, width: flattened.width, height: flattened.height))
+  }
+
+  /// Whether `data` is an image this device can read that is within the limits, and its size in
+  /// pixels, from its header alone: nothing is decoded.
+  static func inspect(_ data: Data, maxPixels: Int = PhotoProcessing.maxPixels)
+    -> Result<(width: Int, height: Int), PhotoError>
+  {
+    header(of: data, maxPixels: maxPixels).map { (width: $0.1, height: $0.2) }
+  }
+
+  private static func header(of data: Data, maxPixels: Int)
+    -> Result<(CGImageSource, Int, Int), PhotoError>
+  {
+    guard data.count <= maxBytes else { return .failure(.tooLarge) }
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let type = CGImageSourceGetType(source), UTType(type as String)?.conforms(to: .image) == true,
+      CGImageSourceGetCount(source) > 0
+    else { return .failure(.unsupported) }
+
+    guard
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+      let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int,
+      let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int,
+      pixelWidth > 0, pixelHeight > 0
+    else { return .failure(.unreadable) }
+    // Read from the header, before anything is decoded: a tiny file can declare a huge image.
+    guard pixelWidth * pixelHeight <= maxPixels else { return .failure(.tooBig) }
+    return .success((source, pixelWidth, pixelHeight))
   }
 
   /// JPEG has no transparency, so a transparent PNG would come out black without this.

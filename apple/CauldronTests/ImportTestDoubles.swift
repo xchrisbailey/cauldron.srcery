@@ -147,3 +147,62 @@ enum ImportFixtures {
   /// Quick options for tests: no waiting before a retry.
   static let quick = DistillOptions(timeout: .seconds(20), retryDelay: .milliseconds(1))
 }
+
+/// A text reader that answers page by page, in the order it is asked, and keeps what it was
+/// given. Nothing here runs Vision.
+final class ScriptedReader: RecipeTextReader {
+  enum Reply: Sendable {
+    case text(String)
+    case fail(PageReadError)
+    /// Waits until the read is cancelled.
+    case hold
+  }
+
+  private let replies: Mutex<[Reply]>
+  private let seen = Mutex<[Data]>([])
+
+  /// The replies are used in order; asked for more, the reader finds no text.
+  init(_ replies: [Reply]) {
+    self.replies = Mutex(replies)
+  }
+
+  convenience init(pages: String...) {
+    self.init(pages.map { .text($0) })
+  }
+
+  /// The images it was asked to read, in order.
+  var images: [Data] { seen.withLock { $0 } }
+  var startedCount: Int { seen.withLock { $0.count } }
+
+  func read(_ image: Data) async throws(PageReadError) -> String {
+    seen.withLock { $0.append(image) }
+    let reply = replies.withLock { $0.isEmpty ? Reply.text("") : $0.removeFirst() }
+    switch reply {
+    case .text(let text): return text
+    case .fail(let error): throw error
+    case .hold:
+      do { try await Task.sleep(for: .seconds(60)) } catch { throw .cancelled }
+      throw .failed
+    }
+  }
+}
+
+extension ImportFixtures {
+  /// A page of a cookbook that reads without a model: it has Ingredients and Method headings.
+  static let soupPage = """
+    Tomato soup
+    Serves 4
+
+    Ingredients
+    2 onions
+    400 g tomatoes
+
+    Method
+    1. Chop the onions.
+    2. Simmer for 20 minutes.
+    """
+
+  /// The same recipe over two pages, the break falling between the lists.
+  static let soupPageOne = "Tomato soup\nServes 4\n\nIngredients\n2 onions\n400 g tomatoes"
+  static let soupPageTwo = "Method\n1. Chop the onions.\n2. Simmer for 20 minutes."
+}

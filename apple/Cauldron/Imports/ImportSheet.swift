@@ -1,5 +1,7 @@
 import CauldronKit
+import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Distill: a link or pasted text in, and the draft opens in the editor to review. One sheet
 /// holds all of it, so the editor replaces the form in the same sheet; Cancel in the editor
@@ -31,6 +33,11 @@ struct ImportStartSheet: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @FocusState private var focus: Field?
+  /// What the photo section's controls switch on. They live here, on the stack, rather than in
+  /// the section (see `ImportPhotoSection`).
+  @State private var picked: [PhotosPickerItem] = []
+  @State private var scanning = false
+  @State private var choosingFiles = false
 
   private enum Field { case link, paste }
 
@@ -54,10 +61,76 @@ struct ImportStartSheet: View {
           }
         }
     }
+    .onChange(of: picked) { _, items in
+      guard !items.isEmpty else { return }
+      picked = []
+      Task {
+        let loaded = await Self.images(of: items)
+        await model.addPages(loaded.images)
+        // Said after the pages are added, which clears the last message.
+        if loaded.failed { model.reportPhotoProblem(PhotoError.unreadable.message) }
+      }
+    }
+    #if os(iOS)
+      .fullScreenCover(isPresented: $scanning) {
+        DocumentScanner(
+          onPages: { pages in
+            scanning = false
+            Task { await model.addPages(pages) }
+          },
+          // Closing the scanner is the cook's choice, not an error.
+          onCancel: { scanning = false },
+          onFail: {
+            scanning = false
+            model.reportPhotoProblem(Copy.importNative.scannerStopped)
+          }
+        )
+        .ignoresSafeArea()
+      }
+    #endif
+    #if os(macOS)
+      .fileImporter(
+        isPresented: $choosingFiles, allowedContentTypes: [.image], allowsMultipleSelection: true
+      ) { result in
+        if case .success(let urls) = result { addFiles(urls) }
+      }
+      .dropDestination(for: URL.self) { urls, _ in
+        guard model.phase == .editing else { return false }
+        let files = urls.filter(\.isFileURL)
+        guard !files.isEmpty else { return false }
+        addFiles(files)
+        return true
+      }
+    #endif
     #if os(macOS)
       .frame(minWidth: 480, idealWidth: 540, minHeight: 520, idealHeight: 620)
     #endif
   }
+
+  /// The bytes of what was picked from the library, and whether any of it couldn't be loaded.
+  private static func images(of items: [PhotosPickerItem]) async -> (images: [Data], failed: Bool) {
+    var images: [Data] = []
+    var failed = false
+    for item in items {
+      if let data = try? await item.loadTransferable(type: Data.self) {
+        images.append(data)
+      } else {
+        failed = true
+      }
+    }
+    return (images, failed)
+  }
+
+  #if os(macOS)
+    private func addFiles(_ urls: [URL]) {
+      Task {
+        let read = await ImageFiles.read(urls)
+        await model.addPages(read.images)
+        // Said after the pages are added, which clears the last message.
+        if let problem = read.problem { model.reportPhotoProblem(problem.message) }
+      }
+    }
+  #endif
 
   @ViewBuilder
   private var content: some View {
@@ -104,6 +177,7 @@ struct ImportStartSheet: View {
             .textInputAutocapitalization(.never)
           #endif
           .onSubmit { model.start() }
+          .disabled(model.pagesAreOn)
           .accessibilityLabel(Text(verbatim: Copy.imports.link.text))
           if let error = model.linkError {
             Text(verbatim: error.text).brandText(.control).foregroundStyle(Brand.Colors.heat)
@@ -121,7 +195,7 @@ struct ImportStartSheet: View {
             .brandText(.body)
             .focused($focus, equals: .paste)
             .frame(minHeight: 180)
-            .disabled(model.pasteIsOff)
+            .disabled(model.pasteIsOff || model.pagesAreOn)
             .accessibilityLabel(Text(verbatim: Copy.imports.orPaste.text))
           if model.text.isEmpty {
             Text(verbatim: Copy.imports.pastePlaceholder.text)
@@ -133,13 +207,16 @@ struct ImportStartSheet: View {
               .accessibilityHidden(true)
           }
         }
-        .opacity(model.pasteIsOff ? 0.4 : 1)
+        .opacity(model.pasteIsOff || model.pagesAreOn ? 0.4 : 1)
       } header: {
         Text(verbatim: Copy.imports.orPaste.text)
       } footer: {
         Text(verbatim: Copy.imports.pasteHint.text)
       }
       .listRowBackground(Brand.Colors.mantle)
+
+      ImportPhotoSection(
+        model: model, picked: $picked, scanning: $scanning, choosingFiles: $choosingFiles)
 
       Section {
         if model.stopped {
@@ -171,7 +248,7 @@ struct ImportStartSheet: View {
     .scrollContentBackground(.hidden)
     .background(Brand.Colors.base)
     .foregroundStyle(Brand.Colors.ink)
-    .defaultFocus($focus, model.pastingFor == nil ? .link : .paste)
+    .defaultFocus($focus, model.pastingFor == nil && !model.prefersPaste ? .link : .paste)
   }
 
   // MARK: Working and failed
@@ -179,9 +256,18 @@ struct ImportStartSheet: View {
   private var working: some View {
     VStack(spacing: 20) {
       ProgressView()
-      Text(verbatim: Copy.imports.distilling.text)
-        .brandText(.body)
-        .foregroundStyle(Brand.Colors.subtext)
+      if let reading = model.reading {
+        Text(verbatim: Copy.importNative.readingPages.text)
+          .brandText(.body)
+          .foregroundStyle(Brand.Colors.subtext)
+        Text(verbatim: Copy.importNative.pageOf(reading.page, reading.of).text)
+          .brandText(.quantity)
+          .foregroundStyle(Brand.Colors.subtext)
+      } else {
+        Text(verbatim: Copy.imports.distilling.text)
+          .brandText(.body)
+          .foregroundStyle(Brand.Colors.subtext)
+      }
       Button {
         model.stop()
       } label: {
@@ -215,6 +301,14 @@ struct ImportStartSheet: View {
             Text(verbatim: Copy.imports.tryAgain.text)
           }
           .buttonStyle(RecipeActionButtonStyle(notice.canPaste ? .secondary : .primary))
+        }
+        if notice.canChangePhotos {
+          Button {
+            model.changePhotos()
+          } label: {
+            Text(verbatim: Copy.imports.tryAgain.text)
+          }
+          .buttonStyle(RecipeActionButtonStyle(.secondary))
         }
         if notice.canPaste {
           Button {
