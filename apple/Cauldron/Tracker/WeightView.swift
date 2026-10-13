@@ -68,6 +68,7 @@ struct WeightView: View {
       }
     }
     .scrollContentBackground(.hidden)
+    .readingColumn()
     .background(Brand.Colors.base)
     .navigationTitle(t.pageTitle.text)
     #if os(iOS)

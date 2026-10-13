@@ -7,16 +7,25 @@ import SwiftUI
 /// filling one in doesn't touch this file.
 struct RecipeDetailView: View {
   let recipe: RecipeRecord
+  /// Whether this is the recipe's own window on the Mac, where there is no other window to open.
+  let inOwnWindow: Bool
   /// Asked to banish this recipe. The library confirms it and does the deleting.
   let onBanish: () -> Void
 
   @Environment(\.modelContext) private var context
+  #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+  #endif
   @State private var scale: Scale
   /// The cook's choice on this page; until they make one, the preference in Settings.
   @State private var chosenUnits: UnitSystemChoice?
+  /// The editor and the week's sheet, held here so the Recipe menu can open them.
+  @State private var editing = false
+  @State private var choosing = false
 
-  init(recipe: RecipeRecord, onBanish: @escaping () -> Void) {
+  init(recipe: RecipeRecord, inOwnWindow: Bool = false, onBanish: @escaping () -> Void) {
     self.recipe = recipe
+    self.inOwnWindow = inOwnWindow
     self.onBanish = onBanish
     _scale = State(initialValue: .initial(servings: recipe.servings))
   }
@@ -45,7 +54,26 @@ struct RecipeDetailView: View {
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
     #endif
+    #if os(macOS)
+      .focusedSceneValue(\.recipeCommands, menuCommands)
+    #endif
   }
+
+  #if os(macOS)
+    /// What the Recipe menu does to this recipe, at the scale the cook has chosen.
+    private var menuCommands: RecipeCommands {
+      let recipeID = recipe.id
+      let scale = scale
+      let openInWindow: (() -> Void)? =
+        inOwnWindow ? nil : { openWindow(value: RecipeWindowRequest(recipeID: recipeID)) }
+      return RecipeCommands(
+        isBanished: recipe.isBanished,
+        edit: { editing = true },
+        brew: { openWindow(value: BrewRequest(recipeID: recipeID, scale: scale)) },
+        stir: { choosing = true },
+        openInWindow: openInWindow)
+    }
+  #endif
 
   // MARK: Top
 
@@ -156,14 +184,16 @@ struct RecipeDetailView: View {
       HStack(spacing: 8) { actionButtons }
       VStack(spacing: 8) { actionButtons }
     }
+    // Four buttons that each fill their share would stretch across a wide window.
+    .frame(maxWidth: 640, alignment: .leading)
   }
 
   @ViewBuilder
   private var actionButtons: some View {
     RecipeBrewAction(recipe: recipe, scale: scale)
-    RecipeAddToWeekAction(recipe: recipe, scale: scale)
+    RecipeAddToWeekAction(recipe: recipe, scale: scale, isChoosing: $choosing)
     RecipeLogAction(recipe: recipe)
-    RecipeEditAction(recipe: recipe)
+    RecipeEditAction(recipe: recipe, isEditing: $editing)
   }
 
   // MARK: Ingredients and method

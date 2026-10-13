@@ -14,7 +14,7 @@ struct StirRecipeSheet: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.modelContext) private var context
   @State private var day: LocalDate
-  @State private var slot = MealSlot.dinner
+  @State private var slot = WeekPlan.defaultSlot
   @State private var problem: String?
 
   init(

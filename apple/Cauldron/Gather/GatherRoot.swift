@@ -9,6 +9,9 @@ struct GatherRoot: View {
   var body: some View {
     WeekCursorHost { cursor in
       GatherScreen(cursor: cursor)
+        #if os(macOS)
+          .focusedSceneValue(\.stepCommands, StepCommands.weeks(cursor))
+        #endif
     }
   }
 }

@@ -18,6 +18,7 @@ enum WeekLimits {
 enum WeekPlanError: Error, Equatable {
   case slotFull
   case recipeBanished
+  case recipeMissing
   case emptyTitle
   case invalidServings
   case noDays
@@ -25,7 +26,8 @@ enum WeekPlanError: Error, Equatable {
   var message: CopyString {
     switch self {
     case .slotFull: Copy.week.slotFull
-    case .recipeBanished, .emptyTitle, .invalidServings, .noDays: Copy.week.couldntSave
+    case .recipeBanished, .recipeMissing, .emptyTitle, .invalidServings, .noDays:
+      Copy.week.couldntSave
     }
   }
 }
@@ -175,6 +177,30 @@ enum WeekPlan {
     return try insert(
       title: recipe.title, recipe: recipe, servings: servings, at: target, position: nil,
       in: context)
+  }
+
+  /// The meal a recipe goes into when the cook hasn't chosen one: dinner, as on the recipe's page.
+  static let defaultSlot = MealSlot.dinner
+
+  /// Where Add Meal starts: the day the cook has chosen, else today when the week holds it, else
+  /// the week's first day, in the default meal.
+  static func newMeal(chosen: LocalDate?, week: [LocalDate], today: LocalDate) -> MealTarget {
+    let day =
+      chosen.flatMap { week.contains($0) ? $0 : nil }
+      ?? (week.contains(today) ? today : week.first ?? today)
+    return MealTarget(day: day, slot: defaultSlot)
+  }
+
+  /// Stirs a recipe that was dragged onto a day, found by its id, with its own servings. It goes
+  /// the way "Stir into the week" does, so a banished recipe is refused and a full meal is too.
+  @discardableResult
+  static func stir(
+    recipeID: UUID, at target: MealTarget, into context: ModelContext
+  ) throws -> PlanEntryRecord {
+    let found = try context.fetch(
+      FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == recipeID }))
+    guard let recipe = found.first else { throw WeekPlanError.recipeMissing }
+    return try stir(recipe, at: target, servings: nil, into: context)
   }
 
   /// Stirs a meal that isn't a recipe into the week ("Leftovers").

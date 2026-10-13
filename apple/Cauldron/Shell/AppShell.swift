@@ -20,6 +20,9 @@ struct AppShell: View {
     }
     .safeAreaInset(edge: .top, spacing: 0) { SyncBanner(status: sync.status) }
     .background(Brand.Colors.base.ignoresSafeArea())
+    #if os(macOS)
+      .focusedSceneValue(\.navigationCommands, NavigationCommands { destination = $0 })
+    #endif
   }
 
   private var usesTabBar: Bool {

@@ -145,6 +145,7 @@ struct TargetsEditor: View {
     }
     .formStyle(.grouped)
     .scrollContentBackground(.hidden)
+    .readingColumn(maxWidth: ReadingColumn.form)
     .background(Brand.Colors.base)
   }
 

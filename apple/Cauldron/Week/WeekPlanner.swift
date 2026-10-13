@@ -116,6 +116,11 @@ struct WeekPlanner: View {
           .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
+    #if os(macOS)
+      .focusedSceneValue(
+        \.addCommand, AddCommand(kind: .meal) { sheet = .stir(newMeal(snapshot)) }
+      )
+    #endif
     .onChange(of: start) { chosenDay = nil }
     .task(id: noticeCount) {
       guard let shown = notice else { return }
@@ -126,6 +131,19 @@ struct WeekPlanner: View {
 
   @ToolbarContentBuilder
   private func weekMenu(_ snapshot: WeekSnapshot) -> some ToolbarContent {
+    #if os(macOS)
+      ToolbarItem {
+        Button {
+          sheet = .stir(newMeal(snapshot))
+        } label: {
+          Label {
+            Text(verbatim: Copy.macMenu.addMeal.text)
+          } icon: {
+            Image(systemName: "plus")
+          }
+        }
+      }
+    #endif
     ToolbarItem {
       Menu {
         Button(action: copyLastWeek) { Text(verbatim: Copy.week.copyLastWeek.text) }
@@ -143,6 +161,11 @@ struct WeekPlanner: View {
         }
       }
     }
+  }
+
+  /// The meal the toolbar's and the menu's Add Meal starts on.
+  private func newMeal(_ snapshot: WeekSnapshot) -> MealTarget {
+    WeekPlan.newMeal(chosen: shownDay, week: snapshot.days, today: today)
   }
 
   // MARK: Pages
@@ -169,7 +192,8 @@ struct WeekPlanner: View {
         }
         WeekCalendarGrid(
           snapshot: snapshot, today: today, chosenDay: $chosenDay, onAdd: { sheet = .stir($0) },
-          onOpen: { sheet = .change($0) }, onRemove: remove, onDrop: drop)
+          onOpen: { sheet = .change($0) }, onRemove: remove, onDrop: drop,
+          onPlanRecipe: planRecipe)
         Text(verbatim: Copy.week.moveHint.text)
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
@@ -184,7 +208,8 @@ struct WeekPlanner: View {
     let shown = shownDay ?? (snapshot.days.contains(today) ? today : snapshot.days[0])
     return WeekDayList(
       snapshot: snapshot, today: today, day: shown, onChoose: { chosenDay = $0 },
-      onAdd: { sheet = .stir($0) }, onOpen: { sheet = .change($0) }, onRemove: remove
+      onAdd: { sheet = .stir($0) }, onOpen: { sheet = .change($0) }, onRemove: remove,
+      onPlanRecipe: planRecipe
     ) {
       VStack(alignment: .leading, spacing: 12) {
         header
@@ -246,6 +271,13 @@ struct WeekPlanner: View {
     guard let change = WeekPlan.dropMove(records, moving: id, to: target, before: before)
     else { return }
     applyChange(id, change)
+  }
+
+  /// A recipe dragged out of the library onto the week.
+  private func planRecipe(_ id: UUID, at target: MealTarget) {
+    if perform({ _ = try WeekPlan.stir(recipeID: id, at: target, into: context) }) {
+      show(WeekNotice(text: Copy.week.stirred(WeekDates.label(target.day, long: true)).text))
+    }
   }
 
   private func remove(_ id: UUID) {

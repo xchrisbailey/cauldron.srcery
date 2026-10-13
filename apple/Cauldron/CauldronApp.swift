@@ -41,8 +41,13 @@ struct CauldronApp: App {
   }
 
   var body: some Scene {
-    WindowGroup {
+    WindowGroup(id: "main") {
       AppShell()
+        #if os(macOS)
+          // The sidebar, the library and a recipe side by side need this much; below it the
+          // recipe page is cramped.
+          .frame(minWidth: 960, minHeight: 600)
+        #endif
         .environment(sync)
         .environment(ai)
         .task { await sync.run() }
@@ -68,7 +73,22 @@ struct CauldronApp: App {
         .cauldronAppearance()
     }
     .modelContainer(container)
+    .macWindowSize(width: 1280, height: 820)
+    .macMenuBar()
     #if os(macOS)
+      // A recipe in a window of its own, one for each recipe.
+      WindowGroup(
+        Copy.pageTitles.recipe.text, id: WindowID.recipe, for: RecipeWindowRequest.self
+      ) { $request in
+        if let request {
+          RecipeWindow(request: request)
+            .environment(sync)
+            .environment(ai)
+            .cauldronAppearance()
+        }
+      }
+      .modelContainer(container)
+      .defaultSize(width: 920, height: 800)
       // Brew mode, one window for each recipe being cooked.
       WindowGroup(Copy.pageTitles.brew.text, id: "brew", for: BrewRequest.self) { $request in
         if let request {
@@ -83,10 +103,30 @@ struct CauldronApp: App {
         SettingsView()
           .environment(sync)
           .environment(ai)
-          .frame(minWidth: 420, minHeight: 360)
+          .frame(minWidth: 480, idealWidth: 540, minHeight: 420, idealHeight: 680)
           .cauldronAppearance()
       }
       .modelContainer(container)
+    #endif
+  }
+}
+
+extension Scene {
+  /// The size a Mac window opens at. Other platforms size their own windows.
+  fileprivate func macWindowSize(width: CGFloat, height: CGFloat) -> some Scene {
+    #if os(macOS)
+      defaultSize(width: width, height: height)
+    #else
+      self
+    #endif
+  }
+
+  /// The Mac's menu bar.
+  fileprivate func macMenuBar() -> some Scene {
+    #if os(macOS)
+      commands { CauldronCommands() }
+    #else
+      self
     #endif
   }
 }

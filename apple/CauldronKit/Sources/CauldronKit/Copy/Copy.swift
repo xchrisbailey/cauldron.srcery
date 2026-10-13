@@ -7,9 +7,9 @@
 /// `String` inside a `CopyString`, so a String Catalog can take over the lookup later without
 /// touching the call sites.
 ///
-/// `settings`, `export` and `recipeEditor` are the native-only sections (see
-/// `Copy+Settings.swift`, `Copy+Export.swift` and `Copy+RecipeEditor.swift`); the rest is the
-/// web table.
+/// `settings`, `export`, `recipeEditor`, `brewMode` and `macMenu` are the native-only sections
+/// (see `Copy+Settings.swift`, `Copy+Export.swift`, `Copy+RecipeEditor.swift`,
+/// `Copy+BrewMode.swift` and `Copy+MacMenu.swift`); the rest is the web table.
 public enum Copy {
   /// The whole table as one value, so tests can walk it.
   public static let catalogue = Catalogue()
@@ -34,6 +34,7 @@ public enum Copy {
   public static let export = catalogue.export
   public static let recipeEditor = catalogue.recipeEditor
   public static let brewMode = catalogue.brewMode
+  public static let macMenu = catalogue.macMenu
 
   public struct Catalogue: Sendable {
     public let errors = Errors()
@@ -56,6 +57,7 @@ public enum Copy {
     public let export = Export()
     public let recipeEditor = RecipeEditorNative()
     public let brewMode = BrewModeNative()
+    public let macMenu = MacMenu()
 
     public init() {}
   }
