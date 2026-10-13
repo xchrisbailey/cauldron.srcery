@@ -1,0 +1,27 @@
+{
+  "title": "Sticky teriyaki salmon bowls",
+  "ingredients": [
+    "2 salmon fillets",
+    "1 tbsp oil",
+    "1 cup cooked rice",
+    "3 tbsp soy sauce",
+    "2 tbsp honey",
+    "1 tbsp rice vinegar",
+    "1 clove garlic, grated"
+  ],
+  "steps": [
+    "Mix the sauce ingredients in a small bowl.",
+    "Sear the salmon in the oil for 4 minutes per side.",
+    "Pour over the sauce and let it bubble until sticky.",
+    "Serve over the rice."
+  ],
+  "sections": {
+    "2 salmon fillets": "For the salmon",
+    "1 tbsp oil": "For the salmon",
+    "1 cup cooked rice": "For the salmon",
+    "3 tbsp soy sauce": "For the sauce",
+    "2 tbsp honey": "For the sauce",
+    "1 tbsp rice vinegar": "For the sauce",
+    "1 clove garlic, grated": "For the sauce"
+  }
+}

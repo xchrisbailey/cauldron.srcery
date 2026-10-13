@@ -1,0 +1,3012 @@
+[
+ {
+  "name": "01-wprm-yoast-graph",
+  "url": "https://example.com/recipes/wprm-yoast-graph",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Lemon Ricotta Pancakes",
+   "description": "Fluffy pancakes with lemon zest and ricotta.",
+   "servings": 4,
+   "prepMinutes": 10,
+   "cookMinutes": 15,
+   "totalMinutes": 25,
+   "author": "Dana Whitfield",
+   "siteName": "Sunny Spoon",
+   "canonicalUrl": "https://example.com/recipes/wprm-yoast-graph/",
+   "imageUrl": "https://example.com/wp-content/uploads/pancakes-500x500.jpg",
+   "tags": [
+    "American",
+    "Breakfast"
+   ],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup all-purpose flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup ricotta",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 lemon, zested",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp butter, for the pan",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Whisk the eggs and ricotta together.",
+     "section": "Make the batter",
+     "unsure": false
+    },
+    {
+     "text": "Fold in the flour and lemon zest.",
+     "section": "Make the batter",
+     "unsure": false
+    },
+    {
+     "text": "Melt butter in a pan over medium heat.",
+     "section": "Cook",
+     "unsure": false
+    },
+    {
+     "text": "Cook spoonfuls until golden, about 2 minutes a side.",
+     "section": "Cook",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/wprm-yoast-graph/",
+  "draft": {
+   "title": "Lemon Ricotta Pancakes",
+   "description": "Fluffy pancakes with lemon zest and ricotta.",
+   "servings": 4,
+   "prepMinutes": 10,
+   "cookMinutes": 15,
+   "totalMinutes": 25,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/wprm-yoast-graph",
+   "sourceAuthor": "Dana Whitfield",
+   "siteName": "Sunny Spoon",
+   "notes": null,
+   "photoKey": null,
+   "tags": [
+    "American",
+    "Breakfast"
+   ],
+   "ingredients": [
+    {
+     "line": "1 cup all-purpose flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup ricotta",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 lemon, zested",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp butter, for the pan",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Whisk the eggs and ricotta together.",
+     "section": "Make the batter",
+     "unsure": false
+    },
+    {
+     "text": "Fold in the flour and lemon zest.",
+     "section": "Make the batter",
+     "unsure": false
+    },
+    {
+     "text": "Melt butter in a pan over medium heat.",
+     "section": "Cook",
+     "unsure": false
+    },
+    {
+     "text": "Cook spoonfuls until golden, about 2 minutes a side.",
+     "section": "Cook",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "02-tasty-recipes",
+  "url": "https://example.com/recipes/tasty-recipes",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Smoky Black Bean Soup",
+   "description": "A pantry soup that tastes like it simmered all day.",
+   "servings": 6,
+   "prepMinutes": 10,
+   "cookMinutes": 35,
+   "totalMinutes": 45,
+   "author": "Priya Raman",
+   "siteName": "Tasty Pantry",
+   "canonicalUrl": "https://example.com/recipes/tasty-recipes",
+   "imageUrl": "https://example.com/img/soup-1x1.jpg",
+   "tags": [
+    "Tex-Mex",
+    "Soup"
+   ],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "2 tbsp olive oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 onion, diced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cans (15 oz) black beans, drained",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp smoked paprika",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups vegetable broth",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Soften the onion in the oil over medium heat, about 5 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the beans, paprika and broth.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Simmer for 30 minutes, then blend half of it.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/tasty-recipes",
+  "draft": {
+   "title": "Smoky Black Bean Soup",
+   "description": "A pantry soup that tastes like it simmered all day.",
+   "servings": 6,
+   "prepMinutes": 10,
+   "cookMinutes": 35,
+   "totalMinutes": 45,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/tasty-recipes",
+   "sourceAuthor": "Priya Raman",
+   "siteName": "Tasty Pantry",
+   "notes": null,
+   "photoKey": null,
+   "tags": [
+    "Tex-Mex",
+    "Soup"
+   ],
+   "ingredients": [
+    {
+     "line": "2 tbsp olive oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 onion, diced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cans (15 oz) black beans, drained",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp smoked paprika",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups vegetable broth",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Soften the onion in the oil over medium heat, about 5 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the beans, paprika and broth.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Simmer for 30 minutes, then blend half of it.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "03-mediavine-create",
+  "url": "https://example.com/recipes/mediavine-create",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Sheet Pan Chicken Fajitas",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": 15,
+   "cookMinutes": 20,
+   "totalMinutes": 35,
+   "author": "Marcus Lowe",
+   "siteName": "Weeknight Table",
+   "canonicalUrl": "https://example.com/recipes/mediavine-create/",
+   "imageUrl": "https://example.com/uploads/fajitas.jpg",
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 lb chicken breast, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 bell peppers, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 red onion, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp fajita seasoning",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "8 small flour tortillas",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Heat the oven to 425 F.",
+     "section": "Prep",
+     "unsure": false
+    },
+    {
+     "text": "Toss chicken and vegetables with the seasoning on a sheet pan.",
+     "section": "Prep",
+     "unsure": false
+    },
+    {
+     "text": "Roast for 20 minutes, stirring once.",
+     "section": "Roast",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/mediavine-create/",
+  "draft": {
+   "title": "Sheet Pan Chicken Fajitas",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": 15,
+   "cookMinutes": 20,
+   "totalMinutes": 35,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/mediavine-create",
+   "sourceAuthor": "Marcus Lowe",
+   "siteName": "Weeknight Table",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 lb chicken breast, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 bell peppers, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 red onion, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp fajita seasoning",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "8 small flour tortillas",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Heat the oven to 425 F.",
+     "section": "Prep",
+     "unsure": false
+    },
+    {
+     "text": "Toss chicken and vegetables with the seasoning on a sheet pan.",
+     "section": "Prep",
+     "unsure": false
+    },
+    {
+     "text": "Roast for 20 minutes, stirring once.",
+     "section": "Roast",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "04-type-array",
+  "url": "https://example.com/recipes/type-array",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Brown Butter Banana Bread",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": 70,
+   "author": "Lena Ortiz",
+   "siteName": "The Daily Plate",
+   "canonicalUrl": "https://example.com/recipes/type-array",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "3 ripe bananas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup brown butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3/4 cup sugar",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 1/2 cups flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mash the bananas and stir in the cooled brown butter.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the sugar and flour and mix until just combined.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake at 350 F for 55 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/type-array",
+  "draft": {
+   "title": "Brown Butter Banana Bread",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": 70,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/type-array",
+   "sourceAuthor": "Lena Ortiz",
+   "siteName": "The Daily Plate",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "3 ripe bananas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup brown butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3/4 cup sugar",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 1/2 cups flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mash the bananas and stir in the cooled brown butter.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the sugar and flour and mix until just combined.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake at 350 F for 55 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "05-top-level-array",
+  "url": "https://example.com/recipes/top-level-array",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Garlic Butter Shrimp",
+   "description": null,
+   "servings": 3,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": 15,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": "https://example.com/recipes/top-level-array",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 lb shrimp, peeled",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cloves garlic, minced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 tbsp butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp lemon juice",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Melt the butter and cook the garlic for 30 seconds.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the shrimp and cook 2 minutes a side.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Finish with lemon juice.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/top-level-array",
+  "draft": {
+   "title": "Garlic Butter Shrimp",
+   "description": null,
+   "servings": 3,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": 15,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/top-level-array",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 lb shrimp, peeled",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cloves garlic, minced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 tbsp butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp lemon juice",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Melt the butter and cook the garlic for 30 seconds.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the shrimp and cook 2 minutes a side.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Finish with lemon juice.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "06-multiple-scripts",
+  "url": "https://example.com/recipes/multiple-scripts",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Tomato Basil Pasta",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": 5,
+   "cookMinutes": 20,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Pasta Notes",
+   "canonicalUrl": "https://example.com/recipes/multiple-scripts",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "12 oz spaghetti",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cups cherry tomatoes, halved",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup basil leaves",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 tbsp olive oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "salt",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Boil the spaghetti in salted water until al dente.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Warm the tomatoes in the olive oil until they burst.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Toss with the pasta and basil.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/multiple-scripts",
+  "draft": {
+   "title": "Tomato Basil Pasta",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": 5,
+   "cookMinutes": 20,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/multiple-scripts",
+   "sourceAuthor": null,
+   "siteName": "Pasta Notes",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "12 oz spaghetti",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cups cherry tomatoes, halved",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup basil leaves",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 tbsp olive oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "salt",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Boil the spaghetti in salted water until al dente.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Warm the tomatoes in the olive oil until they burst.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Toss with the pasta and basil.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "07-instructions-one-string",
+  "url": "https://example.com/recipes/instructions-one-string",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Easy Granola",
+   "description": null,
+   "servings": 10,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "3 cups rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup maple syrup",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/3 cup oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup chopped nuts",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Heat the oven to 325 F.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Mix the oats, syrup and oil on a lined tray.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake 25 minutes, stirring halfway.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Cool completely before breaking up.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/instructions-one-string",
+  "draft": {
+   "title": "Easy Granola",
+   "description": null,
+   "servings": 10,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/instructions-one-string",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "3 cups rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup maple syrup",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/3 cup oil",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup chopped nuts",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Heat the oven to 325 F.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Mix the oats, syrup and oil on a lined tray.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake 25 minutes, stirring halfway.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Cool completely before breaking up.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "08-instructions-plain-strings",
+  "url": "https://example.com/recipes/instructions-plain-strings",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Cucumber Yogurt Salad",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "2 cucumbers, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup plain yogurt",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 clove garlic, grated",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp dill",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Salt the cucumbers and let them drain for 10 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir the yogurt with garlic and dill.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fold in the cucumbers and chill.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/instructions-plain-strings",
+  "draft": {
+   "title": "Cucumber Yogurt Salad",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/instructions-plain-strings",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "2 cucumbers, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup plain yogurt",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 clove garlic, grated",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp dill",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Salt the cucumbers and let them drain for 10 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir the yogurt with garlic and dill.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fold in the cucumbers and chill.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "09-instructions-name-only",
+  "url": "https://example.com/recipes/instructions-name-only",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Fried Rice for One",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup cooked rice, cold",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 egg",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp frozen peas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp soy sauce",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Scramble the egg in a hot pan and set it aside.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fry the rice and peas for 3 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the soy sauce and the egg.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/instructions-name-only",
+  "draft": {
+   "title": "Fried Rice for One",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/instructions-name-only",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup cooked rice, cold",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 egg",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp frozen peas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp soy sauce",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Scramble the egg in a hot pan and set it aside.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fry the rice and peas for 3 minutes.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the soy sauce and the egg.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "10-entities-in-ingredients",
+  "url": "https://example.com/recipes/entities-in-ingredients",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Grandma’s Oatmeal Cookies",
+   "description": null,
+   "servings": 24,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1½ cups rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "¾ cup butter, softened",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup brown sugar & a pinch of salt",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp baker’s vanilla",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 – 2 tsp cinnamon",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Cream the butter & sugar.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the oats; bake at 350°F for 10 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/entities-in-ingredients",
+  "draft": {
+   "title": "Grandma’s Oatmeal Cookies",
+   "description": null,
+   "servings": 24,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/entities-in-ingredients",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1½ cups rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "¾ cup butter, softened",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup brown sugar & a pinch of salt",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp baker’s vanilla",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 – 2 tsp cinnamon",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Cream the butter & sugar.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Stir in the oats; bake at 350°F for 10 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "11-yield-number-pt90m",
+  "url": "https://example.com/recipes/yield-number-pt90m",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Slow Cooker Pulled Pork",
+   "description": null,
+   "servings": 8,
+   "prepMinutes": 15,
+   "cookMinutes": 90,
+   "totalMinutes": 105,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "3 lb pork shoulder",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup barbecue sauce",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 onion, sliced",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Put the onion and pork in the slow cooker.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Pour over the sauce and cook on high until it shreds.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/yield-number-pt90m",
+  "draft": {
+   "title": "Slow Cooker Pulled Pork",
+   "description": null,
+   "servings": 8,
+   "prepMinutes": 15,
+   "cookMinutes": 90,
+   "totalMinutes": 105,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/yield-number-pt90m",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "3 lb pork shoulder",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup barbecue sauce",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 onion, sliced",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Put the onion and pork in the slow cooker.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Pour over the sauce and cook on high until it shreds.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "12-yield-makes-p0dt",
+  "url": "https://example.com/recipes/yield-makes-p0dt",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Chocolate Chip Cookies",
+   "description": null,
+   "servings": 12,
+   "prepMinutes": 20,
+   "cookMinutes": 80,
+   "totalMinutes": 100,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "2 1/4 cups flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cups chocolate chips",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Beat the butter and fold in the flour and chips.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Chill the dough, then bake at 375 F.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/yield-makes-p0dt",
+  "draft": {
+   "title": "Chocolate Chip Cookies",
+   "description": null,
+   "servings": 12,
+   "prepMinutes": 20,
+   "cookMinutes": 80,
+   "totalMinutes": 100,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/yield-makes-p0dt",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "2 1/4 cups flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 cups chocolate chips",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Beat the butter and fold in the flour and chips.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Chill the dough, then bake at 375 F.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "13-image-object-publisher",
+  "url": "https://example.com/recipes/image-object-publisher",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Miso Salmon",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": "Kenji Ito",
+   "siteName": "Plate & Pan",
+   "canonicalUrl": "https://example.com/recipes/image-object-publisher",
+   "imageUrl": "https://cdn.example.com/salmon.jpg",
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "2 salmon fillets",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp white miso",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp mirin",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Whisk the miso and mirin, then brush it on the salmon.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Broil for 8 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/image-object-publisher",
+  "draft": {
+   "title": "Miso Salmon",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/image-object-publisher",
+   "sourceAuthor": "Kenji Ito",
+   "siteName": "Plate & Pan",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "2 salmon fillets",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp white miso",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp mirin",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Whisk the miso and mirin, then brush it on the salmon.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Broil for 8 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "14-canonical-tracking",
+  "url": "https://example.com/recipes/canonical-tracking",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Peanut Noodles",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": "https://example.com/recipes/canonical-tracking?page=2",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "8 oz noodles",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/3 cup peanut butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp soy sauce",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Cook the noodles.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Whisk the sauce and toss.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/canonical-tracking?page=2",
+  "draft": {
+   "title": "Peanut Noodles",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/canonical-tracking?page=2",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "8 oz noodles",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/3 cup peanut butter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 tbsp soy sauce",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Cook the noodles.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Whisk the sauce and toss.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "15-relative-image",
+  "url": "https://example.com/recipes/relative-image",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Apple Crisp",
+   "description": null,
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": "https://example.com/images/apple-crisp.jpg",
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "6 apples, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup butter",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Layer the apples in a dish.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Rub the oats and butter together, scatter over, and bake 40 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/relative-image",
+  "draft": {
+   "title": "Apple Crisp",
+   "description": null,
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/relative-image",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "6 apples, sliced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup butter",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Layer the apples in a dish.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Rub the oats and butter together, scatter over, and bake 40 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "16-author-array",
+  "url": "https://example.com/recipes/author-array",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Shakshuka",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": "Noa Levi, Sam Reyes",
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 can crushed tomatoes",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp cumin",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Simmer the tomatoes with the cumin.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Make wells, crack in the eggs, and cover until set.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/author-array",
+  "draft": {
+   "title": "Shakshuka",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/author-array",
+   "sourceAuthor": "Noa Levi, Sam Reyes",
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 can crushed tomatoes",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp cumin",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Simmer the tomatoes with the cumin.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Make wells, crack in the eggs, and cover until set.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "17-microdata-basic",
+  "url": "https://example.com/recipes/microdata-basic",
+  "extractor": "microdata",
+  "raw": null,
+  "recipe": {
+   "title": "Classic Meatloaf",
+   "description": "A weeknight meatloaf with a sticky glaze.",
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": "Ruth Adler",
+   "siteName": "Home Table",
+   "canonicalUrl": "https://example.com/recipes/microdata-basic",
+   "imageUrl": "https://example.com/photos/meatloaf.jpg",
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 1/2 lb ground beef",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup breadcrumbs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup ketchup",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix the beef, breadcrumbs and eggs.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Shape into a loaf and brush with ketchup.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake at 350 F for 1 hour.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/microdata-basic",
+  "draft": {
+   "title": "Classic Meatloaf",
+   "description": "A weeknight meatloaf with a sticky glaze.",
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/microdata-basic",
+   "sourceAuthor": "Ruth Adler",
+   "siteName": "Home Table",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 1/2 lb ground beef",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup breadcrumbs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 eggs",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup ketchup",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix the beef, breadcrumbs and eggs.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Shape into a loaf and brush with ketchup.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake at 350 F for 1 hour.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "18-microdata-meta-content",
+  "url": "https://example.com/recipes/microdata-meta-content",
+  "extractor": "microdata",
+  "raw": null,
+  "recipe": {
+   "title": "Overnight Oats",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": 5,
+   "cookMinutes": null,
+   "totalMinutes": 485,
+   "author": "Tom Hale",
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [
+    "British",
+    "Breakfast"
+   ],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup milk",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp chia seeds",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Stir everything together in a jar.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Chill overnight and top with fruit.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/microdata-meta-content",
+  "draft": {
+   "title": "Overnight Oats",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": 5,
+   "cookMinutes": null,
+   "totalMinutes": 485,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/microdata-meta-content",
+   "sourceAuthor": "Tom Hale",
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [
+    "British",
+    "Breakfast"
+   ],
+   "ingredients": [
+    {
+     "line": "1 cup rolled oats",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup milk",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp chia seeds",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Stir everything together in a jar.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Chill overnight and top with fruit.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "19-jsonld-raw-newlines",
+  "url": "https://example.com/recipes/jsonld-raw-newlines",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Lentil Stew",
+   "description": "A hearty stew for cold nights.",
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup brown lentils",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 carrots, diced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp tomato paste",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Sweat the carrots until soft.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the lentils, paste and 4 cups water and simmer 30 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/jsonld-raw-newlines",
+  "draft": {
+   "title": "Lentil Stew",
+   "description": "A hearty stew for cold nights.",
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/jsonld-raw-newlines",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup brown lentils",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "2 carrots, diced",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tbsp tomato paste",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Sweat the carrots until soft.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the lentils, paste and 4 cups water and simmer 30 minutes.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "20-jsonld-ingredients-only",
+  "url": "https://example.com/recipes/jsonld-ingredients-only",
+  "extractor": "model",
+  "raw": "Pico de Gallo\nDice everything small and stir it with the lime juice.",
+  "recipe": {
+   "title": "Pico de Gallo",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Fresh Table",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/jsonld-ingredients-only",
+  "draft": {
+   "title": "Pico de Gallo",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/jsonld-ingredients-only",
+   "sourceAuthor": null,
+   "siteName": "Fresh Table",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "21-blog-article-pumpkin-bread",
+  "url": "https://example.com/recipes/blog-article-pumpkin-bread",
+  "extractor": "model",
+  "raw": "Pumpkin Bread\nEvery fall my kitchen smells like cinnamon, and this loaf is the reason. I first made it for a school bake sale and never stopped.\nIngredients\n- 1 can (15 oz) pumpkin puree\n- 1 cup sugar\n- 1/2 cup oil\n- 2 eggs\n- 1 3/4 cups flour\n- 2 tsp pumpkin pie spice\nInstructions\n- Heat the oven to 350 F and grease a loaf pan.\n- Whisk the pumpkin, sugar, oil and eggs.\n- Stir in the flour and spice, pour into the pan and bake for 60 minutes.",
+  "recipe": {
+   "title": "Pumpkin Bread | Autumn Oven",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": "Greta Voss",
+   "siteName": "Autumn Oven",
+   "canonicalUrl": "https://example.com/recipes/blog-article-pumpkin-bread",
+   "imageUrl": "https://example.com/img/pumpkin-bread.jpg",
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-article-pumpkin-bread",
+  "draft": {
+   "title": "Pumpkin Bread | Autumn Oven",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-article-pumpkin-bread",
+   "sourceAuthor": "Greta Voss",
+   "siteName": "Autumn Oven",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "22-blog-comments-sidebar",
+  "url": "https://example.com/recipes/blog-comments-sidebar",
+  "extractor": "model",
+  "raw": "Chicken Tikka Masala\nCreamy, mild and ready in an hour.\nWhat you'll need\n- 1 lb chicken thighs, cubed\n- 1 cup yogurt\n- 2 tbsp tikka masala paste\n- 1 can (14 oz) tomato sauce\n- 1/2 cup cream\nDirections\n- Marinate the chicken in the yogurt and half the paste for 30 minutes.\n- Sear the chicken in a hot pan.\n- Add the tomato sauce, remaining paste and cream and simmer for 15 minutes.",
+  "recipe": {
+   "title": "Chicken Tikka Masala - Spice Route",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Spice Route",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-comments-sidebar",
+  "draft": {
+   "title": "Chicken Tikka Masala - Spice Route",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-comments-sidebar",
+   "sourceAuthor": null,
+   "siteName": "Spice Route",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "23-blog-no-article-no-main",
+  "url": "https://example.com/recipes/blog-no-article-no-main",
+  "extractor": "model",
+  "raw": "Quick Guacamole\nThree minutes, one bowl.\nIngredients\n- 3 ripe avocados\n- 1 lime, juiced\n- 1/4 cup red onion, minced\n- 1/2 tsp salt\nMethod\n- Mash the avocados with the lime juice.\n- Stir in the onion and salt.",
+  "recipe": {
+   "title": "Quick Guacamole",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-no-article-no-main",
+  "draft": {
+   "title": "Quick Guacamole",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-no-article-no-main",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "24-blog-role-main",
+  "url": "https://example.com/recipes/blog-role-main",
+  "extractor": "model",
+  "raw": "Mushroom Risotto\nPatience is the secret ingredient.\nIngredients\n1 1/2 cups arborio rice\n8 oz mushrooms, sliced\n4 cups hot stock\n1/2 cup parmesan\nInstructions\n1. Brown the mushrooms and set them aside.\n2. Toast the rice, then add stock a ladle at a time, stirring.\n3. Fold in the mushrooms and parmesan.",
+  "recipe": {
+   "title": "Mushroom Risotto - Rice & Rye",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Rice & Rye",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-role-main",
+  "draft": {
+   "title": "Mushroom Risotto - Rice & Rye",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-role-main",
+   "sourceAuthor": null,
+   "siteName": "Rice & Rye",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "25-blog-newsletter-related",
+  "url": "https://example.com/recipes/blog-newsletter-related",
+  "extractor": "model",
+  "raw": "Coconut Curry Lentils\nIngredients\n- 1 cup red lentils\n- 1 can coconut milk\n- 2 tbsp curry powder\nDirections\n- Simmer the lentils in 2 cups water for 15 minutes.\n- Stir in the coconut milk and curry powder and heat through.",
+  "recipe": {
+   "title": "Coconut Curry Lentils",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": "https://example.com/recipes/blog-newsletter-related",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-newsletter-related",
+  "draft": {
+   "title": "Coconut Curry Lentils",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-newsletter-related",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "26-blog-jsonld-invalid",
+  "url": "https://example.com/recipes/blog-jsonld-invalid",
+  "extractor": "model",
+  "raw": "Zucchini Fritters\nIngredients\n- 2 zucchini, grated\n- 1 egg\n- 1/2 cup flour\nMethod\n- Squeeze the water out of the zucchini.\n- Mix with the egg and flour.\n- Fry spoonfuls in oil until crisp.",
+  "recipe": {
+   "title": "Zucchini Fritters",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Garden Plate",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/blog-jsonld-invalid",
+  "draft": {
+   "title": "Zucchini Fritters",
+   "description": null,
+   "servings": null,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/blog-jsonld-invalid",
+   "sourceAuthor": null,
+   "siteName": "Garden Plate",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and bake.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "27-microdata-with-article-jsonld",
+  "url": "https://example.com/recipes/microdata-with-article-jsonld",
+  "extractor": "microdata",
+  "raw": null,
+  "recipe": {
+   "title": "Beef Stew",
+   "description": null,
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": "Carla Mendes",
+   "siteName": "example.com",
+   "canonicalUrl": "https://example.com/recipes/microdata-with-article-jsonld",
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "2 lb beef chuck",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 potatoes",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups beef stock",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Brown the beef.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the potatoes and stock.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Simmer for 2 hours.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/microdata-with-article-jsonld",
+  "draft": {
+   "title": "Beef Stew",
+   "description": null,
+   "servings": 6,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/microdata-with-article-jsonld",
+   "sourceAuthor": "Carla Mendes",
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "2 lb beef chuck",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "3 potatoes",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups beef stock",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Brown the beef.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Add the potatoes and stock.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Simmer for 2 hours.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "28-webpage-main-entity",
+  "url": "https://example.com/recipes/webpage-main-entity",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Spinach Dal",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [
+    "Indian"
+   ],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup yellow split peas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups spinach",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp turmeric",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Boil the split peas with turmeric until soft.",
+     "section": "Cook the dal",
+     "unsure": false
+    },
+    {
+     "text": "Wilt in the spinach and season.",
+     "section": "Finish",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/webpage-main-entity",
+  "draft": {
+   "title": "Spinach Dal",
+   "description": null,
+   "servings": 4,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/webpage-main-entity",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [
+    "Indian"
+   ],
+   "ingredients": [
+    {
+     "line": "1 cup yellow split peas",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "4 cups spinach",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 tsp turmeric",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Boil the split peas with turmeric until soft.",
+     "section": "Cook the dal",
+     "unsure": false
+    },
+    {
+     "text": "Wilt in the spinach and season.",
+     "section": "Finish",
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "29-time-variants",
+  "url": "https://example.com/recipes/time-variants",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Sourdough Boule",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": 30,
+   "cookMinutes": 45,
+   "totalMinutes": 1560,
+   "author": null,
+   "siteName": "example.com",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "500 g bread flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "350 g water",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "100 g starter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "10 g salt",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and rest the dough.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fold every 30 minutes, then proof overnight.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake in a hot dutch oven.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/time-variants",
+  "draft": {
+   "title": "Sourdough Boule",
+   "description": null,
+   "servings": 1,
+   "prepMinutes": 30,
+   "cookMinutes": 45,
+   "totalMinutes": 1560,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/time-variants",
+   "sourceAuthor": null,
+   "siteName": "example.com",
+   "notes": null,
+   "photoKey": null,
+   "tags": [],
+   "ingredients": [
+    {
+     "line": "500 g bread flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "350 g water",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "100 g starter",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "10 g salt",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix and rest the dough.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Fold every 30 minutes, then proof overnight.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Bake in a hot dutch oven.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ },
+ {
+  "name": "30-tags-and-site-fallback",
+  "url": "https://example.com/recipes/tags-and-site-fallback",
+  "extractor": "json-ld",
+  "raw": null,
+  "recipe": {
+   "title": "Kimchi Pancakes",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "author": null,
+   "siteName": "Banchan Blog",
+   "canonicalUrl": null,
+   "imageUrl": null,
+   "tags": [
+    "Korean",
+    "Snack",
+    "Appetizer"
+   ],
+   "notes": null,
+   "ingredients": [
+    {
+     "line": "1 cup kimchi, chopped",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup kimchi juice",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix everything into a loose batter.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Pan-fry until crisp at the edges.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  },
+  "sourceUrl": "https://example.com/recipes/tags-and-site-fallback",
+  "draft": {
+   "title": "Kimchi Pancakes",
+   "description": null,
+   "servings": 2,
+   "prepMinutes": null,
+   "cookMinutes": null,
+   "totalMinutes": null,
+   "sourcePlatform": "web",
+   "sourceUrl": "https://example.com/recipes/tags-and-site-fallback",
+   "sourceAuthor": null,
+   "siteName": "Banchan Blog",
+   "notes": null,
+   "photoKey": null,
+   "tags": [
+    "Korean",
+    "Snack",
+    "Appetizer"
+   ],
+   "ingredients": [
+    {
+     "line": "1 cup kimchi, chopped",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1 cup flour",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "line": "1/2 cup kimchi juice",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "steps": [
+    {
+     "text": "Mix everything into a loose batter.",
+     "section": null,
+     "unsure": false
+    },
+    {
+     "text": "Pan-fry until crisp at the edges.",
+     "section": null,
+     "unsure": false
+    }
+   ],
+   "unsure": []
+  }
+ }
+]

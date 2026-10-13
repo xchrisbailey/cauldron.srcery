@@ -1,0 +1,10 @@
+{
+  "extractor": "model",
+  "siteName": "Rice & Rye",
+  "textIncludes": [
+    "1 1/2 cups arborio rice",
+    "4 cups hot stock",
+    "Toast the rice, then add stock a ladle at a time, stirring."
+  ],
+  "textExcludes": ["Sponsored", "buy now", "Rice & Rye LLC", "Home Recipes About"]
+}

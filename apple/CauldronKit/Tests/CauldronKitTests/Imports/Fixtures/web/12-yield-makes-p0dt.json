@@ -1,0 +1,9 @@
+{
+  "extractor": "json-ld",
+  "title": "Chocolate Chip Cookies",
+  "servings": 12,
+  "prepMinutes": 20,
+  "cookMinutes": 80,
+  "totalMinutes": 100,
+  "ingredients": ["2 1/4 cups flour", "1 cup butter", "2 cups chocolate chips"]
+}

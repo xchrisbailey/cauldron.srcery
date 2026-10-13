@@ -1,0 +1,12 @@
+{
+  "extractor": "model",
+  "canonicalUrl": "https://example.com/recipes/blog-newsletter-related",
+  "textIncludes": ["1 can coconut milk", "Simmer the lentils in 2 cups water for 15 minutes."],
+  "textExcludes": [
+    "Get new recipes",
+    "Buy our spice kit",
+    "You might also like",
+    "Chana masala",
+    "Delicious. Reply"
+  ]
+}

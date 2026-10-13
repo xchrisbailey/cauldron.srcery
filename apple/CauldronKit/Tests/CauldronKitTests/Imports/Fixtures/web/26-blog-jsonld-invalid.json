@@ -1,0 +1,13 @@
+{
+  "extractor": "model",
+  "siteName": "Garden Plate",
+  "textIncludes": ["2 zucchini, grated", "Fry spoonfuls in oil until crisp."],
+  "textExcludes": [
+    "Advertisement",
+    "Popular posts",
+    "14 Comments",
+    "Copyright 2026",
+    "recipeIngredient",
+    "Hana Berg"
+  ]
+}

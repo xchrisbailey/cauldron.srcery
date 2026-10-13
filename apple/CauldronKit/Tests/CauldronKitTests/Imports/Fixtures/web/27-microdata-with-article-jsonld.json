@@ -1,0 +1,9 @@
+{
+  "extractor": "microdata",
+  "title": "Beef Stew",
+  "author": "Carla Mendes",
+  "servings": 6,
+  "ingredients": ["2 lb beef chuck", "3 potatoes", "4 cups beef stock"],
+  "steps": ["Brown the beef.", "Add the potatoes and stock.", "Simmer for 2 hours."],
+  "canonicalUrl": "https://example.com/recipes/microdata-with-article-jsonld"
+}

@@ -1,0 +1,10 @@
+{
+  "extractor": "json-ld",
+  "title": "Lentil Stew",
+  "ingredients": ["1 cup brown lentils", "2 carrots, diced", "1 tbsp tomato paste"],
+  "steps": [
+    "Sweat the carrots until soft.",
+    "Add the lentils, paste and 4 cups water and simmer 30 minutes."
+  ],
+  "servings": 4
+}

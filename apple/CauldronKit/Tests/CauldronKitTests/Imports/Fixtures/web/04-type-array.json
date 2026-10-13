@@ -1,0 +1,14 @@
+{
+  "extractor": "json-ld",
+  "title": "Brown Butter Banana Bread",
+  "ingredients": ["3 ripe bananas", "1/2 cup brown butter", "3/4 cup sugar", "1 1/2 cups flour"],
+  "steps": [
+    "Mash the bananas and stir in the cooled brown butter.",
+    "Add the sugar and flour and mix until just combined.",
+    "Bake at 350 F for 55 minutes."
+  ],
+  "servings": 1,
+  "totalMinutes": 70,
+  "author": "Lena Ortiz",
+  "siteName": "The Daily Plate"
+}

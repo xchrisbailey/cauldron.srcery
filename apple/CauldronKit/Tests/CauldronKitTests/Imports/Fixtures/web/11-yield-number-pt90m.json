@@ -1,0 +1,9 @@
+{
+  "extractor": "json-ld",
+  "title": "Slow Cooker Pulled Pork",
+  "servings": 8,
+  "prepMinutes": 15,
+  "cookMinutes": 90,
+  "totalMinutes": 105,
+  "ingredients": ["3 lb pork shoulder", "1 cup barbecue sauce", "1 onion, sliced"]
+}

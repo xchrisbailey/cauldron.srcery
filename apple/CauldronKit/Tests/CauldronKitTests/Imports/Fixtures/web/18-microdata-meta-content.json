@@ -1,0 +1,11 @@
+{
+  "extractor": "microdata",
+  "title": "Overnight Oats",
+  "ingredients": ["1 cup rolled oats", "1 cup milk", "1 tbsp chia seeds"],
+  "steps": ["Stir everything together in a jar.", "Chill overnight and top with fruit."],
+  "servings": 2,
+  "prepMinutes": 5,
+  "totalMinutes": 485,
+  "author": "Tom Hale",
+  "tags": ["British", "Breakfast"]
+}

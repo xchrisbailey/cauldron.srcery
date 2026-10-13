@@ -1,0 +1,9 @@
+{
+  "extractor": "json-ld",
+  "title": "Sourdough Boule",
+  "servings": 1,
+  "prepMinutes": 30,
+  "cookMinutes": 45,
+  "totalMinutes": 1560,
+  "ingredients": ["500 g bread flour", "350 g water", "100 g starter", "10 g salt"]
+}

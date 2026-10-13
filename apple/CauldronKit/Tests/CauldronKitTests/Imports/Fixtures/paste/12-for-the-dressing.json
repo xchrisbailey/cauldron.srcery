@@ -1,0 +1,20 @@
+{
+  "title": "Greek Salad",
+  "ingredients": [
+    "4 tomatoes, chopped",
+    "1 cucumber, sliced",
+    "200 g feta, cubed",
+    "3 tbsp olive oil",
+    "1 tbsp red wine vinegar",
+    "1 tsp dried oregano"
+  ],
+  "sections": {
+    "4 tomatoes, chopped": "For the salad",
+    "1 cucumber, sliced": "For the salad",
+    "200 g feta, cubed": "For the salad",
+    "3 tbsp olive oil": "For the dressing",
+    "1 tbsp red wine vinegar": "For the dressing",
+    "1 tsp dried oregano": "For the dressing"
+  },
+  "steps": ["Combine the salad ingredients in a bowl.", "Whisk the dressing and pour it over."]
+}
