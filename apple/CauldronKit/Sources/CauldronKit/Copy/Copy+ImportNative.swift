@@ -9,11 +9,11 @@ extension Copy {
       "The model on this device read this recipe because Gemini couldn't be reached, so it may be rougher than usual. Check it carefully before you save."
     )
 
-    // From a photo. The web app had no photo import. The section's heading is the verb in
-    // voice; the controls, the counts, the progress and every failure are plain.
+    // From a photo. The web app had no photo import. Native-only sections are all plain
+    // (`CopyTests`); the sheet's one voice string, Distill, is the button that starts it.
 
-    /// Heading of the photo section of the Distill sheet.
-    public let fromPhoto = voice("Distill from a photo")
+    /// Heading of the photo section of the Distill sheet, after "Or paste the recipe".
+    public let fromPhoto = plain("Or use a photo")
     /// Explains where the text is read.
     public let photoHint = plain(
       "Photograph a cookbook page or a recipe card. The text is read on this device, and only the words are sent to be distilled, as if you had pasted them."
