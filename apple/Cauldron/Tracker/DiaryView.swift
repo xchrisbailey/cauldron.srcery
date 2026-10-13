@@ -200,7 +200,7 @@ private struct DiaryDayList: View {
               Button {
                 editing = record
               } label: {
-                EntryRow(entry: entry)
+                EntryRow(entry: entry, isWaiting: record.macrosPending)
               }
               .buttonStyle(.plain)
               .accessibilityLabel(Copy.tracker.diary.edit(entry.name).text)
@@ -379,6 +379,8 @@ private struct SlotHeader: View {
 
 private struct EntryRow: View {
   let entry: DiaryEntry
+  /// A described meal still waiting for the model: it has no numbers yet, and says so.
+  let isWaiting: Bool
 
   var body: some View {
     let totals = entryTotals(entry)
@@ -390,36 +392,52 @@ private struct EntryRow: View {
         Text(verbatim: entry.name).brandText(.body).lineLimit(1)
         HStack(spacing: 8) {
           if !amount.isEmpty { Text(verbatim: amount).brandText(.quantity) }
-          if entry.source == .described {
+          if entry.source == .described, !isWaiting {
             Text(verbatim: Copy.tracker.diary.estimate.text).brandText(.unit)
           }
-          if hasGaps(entry) {
+          if hasGaps(entry), !isWaiting {
             Text(verbatim: Copy.tracker.diary.gaps.text).brandText(.unit)
           }
         }
         .foregroundStyle(Brand.Colors.subtext)
       }
       Spacer(minLength: 8)
-      VStack(alignment: .trailing, spacing: 2) {
-        Text(
-          verbatim:
-            "\(MacroMeter.whole(totals.calories)) \(Copy.tracker.macros.calories.text)"
-        )
-        .font(.brand(.quantity, size: 14))
-        .fontWeight(.semibold)
-        HStack(spacing: 8) {
-          ForEach([MacroKey.protein, .carbs, .fat], id: \.self) { key in
-            HStack(spacing: 3) {
-              Circle().fill(key.tint).frame(width: 6, height: 6)
-              Text(verbatim: "\(MacroMeter.whole(totals[key]))\(Copy.tracker.macros.grams.text)")
-                .brandText(.unit)
-            }
-          }
+      if isWaiting {
+        Label {
+          Text(verbatim: Copy.describeNative.waitingRow.text).brandText(.control)
+        } icon: {
+          Image(systemName: "clock").foregroundStyle(Brand.Colors.magic)
         }
-        .accessibilityHidden(true)
+        .foregroundStyle(Brand.Colors.subtext)
+      } else {
+        numbers(totals)
       }
     }
     .contentShape(Rectangle())
+  }
+}
+
+extension EntryRow {
+  /// Calories on top, the three macros under.
+  fileprivate func numbers(_ totals: MacroTotals) -> some View {
+    VStack(alignment: .trailing, spacing: 2) {
+      Text(
+        verbatim:
+          "\(MacroMeter.whole(totals.calories)) \(Copy.tracker.macros.calories.text)"
+      )
+      .font(.brand(.quantity, size: 14))
+      .fontWeight(.semibold)
+      HStack(spacing: 8) {
+        ForEach([MacroKey.protein, .carbs, .fat], id: \.self) { key in
+          HStack(spacing: 3) {
+            Circle().fill(key.tint).frame(width: 6, height: 6)
+            Text(verbatim: "\(MacroMeter.whole(totals[key]))\(Copy.tracker.macros.grams.text)")
+              .brandText(.unit)
+          }
+        }
+      }
+      .accessibilityHidden(true)
+    }
   }
 }
 
