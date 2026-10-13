@@ -8,7 +8,7 @@ import Testing
 @testable import Cauldron
 
 /// Answers requests from a list, in order, and keeps what it was sent.
-private final class ScriptedTransport: AITransport {
+final class ScriptedTransport: AITransport {
   enum Reply {
     case status(Int, String)
     case offline
@@ -61,7 +61,7 @@ private final class HeldTransport: AITransport {
 }
 
 /// A Gemini response whose answer is `json`.
-private func answer(_ json: String) -> String {
+func answer(_ json: String) -> String {
   let body: [String: Any] = [
     "candidates": [["content": ["parts": [["text": json]]], "finishReason": "STOP"]],
     "usageMetadata": ["promptTokenCount": 10, "candidatesTokenCount": 5],
@@ -69,7 +69,7 @@ private func answer(_ json: String) -> String {
   return String(decoding: try! JSONSerialization.data(withJSONObject: body), as: UTF8.self)
 }
 
-private let macrosJSON = #"{"servings":4,"calories":310,"protein":17,"carbs":18,"fat":19}"#
+let macrosJSON = #"{"servings":4,"calories":310,"protein":17,"carbs":18,"fat":19}"#
 private let recipeJSON =
   #"{"recipe":"found","title":"Fried eggs","description":null,"servings":1,"prepMinutes":null,"cookMinutes":3,"totalMinutes":null,"ingredients":[{"line":"2 eggs","section":null,"unsure":false}],"steps":[{"text":"Fry them.","section":null,"unsure":false}],"tags":[],"notes":null,"unsure":[]}"#
 
@@ -89,7 +89,7 @@ private struct StubOnDevice: RecipeAI {
 }
 
 @MainActor
-private func service(
+func service(
   key: String? = "test-key", _ replies: [ScriptedTransport.Reply], onDevice: Bool = false
 ) -> (RecipeAIService, ScriptedTransport, MemoryKeyStore) {
   let keys = MemoryKeyStore(key)

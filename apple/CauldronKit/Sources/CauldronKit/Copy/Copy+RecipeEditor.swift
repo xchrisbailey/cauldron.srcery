@@ -13,6 +13,11 @@ extension Copy {
     )
     /// Opens the camera, on a device that has one.
     public let takePhoto = plain("Take a photo")
+    /// Under "Divining…" when Gemini can't be reached while the editor is open: the web editor
+    /// failed at once, but a native recipe's estimate waits in the queue and starts on Save.
+    public let divineQueued = plain(
+      "Gemini can't be reached just now. The estimate will fill in after you save, once it can be."
+    )
 
     public init() {}
   }

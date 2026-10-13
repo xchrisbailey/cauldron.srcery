@@ -11,12 +11,15 @@ struct RecipeEditorSheet: View {
 
   @Environment(\.modelContext) private var context
   @Environment(\.dismiss) private var dismiss
+  @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @State private var draft: RecipeDraft
   private let initial: RecipeDraft
   /// Problems show once Save has been tried, and then follow the cook's fixes.
   @State private var triedToSave = false
   @State private var couldntSave = false
   @State private var confirmingLeave = false
+  @State private var divining = false
+  @State private var divineMessage: CopyString?
 
   init(recipe: RecipeRecord?, onSaved: @escaping (RecipeRecord) -> Void = { _ in }) {
     self.recipe = recipe
@@ -32,7 +35,8 @@ struct RecipeEditorSheet: View {
     NavigationStack {
       RecipeEditorForm(
         draft: $draft, recipe: recipe, errors: triedToSave ? draft.validate() : nil,
-        couldntSave: couldntSave
+        couldntSave: couldntSave, divining: divining, divineMessage: divineMessage,
+        onDivine: divine
       )
       .navigationTitle(
         recipe == nil ? Copy.editor.newTitle.text : Copy.editor.editTitle.text
@@ -77,10 +81,36 @@ struct RecipeEditorSheet: View {
     #endif
   }
 
+  /// Estimates the macros from the ingredients as they are now, into the draft. Nothing is
+  /// stored until Save, so Cancel leaves nothing behind. If Gemini can't be reached, Save
+  /// queues the estimate for the saved recipe instead.
+  private func divine() {
+    guard let ai, !divining else { return }
+    divining = true
+    divineMessage = nil
+    let input = draft.estimateInput
+    Task {
+      let outcome = await RecipeMacroEstimates.divine(input, using: ai)
+      draft.apply(outcome)
+      switch outcome {
+      case .needsIngredients: divineMessage = Copy.editor.divineNeedsIngredients
+      case .failed: divineMessage = Copy.editor.divineFailed
+      case .filled, .queued, .cancelled: break
+      }
+      divining = false
+    }
+  }
+
   private func save() {
     couldntSave = false
     do {
       let saved = try RecipeSaver.save(draft, into: recipe, context: context)
+      // An estimate that couldn't be had while editing is asked for now, with the saved
+      // ingredients; if Gemini is still out of reach it waits in the queue.
+      if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {
+        let context = context
+        Task { await AIJobQueue.drain(in: context, using: ai.estimator) }
+      }
       onSaved(saved)
       dismiss()
     } catch RecipeSaver.Failure.invalid {
