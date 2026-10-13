@@ -16,6 +16,12 @@ struct RecipeDraft: Equatable {
   var protein = ""
   var carbs = ""
   var fat = ""
+  /// What the model estimated into the four fields above. Save keeps those numbers marked as
+  /// an estimate for as long as the fields still hold them; changing one makes it the cook's.
+  var estimatedMacros: Macros?
+  /// Gemini couldn't be reached when the cook asked for an estimate, so Save queues one for
+  /// the saved recipe (if the cook has typed no numbers by then).
+  var estimateOnSave = false
   var sourceURL = ""
   var notes = ""
   var tags: [String] = []
@@ -57,6 +63,42 @@ struct RecipeDraft: Equatable {
     ingredients = rows.isEmpty ? [.line("")] : rows
     let stored = recipe.steps.map(StepRowDraft.stored)
     steps = stored.isEmpty ? [.blank()] : stored
+  }
+
+  /// The four macro fields as numbers; a blank or invalid field is unknown.
+  var typedMacros: Macros {
+    Macros(
+      calories: Self.whole(calories, in: 0...RecipeLimits.calories).number.map(Double.init),
+      protein: Self.grams(protein).number,
+      carbs: Self.grams(carbs).number,
+      fat: Self.grams(fat).number)
+  }
+
+  /// Puts an estimate into the macro fields, to be checked before saving.
+  mutating func fill(withEstimate macros: Macros) {
+    calories = Self.text(macros.calories)
+    protein = Self.text(macros.protein)
+    carbs = Self.text(macros.carbs)
+    fat = Self.text(macros.fat)
+    // Read back from the fields, so what Save compares is what the cook sees.
+    estimatedMacros = typedMacros
+    estimateOnSave = false
+  }
+
+  /// What the model is asked to estimate from: the ingredient lines as currently typed, with
+  /// section headings and blank rows left out.
+  var ingredientLines: [String] {
+    ingredients.filter { !$0.isHeading && !$0.isBlank }.map { trimmed($0.text) }
+  }
+
+  /// The ask for an estimate, or nil when there is no ingredient to estimate from.
+  var estimateInput: MacroEstimateInput? {
+    let lines = ingredientLines
+    guard !lines.isEmpty else { return nil }
+    let title = trimmed(title)
+    return MacroEstimateInput(
+      title: title.isEmpty ? nil : title,
+      servings: Self.whole(servings, in: 1...RecipeLimits.servings).number, ingredients: lines)
   }
 
   private static func text(_ number: Int?) -> String { number.map(String.init) ?? "" }

@@ -9,6 +9,12 @@ struct RecipeEditorForm: View {
   /// What's wrong, once the cook has tried to save; nil before.
   let errors: RecipeDraft.Errors?
   let couldntSave: Bool
+  /// Whether an estimate is being asked for, and what the last ask came to if it needs saying.
+  var divining = false
+  var divineMessage: CopyString?
+  var onDivine: () -> Void = {}
+
+  @Environment(RecipeAIService.self) private var ai: RecipeAIService?
 
   var body: some View {
     List {
@@ -58,6 +64,7 @@ struct RecipeEditorForm: View {
       .listRowBackground(Brand.Colors.mantle)
 
       Section {
+        divineRow
         EditorField(
           label: Copy.editor.macroFields.calories, text: $draft.calories,
           error: errors?[.calories], mono: true, numeric: true)
@@ -73,7 +80,7 @@ struct RecipeEditorForm: View {
       } header: {
         Text(verbatim: Copy.editor.macros.text)
       } footer: {
-        Text(verbatim: Copy.editor.macrosHint.text).fixedSize(horizontal: false, vertical: true)
+        macrosFooter
       }
       .listRowBackground(Brand.Colors.mantle)
 
@@ -108,6 +115,48 @@ struct RecipeEditorForm: View {
     .scrollContentBackground(.hidden)
     .background(Brand.Colors.base)
     .foregroundStyle(Brand.Colors.ink)
+  }
+}
+
+extension RecipeEditorForm {
+  /// "Divine from ingredients", and how the AI stands when it needs attention. Hidden where
+  /// there is no AI service.
+  @ViewBuilder
+  fileprivate var divineRow: some View {
+    if let ai {
+      VStack(alignment: .leading, spacing: 8) {
+        Button(action: onDivine) {
+          HStack(spacing: 8) {
+            if divining { ProgressView().controlSize(.small) }
+            Text(verbatim: (divining ? Copy.editor.divining : Copy.editor.divineMacros).text)
+          }
+        }
+        .buttonStyle(RecipeActionButtonStyle())
+        .disabled(divining)
+        .frame(maxWidth: 320)
+        if ai.status.needsAttention {
+          AIStatusLine(status: ai.status)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+      }
+    }
+  }
+
+  /// Under the macro fields: a problem with the last ask, or that the numbers are an estimate
+  /// to check, or that one is waiting for Save, or the usual hint.
+  @ViewBuilder
+  fileprivate var macrosFooter: some View {
+    let typed = draft.typedMacros
+    if let divineMessage {
+      Text(verbatim: divineMessage.text).foregroundStyle(Brand.Colors.heat)
+    } else if draft.estimateOnSave && typed == .none {
+      Text(verbatim: Copy.recipeEditor.divineQueued.text)
+    } else if typed != .none && typed == draft.estimatedMacros {
+      Text(verbatim: Copy.editor.divined.text)
+    } else {
+      Text(verbatim: Copy.editor.macrosHint.text)
+    }
   }
 }
 

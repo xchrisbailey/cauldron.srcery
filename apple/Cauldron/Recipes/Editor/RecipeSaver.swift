@@ -48,18 +48,15 @@ enum RecipeSaver {
     return trimmed.isEmpty ? nil : trimmed
   }
 
-  /// Macros the cook typed are manual. Ones they didn't touch keep how they were worked out
-  /// (an estimate stays an estimate), and cleared ones have no source.
+  /// Macros the cook typed are manual, and ones the model estimated into the fields (and the
+  /// cook left alone) are an estimate. Ones they didn't touch keep how they were worked out,
+  /// and cleared ones have no source.
   private static func saveMacros(_ draft: RecipeDraft, into recipe: RecipeRecord) {
-    let typed = Macros(
-      calories: RecipeDraft.whole(draft.calories, in: 0...RecipeLimits.calories).number.map(
-        Double.init),
-      protein: RecipeDraft.grams(draft.protein).number,
-      carbs: RecipeDraft.grams(draft.carbs).number,
-      fat: RecipeDraft.grams(draft.fat).number)
+    let typed = draft.typedMacros
     if typed != recipe.macros {
       recipe.macros = typed
-      recipe.macrosSource = typed == Macros() ? nil : .manual
+      recipe.macrosSource =
+        typed == Macros() ? nil : (typed == draft.estimatedMacros ? .estimated : .manual)
     }
   }
 

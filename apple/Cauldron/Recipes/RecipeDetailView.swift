@@ -278,19 +278,8 @@ struct RecipeDetailView: View {
 
   // MARK: Bottom
 
-  @ViewBuilder
   private var macros: some View {
-    if let line = macroLine(recipe.macros) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(verbatim: Copy.editor.macros.text)
-          .brandText(.control)
-          .foregroundStyle(Brand.Colors.subtext)
-        Text(verbatim: line.text)
-          .brandText(.quantity)
-          .accessibilityLabel(Text(verbatim: line.label))
-      }
-      .accessibilityElement(children: .combine)
-    }
+    RecipeMacrosSection(recipe: recipe)
   }
 
   private var footer: some View {
