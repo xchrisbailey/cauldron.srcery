@@ -22,14 +22,11 @@ struct WeekRoot: View {
   }
 
   var body: some View {
-    NavigationStack {
-      WeekPlanner(
-        start: start, today: today, startsOn: startsOn, isCurrent: offset == 0,
-        onPrevious: { offset -= 1 }, onNext: { offset += 1 }, onThisWeek: { offset = 0 },
-        onStartsOn: setStartsOn
-      )
-      .navigationTitle(AppDestination.week.title.text)
-    }
+    WeekPlanner(
+      start: start, today: today, startsOn: startsOn, isCurrent: offset == 0,
+      onPrevious: { offset -= 1 }, onNext: { offset += 1 }, onThisWeek: { offset = 0 },
+      onStartsOn: setStartsOn
+    )
     .onChange(of: scenePhase) {
       if scenePhase == .active { today = WeekDates.today() }
     }

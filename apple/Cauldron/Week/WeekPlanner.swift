@@ -70,32 +70,20 @@ struct WeekPlanner: View {
 
   var body: some View {
     let snapshot = snapshot
-    GeometryReader { proxy in
-      if proxy.size.width >= Self.gridWidth {
-        gridPage(snapshot)
-      } else {
-        dayPage(snapshot)
-      }
-    }
-    .background(Brand.Colors.base)
-    .toolbar {
-      ToolbarItem {
-        Menu {
-          Button(action: copyLastWeek) { Text(verbatim: Copy.week.copyLastWeek.text) }
-          Button(role: .destructive) {
-            clearing = true
-          } label: {
-            Text(verbatim: Copy.week.clearWeek.text)
-          }
-          .disabled(snapshot.isEmpty)
-        } label: {
-          Label {
-            Text(verbatim: Copy.week.title.text)
-          } icon: {
-            Image(systemName: "ellipsis.circle")
-          }
+    // The sheet, the dialog, the notice and its timer hang off the stack, not its content.
+    // Inside it they crash an `ImageRenderer` on iOS when the render is torn down, which is
+    // how the tests draw this screen.
+    NavigationStack {
+      GeometryReader { proxy in
+        if proxy.size.width >= Self.gridWidth {
+          gridPage(snapshot)
+        } else {
+          dayPage(snapshot)
         }
       }
+      .background(Brand.Colors.base)
+      .navigationTitle(AppDestination.week.title.text)
+      .toolbar { weekMenu(snapshot) }
     }
     .sheet(item: $sheet) { sheet in
       switch sheet {
@@ -133,6 +121,27 @@ struct WeekPlanner: View {
       guard let shown = notice else { return }
       try? await Task.sleep(for: .seconds(shown.undo == nil ? 3 : 6))
       if !Task.isCancelled { withAnimation { notice = nil } }
+    }
+  }
+
+  @ToolbarContentBuilder
+  private func weekMenu(_ snapshot: WeekSnapshot) -> some ToolbarContent {
+    ToolbarItem {
+      Menu {
+        Button(action: copyLastWeek) { Text(verbatim: Copy.week.copyLastWeek.text) }
+        Button(role: .destructive) {
+          clearing = true
+        } label: {
+          Text(verbatim: Copy.week.clearWeek.text)
+        }
+        .disabled(snapshot.isEmpty)
+      } label: {
+        Label {
+          Text(verbatim: Copy.week.title.text)
+        } icon: {
+          Image(systemName: "ellipsis.circle")
+        }
+      }
     }
   }
 
