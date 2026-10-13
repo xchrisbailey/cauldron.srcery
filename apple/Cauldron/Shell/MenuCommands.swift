@@ -12,10 +12,11 @@ struct NavigationCommands {
   let go: (AppDestination) -> Void
 }
 
-/// The recipe library: add a recipe, and find one.
+/// The recipe library: add a recipe, find one, and distill one from a link or pasted text.
 struct LibraryCommands {
   let newRecipe: () -> Void
   let find: () -> Void
+  let importRecipe: () -> Void
 }
 
 /// The recipe that is open, in the library or in a window of its own.
@@ -87,6 +88,7 @@ extension FocusedValues {
 /// A menu item that acts on the front window. New Window isn't one: it needs no window.
 enum MenuCommand: CaseIterable {
   case newRecipe
+  case importRecipe
   case findRecipes
   case addMeal
   case addItem
@@ -121,6 +123,8 @@ enum MenuCommand: CaseIterable {
   var shortcut: KeyboardShortcut {
     switch self {
     case .newRecipe: KeyboardShortcut("n", modifiers: .command)
+    // D for Distill; Shift-Command-I is Add Item.
+    case .importRecipe: KeyboardShortcut("d", modifiers: [.command, .shift])
     case .findRecipes: KeyboardShortcut("f", modifiers: .command)
     case .addMeal: KeyboardShortcut("m", modifiers: [.command, .shift])
     case .addItem: KeyboardShortcut("i", modifiers: [.command, .shift])
@@ -151,7 +155,7 @@ struct FrontWindow {
   func isEnabled(_ command: MenuCommand) -> Bool {
     switch command {
     case .goRecipes, .goWeek, .goGather, .goTracker: navigation != nil
-    case .newRecipe, .findRecipes: library != nil
+    case .newRecipe, .importRecipe, .findRecipes: library != nil
     case .addMeal: add?.kind == .meal
     case .addItem: add?.kind == .item
     case .logFood: add?.kind == .food
@@ -166,6 +170,7 @@ struct FrontWindow {
   func title(of command: MenuCommand) -> String {
     switch command {
     case .newRecipe: Copy.macMenu.newRecipe.text
+    case .importRecipe: Copy.macMenu.importRecipe.text
     case .findRecipes: Copy.macMenu.findRecipes.text
     case .addMeal: Copy.macMenu.addMeal.text
     case .addItem: Copy.macMenu.addItem.text
@@ -194,6 +199,7 @@ struct FrontWindow {
     case .goGather: navigation?.go(.gather)
     case .goTracker: navigation?.go(.tracker)
     case .newRecipe: library?.newRecipe()
+    case .importRecipe: library?.importRecipe()
     case .findRecipes: library?.find()
     case .addMeal, .addItem, .logFood: add?.perform()
     case .goToToday: steps?.today()

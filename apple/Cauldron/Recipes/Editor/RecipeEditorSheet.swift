@@ -6,8 +6,13 @@ import SwiftUI
 /// so Cancel changes nothing and Save writes the whole of it at once.
 struct RecipeEditorSheet: View {
   let recipe: RecipeRecord?
+  /// For a draft from Distill: what was read, and the recipe already saved from the same link.
+  /// Nothing is stored until the cook saves it, and leaving asks first.
+  let importing: ImportReview?
   /// Called with the saved recipe, just before the sheet closes.
   var onSaved: (RecipeRecord) -> Void = { _ in }
+  /// Opens the recipe already saved from the same link, instead of saving a second copy.
+  var onOpenDuplicate: (UUID) -> Void = { _ in }
 
   @Environment(\.modelContext) private var context
   @Environment(\.dismiss) private var dismiss
@@ -17,15 +22,23 @@ struct RecipeEditorSheet: View {
   /// Problems show once Save has been tried, and then follow the cook's fixes.
   @State private var triedToSave = false
   @State private var couldntSave = false
+  @State private var saveLatch = SaveLatch()
   @State private var confirmingLeave = false
   @State private var divining = false
   @State private var divineMessage: CopyString?
 
-  init(recipe: RecipeRecord?, onSaved: @escaping (RecipeRecord) -> Void = { _ in }) {
+  init(
+    recipe: RecipeRecord?, importing: ImportReview? = nil,
+    onSaved: @escaping (RecipeRecord) -> Void = { _ in },
+    onOpenDuplicate: @escaping (UUID) -> Void = { _ in }
+  ) {
     self.recipe = recipe
+    self.importing = importing
     self.onSaved = onSaved
-    let start = recipe.map(RecipeDraft.init) ?? RecipeDraft()
-    initial = start
+    self.onOpenDuplicate = onOpenDuplicate
+    let start = importing?.draft ?? recipe.map(RecipeDraft.init) ?? RecipeDraft()
+    // An import was never saved, so leaving it always asks first.
+    initial = importing == nil ? start : RecipeDraft()
     _draft = State(initialValue: start)
   }
 
@@ -36,10 +49,15 @@ struct RecipeEditorSheet: View {
       RecipeEditorForm(
         draft: $draft, recipe: recipe, errors: triedToSave ? draft.validate() : nil,
         couldntSave: couldntSave, divining: divining, divineMessage: divineMessage,
-        onDivine: divine
+        onDivine: divine, duplicate: importing?.duplicate,
+        onOpenDuplicate: {
+          if let id = importing?.duplicate?.id { onOpenDuplicate(id) }
+        }
       )
       .navigationTitle(
-        recipe == nil ? Copy.editor.newTitle.text : Copy.editor.editTitle.text
+        importing != nil
+          ? Copy.imports.title.text
+          : recipe == nil ? Copy.editor.newTitle.text : Copy.editor.editTitle.text
       )
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -56,6 +74,7 @@ struct RecipeEditorSheet: View {
           Button(action: save) {
             Text(verbatim: Copy.editor.save.text)
           }
+          .disabled(saveLatch.isSaving)
         }
       }
     }
@@ -102,6 +121,8 @@ struct RecipeEditorSheet: View {
   }
 
   private func save() {
+    // A second tap or click before the sheet has gone would save the recipe again.
+    guard saveLatch.begin() else { return }
     couldntSave = false
     do {
       let saved = try RecipeSaver.save(draft, into: recipe, context: context)
@@ -115,9 +136,29 @@ struct RecipeEditorSheet: View {
       dismiss()
     } catch RecipeSaver.Failure.invalid {
       triedToSave = true
+      saveLatch.reopen()
     } catch {
       triedToSave = true
       couldntSave = true
+      saveLatch.reopen()
     }
+  }
+}
+
+/// Lets one save through at a time. It closes when a save starts and stays closed once the
+/// recipe is saved (the sheet is on its way out); a save that fails opens it again so the cook
+/// can fix the problem and try again.
+struct SaveLatch {
+  private(set) var isSaving = false
+
+  /// True for the first call, false for every call after it until `reopen()`.
+  mutating func begin() -> Bool {
+    guard !isSaving else { return false }
+    isSaving = true
+    return true
+  }
+
+  mutating func reopen() {
+    isSaving = false
   }
 }

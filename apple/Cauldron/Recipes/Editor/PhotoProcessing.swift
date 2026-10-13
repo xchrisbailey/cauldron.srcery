@@ -43,8 +43,11 @@ enum PhotoProcessing {
   /// Beyond this many pixels (about 100 megapixels) decoding is refused rather than risked.
   static let maxPixels = 100_000_000
 
+  /// `maxPixels` is how many pixels an image may declare before decoding is refused. The
+  /// default is generous, for a photo the cook picked; an image from a web page gets less.
   static func process(
-    _ data: Data, maxPixel: Int = PhotoProcessing.maxPixel
+    _ data: Data, maxPixel: Int = PhotoProcessing.maxPixel,
+    maxPixels: Int = PhotoProcessing.maxPixels
   ) -> Result<ProcessedPhoto, PhotoError> {
     guard data.count <= maxBytes else { return .failure(.tooLarge) }
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -58,6 +61,7 @@ enum PhotoProcessing {
       let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int,
       pixelWidth > 0, pixelHeight > 0
     else { return .failure(.unreadable) }
+    // Read from the header, before anything is decoded: a tiny file can declare a huge image.
     guard pixelWidth * pixelHeight <= maxPixels else { return .failure(.tooBig) }
 
     // Never enlarges: a small photo is only re-encoded.

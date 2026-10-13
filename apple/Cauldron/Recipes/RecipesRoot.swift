@@ -17,6 +17,11 @@ struct RecipesRoot: View {
   @State private var banishing: RecipeRecord?
   /// Whether the editor is open on a new recipe.
   @State private var conjuring = false
+  /// Distill, while its sheet is open.
+  @State private var distilling: ImportModel?
+  @Environment(\.modelContext) private var context
+  @Environment(\.pageFetcher) private var fetcher
+  @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   /// What the banner at the bottom says, and a count that restarts its timer.
   @State private var notice: RecipeNotice?
   @State private var noticeCount = 0
@@ -46,10 +51,20 @@ struct RecipesRoot: View {
     .sheet(isPresented: $conjuring) {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
+    .sheet(item: $distilling) { model in
+      ImportSheet(
+        model: model, onSaved: { open($0) },
+        onOpenDuplicate: { id in
+          distilling = nil
+          if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
+        })
+    }
     #if os(macOS)
       .focusedSceneValue(
         \.libraryCommands,
-        LibraryCommands(newRecipe: { conjuring = true }, find: { searchFocused = true }))
+        LibraryCommands(
+          newRecipe: { conjuring = true }, find: { searchFocused = true },
+          importRecipe: startDistilling))
     #endif
     .overlay(alignment: .bottom) {
       if let notice {
@@ -137,6 +152,13 @@ struct RecipesRoot: View {
           Text(verbatim: Copy.recipes.conjure.text)
         } icon: {
           Image(systemName: "plus")
+        }
+      }
+      Button(action: startDistilling) {
+        Label {
+          Text(verbatim: Copy.recipes.distillFromLink.text)
+        } icon: {
+          Image(systemName: "square.and.arrow.down")
         }
       }
       Menu {
@@ -247,6 +269,20 @@ struct RecipesRoot: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Brand.Colors.base)
     }
+  }
+
+  /// Opens Distill on a clean form.
+  private func startDistilling() {
+    guard distilling == nil else { return }
+    let context = context
+    distilling = ImportModel(
+      fetcher: fetcher, extractor: ai?.extractor,
+      findDuplicate: { links in
+        let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
+        return DuplicateLinks.find(in: saved, links: links).map {
+          ImportReview.Duplicate(id: $0.id, title: $0.title)
+        }
+      })
   }
 
   /// Shows a recipe that was just made, whatever the search says.

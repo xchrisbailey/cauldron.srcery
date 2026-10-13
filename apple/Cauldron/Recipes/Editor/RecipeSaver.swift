@@ -21,6 +21,12 @@ enum RecipeSaver {
 
     let recipe = existing ?? RecipeRecord(title: "")
     if existing == nil { context.insert(recipe) }
+    // Where an import came from is recorded once, when it becomes a recipe.
+    if existing == nil, let imported = draft.imported {
+      recipe.sourcePlatform = imported.platform
+      recipe.sourceAuthor = imported.author.flatMap { $0.isEmpty ? nil : $0 }
+      recipe.sourceFetchedAt = imported.fetchedAt
+    }
 
     recipe.title = draft.trimmed(draft.title)
     recipe.summary = optional(draft.summary, draft)
@@ -48,16 +54,22 @@ enum RecipeSaver {
     return trimmed.isEmpty ? nil : trimmed
   }
 
-  /// Macros the cook typed are manual, and ones the model estimated into the fields (and the
-  /// cook left alone) are an estimate. Ones they didn't touch keep how they were worked out,
-  /// and cleared ones have no source.
+  /// Macros the cook typed are manual, ones the model estimated into the fields (and the cook
+  /// left alone) are an estimate, and ones an imported page published are the page's. Ones they
+  /// didn't touch keep how they were worked out, and cleared ones have no source.
   private static func saveMacros(_ draft: RecipeDraft, into recipe: RecipeRecord) {
     let typed = draft.typedMacros
     if typed != recipe.macros {
       recipe.macros = typed
-      recipe.macrosSource =
-        typed == Macros() ? nil : (typed == draft.estimatedMacros ? .estimated : .manual)
+      recipe.macrosSource = source(of: typed, in: draft)
     }
+  }
+
+  private static func source(of typed: Macros, in draft: RecipeDraft) -> MacrosSource? {
+    if typed == Macros() { return nil }
+    if typed == draft.estimatedMacros { return .estimated }
+    if typed == draft.pageMacros { return .page }
+    return .manual
   }
 
   /// The lines with the heading above each as its `section`; blank lines are left out.

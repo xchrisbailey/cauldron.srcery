@@ -31,6 +31,7 @@ private let catalogue: Walk = {
 /// Sections that exist only in the native app, so the TypeScript reference has no copy of them.
 private let nativeOnlyPrefixes = [
   "settings.", "export.", "recipeEditor.", "brewMode.", "macMenu.", "describeNative.",
+  "importNative.",
 ]
 
 private func isNativeOnly(_ path: String) -> Bool {

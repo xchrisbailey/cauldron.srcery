@@ -8,6 +8,9 @@ extension Copy {
     public let goMenu = plain("Go")
     public let newRecipe = plain("New Recipe")
     public let newWindow = plain("New Window")
+    /// File > Import Recipe…, which opens Distill. The ellipsis is the Mac's mark for a command that
+    /// asks for more before it acts.
+    public let importRecipe = plain("Import Recipe…")
     public let findRecipes = plain("Find Recipes")
     public let addMeal = plain("Add Meal")
     public let addItem = plain("Add Item")
