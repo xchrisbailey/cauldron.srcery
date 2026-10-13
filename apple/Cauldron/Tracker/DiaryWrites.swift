@@ -88,7 +88,8 @@ enum DiaryWrites {
     return added
   }
 
-  /// Changes an entry's name, amount, servings, numbers, meal and day. Moving it to another meal
+  /// Changes an entry's name, amount, servings, numbers, meal and day. Typing numbers into an
+  /// entry that waits for them ends the wait. Moving it to another meal
   /// or day puts it last there; a day that is already full refuses.
   static func update(
     _ record: DiaryEntryRecord, with valid: EntryDraft.Valid, in context: ModelContext
@@ -107,6 +108,10 @@ enum DiaryWrites {
     record.amount = valid.amount
     record.servings = valid.servings
     record.macros = valid.macros
+    // Numbers typed in for a meal that was waiting for the model are the cook's: they stand, and
+    // the queue drops the job without writing over them. An edit that leaves it with no numbers
+    // (a new name, another meal) leaves it waiting.
+    if record.macrosPending, valid.macros != .none { record.macrosPending = false }
     record.slot = valid.slot
     record.day = day
     record.position = position

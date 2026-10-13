@@ -46,7 +46,7 @@ struct AIQuotaSection: View {
         guard ai.saveKey(draft) else { return }
         draft = ""
         // Whatever was waiting for a key can run now.
-        Task { await AIJobQueue.drain(in: context, using: ai.estimator) }
+        Task { await AIQueueRunner.drain(in: context, using: ai.estimator) }
       } label: {
         Text(verbatim: Copy.settings.ai.saveKey.text)
       }

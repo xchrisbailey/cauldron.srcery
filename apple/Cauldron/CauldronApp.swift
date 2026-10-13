@@ -56,11 +56,11 @@ struct CauldronApp: App {
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
           ai.refreshKey()
-          await AIJobQueue.drain(in: container.mainContext, using: ai.estimator)
+          await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }
         .task {
           for await path in NWPathMonitor() where path.status == .satisfied {
-            await AIJobQueue.drain(in: container.mainContext, using: ai.estimator)
+            await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
           }
         }
         // Health follows the diary whichever section is open: weights come in and the

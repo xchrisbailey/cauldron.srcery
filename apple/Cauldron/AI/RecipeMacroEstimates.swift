@@ -47,7 +47,7 @@ enum RecipeMacroEstimates {
     guard canDivine(recipe) else { return }
     AIJobQueue.enqueueMacros(for: recipe, in: context)
     try? context.save()
-    await AIJobQueue.drain(in: context, using: ai.estimator)
+    await AIQueueRunner.drain(in: context, using: ai.estimator)
     giveUpOnBadAnswer(for: recipe, in: context)
   }
 
@@ -94,7 +94,7 @@ enum RecipeMacroEstimates {
     for recipe: RecipeRecord, in context: ModelContext, using ai: RecipeAIService
   ) async -> Bool {
     guard requestIfMissing(for: recipe, in: context) else { return false }
-    await AIJobQueue.drain(in: context, using: ai.estimator)
+    await AIQueueRunner.drain(in: context, using: ai.estimator)
     return true
   }
 
