@@ -38,7 +38,9 @@ enum RecipeMacroEstimates {
   // MARK: Saved recipes
 
   /// The button: queues an estimate and runs the queue straight away, so the same path serves
-  /// whether Gemini answers now or the estimate waits.
+  /// whether Gemini answers now or the estimate waits. The cook is looking at the button, so a
+  /// bad answer to this ask is shown as a failure at once instead of waiting for the queue's
+  /// next attempts (which jobs queued by an import or a save still get).
   static func divine(
     _ recipe: RecipeRecord, in context: ModelContext, using ai: RecipeAIService
   ) async {
@@ -46,6 +48,20 @@ enum RecipeMacroEstimates {
     AIJobQueue.enqueueMacros(for: recipe, in: context)
     try? context.save()
     await AIJobQueue.drain(in: context, using: ai.estimator)
+    giveUpOnBadAnswer(for: recipe, in: context)
+  }
+
+  /// A job left waiting after a bad answer (it has used an attempt and kept the error) is
+  /// marked failed, and the recipe stops showing as waiting. One left waiting because Gemini
+  /// is out of reach has used no attempt, and keeps waiting.
+  private static func giveUpOnBadAnswer(for recipe: RecipeRecord, in context: ModelContext) {
+    let bad = (recipe.aiJobs ?? []).filter {
+      $0.kind == .recipeMacros && $0.status == .waiting && $0.attempts > 0 && $0.lastError != nil
+    }
+    guard !bad.isEmpty else { return }
+    for job in bad { job.status = .failed }
+    recipe.macrosPending = false
+    try? context.save()
   }
 
   /// The entry point for imports: queues an estimate for a saved recipe that has no macros and

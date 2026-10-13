@@ -143,7 +143,8 @@ struct DivineMacrosTests {
   @Test func aFailedEstimateIsShownAndAskingAgainStartsAFreshOne() async throws {
     let recipe = recipe()
     let (ai, _, _) = service([badAnswer, badAnswer, badAnswer, goodAnswer])
-    await RecipeMacroEstimates.divine(recipe, in: context, using: ai)
+    // Queued by an import: three bad answers across drains before it gives up.
+    await RecipeMacroEstimates.requestIfMissing(for: recipe, in: context, using: ai)
     await AIJobQueue.drain(in: context, using: ai.estimator)
     await AIJobQueue.drain(in: context, using: ai.estimator)
     #expect(try jobs().map(\.status) == [.failed])
@@ -155,6 +156,38 @@ struct DivineMacrosTests {
     #expect(recipe.macrosSource == .estimated)
     // The failed job was replaced, not left beside the new one.
     #expect(try jobs().isEmpty)
+  }
+
+  @Test func oneBadAnswerToTheButtonShowsAsFailedAtOnceAndPressingAgainFillsIn() async throws {
+    let recipe = recipe()
+    let (ai, _, _) = service([badAnswer, goodAnswer])
+    await RecipeMacroEstimates.divine(recipe, in: context, using: ai)
+    #expect(RecipeMacroEstimates.state(of: recipe) == .failed)
+    #expect(!recipe.macrosPending && recipe.macros == .none)
+    #expect(try jobs().map(\.status) == [.failed])
+
+    await RecipeMacroEstimates.divine(recipe, in: context, using: ai)
+    #expect(recipe.macros == estimate && recipe.macrosSource == .estimated)
+    #expect(RecipeMacroEstimates.state(of: recipe) == .hidden)
+    #expect(try jobs().isEmpty)
+  }
+
+  @Test func pressingTheButtonOfflineStillWaits() async throws {
+    let recipe = recipe()
+    let (ai, _, _) = service([.offline])
+    await RecipeMacroEstimates.divine(recipe, in: context, using: ai)
+    #expect(RecipeMacroEstimates.state(of: recipe) == .waiting)
+    #expect(try jobs().map(\.status) == [.waiting])
+  }
+
+  @Test func anImportedEstimateStillGetsItsThreeAttemptsAcrossDrains() async throws {
+    let recipe = recipe()
+    let (ai, _, _) = service([badAnswer, badAnswer, goodAnswer])
+    await RecipeMacroEstimates.requestIfMissing(for: recipe, in: context, using: ai)
+    #expect(RecipeMacroEstimates.state(of: recipe) == .waiting)
+    await AIJobQueue.drain(in: context, using: ai.estimator)
+    await AIJobQueue.drain(in: context, using: ai.estimator)
+    #expect(recipe.macros == estimate)
   }
 
   @Test func askingAgainAfterAFailureDoesNotPileUpFailedRows() async throws {
