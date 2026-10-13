@@ -1,18 +1,37 @@
 import CauldronKit
 import SwiftUI
 
-/// "Stir into the week" on a recipe's page. The week's add flow (#175) fills this in; `scale`
-/// carries the servings the cook chose. Until then it shows disabled.
+/// "Stir into the week" on a recipe's page: opens the week's sheet to pick a day and a meal,
+/// planning the servings the cook scaled the recipe to. A banished recipe can't be added.
+/// Afterwards the button says where it went, for a moment.
 struct RecipeAddToWeekAction: View {
   let recipe: RecipeRecord
   let scale: Scale
 
+  @State private var choosing = false
+  @State private var confirmation: String?
+  @State private var confirmationCount = 0
+
   var body: some View {
     Button {
+      choosing = true
     } label: {
-      Text(verbatim: Copy.week.stirIntoWeek.text)
+      Text(verbatim: confirmation ?? Copy.week.stirIntoWeek.text)
     }
     .buttonStyle(RecipeActionButtonStyle())
-    .disabled(true)
+    .disabled(recipe.isBanished)
+    .sheet(isPresented: $choosing) {
+      StirRecipeSheet(recipe: recipe, scale: scale, today: WeekDates.today()) { text in
+        choosing = false
+        confirmation = text
+        confirmationCount += 1
+        AccessibilityNotification.Announcement(text).post()
+      }
+    }
+    .task(id: confirmationCount) {
+      guard confirmation != nil else { return }
+      try? await Task.sleep(for: .seconds(4))
+      if !Task.isCancelled { confirmation = nil }
+    }
   }
 }
