@@ -7,13 +7,14 @@ import Foundation
 public enum OpenAI {
   public static let defaultModel = "gpt-6-luna"
   /// The URL is fixed. The model name goes in the body, so it can't change where a request goes.
-  public static let endpoint = URL(string: "https://api.openai.com/v1/responses")!
+  public static let endpoint = URL(string: "https://api.openai.com/v1/responses")
 
   /// A request for `task`. The key goes in its `Authorization` header and nowhere else.
   public static func request(
     for task: AITask, model: String, key: String
   ) throws(RecipeAIError) -> AIRequest {
     guard !model.isEmpty else { throw .invalidModel }
+    guard let url = endpoint else { throw .failed(detail: "request") }
     let prompt = task.prompt
     let body = RequestBody(
       model: model, instructions: prompt.system, input: prompt.user,
@@ -26,7 +27,7 @@ public enum OpenAI {
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     guard let data = try? encoder.encode(body) else { throw .failed(detail: "request") }
     return AIRequest(
-      url: endpoint,
+      url: url,
       headers: ["Authorization": "Bearer \(key)", "Content-Type": "application/json"],
       body: data)
   }

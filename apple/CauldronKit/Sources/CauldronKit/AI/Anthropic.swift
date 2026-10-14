@@ -7,7 +7,7 @@ import Foundation
 public enum Anthropic {
   public static let defaultModel = "claude-opus-5-5"
   /// The URL is fixed. The model name goes in the body, so it can't change where a request goes.
-  public static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
+  public static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")
   public static let version = "2023-06-01"
   /// Opts in to the server-side fallback that the request body asks for.
   public static let beta = "server-side-fallback-2026-07-01"
@@ -21,6 +21,7 @@ public enum Anthropic {
     for task: AITask, model: String, key: String
   ) throws(RecipeAIError) -> AIRequest {
     guard !model.isEmpty else { throw .invalidModel }
+    guard let url = endpoint else { throw .failed(detail: "request") }
     let prompt = task.prompt
     let body = RequestBody(
       model: model, maxTokens: 16000, system: prompt.system,
@@ -33,7 +34,7 @@ public enum Anthropic {
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     guard let data = try? encoder.encode(body) else { throw .failed(detail: "request") }
     return AIRequest(
-      url: endpoint,
+      url: url,
       headers: [
         "x-api-key": key, "anthropic-version": version, "content-type": "application/json",
         "anthropic-beta": beta,
