@@ -163,6 +163,23 @@ final class ImportModel: Identifiable {
     }
   }
 
+  /// Starts on something shared to Cauldron, as if the cook had typed or pasted it and pressed
+  /// Distill: a link takes the link path with all its checks, and a caption is pasted text with
+  /// the post kept as its source. Only on a clean form.
+  func start(sharing route: SharedImportRoute) {
+    guard phase == .editing, link.isEmpty, text.isEmpty, !pagesAreOn else { return }
+    switch route {
+    case .link(let address):
+      link = address
+    case .caption(let caption, let post):
+      text = caption
+      pastingFor = post
+    case .text(let pasted):
+      text = pasted
+    }
+    start()
+  }
+
   /// Gives up on the run in progress and goes back to the form with what was typed.
   func stop() {
     guard phase == .working else { return }

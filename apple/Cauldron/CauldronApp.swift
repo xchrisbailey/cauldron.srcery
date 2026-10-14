@@ -11,6 +11,9 @@ struct CauldronApp: App {
   @State private var sync = SyncStatusModel(
     account: LiveICloudAccount(mode: CauldronStore.launchMode))
   @State private var ai = RecipeAIService.forLaunch(mode: CauldronStore.launchMode)
+  /// What the share extension left for the app; never picked up under test.
+  @State private var sharedImports = SharedImportQueue(
+    enabled: CauldronStore.launchMode != .inMemory)
 
   init() {
     Brand.Fonts.register()
@@ -50,6 +53,7 @@ struct CauldronApp: App {
         #endif
         .environment(sync)
         .environment(ai)
+        .sharedImports(sharedImports)
         .task { await sync.run() }
         // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.

@@ -17,6 +17,9 @@ struct RecipeEditorSheet: View {
   @Environment(\.modelContext) private var context
   @Environment(\.dismiss) private var dismiss
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
+  @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
+  /// Tells the shared-import queue this editor is open, so nothing shared replaces it.
+  @State private var openToken = UUID()
   @State private var draft: RecipeDraft
   private let initial: RecipeDraft
   /// Problems show once Save has been tried, and then follow the cook's fixes.
@@ -79,6 +82,8 @@ struct RecipeEditorSheet: View {
       }
     }
     .interactiveDismissDisabled(isDirty)
+    .onAppear { sharing?.editorOpened(openToken) }
+    .onDisappear { sharing?.editorClosed(openToken) }
     .confirmationDialog(
       Text(verbatim: Copy.editor.leaveTitle.text), isPresented: $confirmingLeave,
       titleVisibility: .visible

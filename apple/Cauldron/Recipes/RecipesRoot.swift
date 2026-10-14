@@ -23,6 +23,8 @@ struct RecipesRoot: View {
   @Environment(\.pageFetcher) private var fetcher
   @Environment(\.recipeTextReader) private var reader
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
+  /// What was shared to Cauldron and waits to be imported; nil under test and in previews.
+  @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
   /// What the banner at the bottom says, and a count that restarts its timer.
   @State private var notice: RecipeNotice?
   @State private var noticeCount = 0
@@ -52,9 +54,9 @@ struct RecipesRoot: View {
     .sheet(isPresented: $conjuring) {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
-    .sheet(item: $distilling) { model in
+    .sheet(item: $distilling, onDismiss: { sharing?.importOpen = false }) { model in
       ImportSheet(
-        model: model, onSaved: { open($0) },
+        model: model, waiting: sharing?.waiting ?? 0, onSaved: { open($0) },
         onOpenDuplicate: { id in
           distilling = nil
           if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
@@ -73,6 +75,14 @@ struct RecipesRoot: View {
           .padding(16)
           .transition(.move(edge: .bottom).combined(with: .opacity))
       }
+    }
+    // Something shared waits for its turn: once nothing else is open, its import opens here.
+    // The pause lets a sheet that has just closed finish going.
+    .task(id: sharing?.readyToOpen ?? false) {
+      guard sharing?.readyToOpen == true else { return }
+      try? await Task.sleep(for: .milliseconds(350))
+      guard !Task.isCancelled else { return }
+      startShared()
     }
     .task(id: noticeCount) {
       guard let shown = notice else { return }
@@ -314,8 +324,22 @@ extension RecipesRoot {
   /// Opens Distill on a clean form.
   private func startDistilling() {
     guard distilling == nil else { return }
+    sharing?.importOpen = true
+    distilling = makeImportModel()
+  }
+
+  /// Opens Distill running the next thing that was shared, if it may open now.
+  private func startShared() {
+    guard distilling == nil, let route = sharing?.next() else { return }
+    let model = makeImportModel()
+    model.start(sharing: route)
+    sharing?.importOpen = true
+    distilling = model
+  }
+
+  private func makeImportModel() -> ImportModel {
     let context = context
-    distilling = ImportModel(
+    return ImportModel(
       fetcher: fetcher, extractor: ai?.extractor, reader: reader,
       findDuplicate: { links in
         let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []

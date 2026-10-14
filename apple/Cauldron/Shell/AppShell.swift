@@ -6,6 +6,7 @@ import SwiftUI
 struct AppShell: View {
   @State private var destination = AppDestination.recipes
   @Environment(SyncStatusModel.self) private var sync
+  @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
   #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   #endif
@@ -20,6 +21,10 @@ struct AppShell: View {
     }
     .safeAreaInset(edge: .top, spacing: 0) { SyncBanner(status: sync.status) }
     .background(Brand.Colors.base.ignoresSafeArea())
+    // Something shared to Cauldron opens its import in Recipes.
+    .onChange(of: sharing?.readyToOpen ?? false, initial: true) { _, ready in
+      if ready { destination = .recipes }
+    }
     #if os(macOS)
       .focusedSceneValue(\.navigationCommands, NavigationCommands { destination = $0 })
     #endif

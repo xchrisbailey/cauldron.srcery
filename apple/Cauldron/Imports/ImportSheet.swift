@@ -8,6 +8,8 @@ import UniformTypeIdentifiers
 /// closes the lot and nothing has been stored.
 struct ImportSheet: View {
   let model: ImportModel
+  /// How many more shared items wait for this one to finish, shown at the foot of the sheet.
+  var waiting = 0
   /// Called with the saved recipe, just before the sheet closes.
   var onSaved: (RecipeRecord) -> Void = { _ in }
   /// Opens the recipe the draft duplicates; the sheet is closed by the caller.
@@ -22,8 +24,29 @@ struct ImportSheet: View {
         ImportStartSheet(model: model)
       }
     }
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      if waiting > 0 { SharedWaitingBadge(count: waiting) }
+    }
     // Closed any way at all, such as by a swipe: stop what is running.
     .onDisappear { model.discard() }
+  }
+}
+
+/// "2 more shared": the items from the share sheet that open when this one is done.
+struct SharedWaitingBadge: View {
+  let count: Int
+
+  var body: some View {
+    Text(verbatim: Copy.importNative.moreShared(count).text)
+      .brandText(.control)
+      .foregroundStyle(Brand.Colors.subtext)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 6)
+      .background(Brand.Colors.mantle, in: Capsule())
+      .overlay(Capsule().strokeBorder(Brand.Colors.surface0))
+      .padding(.vertical, 8)
+      .frame(maxWidth: .infinity)
+      .accessibilityElement(children: .combine)
   }
 }
 

@@ -3,11 +3,14 @@ extension Copy {
   /// counterpart in the web copy, so the reference fixture leaves them out. All plain: they are
   /// explanations of where a draft came from.
   public struct ImportNative: Sendable {
-    /// The share extension's confirmation: what was shared waits in the app.
-    public let sentToCauldron = plain(
-      "Sent to Cauldron. It opens as a draft next time you open the app.")
+    /// The share extension's confirmation heading: what was shared is in the app's inbox.
+    public let sentToCauldron = plain("Sent to Cauldron")
+    /// Under the heading. A share extension can't open the app, so it says when the draft comes.
+    public let opensAsDraft = plain("It opens as a draft the next time you open Cauldron.")
     /// The share extension found neither a link nor any text in what was shared.
     public let nothingToSend = plain("There's no link or text here for Cauldron to read.")
+    /// The share extension had something to send but couldn't leave it for the app.
+    public let couldntSend = plain("Cauldron couldn't keep that. Try sharing it again.")
     /// On a draft the on-device model read because the AI couldn't be reached. The web app had
     /// no such state: it only ever had the one model.
     public let rough = plain(
@@ -64,6 +67,9 @@ extension Copy {
     public func pageOf(_ page: Int, _ pages: Int) -> CopyString {
       plain("Page \(page) of \(pages)")
     }
+
+    /// On the import sheet while more shared items wait their turn.
+    public func moreShared(_ count: Int) -> CopyString { plain("\(count) more shared") }
 
     /// The accessibility label of a page's thumbnail.
     public func page(_ number: Int) -> CopyString { plain("Page \(number)") }
