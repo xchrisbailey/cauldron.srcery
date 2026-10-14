@@ -3,6 +3,11 @@ extension Copy {
   /// counterpart in the web copy, so the reference fixture leaves them out. All plain: they are
   /// explanations of where a draft came from.
   public struct ImportNative: Sendable {
+    /// The share extension's confirmation: what was shared waits in the app.
+    public let sentToCauldron = plain(
+      "Sent to Cauldron. It opens as a draft next time you open the app.")
+    /// The share extension found neither a link nor any text in what was shared.
+    public let nothingToSend = plain("There's no link or text here for Cauldron to read.")
     /// On a draft the on-device model read because the AI couldn't be reached. The web app had
     /// no such state: it only ever had the one model.
     public let rough = plain(

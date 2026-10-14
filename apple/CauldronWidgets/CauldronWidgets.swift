@@ -6,6 +6,8 @@ import WidgetKit
 @main
 struct CauldronWidgets: WidgetBundle {
   var body: some Widget {
-    BrewTimerActivity()
+    #if os(iOS)
+      BrewTimerActivity()
+    #endif
   }
 }
