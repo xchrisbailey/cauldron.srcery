@@ -33,21 +33,27 @@ struct WeekHeaderView: View {
   }
 }
 
-/// "Week starts on", kept with the cook's other preferences.
+/// "Week starts on", any of the seven days, kept with the cook's other preferences. The Week
+/// page and Settings both show it.
 struct WeekStartPicker: View {
   let startsOn: WeekStartDay
   let onChange: @MainActor (WeekStartDay) -> Void
+
+  /// The days in the order the picker lists them: the working week first, then the weekend.
+  static let order: [WeekStartDay] = [
+    .monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday,
+  ]
 
   var body: some View {
     Picker(
       selection: Binding(get: { startsOn }, set: onChange)
     ) {
-      Text(verbatim: Copy.week.monday.text).tag(WeekStartDay.monday)
-      Text(verbatim: Copy.week.sunday.text).tag(WeekStartDay.sunday)
+      ForEach(Self.order, id: \.self) { day in
+        Text(verbatim: Copy.week.dayName(day).text).tag(day)
+      }
     } label: {
       Text(verbatim: Copy.week.weekStarts.text).brandText(.control)
     }
     .pickerStyle(.menu)
-    .fixedSize()
   }
 }

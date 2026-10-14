@@ -127,10 +127,70 @@ struct StartOfWeekTests {
     #expect(day("2026-10-26").startOfWeek(startingOn: .sunday) == day("2026-10-25"))
   }
 
+  @Test func everyStartDayHasTheRawValueOfItsWeekday() {
+    #expect(WeekStartDay.allCases.count == 7)
+    for startsOn in WeekStartDay.allCases {
+      #expect(startsOn.weekday.rawValue == startsOn.rawValue)
+      #expect(WeekStartDay(rawValue: startsOn.rawValue) == startsOn)
+    }
+    #expect(WeekStartDay.sunday.rawValue == 0)
+    #expect(WeekStartDay.saturday.rawValue == 6)
+    #expect(WeekStartDay(rawValue: 7) == nil)
+    #expect(WeekStartDay.standard == .monday)
+    // The same numbers `LocalDate.weekday` gives: 2026-10-14 is a Wednesday.
+    #expect(day("2026-10-14").weekday == WeekStartDay.wednesday.weekday)
+  }
+
+  @Test(
+    "every start day, in the middle of a month",
+    arguments: [
+      (WeekStartDay.sunday, "2026-10-11"), (.monday, "2026-10-12"), (.tuesday, "2026-10-13"),
+      (.wednesday, "2026-10-14"), (.thursday, "2026-10-08"), (.friday, "2026-10-09"),
+      (.saturday, "2026-10-10"),
+    ])
+  func everyStartDayFindsItsWeek(_ startsOn: WeekStartDay, _ expected: String) {
+    // 2026-10-14 is a Wednesday.
+    #expect(day("2026-10-14").startOfWeek(startingOn: startsOn) == day(expected))
+  }
+
+  @Test(
+    "every start day, across a month boundary",
+    arguments: [
+      (WeekStartDay.sunday, "2026-09-27"), (.monday, "2026-09-28"), (.tuesday, "2026-09-29"),
+      (.wednesday, "2026-09-30"), (.thursday, "2026-10-01"), (.friday, "2026-09-25"),
+      (.saturday, "2026-09-26"),
+    ])
+  func everyStartDayCrossesAMonth(_ startsOn: WeekStartDay, _ expected: String) {
+    // 2026-10-01 is a Thursday.
+    #expect(day("2026-10-01").startOfWeek(startingOn: startsOn) == day(expected))
+  }
+
+  @Test(
+    "every start day, across a year boundary",
+    arguments: [
+      (WeekStartDay.sunday, "2026-12-27"), (.monday, "2026-12-28"), (.tuesday, "2026-12-29"),
+      (.wednesday, "2026-12-30"), (.thursday, "2026-12-31"), (.friday, "2027-01-01"),
+      (.saturday, "2026-12-26"),
+    ])
+  func everyStartDayCrossesAYear(_ startsOn: WeekStartDay, _ expected: String) {
+    // 2027-01-01 is a Friday.
+    #expect(day("2027-01-01").startOfWeek(startingOn: startsOn) == day(expected))
+  }
+
+  @Test func theWeekAlwaysContainsTheDayItWasFoundFrom() {
+    var current = day("2026-12-20")
+    for _ in 0..<30 {
+      for startsOn in WeekStartDay.allCases {
+        #expect(current.startOfWeek(startingOn: startsOn).weekDays().contains(current))
+      }
+      current = current.adding(days: 1)
+    }
+  }
+
   @Test func alwaysLandsOnTheRequestedWeekdayAtMostSixDaysBack() {
     var current = day("2026-02-20")
     for _ in 0..<400 {
-      for startsOn in [WeekStartDay.sunday, .monday] {
+      for startsOn in WeekStartDay.allCases {
         let start = current.startOfWeek(startingOn: startsOn)
         #expect(start.weekday.rawValue == startsOn.rawValue)
         let back = start.days(until: current)

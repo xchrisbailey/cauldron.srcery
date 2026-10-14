@@ -34,8 +34,14 @@ private let nativeOnlyPrefixes = [
   "importNative.",
 ]
 
+/// Strings of the shared sections that only the native app has: the reference names Monday and
+/// Sunday as week starts, and the native picker offers every day.
+private let nativeOnlyPaths: Set<String> = [
+  "week.tuesday", "week.wednesday", "week.thursday", "week.friday", "week.saturday",
+]
+
 private func isNativeOnly(_ path: String) -> Bool {
-  nativeOnlyPrefixes.contains { path.hasPrefix($0) }
+  nativeOnlyPaths.contains(path) || nativeOnlyPrefixes.contains { path.hasPrefix($0) }
 }
 
 @Suite("Copy module")
@@ -69,6 +75,15 @@ struct CopyTests {
   func matchesTheReferenceWithArguments(_ reference: CopyReferenceCall) {
     #expect(reference.actual.text == reference.text, "\(reference.call)")
     #expect(reference.actual.tone == reference.tone, "\(reference.call)")
+  }
+
+  @Test func theWeekStartPickerNamesAllSevenDaysInOrder() {
+    let names = WeekStartDay.allCases.map { Copy.week.dayName($0) }
+    #expect(
+      names.map(\.text) == [
+        "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+      ])
+    #expect(names.allSatisfy { $0.tone == .plain })
   }
 
   @Test func settingsIsNativeOnlyAndPlain() {

@@ -26,6 +26,27 @@ struct WeekCursor {
   func thisWeek() { offset.wrappedValue = 0 }
 }
 
+/// The cook's first day of the week, kept in `PreferencesRecord`. The Week and Gather sections
+/// and Settings all read and write it here, so they can't disagree.
+enum WeekStartPreference {
+  /// The first day of the week: the preference that changed last, else Monday. An unknown
+  /// stored value reads as Monday.
+  static func current(_ preferences: [PreferencesRecord]) -> WeekStartDay {
+    Deduplication.keeper(of: preferences)?.weekStartsOn ?? .standard
+  }
+
+  /// Keeps the cook's choice, making the preference if there is none yet.
+  @MainActor
+  static func set(
+    _ day: WeekStartDay, preferences: [PreferencesRecord], in context: ModelContext
+  ) {
+    let record = Deduplication.keeper(of: preferences) ?? PreferencesRecord()
+    if record.modelContext == nil { context.insert(record) }
+    record.weekStartsOn = day
+    try? context.save()
+  }
+}
+
 /// Reads the first day of the week from the cook's preference, keeps today fresh, and hands
 /// the week to show to `content`.
 struct WeekCursorHost<Content: View>: View {
@@ -36,9 +57,7 @@ struct WeekCursorHost<Content: View>: View {
   @State private var offset = 0
   @ViewBuilder let content: (WeekCursor) -> Content
 
-  private var startsOn: WeekStartDay {
-    Deduplication.keeper(of: preferences)?.weekStartsOn ?? .monday
-  }
+  private var startsOn: WeekStartDay { WeekStartPreference.current(preferences) }
 
   var body: some View {
     content(
@@ -48,13 +67,13 @@ struct WeekCursorHost<Content: View>: View {
     .onChange(of: scenePhase) {
       if scenePhase == .active { today = WeekDates.today() }
     }
+    // Whoever changed the first day (this section, Settings, another device), the weeks shown
+    // are counted from the week that holds today again.
+    .onChange(of: startsOn) { offset = 0 }
   }
 
   private func setStartsOn(_ day: WeekStartDay) {
-    let record = Deduplication.keeper(of: preferences) ?? PreferencesRecord()
-    if record.modelContext == nil { context.insert(record) }
-    record.weekStartsOn = day
+    WeekStartPreference.set(day, preferences: preferences, in: context)
     offset = 0
-    try? context.save()
   }
 }

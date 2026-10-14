@@ -197,7 +197,7 @@ struct WeekPlanner: View {
         Text(verbatim: Copy.week.moveHint.text)
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
-        WeekStartPicker(startsOn: startsOn, onChange: onStartsOn)
+        WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
       }
       .padding(20)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -221,7 +221,7 @@ struct WeekPlanner: View {
         }
       }
     } bottom: {
-      WeekStartPicker(startsOn: startsOn, onChange: onStartsOn)
+      WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
     }
   }
 

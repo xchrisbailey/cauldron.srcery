@@ -4,6 +4,7 @@ extension Copy {
   public struct Settings: Sendable {
     public let title = plain("Settings")
     public let appearance = Appearance()
+    public let weekStart = WeekStart()
     public let iCloud = ICloud()
     public let health = Health()
     public let ai = AI()
@@ -145,6 +146,15 @@ extension Copy {
       public func waiting(_ count: Int) -> CopyString {
         plain(count == 1 ? "1 estimate is waiting." : "\(count) estimates are waiting.")
       }
+
+      public init() {}
+    }
+
+    /// The day the week starts on, which follows the cook to every device.
+    public struct WeekStart: Sendable {
+      public let title = plain("Week starts on")
+      public let hint = plain(
+        "Applies on every device. Changing it starts a fresh Gather list for each week.")
 
       public init() {}
     }

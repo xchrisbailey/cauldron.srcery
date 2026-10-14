@@ -266,6 +266,21 @@
       #expect(document.tags.isEmpty == false)
     }
 
+    @Test func everyWeekStartDayIsExportedAsItsWeekdayNumber() throws {
+      for day in WeekStartDay.allCases {
+        let fixture = try fixture()
+        let preferences = PreferencesRecord()
+        preferences.weekStartsOn = day
+        fixture.context.insert(preferences)
+        try fixture.context.save()
+        let folder = folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let document = try read(try export(fixture.container, into: folder))
+        #expect(document.preferences?.weekStartsOn == day.weekday.rawValue)
+      }
+    }
+
     @Test func gatherItemsKeepTheirSources() throws {
       let fixture = try fixture()
       let context = fixture.context

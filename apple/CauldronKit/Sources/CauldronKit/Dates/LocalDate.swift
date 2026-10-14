@@ -9,10 +9,32 @@ public enum Weekday: Int, Sendable, Hashable, Codable, CaseIterable {
   case saturday
 }
 
-/// Which day a week starts on: Monday (the default) or Sunday.
+/// Which day a week starts on: any day, Monday by default. The raw values are `Weekday`'s, so
+/// a stored one means the same day in both.
 public enum WeekStartDay: Int, Sendable, Hashable, Codable, CaseIterable {
   case sunday = 0
   case monday = 1
+  case tuesday = 2
+  case wednesday = 3
+  case thursday = 4
+  case friday = 5
+  case saturday = 6
+
+  /// The week start a cook who has not chosen one gets.
+  public static let standard = WeekStartDay.monday
+
+  /// The same day as a `Weekday`.
+  public var weekday: Weekday {
+    switch self {
+    case .sunday: .sunday
+    case .monday: .monday
+    case .tuesday: .tuesday
+    case .wednesday: .wednesday
+    case .thursday: .thursday
+    case .friday: .friday
+    case .saturday: .saturday
+    }
+  }
 }
 
 /// A calendar day, `YYYY-MM-DD`, in the cook's own calendar.
@@ -101,7 +123,7 @@ public struct LocalDate: Sendable, Hashable, Comparable, Codable, CustomStringCo
 
   /// The first day of the week this day falls in.
   public func startOfWeek(startingOn startsOn: WeekStartDay = .monday) -> LocalDate {
-    adding(days: -((weekday.rawValue - startsOn.rawValue + 7) % 7))
+    adding(days: -((weekday.rawValue - startsOn.weekday.rawValue + 7) % 7))
   }
 
   /// The seven days of the week starting on this day.

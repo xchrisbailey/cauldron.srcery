@@ -225,7 +225,7 @@ final class PreferencesRecord {
   init() {}
 
   var weekStartsOn: WeekStartDay {
-    get { WeekStartDay(rawValue: weekStartsOnRaw) ?? .monday }
+    get { WeekStartDay(rawValue: weekStartsOnRaw) ?? .standard }
     set { weekStartsOnRaw = newValue.rawValue }
   }
 

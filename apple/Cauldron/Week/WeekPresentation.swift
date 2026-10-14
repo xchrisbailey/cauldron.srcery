@@ -114,11 +114,13 @@ enum WeekFigures {
 /// Spreading one recipe's servings over the days that will eat them. A batch of five might be
 /// dinner tonight and lunch for the next four days.
 struct SpreadPlan: Equatable {
-  /// The week being planned.
+  /// The days that can be picked: the week being planned, or the seven days from the starting
+  /// day on a recipe's page.
   let days: [LocalDate]
   /// The day the cook started from.
   let anchor: LocalDate
-  /// The recipe's own servings, if it has any.
+  /// The servings the batch makes: the recipe's own, or what the cook scaled it to, if either
+  /// is known.
   let recipeServings: Int?
   var slot: MealSlot
   /// Servings on each picked day.
@@ -130,6 +132,36 @@ struct SpreadPlan: Equatable {
     self.slot = slot
     self.recipeServings = recipeServings
     servings = [anchor: 1]
+  }
+
+  /// The spread a batch starts from on a recipe's page: seven days from `anchor`, one serving a
+  /// day while the batch has servings to give, and just the starting day for a batch of one
+  /// serving or of no known size.
+  static func batch(anchor: LocalDate, slot: MealSlot, servings: Int?) -> SpreadPlan {
+    var plan = SpreadPlan(
+      days: anchor.weekDays(), anchor: anchor, slot: slot, recipeServings: servings)
+    if let servings, servings > 1 { plan.spreadOneADay() }
+    return plan
+  }
+
+  /// Whether the days and servings are still the ones `batch` starts from, so nothing the cook
+  /// did needs keeping.
+  var isUntouched: Bool {
+    self == SpreadPlan.batch(anchor: anchor, slot: slot, servings: recipeServings)
+  }
+
+  /// This spread after the cook picks another starting day. A spread the cook hasn't touched
+  /// starts again from the new day; one they have is kept as it is, its days and servings
+  /// moved by as many days as the start moved.
+  func started(on day: LocalDate) -> SpreadPlan {
+    if isUntouched { return SpreadPlan.batch(anchor: day, slot: slot, servings: recipeServings) }
+    let shift = anchor.days(until: day)
+    var moved = SpreadPlan(
+      days: days.map { $0.adding(days: shift) }, anchor: day, slot: slot,
+      recipeServings: recipeServings)
+    moved.servings = Dictionary(
+      uniqueKeysWithValues: servings.map { ($0.key.adding(days: shift), $0.value) })
+    return moved
   }
 
   /// The picked days in week order.
