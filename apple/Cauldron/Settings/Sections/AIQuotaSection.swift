@@ -11,6 +11,7 @@ struct AIQuotaSection: View {
   @Query private var jobs: [AIJobRecord]
   @Query private var recipes: [RecipeRecord]
   @State private var draft = ""
+  @State private var helping: AIProvider?
 
   private var waiting: Int {
     jobs.count { $0.status != .failed }
@@ -79,6 +80,17 @@ struct AIQuotaSection: View {
       }
       .autocorrectionDisabled()
       .listRowBackground(Brand.Colors.mantle)
+      Button {
+        helping = ai.provider
+      } label: {
+        Label {
+          Text(verbatim: Copy.settings.ai.keyHelp.text)
+        } icon: {
+          Image(systemName: "questionmark.circle")
+        }
+      }
+      .brandText(.control)
+      .listRowBackground(Brand.Colors.mantle)
       if ai.keyNotSaved {
         Text(verbatim: Copy.settings.ai.keyNotSaved.text)
           .brandText(.control)
@@ -113,6 +125,9 @@ struct AIQuotaSection: View {
         Text(verbatim: Copy.settings.ai.modelHint(ai.provider.defaultModel).text)
         Text(verbatim: Copy.settings.ai.hint(ai.provider).text)
       }
+    }
+    .sheet(item: $helping) { provider in
+      AIKeyHelpSheet(provider: provider)
     }
   }
 }

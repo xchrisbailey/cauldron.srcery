@@ -35,6 +35,53 @@ extension Copy {
         }
       }
 
+      public let keyHelp = plain("How do I get a key?")
+      public let done = plain("Done")
+
+      public func keyHelpTitle(_ provider: AIProvider) -> CopyString {
+        plain("Getting a \(provider.displayName) key")
+      }
+
+      /// The steps to make a key, one string each.
+      public func keySteps(_ provider: AIProvider) -> [CopyString] {
+        let site: String
+        let create: String
+        var note: String?
+        switch provider {
+        case .gemini:
+          site = "Open Google AI Studio and sign in with your Google account."
+          create = "Choose Create API key."
+        case .openai:
+          site = "Open the OpenAI platform and sign in."
+          create = "Choose Create new secret key."
+          note = "API use is billed on your OpenAI account, separately from a ChatGPT subscription."
+        case .anthropic:
+          site = "Open the Claude Console and sign in."
+          create = "Choose Create Key."
+          note =
+            "API use is billed on your Anthropic account, separately from a Claude subscription."
+        }
+        return [
+          plain(site),
+          plain(create),
+          plain("Copy the key, come back here, paste it in the key field and press Save key."),
+        ] + (note.map { [plain($0)] } ?? [])
+      }
+
+      public func openKeyPage(_ provider: AIProvider) -> CopyString {
+        let site =
+          switch provider {
+          case .gemini: "Google AI Studio"
+          case .openai: "the OpenAI platform"
+          case .anthropic: "the Claude Console"
+          }
+        return plain("Open \(site)")
+      }
+
+      public let keyPrivacy = plain(
+        "Your key is kept in your keychain on this device and synced by iCloud Keychain. Cauldron only sends it to the provider you choose."
+      )
+
       public func keyLabel(_ provider: AIProvider) -> CopyString {
         plain("\(provider.displayName) API key")
       }

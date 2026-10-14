@@ -2,7 +2,9 @@ import Foundation
 
 /// The services Cauldron can ask, each with the cook's own key. Which one is in use is the
 /// app's business; callers of `RecipeAI` never see it.
-public enum AIProvider: String, CaseIterable, Sendable, Codable {
+public enum AIProvider: String, CaseIterable, Sendable, Codable, Identifiable {
+  public var id: String { rawValue }
+
   case gemini
   case openai
   case anthropic
@@ -10,6 +12,15 @@ public enum AIProvider: String, CaseIterable, Sendable, Codable {
   /// What the cook sees: "Gemini", "OpenAI", "Claude".
   public var displayName: String {
     Copy.settings.ai.providerName(self).text
+  }
+
+  /// Where the cook makes a key for this provider.
+  public var keyPage: URL? {
+    switch self {
+    case .gemini: URL(string: "https://aistudio.google.com/apikey")
+    case .openai: URL(string: "https://platform.openai.com/api-keys")
+    case .anthropic: URL(string: "https://platform.claude.com/settings/keys")
+    }
   }
 
   public var defaultModel: String {

@@ -455,6 +455,32 @@ struct AIProviderSettingsTests {
     }
   }
 
+  @Test func everyProviderHasKeyStepsAndAKeyPage() {
+    for provider in AIProvider.allCases {
+      let steps = Copy.settings.ai.keySteps(provider)
+      #expect(steps.count >= 3, "\(provider)")
+      #expect(steps.allSatisfy { $0.tone == .plain && !$0.text.isEmpty })
+      #expect(Copy.settings.ai.keyHelpTitle(provider).text.contains(provider.displayName))
+      let page = provider.keyPage
+      #expect(page?.scheme == "https", "\(provider)")
+    }
+    #expect(AIProvider.gemini.keyPage?.host() == "aistudio.google.com")
+    #expect(AIProvider.openai.keyPage?.host() == "platform.openai.com")
+    #expect(AIProvider.anthropic.keyPage?.host() == "platform.claude.com")
+  }
+
+  @Test func theKeyHelpSheetRendersForEachProviderInBothAppearances() {
+    for provider in AIProvider.allCases {
+      for scheme in [ColorScheme.light, .dark] {
+        // The sheet's own stack is left out: a render can't tear one down on iOS.
+        let view = AIKeyHelpSheet(provider: provider)
+          .environment(\.colorScheme, scheme)
+          .frame(width: 390, height: 640)
+        #expect(ImageRenderer(content: view).cgImage != nil, "\(provider) \(scheme)")
+      }
+    }
+  }
+
   @Test func theHintAndPlaceholdersFollowTheProvider() {
     for provider in AIProvider.allCases {
       #expect(Copy.settings.ai.hint(provider).text.contains(provider.displayName))
