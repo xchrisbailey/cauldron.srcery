@@ -86,6 +86,8 @@ targets:
         PRODUCT_NAME: Cauldron
         INFOPLIST_KEY_CFBundleDisplayName: Cauldron
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.food-and-drink
+        # It only uses HTTPS and Apple's own encryption, so TestFlight needs no export papers.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait

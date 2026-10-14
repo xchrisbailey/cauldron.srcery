@@ -74,6 +74,15 @@
 			path = CauldronTests;
 			sourceTree = "<group>";
 		};
+		3DABC10515F3549713FFCAF0 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		42B06C750BCE9B7F3059D1D9 /* CauldronShare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
@@ -117,15 +126,6 @@
 			explicitFolders = (
 			);
 			path = Cauldron;
-			sourceTree = "<group>";
-		};
-		"TEMP_34B723FD-D39D-4EB7-8029-8194047E13BA" /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -203,6 +203,7 @@
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
 				772BB1DCA60483B50D6459FF /* Shared */,
 				667BABEF98556BB64AE8CA91 /* Shared */,
+				3DABC10515F3549713FFCAF0 /* Shared */,
 				D94BA9855C4BC9ABBEBE8DE9 /* Fonts */,
 				DBE63DD144F2F41305297219 /* Packages */,
 				4825101513FB21FD6BC1EC0B /* Products */,
@@ -275,7 +276,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
-				"TEMP_34B723FD-D39D-4EB7-8029-8194047E13BA" /* Shared */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
 			);
 			name = CauldronShare;
 			packageProductDependencies = (
@@ -298,7 +299,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
-				667BABEF98556BB64AE8CA91 /* Shared */,
+				3DABC10515F3549713FFCAF0 /* Shared */,
 			);
 			name = CauldronWidgets;
 			packageProductDependencies = (
@@ -512,6 +513,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cauldron;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cauldron uses the camera to photograph a dish or a written recipe.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity.";
@@ -576,6 +578,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cauldron;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cauldron uses the camera to photograph a dish or a written recipe.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity.";
