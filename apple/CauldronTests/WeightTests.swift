@@ -254,10 +254,16 @@ struct WeightViewsTests {
     #expect(draws(change.modelContainer(container)))
   }
 
-  @Test func theHealthSectionDrawsOnABuildThatIsNotSetUp() throws {
+  @Test func theHealthSectionDraws() throws {
+    // Since #162 the build carries HealthKit, so on iPhone the section offers to connect and on
+    // the Mac it says Health isn't here. Either way it must draw.
     let container = try CauldronStore.container(.inMemory)
     let view = Form { HealthKitSection() }.modelContainer(container)
     #expect(draws(view))
-    #expect(HealthSync.shared.status == .notSetUp || HealthSync.shared.status == .unavailable)
+    #if os(iOS)
+      #expect(HealthSync.shared.status != .notSetUp)
+    #else
+      #expect(HealthSync.shared.status == .unavailable)
+    #endif
   }
 }

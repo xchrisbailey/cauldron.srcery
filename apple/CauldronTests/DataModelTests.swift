@@ -178,6 +178,26 @@ struct DataModelTests {
     #expect(url.lastPathComponent != "default.store")
   }
 
+  @Test func aDebugLocalStoreIsAFileOfItsOwn() throws {
+    let synced = try CauldronStore.storeURL(.synced)
+    let local = try CauldronStore.storeURL(.local)
+    #expect(local.lastPathComponent == "Cauldron-local.store")
+    #expect(local.deletingLastPathComponent() == synced.deletingLastPathComponent())
+  }
+
+  @Test func theAppOpensTheSyncedStoreUnlessToldOtherwise() {
+    #expect(CauldronStore.launchMode(environment: [:], arguments: ["Cauldron"]) == .synced)
+    #expect(
+      CauldronStore.launchMode(
+        environment: ["XCTestConfigurationFilePath": "/x"], arguments: ["Cauldron", "-localStore"])
+        == .inMemory)
+    #if DEBUG
+      #expect(
+        CauldronStore.launchMode(environment: [:], arguments: ["Cauldron", "-localStore"])
+          == .local)
+    #endif
+  }
+
   @Test func theHostAppStaysInMemoryUnderTest() {
     guard case .inMemory = CauldronStore.launchMode else {
       Issue.record("a test run must not open the on-disk store")

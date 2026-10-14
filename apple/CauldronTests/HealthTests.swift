@@ -115,8 +115,13 @@ struct HealthSetupTests {
     #expect(!HealthSetup(info: nil).isConfigured)
   }
 
-  @Test func theTestBuildHasNoneSoItNeverAsksForHealth() {
-    #expect(!HealthSetup.thisBuild.isConfigured)
+  @Test func thisBuildExplainsHealthInTheCopyModulesWords() {
+    // The usage descriptions arrived with the HealthKit entitlement (#162), copied into
+    // project.yml from the copy module.
+    #expect(HealthSetup.thisBuild.isConfigured)
+    let info = Bundle.main.infoDictionary
+    #expect(info?[HealthSetup.shareKey] as? String == Copy.settings.health.shareUsage.text)
+    #expect(info?[HealthSetup.updateKey] as? String == Copy.settings.health.updateUsage.text)
   }
 
   @Test func theUsageDescriptionsAreInTheCopyModule() {

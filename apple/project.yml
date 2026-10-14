@@ -31,6 +31,8 @@ settings:
     PRODUCT_NAME: $(TARGET_NAME)
     GENERATE_INFOPLIST_FILE: YES
     CODE_SIGN_STYLE: Automatic
+    # Chris's team. Signing, iCloud, the App Group and HealthKit all hang off it (#162).
+    DEVELOPMENT_TEAM: 5U2B7W5F39
     ALWAYS_SEARCH_USER_PATHS: NO
     CLANG_ENABLE_MODULES: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -73,6 +75,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "Cauldron uses the camera to photograph a dish or a written recipe."
+        # Copied from Copy.settings.health.shareUsage and updateUsage; a test keeps them equal.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry."
+        # iCloud sync is told about changes from other devices by a silent push.
+        "INFOPLIST_KEY_UIBackgroundModes[sdk=iphone*]": remote-notification
         # XcodeGen writes these empty on a multiplatform target unless they are set here.
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -85,9 +92,11 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         ENABLE_PREVIEWS: YES
         ENABLE_HARDENED_RUNTIME: YES
-        # The Mac app is sandboxed, so everything it writes stays in its own container.
-        # Unsandboxed, SwiftData's default store is a file shared with other apps.
-        CODE_SIGN_ENTITLEMENTS: Cauldron/Cauldron.entitlements
+        # iCloud (CloudKit), the App Group, and HealthKit on iPhone. The Mac app is also
+        # sandboxed, so everything it writes stays in its own container; unsandboxed,
+        # SwiftData's default store is a file shared with other apps.
+        CODE_SIGN_ENTITLEMENTS: Cauldron/Cauldron-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Cauldron/Cauldron-macOS.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   # The widget extension: brew timers' Live Activity now, the macros widget with #183.
@@ -111,6 +120,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.widgets
+        CODE_SIGN_ENTITLEMENTS: CauldronWidgets/CauldronWidgets.entitlements
         SDKROOT: iphoneos
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         TARGETED_DEVICE_FAMILY: "1,2"

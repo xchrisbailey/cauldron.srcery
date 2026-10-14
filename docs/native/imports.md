@@ -25,8 +25,7 @@ A third way into the same sheet (#172): photograph a cookbook page or recipe car
 ### Not verified yet
 
 - A real cookbook page photographed on an iPhone, the document scanner on a device, and how Vision orders a real two-column page. The reader is tested against a page drawn in the test, not photographed.
-- On the Mac, image files from the open panel and drops need `com.apple.security.files.user-selected.read-only` in `Cauldron.entitlements`, which the app doesn't have (it is sandboxed). Without it the panel opens but the files can't be read, and the cook sees "couldn't read that photo". The photo library works either way.
 
 ## The Mac's file entitlement
 
-The Mac app is sandboxed. Choosing image files and dropping them onto the import sheet need `com.apple.security.files.user-selected.read-only`, which is in `apple/Cauldron/Cauldron.entitlements`. It lets the app read only the files the cook picks or drops, and nothing else. The app never needs write access to files the cook chooses.
+The Mac app is sandboxed. Choosing image files and dropping them onto the import sheet need `com.apple.security.files.user-selected.read-only`, which is in `apple/Cauldron/Cauldron-macOS.entitlements`. It lets the app read only the files the cook picks or drops, and nothing else. The app never needs write access to files the cook chooses.

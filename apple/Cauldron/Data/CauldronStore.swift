@@ -24,23 +24,42 @@ enum CauldronStore {
     case inMemory
   }
 
-  /// What the app opens at launch. It stays `.local` until the iCloud entitlement exists
-  /// (#162); a synced store can't open without it. Under test the host app keeps everything
-  /// in memory, so a test run never touches the real store.
+  /// The App Group the app and its extensions share. The store lives in its container, so the
+  /// widget and the share extension read the same data as the app.
+  static let appGroupID = "group.computer.srcery.cauldron"
+
+  /// In debug builds, `-localStore` opens a store kept on this device only, in a file of its
+  /// own, so demo data (`-seed`) never reaches iCloud.
+  static let localStoreArgument = "-localStore"
+
+  /// What the app opens at launch: the synced store, or under test an in-memory one so a test
+  /// run never touches the real store.
   static var launchMode: Mode {
-    let environment = ProcessInfo.processInfo.environment
-    return environment["XCTestConfigurationFilePath"] == nil ? .local : .inMemory
+    launchMode(
+      environment: ProcessInfo.processInfo.environment, arguments: CommandLine.arguments)
   }
 
-  /// The store file, in a folder of Cauldron's own. SwiftData's default is
-  /// `Application Support/default.store`, which an unsandboxed Mac app shares with every
-  /// other unsandboxed app that left the default alone, so it is never used.
-  static func storeURL(fileManager: FileManager = .default) throws -> URL {
-    let support = try fileManager.url(
-      for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-    let folder = support.appending(path: "computer.srcery.cauldron", directoryHint: .isDirectory)
+  static func launchMode(environment: [String: String], arguments: [String]) -> Mode {
+    if environment["XCTestConfigurationFilePath"] != nil { return .inMemory }
+    #if DEBUG
+      if arguments.contains(localStoreArgument) { return .local }
+    #endif
+    return .synced
+  }
+
+  /// The store file for `mode`, in a folder of Cauldron's own inside the App Group container.
+  /// A build without the App Group (no signing team) falls back to Application Support.
+  /// SwiftData's default is `Application Support/default.store`, which an unsandboxed Mac app
+  /// shares with every other unsandboxed app that left the default alone, so it is never used.
+  static func storeURL(_ mode: Mode = .synced, fileManager: FileManager = .default) throws -> URL {
+    let root =
+      try fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
+      ?? fileManager.url(
+        for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    let folder = root.appending(path: "computer.srcery.cauldron", directoryHint: .isDirectory)
     try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-    return folder.appending(path: "Cauldron.store")
+    // The synced store and a debug local one are separate files, so they never mix.
+    return folder.appending(path: mode == .local ? "Cauldron-local.store" : "Cauldron.store")
   }
 
   static func container(_ mode: Mode) throws -> ModelContainer {
@@ -49,9 +68,10 @@ enum CauldronStore {
       switch mode {
       case .synced:
         ModelConfiguration(
-          schema: schema, url: try storeURL(), cloudKitDatabase: .private(cloudContainerID))
+          schema: schema, url: try storeURL(.synced),
+          cloudKitDatabase: .private(cloudContainerID))
       case .local:
-        ModelConfiguration(schema: schema, url: try storeURL(), cloudKitDatabase: .none)
+        ModelConfiguration(schema: schema, url: try storeURL(.local), cloudKitDatabase: .none)
       case .inMemory:
         ModelConfiguration(
           UUID().uuidString, schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
