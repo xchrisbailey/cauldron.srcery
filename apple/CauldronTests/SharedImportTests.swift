@@ -324,16 +324,16 @@ struct SharedImportTests {
     let iPhone = URL(
       filePath:
         "/private/var/containers/Bundle/Application/X/Cauldron.app/PlugIns/CauldronShare.appex")
-    #expect(ShareTheme.containingApp(of: iPhone)?.lastPathComponent == "Cauldron.app")
+    #expect(ShareFonts.containingApp(of: iPhone)?.lastPathComponent == "Cauldron.app")
     let mac = URL(filePath: "/Applications/Cauldron.app/Contents/PlugIns/CauldronShare.appex")
-    #expect(ShareTheme.containingApp(of: mac)?.lastPathComponent == "Cauldron.app")
+    #expect(ShareFonts.containingApp(of: mac)?.lastPathComponent == "Cauldron.app")
     let app = URL(filePath: "/Applications/Cauldron.app")
-    #expect(ShareTheme.containingApp(of: app) == app)
-    #expect(ShareTheme.containingApp(of: URL(filePath: "/tmp/other/place")) == nil)
+    #expect(ShareFonts.containingApp(of: app) == app)
+    #expect(ShareFonts.containingApp(of: URL(filePath: "/tmp/other/place")) == nil)
   }
 
   @Test func theBrandsTypeCanBeLoadedFromTheApp() {
     // Under test the app is the main bundle, as it is the extension's container on a device.
-    #expect(ShareTheme.live.usesBrandFont)
+    #expect(ShareFonts.isAvailable)
   }
 }

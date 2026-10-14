@@ -27,6 +27,9 @@ extension Copy {
     public let weight = Weight()
     /// The add sheet and the entry editor. Fields and controls are plain.
     public let entry = Entry()
+    /// The day's macros widget. Native only, so the reference fixture leaves it out. Numbers
+    /// and labels, so all of it is plain.
+    public let widget = Widget()
 
     public init() {}
 
@@ -496,6 +499,16 @@ extension Copy {
       public init() {}
 
       public func addTitle(_ slot: String) -> CopyString { plain("Add to \(slot.lowercased())") }
+    }
+
+    public struct Widget: Sendable {
+      public let displayName = plain("Today's macros")
+      public let description = plain("Calories and macros eaten today against your targets.")
+      public let noTargets = plain("Targets aren't set.")
+      public let noData = plain("Nothing to show yet. Open Cauldron to get started.")
+      public let estimating = plain("Estimating a meal")
+
+      public init() {}
     }
   }
 }

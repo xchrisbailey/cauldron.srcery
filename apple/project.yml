@@ -70,6 +70,20 @@ targets:
       - package: CauldronKit
       - target: CauldronWidgets
       - target: CauldronShare
+    # The URL scheme the macros widget's tap opens the app with. The rest of the Info.plist is
+    # still generated from the INFOPLIST_KEY_ settings below; Xcode merges the two. The file sits
+    # outside the synced folder, which would bundle it as a resource as well.
+    info:
+      path: Config/Cauldron-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # iCloud sync is told about changes from other devices by a silent push. Xcode has no
+        # generated-key setting for this one, so it lives here; the Mac ignores it.
+        UIBackgroundModes: [remote-notification]
+        CFBundleURLTypes:
+          - CFBundleURLName: computer.srcery.cauldron
+            CFBundleURLSchemes: [cauldron]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
@@ -78,14 +92,14 @@ targets:
         # Copied from Copy.settings.health.shareUsage and updateUsage; a test keeps them equal.
         INFOPLIST_KEY_NSHealthShareUsageDescription: "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry."
-        # iCloud sync is told about changes from other devices by a silent push.
-        "INFOPLIST_KEY_UIBackgroundModes[sdk=iphone*]": remote-notification
         # XcodeGen writes these empty on a multiplatform target unless they are set here.
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
         TARGETED_DEVICE_FAMILY: "1,2"
         PRODUCT_NAME: Cauldron
         INFOPLIST_KEY_CFBundleDisplayName: Cauldron
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.food-and-drink
+        # It only uses HTTPS and Apple's own encryption, so TestFlight needs no export papers.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
@@ -108,10 +122,16 @@ targets:
     sources:
       - CauldronWidgets
       - Shared
+      # The brand colours the macros widget draws with. As in the app, a synced folder alone
+      # gets no Resources phase, so the catalogue is named as a resource.
+      - path: Shared/Brand.xcassets
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
+    # Outside the synced folders: the Resources phase the brand catalogue needs would bundle an
+    # Info.plist found in one as a resource as well.
     info:
-      path: CauldronWidgets/Info.plist
+      path: Config/CauldronWidgets-Info.plist
       properties:
         CFBundleDisplayName: Cauldron
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -139,10 +159,14 @@ targets:
     sources:
       - CauldronShare
       - Shared
+      # The brand colours the confirmation draws with, named as a resource as the widget's are.
+      - path: Shared/Brand.xcassets
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
+    # Outside the synced folders, for the same reason as the widget's.
     info:
-      path: CauldronShare/Info.plist
+      path: Config/CauldronShare-Info.plist
       properties:
         CFBundleDisplayName: Cauldron
         CFBundleShortVersionString: $(MARKETING_VERSION)

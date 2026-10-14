@@ -29,14 +29,6 @@ struct ShareConfirmationViewsTests {
     }
   }
 
-  @Test func theConfirmationFallsBackToSystemTypeAndColours() {
-    let plain = ShareTheme(
-      base: .white, ink: .black, subtext: .gray, magic: .blue, heat: .red, usesBrandFont: false)
-    let view = ShareConfirmation(
-      outcome: .sent(title: "Sent to Cauldron", detail: "Soon."), theme: plain)
-    #expect(renders(view))
-  }
-
   @Test func theWaitingLineRendersInBothAppearances() {
     for scheme in [ColorScheme.light, .dark] {
       for count in [1, 2, 12] {

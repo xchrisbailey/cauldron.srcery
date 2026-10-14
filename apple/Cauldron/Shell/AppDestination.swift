@@ -35,3 +35,12 @@ enum AppDestination: Hashable, CaseIterable, Identifiable, Sendable {
     }
   }
 }
+
+extension AppLink {
+  /// The section a link opens. A link to today's diary opens the Tracker.
+  var destination: AppDestination {
+    switch self {
+    case .todayDiary: .tracker
+    }
+  }
+}

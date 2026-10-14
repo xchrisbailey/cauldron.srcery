@@ -31,7 +31,7 @@ private let catalogue: Walk = {
 /// Sections that exist only in the native app, so the TypeScript reference has no copy of them.
 private let nativeOnlyPrefixes = [
   "settings.", "export.", "recipeEditor.", "brewMode.", "macMenu.", "describeNative.",
-  "importNative.",
+  "importNative.", "tracker.widget.",
 ]
 
 /// Strings of the shared sections that only the native app has: the reference names Monday and

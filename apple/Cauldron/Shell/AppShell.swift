@@ -5,6 +5,9 @@ import SwiftUI
 /// The selection lives here, so a window that changes size keeps its place.
 struct AppShell: View {
   @State private var destination = AppDestination.recipes
+  /// Counts the links that asked for today's diary. The tracker is rebuilt on each, so it comes
+  /// back to the diary on today whatever it was showing.
+  @State private var trackerVisits = 0
   @Environment(SyncStatusModel.self) private var sync
   @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
   #if os(iOS)
@@ -25,9 +28,18 @@ struct AppShell: View {
     .onChange(of: sharing?.readyToOpen ?? false, initial: true) { _, ready in
       if ready { destination = .recipes }
     }
+    .onOpenURL { url in
+      if let link = AppLink(url: url) { open(link) }
+    }
     #if os(macOS)
       .focusedSceneValue(\.navigationCommands, NavigationCommands { destination = $0 })
     #endif
+  }
+
+  /// Goes where a `cauldron://` link points.
+  private func open(_ link: AppLink) {
+    destination = link.destination
+    trackerVisits += 1
   }
 
   private var usesTabBar: Bool {
@@ -42,7 +54,7 @@ struct AppShell: View {
     TabView(selection: $destination) {
       ForEach(AppDestination.allCases) { destination in
         Tab(value: destination) {
-          AppDestinationView(destination: destination)
+          AppDestinationView(destination: destination, visit: visit(of: destination))
         } label: {
           AppDestinationLabel(destination: destination)
         }
@@ -83,8 +95,12 @@ struct AppShell: View {
       .background(Brand.Colors.mantle)
       .navigationTitle(Copy.ui.appName.text)
     } detail: {
-      AppDestinationView(destination: destination)
+      AppDestinationView(destination: destination, visit: visit(of: destination))
     }
+  }
+
+  private func visit(of destination: AppDestination) -> Int {
+    destination == .tracker ? trackerVisits : 0
   }
 }
 
@@ -106,9 +122,11 @@ struct AppDestinationLabel: View {
 /// system, so a selected row keeps its contrast.
 struct AppDestinationView: View {
   let destination: AppDestination
+  /// A new value rebuilds the section, so it starts again from its first screen.
+  var visit = 0
 
   var body: some View {
-    root.foregroundStyle(Brand.Colors.ink)
+    root.foregroundStyle(Brand.Colors.ink).id(visit)
   }
 
   @ViewBuilder

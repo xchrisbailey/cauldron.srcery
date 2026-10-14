@@ -289,9 +289,11 @@ struct TargetsForm: Equatable {
 
   // MARK: Saving
 
-  /// Saves the profile, today's weigh-in (when the weight is new or changed) and the targets.
-  /// Throws `Invalid` without touching anything when the form isn't good.
-  func save(in context: ModelContext) throws {
+  /// Saves the profile, today's weigh-in (when the weight is new or changed) and the targets,
+  /// then tells the macros widget. Throws `Invalid` without touching anything when the form
+  /// isn't good.
+  @MainActor
+  func save(in context: ModelContext, publishing publisher: TodayMacrosPublisher = .shared) throws {
     guard aboutErrors().isEmpty, adjustErrors().isEmpty, targetErrors().isEmpty,
       let sex, let birthDate, let heightCm, let weightKg, let calculation, let resolved
     else { throw Invalid() }
@@ -338,6 +340,7 @@ struct TargetsForm: Equatable {
     targets.carbsOverridden = resolved.overridden.contains(.carbs)
     targets.fatOverridden = resolved.overridden.contains(.fat)
     try context.save()
+    publisher.publish(from: context)
   }
 
   /// Weigh in only when the weight is new or changed, in the unit it was shown in.

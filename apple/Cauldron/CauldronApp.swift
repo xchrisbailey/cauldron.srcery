@@ -74,10 +74,14 @@ struct CauldronApp: App {
           guard scenePhase == .active else { return }
           await HealthSync.shared.appDidBecomeActive(in: container.mainContext)
         }
+        // The macros widget follows the diary: its numbers are left for it when the app starts,
+        // comes forward or goes away, and when midnight passes.
+        .publishesTodayMacros(from: container.mainContext)
         .cauldronAppearance()
     }
     .modelContainer(container)
     .macWindowSize(width: 1280, height: 820)
+    .macReusesWindowForLinks()
     .macMenuBar()
     #if os(macOS)
       // A recipe in a window of its own, one for each recipe.
@@ -120,6 +124,15 @@ extension Scene {
   fileprivate func macWindowSize(width: CGFloat, height: CGFloat) -> some Scene {
     #if os(macOS)
       defaultSize(width: width, height: height)
+    #else
+      self
+    #endif
+  }
+
+  /// A `cauldron://` link from the widget goes to the window that is open, not a new one.
+  fileprivate func macReusesWindowForLinks() -> some Scene {
+    #if os(macOS)
+      handlesExternalEvents(matching: ["*"])
     #else
       self
     #endif
