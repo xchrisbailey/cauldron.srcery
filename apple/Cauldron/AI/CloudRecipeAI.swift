@@ -40,26 +40,25 @@ struct NoTransport: AITransport {
   }
 }
 
-/// Gemini, called straight from the device with the cook's own key.
-struct GeminiRecipeAI: RecipeAI {
+/// Gemini, OpenAI or Claude, called straight from the device with the cook's own key. The Kit
+/// builds the request and reads the response for the provider; this sends it and maps a failed
+/// send to the typed errors.
+struct CloudRecipeAI: RecipeAI {
+  let provider: AIProvider
+  /// This provider's key.
   let keys: any AIKeyStore
   let transport: any AITransport
   /// The model to ask, read at each call so a change in Settings takes effect at once.
   let model: @Sendable () -> String
 
-  private func ask(_ task: Gemini.Task) async throws(RecipeAIError) -> (Gemini.Answer, String) {
+  private func ask(_ task: AITask) async throws(RecipeAIError) -> (AIAnswer, String) {
     guard let key = keys.key() else { throw .missingKey }
     let model = model()
-    guard let url = Gemini.endpoint(model: model) else { throw .invalidModel }
-    var request = URLRequest(url: url)
+    let built = try provider.request(for: task, model: model, key: key)
+    var request = URLRequest(url: built.url)
     request.httpMethod = "POST"
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue(key, forHTTPHeaderField: Gemini.keyHeader)
-    do {
-      request.httpBody = try Gemini.requestBody(for: task)
-    } catch {
-      throw .failed(detail: "request")
-    }
+    for (name, value) in built.headers { request.setValue(value, forHTTPHeaderField: name) }
+    request.httpBody = built.body
     let response: (status: Int, body: Data)
     do {
       response = try await transport.send(request)
@@ -67,19 +66,19 @@ struct GeminiRecipeAI: RecipeAI {
       // Cancelled by whoever asked, or else offline or timed out: no answer either way.
       throw Task.isCancelled ? .cancelled : .unreachable
     }
-    return (try Gemini.answer(status: response.status, body: response.body), model)
+    return (try provider.answer(status: response.status, body: response.body), model)
   }
 
   func extract(_ input: ExtractInput) async throws(RecipeAIError) -> Extraction {
     let (answer, model) = try await ask(.extract(input))
-    return try Gemini.extraction(from: answer, model: model)
+    return try answer.extraction(model: model)
   }
 
   func estimateMacros(_ input: MacroEstimateInput) async throws(RecipeAIError) -> Macros {
-    try Gemini.macros(from: try await ask(.macros(input)).0)
+    try await ask(.macros(input)).0.macros()
   }
 
   func estimateMeal(_ text: String) async throws(RecipeAIError) -> [DescribedItem] {
-    try Gemini.meal(from: try await ask(.meal(text)).0)
+    try await ask(.meal(text)).0.meal()
   }
 }

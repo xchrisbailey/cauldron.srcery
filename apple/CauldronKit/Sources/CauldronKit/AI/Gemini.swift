@@ -17,31 +17,18 @@ public enum Gemini {
       string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")
   }
 
-  /// The three things asked of the model, each with its prompt and the shape of its answer.
-  public enum Task: Sendable, Hashable {
-    case extract(ExtractInput)
-    case macros(MacroEstimateInput)
-    case meal(String)
-
-    var prompt: AIPrompt {
-      switch self {
-      case .extract(let input): AIPrompts.extract(input)
-      case .macros(let input): AIPrompts.macros(input)
-      case .meal(let text): AIPrompts.meal(text)
-      }
-    }
-
-    var schema: GeminiSchema {
-      switch self {
-      case .extract: .recipe
-      case .macros: .macros
-      case .meal: .meal
-      }
-    }
+  /// A request for `task`. The key goes in its header and nowhere else.
+  public static func request(
+    for task: AITask, model: String, key: String
+  ) throws(RecipeAIError) -> AIRequest {
+    guard let url = endpoint(model: model) else { throw .invalidModel }
+    guard let body = try? requestBody(for: task) else { throw .failed(detail: "request") }
+    return AIRequest(
+      url: url, headers: ["Content-Type": "application/json", keyHeader: key], body: body)
   }
 
   /// The JSON body of a request.
-  public static func requestBody(for task: Task) throws -> Data {
+  public static func requestBody(for task: AITask) throws -> Data {
     let prompt = task.prompt
     let body = RequestBody(
       systemInstruction: .init(role: nil, parts: [.init(text: prompt.system)]),
@@ -52,14 +39,7 @@ public enum Gemini {
     return try encoder.encode(body)
   }
 
-  /// The model's JSON answer and what it cost, from a response's status and body.
-  public struct Answer: Sendable, Hashable {
-    public var json: Data
-    public var inputTokens: Int
-    public var outputTokens: Int
-  }
-
-  public static func answer(status: Int, body: Data) throws(RecipeAIError) -> Answer {
+  public static func answer(status: Int, body: Data) throws(RecipeAIError) -> AIAnswer {
     guard (200..<300).contains(status) else { throw error(status: status, body: body) }
     guard let response = try? JSONDecoder().decode(ResponseBody.self, from: body) else {
       throw .failed(detail: "unreadable response")
@@ -76,7 +56,7 @@ public enum Gemini {
       throw .failed(detail: "stopped: \(reason)")
     }
     guard !text.isEmpty else { throw .failed(detail: "empty answer") }
-    return Answer(
+    return AIAnswer(
       json: Data(text.utf8),
       inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
       outputTokens: response.usageMetadata?.candidatesTokenCount ?? 0)
@@ -105,32 +85,6 @@ public enum Gemini {
     }
   }
 
-  /// Decodes the model's answer for a task. An answer that doesn't fit is a failure.
-  static func decode<T: Decodable>(_ type: T.Type, from answer: Answer) throws(RecipeAIError) -> T {
-    guard let value = try? JSONDecoder().decode(type, from: answer.json) else {
-      throw .failed(detail: "bad output")
-    }
-    return value
-  }
-
-  public static func extraction(from answer: Answer, model: String) throws(RecipeAIError)
-    -> Extraction
-  {
-    let recipe = try decode(ModelRecipe.self, from: answer)
-    return Extraction(
-      outcome: recipe.recipe, recipe: recipe.extracted,
-      usage: AIUsage(
-        model: model, inputTokens: answer.inputTokens, outputTokens: answer.outputTokens))
-  }
-
-  public static func macros(from answer: Answer) throws(RecipeAIError) -> Macros {
-    try decode(ModelMacros.self, from: answer).macros
-  }
-
-  public static func meal(from answer: Answer) throws(RecipeAIError) -> [DescribedItem] {
-    try decode(ModelMeal.self, from: answer).described
-  }
-
   // MARK: Wire shapes
 
   struct RequestBody: Encodable {
@@ -141,7 +95,7 @@ public enum Gemini {
     }
     struct GenerationConfig: Encodable {
       let responseMimeType: String
-      let responseSchema: GeminiSchema
+      let responseSchema: AISchema
     }
     let systemInstruction: Content
     let contents: [Content]
@@ -176,192 +130,4 @@ public enum Gemini {
     }
     let error: Failure
   }
-}
-
-/// A `responseSchema`: the subset of OpenAPI that Gemini's structured output takes.
-public indirect enum GeminiSchema: Sendable, Hashable, Encodable {
-  case string(description: String? = nil, nullable: Bool = false, values: [String]? = nil)
-  case number(description: String? = nil, nullable: Bool = false)
-  case boolean(description: String? = nil)
-  case array(of: GeminiSchema, description: String? = nil)
-  /// Every property is required, and they are answered in the order given.
-  case object([(String, GeminiSchema)])
-
-  public static func == (lhs: GeminiSchema, rhs: GeminiSchema) -> Bool {
-    lhs.canonical == rhs.canonical
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(canonical)
-  }
-
-  private var canonical: String {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys]
-    return (try? encoder.encode(self)).map { String(decoding: $0, as: UTF8.self) } ?? ""
-  }
-
-  private enum Key: String, CodingKey {
-    case type, description, nullable, items, properties, required, propertyOrdering
-    case values = "enum"
-  }
-
-  private struct Name: CodingKey {
-    let stringValue: String
-    var intValue: Int? { nil }
-    init(_ name: String) { stringValue = name }
-    init?(stringValue: String) { self.stringValue = stringValue }
-    init?(intValue: Int) { nil }
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.container(keyedBy: Key.self)
-    switch self {
-    case .string(let description, let nullable, let values):
-      try container.encode("STRING", forKey: .type)
-      try container.encodeIfPresent(description, forKey: .description)
-      if nullable { try container.encode(true, forKey: .nullable) }
-      try container.encodeIfPresent(values, forKey: .values)
-    case .number(let description, let nullable):
-      try container.encode("NUMBER", forKey: .type)
-      try container.encodeIfPresent(description, forKey: .description)
-      if nullable { try container.encode(true, forKey: .nullable) }
-    case .boolean(let description):
-      try container.encode("BOOLEAN", forKey: .type)
-      try container.encodeIfPresent(description, forKey: .description)
-    case .array(let items, let description):
-      try container.encode("ARRAY", forKey: .type)
-      try container.encodeIfPresent(description, forKey: .description)
-      try container.encode(items, forKey: .items)
-    case .object(let properties):
-      try container.encode("OBJECT", forKey: .type)
-      var nested = container.nestedContainer(keyedBy: Name.self, forKey: .properties)
-      for (name, schema) in properties { try nested.encode(schema, forKey: Name(name)) }
-      let names = properties.map(\.0)
-      try container.encode(names, forKey: .required)
-      try container.encode(names, forKey: .propertyOrdering)
-    }
-  }
-}
-
-// The schemas, with the descriptions the reference gives the model.
-extension GeminiSchema {
-  private static let minutes = GeminiSchema.number(
-    description: "Whole minutes, or null.", nullable: true)
-
-  static let recipe = GeminiSchema.object([
-    (
-      "recipe",
-      .string(
-        description:
-          "\"found\" when the text has a recipe (ingredients and method). \"inVideo\" when it only points to a recipe shown or spoken in a video. \"missing\" otherwise.",
-        values: ExtractOutcome.allCases.map(\.rawValue))
-    ),
-    ("title", .string(nullable: true)),
-    (
-      "description",
-      .string(
-        description:
-          "One or two sentences about the dish from the text, or null. Never invent one.",
-        nullable: true)
-    ),
-    ("servings", .number(nullable: true)),
-    ("prepMinutes", minutes),
-    ("cookMinutes", minutes),
-    ("totalMinutes", minutes),
-    (
-      "ingredients",
-      .array(
-        of: .object([
-          (
-            "line",
-            .string(
-              description: "The ingredient line exactly as written, quantity and unit included.")
-          ),
-          (
-            "section",
-            .string(
-              description: "The heading it sits under, like \"For the sauce\", or null.",
-              nullable: true)
-          ),
-          (
-            "unsure",
-            .boolean(description: "True when you had to guess at this line or it may be misread.")
-          ),
-        ]))
-    ),
-    (
-      "steps",
-      .array(
-        of: .object([
-          ("text", .string(description: "One step of the method, as written.")),
-          ("section", .string(nullable: true)),
-          ("unsure", .boolean()),
-        ]))
-    ),
-    (
-      "tags",
-      .array(
-        of: .string(),
-        description:
-          "Up to five short tags already implied by the text, like a cuisine or a diet.")
-    ),
-    (
-      "notes",
-      .string(
-        description: "Tips, storage or substitutions from the text, or null.", nullable: true)
-    ),
-    (
-      "unsure",
-      .array(
-        of: .string(values: DraftField.allCases.map(\.rawValue)),
-        description: "Top-level fields you guessed or aren't sure of.")
-    ),
-  ])
-
-  static let macros = GeminiSchema.object([
-    (
-      "servings",
-      .number(
-        description:
-          "The servings you divided by: the given yield, or your own guess when none was given.",
-        nullable: true)
-    ),
-    ("calories", .number(description: "Kilocalories per serving.", nullable: true)),
-    ("protein", .number(description: "Grams of protein per serving.", nullable: true)),
-    ("carbs", .number(description: "Grams of carbohydrate per serving.", nullable: true)),
-    ("fat", .number(description: "Grams of fat per serving.", nullable: true)),
-  ])
-
-  static let meal = GeminiSchema.object([
-    (
-      "items",
-      .array(
-        of: .object([
-          (
-            "name",
-            .string(description: "The food, short and plain: \"Eggs\", \"Sourdough\".")
-          ),
-          (
-            "amount",
-            .string(
-              description:
-                "How much, as the cook said it or a typical portion: \"2 large\", \"1 slice\". Null if unknown.",
-              nullable: true)
-          ),
-          (
-            "food",
-            .boolean(
-              description:
-                "False when this isn't something eaten or drunk; its numbers must then be null.")
-          ),
-          ("calories", .number(description: "Kilocalories for that amount.", nullable: true)),
-          ("protein", .number(description: "Grams of protein for that amount.", nullable: true)),
-          (
-            "carbs", .number(description: "Grams of carbohydrate for that amount.", nullable: true)
-          ),
-          ("fat", .number(description: "Grams of fat for that amount.", nullable: true)),
-        ]))
-    )
-  ])
 }

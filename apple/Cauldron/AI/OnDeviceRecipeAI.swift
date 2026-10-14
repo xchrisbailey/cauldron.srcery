@@ -2,7 +2,7 @@ import CauldronKit
 import Foundation
 import FoundationModels
 
-/// Apple's on-device model, which reads a recipe when Gemini can't be reached. Its results
+/// Apple's on-device model, which reads a recipe when the cloud AI can't be reached. Its results
 /// are rougher, and the caller marks them so. It never estimates macros: those wait for
 /// Gemini.
 struct OnDeviceRecipeAI: RecipeAI {

@@ -51,7 +51,7 @@ struct CauldronApp: App {
         .environment(sync)
         .environment(ai)
         .task { await sync.run() }
-        // Estimates that waited for Gemini run when the app comes forward and whenever the
+        // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }

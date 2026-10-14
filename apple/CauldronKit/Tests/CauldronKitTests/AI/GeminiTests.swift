@@ -103,7 +103,7 @@ struct GeminiRequestTests {
   }
 
   @Test func aRequestBodyIsTheSameEveryTime() throws {
-    let task = Gemini.Task.meal("eggs on toast")
+    let task = AITask.meal("eggs on toast")
     #expect(try Gemini.requestBody(for: task) == Gemini.requestBody(for: task))
   }
 }
@@ -116,7 +116,7 @@ struct GeminiResponseTests {
     let answer = try Gemini.answer(status: 200, body: response(text: json))
     #expect(answer.inputTokens == 812)
     #expect(answer.outputTokens == 143)
-    let extraction = try Gemini.extraction(from: answer, model: "gemini-3.5-flash-lite")
+    let extraction = try answer.extraction(model: "gemini-3.5-flash-lite")
     #expect(extraction.outcome == .found)
     #expect(extraction.recipe.title == "Fried eggs")
     #expect(extraction.recipe.cookMinutes == 3)
@@ -143,14 +143,14 @@ struct GeminiResponseTests {
     ])
     let answer = try Gemini.answer(status: 200, body: body)
     #expect(
-      try Gemini.macros(from: answer) == Macros(calories: 300, protein: 20, carbs: 10, fat: 15))
+      try answer.macros() == Macros(calories: 300, protein: 20, carbs: 10, fat: 15))
     #expect(answer.inputTokens == 0 && answer.outputTokens == 0)
   }
 
   @Test func aMealAnswerIsRead() throws {
     let json =
       #"{"items":[{"name":"Eggs","amount":"2 large","food":true,"calories":143,"protein":12.5,"carbs":1,"fat":9.5}]}"#
-    let items = try Gemini.meal(from: Gemini.answer(status: 200, body: response(text: json)))
+    let items = try Gemini.answer(status: 200, body: response(text: json)).meal()
     #expect(
       items == [
         DescribedItem(
@@ -162,10 +162,10 @@ struct GeminiResponseTests {
   @Test func outputThatIsntTheShapeAskedForIsAFailure() throws {
     let answer = try Gemini.answer(status: 200, body: response(text: #"{"hello":"world"}"#))
     #expect(throws: RecipeAIError.failed(detail: "bad output")) {
-      try Gemini.extraction(from: answer, model: "m")
+      try answer.extraction(model: "m")
     }
     let prose = try Gemini.answer(status: 200, body: response(text: "Here is your recipe!"))
-    #expect(throws: RecipeAIError.failed(detail: "bad output")) { try Gemini.meal(from: prose) }
+    #expect(throws: RecipeAIError.failed(detail: "bad output")) { try prose.meal() }
   }
 
   @Test func aCutOffOrBlockedAnswerIsAFailure() throws {

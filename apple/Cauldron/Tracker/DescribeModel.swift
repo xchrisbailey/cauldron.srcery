@@ -9,9 +9,9 @@ import SwiftData
 ///
 /// - Online, the foods come back to be checked and adjusted, and logging writes one entry per
 ///   food that is kept.
-/// - When Gemini can't be reached (no key, a refused key, a spent quota, an unknown model, no
+/// - When the AI can't be reached (no key, a refused key, a spent quota, an unknown model, no
 ///   connection), the description is saved as one waiting entry named with the cook's words, and
-///   the queue fills it in when Gemini is back. It is never estimated on the device.
+///   the queue fills it in when the AI is back. It is never estimated on the device.
 /// - A bad answer, or one with no food in it, is a failure: the text stays, nothing is saved,
 ///   and the cook can ask again or use quick add.
 /// - Asking again, or closing the sheet, cancels a request in flight and logs nothing.
@@ -91,7 +91,7 @@ final class DescribeModel {
 
   // MARK: Asking
 
-  /// Asks Gemini what was eaten. Returns the work so a caller can wait for it; nil when nothing
+  /// Asks the AI what was eaten. Returns the work so a caller can wait for it; nil when nothing
   /// was asked (blank or over-long text, or a request already running). Nothing is sent for text
   /// the reference would refuse.
   @discardableResult

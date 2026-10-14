@@ -10,30 +10,74 @@ extension Copy {
 
     public init() {}
 
-    /// The Gemini key and the state of the AI. A problem shows as a line that stays, here and
-    /// beside AI actions, never as an alert.
+    /// The AI provider, its key and the state of the AI. A problem shows as a line that stays,
+    /// here and beside AI actions, never as an alert. The strings that name a provider take it,
+    /// so they read the same for Gemini, OpenAI and Claude.
     public struct AI: Sendable {
       public let title = plain("AI")
-      public let keyLabel = plain("Gemini API key")
+      public let providerLabel = plain("Provider")
+      public let geminiName = plain("Gemini")
+      public let openAIName = plain("OpenAI")
+      public let claudeName = plain("Claude")
       public let keyPlaceholder = plain("Paste your key")
       public let saveKey = plain("Save key")
       public let removeKey = plain("Remove key")
       public let keySaved = plain("A key is saved in your keychain.")
       public let keyNotSaved = plain("Couldn't save the key to your keychain.")
       public let modelLabel = plain("Model")
-      public let hint = plain(
-        "Cauldron sends recipe text and meal descriptions to Google's Gemini with your own key. The key stays in your keychain."
-      )
-      public let ready = plain("Gemini is set up.")
-      public let missingKey = plain(
-        "Add a Gemini API key to read recipes and estimate macros with Gemini. Until then recipes are read on this device, and estimates wait."
-      )
-      public let invalidKey = plain("Gemini didn't accept that key. Check it and save it again.")
-      public let rateLimited = plain(
-        "Your Gemini key has reached its limit for now. Estimates wait and finish later.")
 
-      public let invalidModel = plain(
-        "Gemini doesn't know that model. Check its name below, or clear it to use the usual one.")
+      /// What `AIProvider.displayName` says.
+      public func providerName(_ provider: AIProvider) -> CopyString {
+        switch provider {
+        case .gemini: geminiName
+        case .openai: openAIName
+        case .anthropic: claudeName
+        }
+      }
+
+      public func keyLabel(_ provider: AIProvider) -> CopyString {
+        plain("\(provider.displayName) API key")
+      }
+
+      /// Who gets the text, named the way the cook knows them.
+      public func hint(_ provider: AIProvider) -> CopyString {
+        let who =
+          switch provider {
+          case .gemini: "Google's Gemini"
+          case .openai: "OpenAI"
+          case .anthropic: "Anthropic's Claude"
+          }
+        return plain(
+          "Cauldron sends recipe text and meal descriptions to \(who) with your own key. The key stays in your keychain."
+        )
+      }
+
+      public func ready(_ provider: AIProvider) -> CopyString {
+        plain("\(provider.displayName) is set up.")
+      }
+
+      public func missingKey(_ provider: AIProvider) -> CopyString {
+        let name = provider.displayName
+        return plain(
+          "Add a \(name) API key to read recipes and estimate macros with \(name). Until then recipes are read on this device, and estimates wait."
+        )
+      }
+
+      public func invalidKey(_ provider: AIProvider) -> CopyString {
+        plain("\(provider.displayName) didn't accept that key. Check it and save it again.")
+      }
+
+      public func rateLimited(_ provider: AIProvider) -> CopyString {
+        plain(
+          "Your \(provider.displayName) key has reached its limit for now. Estimates wait and finish later."
+        )
+      }
+
+      public func invalidModel(_ provider: AIProvider) -> CopyString {
+        plain(
+          "\(provider.displayName) doesn't know that model. Check its name below, or clear it to use the usual one."
+        )
+      }
 
       public func modelHint(_ model: String) -> CopyString {
         plain("Leave empty to use \(model).")

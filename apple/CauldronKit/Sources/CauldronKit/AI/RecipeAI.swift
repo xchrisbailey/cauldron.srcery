@@ -1,14 +1,14 @@
 /// Why the AI couldn't answer.
 public enum RecipeAIError: Error, Sendable, Hashable {
-  /// No Gemini key has been entered in Settings.
+  /// No key has been entered in Settings for the chosen provider.
   case missingKey
-  /// Gemini refused the key.
+  /// The provider refused the key.
   case invalidKey
   /// The key's quota is spent for now (HTTP 429).
   case rateLimited
-  /// Gemini doesn't know the model named in Settings.
+  /// The provider doesn't know the model named in Settings.
   case invalidModel
-  /// Offline, timed out, or Gemini answered with a server error.
+  /// Offline, timed out, or the provider answered with a server error.
   case unreachable
   /// The work was cancelled before an answer came, such as by closing the sheet that asked.
   case cancelled
@@ -26,8 +26,8 @@ public enum RecipeAIError: Error, Sendable, Hashable {
   }
 }
 
-/// The three things Cauldron asks a model for. Gemini is the provider now; a Private Cloud
-/// Compute provider can take its place behind this without touching callers.
+/// The three things Cauldron asks a model for. Gemini, OpenAI and Claude answer it today (see
+/// `AIProvider`); a Private Cloud Compute provider can join them without touching callers.
 public protocol RecipeAI: Sendable {
   /// Reads a recipe out of text.
   func extract(_ input: ExtractInput) async throws(RecipeAIError) -> Extraction
@@ -58,9 +58,9 @@ public enum RecipeAIStatus: Sendable, Hashable {
   }
 }
 
-/// Recipe extraction with the fallback rule: Gemini first, and when it can't be reached the
-/// on-device model reads the text instead and the result is marked rough. A bad answer from
-/// Gemini is a failure, not a reason to fall back. Macro estimates never come through here:
+/// Recipe extraction with the fallback rule: the cloud provider first, and when it can't be
+/// reached the on-device model reads the text instead and the result is marked rough. A bad
+/// answer from the provider is a failure, not a reason to fall back. Macro estimates never come through here:
 /// they wait in the queue.
 public struct FallbackExtractor: Sendable {
   let primary: any RecipeAI
@@ -82,7 +82,7 @@ public struct FallbackExtractor: Sendable {
         extraction.rough = true
         return extraction
       } catch {
-        // The cook hears why Gemini wasn't used, which is the part they can act on.
+        // The cook hears why the provider wasn't used, which is the part they can act on.
         throw primaryError
       }
     }
