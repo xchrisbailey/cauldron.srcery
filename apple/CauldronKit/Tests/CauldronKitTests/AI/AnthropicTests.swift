@@ -35,7 +35,7 @@ private func failure(type: String, message: String = "nope") -> Data {
 struct AnthropicRequestTests {
   @Test func theRequestGoesToAFixedURLWithTheKeyInItsHeaderOnly() throws {
     let request = try AIProvider.anthropic.request(
-      for: .meal("eggs on toast"), model: "claude-test", key: secret)
+      for: .meal("eggs on toast"), model: "claude-opus-5-5", key: secret)
     #expect(request.url.absoluteString == "https://api.anthropic.com/v1/messages")
     #expect(request.url.query == nil)
     #expect(
@@ -47,12 +47,25 @@ struct AnthropicRequestTests {
     #expect(!String(decoding: request.body, as: UTF8.self).contains(secret))
   }
 
+  @Test func onlyModelsWithAServerSideFallbackAskForIt() throws {
+    for model in ["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"] {
+      let request = try AIProvider.anthropic.request(for: .meal("x"), model: model, key: secret)
+      #expect(try object(request.body)["fallbacks"] as? String == "default", "\(model)")
+      #expect(request.headers["anthropic-beta"] == "server-side-fallback-2026-07-01")
+    }
+    for model in ["claude-haiku-5-5", "claude-sonnet-5", "claude-test"] {
+      let request = try AIProvider.anthropic.request(for: .meal("x"), model: model, key: secret)
+      #expect(try object(request.body)["fallbacks"] == nil, "\(model)")
+      #expect(request.headers["anthropic-beta"] == nil)
+    }
+  }
+
   @Test func theBodyCarriesThePromptAStrictSchemaAndTheFallback() throws {
     let input = ExtractInput(text: "2 eggs. Fry them.", kind: .text)
     let request = try AIProvider.anthropic.request(
-      for: .extract(input), model: "claude-test", key: secret)
+      for: .extract(input), model: "claude-opus-5-5", key: secret)
     let body = try object(request.body)
-    #expect(body["model"] as? String == "claude-test")
+    #expect(body["model"] as? String == "claude-opus-5-5")
     #expect(body["max_tokens"] as? Int == 16000)
     #expect(body["system"] as? String == AIPrompts.extract(input).system)
     #expect(body["fallbacks"] as? String == "default")

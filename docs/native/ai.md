@@ -15,13 +15,13 @@ Decision 27: a cloud model does the heavy AI, called straight from the device wi
 | Endpoint | `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` | `api.openai.com/v1/responses` | `api.anthropic.com/v1/messages` |
 | Key header | `x-goog-api-key` | `Authorization: Bearer` | `x-api-key` (with `anthropic-version`) |
 | Structured output | `generationConfig.responseSchema` | `text.format` of type `json_schema`, `strict: true` | `output_config.format` of type `json_schema` |
-| Default model | `gemini-3.5-flash-lite` | `gpt-6-luna` | `claude-opus-5-5` |
+| Default model | `gemini-3.5-flash-lite` | `gpt-6-luna` | `claude-haiku-5-5` |
 | Model setting | `ai.geminiModel` | `ai.model.openai` | `ai.model.anthropic` |
 
 - Each URL is fixed and https. OpenAI and Claude take the model in the body, so a model name can't change where a request goes; Gemini's goes in the URL, so it is checked to be letters, digits and `-._`. An empty model name is refused for every provider.
 - The model is overridable per provider in Settings; empty means the default. Gemini's setting keeps the key it had before there were other providers, so a model set then still holds.
 - OpenAI requests set `store: false`, so the response isn't kept on OpenAI's side.
-- Claude requests ask for `effort: low` and carry a server-side fallback (`fallbacks: "default"`, with the `anthropic-beta: server-side-fallback-2026-07-01` header), because Claude Opus 5.5 is the default model and may decline. They send no `thinking`, `temperature`, `top_p` or prefilled reply, which that model rejects.
+- Claude defaults to Claude Haiku 5.5: these are small, frequent jobs, and it costs a fortieth of Claude Opus 5.5. Requests ask for `effort: low` and send no `thinking`, `temperature`, `top_p` or prefilled reply, which current Claude models reject. When the cook names a model that has a server-side fallback (Claude Fable 5.1, Opus 5.5, Opus 5, Sonnet 5.5), the request also carries `fallbacks: "default"` with the `anthropic-beta: server-side-fallback-2026-07-01` header, so a decline is answered by another model. Haiku has no server-side fallback, so its requests go without it.
 - Errors map the same way for all three: a refused key (401, 403) is `invalidKey`; a spent quota or limit (429, and for Claude 402) is `rateLimited`; 404 is `invalidModel`; a timeout, a status that isn't HTTP and a 5xx (Claude's 529 overload too) is `unreachable`; any other 4xx is a failure that names the error's `code` or `type`, never its message. A refusal, an unfinished response and a cut-off answer are failures too.
 - "Sign in with ChatGPT" is not used: OpenAI documents plan usage for open-source and locally hosted apps only, with an interest form for others.
 

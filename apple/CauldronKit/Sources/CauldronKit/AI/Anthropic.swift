@@ -5,18 +5,25 @@ import Foundation
 // key and the connection.
 
 public enum Anthropic {
-  public static let defaultModel = "claude-opus-5-5"
+  /// Claude Haiku 5.5: these are small, frequent extraction jobs, and it costs a fortieth of
+  /// Claude Opus 5.5. The cook can name another model in Settings.
+  public static let defaultModel = "claude-haiku-5-5"
   /// The URL is fixed. The model name goes in the body, so it can't change where a request goes.
   public static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")
   public static let version = "2023-06-01"
   /// Opts in to the server-side fallback that the request body asks for.
   public static let beta = "server-side-fallback-2026-07-01"
+  /// The models that take `fallbacks: "default"`. Others, Claude Haiku 5.5 among them, have no
+  /// server-side fallback, so their requests go without it.
+  static let modelsWithFallback: Set<String> = [
+    "claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5",
+  ]
 
   /// A request for `task`. The key goes in its `x-api-key` header and nowhere else.
   ///
-  /// Claude Opus 5.5 rejects `thinking`, `temperature`, `top_p` and a prefilled assistant
-  /// message, so none of them is sent. `fallbacks` lets Anthropic's servers answer with another
-  /// model if this one declines.
+  /// Current Claude models reject `thinking: disabled`, `temperature`, `top_p` and a prefilled
+  /// assistant message, so none of them is sent. On the models that support it, `fallbacks` lets
+  /// Anthropic's servers answer with another model if this one declines.
   public static func request(
     for task: AITask, model: String, key: String
   ) throws(RecipeAIError) -> AIRequest {
@@ -29,17 +36,15 @@ public enum Anthropic {
       outputConfig: .init(
         effort: "low",
         format: .init(type: "json_schema", schema: task.schema.strictJSONSchema)),
-      fallbacks: "default")
+      fallbacks: modelsWithFallback.contains(model) ? "default" : nil)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     guard let data = try? encoder.encode(body) else { throw .failed(detail: "request") }
-    return AIRequest(
-      url: url,
-      headers: [
-        "x-api-key": key, "anthropic-version": version, "content-type": "application/json",
-        "anthropic-beta": beta,
-      ],
-      body: data)
+    var headers = [
+      "x-api-key": key, "anthropic-version": version, "content-type": "application/json",
+    ]
+    if body.fallbacks != nil { headers["anthropic-beta"] = beta }
+    return AIRequest(url: url, headers: headers, body: data)
   }
 
   public static func answer(status: Int, body: Data) throws(RecipeAIError) -> AIAnswer {
@@ -104,7 +109,7 @@ public enum Anthropic {
     let system: String
     let messages: [Message]
     let outputConfig: OutputConfig
-    let fallbacks: String
+    let fallbacks: String?
 
     // Spelled out: a key strategy would also rewrite the schema's own property names.
     private enum CodingKeys: String, CodingKey {

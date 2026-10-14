@@ -185,14 +185,14 @@ struct AIProviderChoiceTests {
     #expect(RecipeAIService.modelDefaultsKey(for: .gemini) == "ai.geminiModel")
     #expect(RecipeAIService.chosenModel(for: .gemini, defaults) == "gemini-3.5-pro")
     #expect(RecipeAIService.chosenModel(for: .openai, defaults) == "gpt-6-luna")
-    #expect(RecipeAIService.chosenModel(for: .anthropic, defaults) == "claude-opus-5-5")
+    #expect(RecipeAIService.chosenModel(for: .anthropic, defaults) == "claude-haiku-5-5")
 
     #expect(RecipeAIService.modelDefaultsKey(for: .openai) == "ai.model.openai")
     #expect(RecipeAIService.modelDefaultsKey(for: .anthropic) == "ai.model.anthropic")
     defaults.set("gpt-6-sol", forKey: "ai.model.openai")
     defaults.set("  ", forKey: "ai.model.anthropic")
     #expect(RecipeAIService.chosenModel(for: .openai, defaults) == "gpt-6-sol")
-    #expect(RecipeAIService.chosenModel(for: .anthropic, defaults) == "claude-opus-5-5")
+    #expect(RecipeAIService.chosenModel(for: .anthropic, defaults) == "claude-haiku-5-5")
     #expect(RecipeAIService.chosenModel(for: .gemini, defaults) == "gemini-3.5-pro")
   }
 

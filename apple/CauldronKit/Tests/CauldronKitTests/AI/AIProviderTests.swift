@@ -9,7 +9,7 @@ struct AIProviderTests {
     #expect(AIProvider.allCases.map(\.displayName) == ["Gemini", "OpenAI", "Claude"])
     #expect(
       AIProvider.allCases.map(\.defaultModel) == [
-        "gemini-3.5-flash-lite", "gpt-6-luna", "claude-opus-5-5",
+        "gemini-3.5-flash-lite", "gpt-6-luna", "claude-haiku-5-5",
       ])
     #expect(AIProvider.gemini.defaultModel == Gemini.defaultModel)
   }
