@@ -39,6 +39,10 @@ final class RecipeAIService {
   private(set) var hasKey: Bool
   /// True after a save the keychain refused, until one works.
   private(set) var keyNotSaved = false
+  /// Why the last call to the chosen provider failed, when it answered with something unusable.
+  /// It never holds the key or the provider's message, only a short reason such as
+  /// "rejected: invalid_request_error". Shown in debug builds, to tell a bug from a bad answer.
+  private(set) var lastFailure: String?
 
   @ObservationIgnored private let defaults: UserDefaults
   /// Set when `defaults` is a throwaway domain for a test or preview, to be removed with it.
@@ -206,11 +210,13 @@ final class RecipeAIService {
     guard provider == self.provider else { return }
     status = .ready
     hasKey = true
+    lastFailure = nil
   }
 
   fileprivate func failed(_ error: RecipeAIError, _ provider: AIProvider) {
     guard provider == self.provider else { return }
     if let lasting = RecipeAIStatus(after: error) { status = lasting }
+    if case .failed(let detail) = error { lastFailure = detail }
   }
 }
 

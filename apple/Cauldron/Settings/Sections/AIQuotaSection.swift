@@ -40,6 +40,15 @@ struct AIQuotaSection: View {
       .listRowBackground(Brand.Colors.mantle)
       AIStatusLine(status: ai.status)
         .listRowBackground(Brand.Colors.mantle)
+      #if DEBUG
+        // Debug builds only: why the last answer couldn't be used, to tell a bug from a bad answer.
+        if let failure = ai.lastFailure {
+          Text(verbatim: failure)
+            .brandText(.quantity)
+            .foregroundStyle(Brand.Colors.heat)
+            .listRowBackground(Brand.Colors.mantle)
+        }
+      #endif
       if waiting > 0 {
         Text(verbatim: Copy.settings.ai.waiting(waiting).text)
           .brandText(.quantity)
