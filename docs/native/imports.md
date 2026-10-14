@@ -34,11 +34,11 @@ A fourth way in (#173): share a link or text to Cauldron from Safari, Instagram,
 - **Picking up.** `SharedImportQueue` takes the inbox at launch and each time the app comes forward (`sharedImports(_:)` in `CauldronApp`). It does nothing under test (`CauldronStore.launchMode == .inMemory`). Items are removed from the inbox as they are read.
 - **Routing** (`SharedImportRoute`). A web link takes the link path, so the duplicate check, the paste fallback and the cover photo all apply; any text that came with it (Safari sends the page title) is ignored. An Instagram or TikTok link (`Distill.classify`) with a caption takes the pasted-text path with the post kept as the source (`ImportModel.pastingFor`, so the draft records the platform and link); the link is taken out of the caption first, and a post with no caption left takes the link path. Text alone takes the paste path, unless the text is only a link, which takes the link path.
 - **One at a time.** `RecipesRoot` opens the next item when `readyToOpen`: something is waiting, no import sheet is open and no `RecipeEditorSheet` is open (editors register themselves with the queue). `AppShell` switches to Recipes at that moment. A short pause lets a sheet that has just closed finish going. While one is open the sheet shows "2 more shared". Nothing is saved until the cook saves.
-- **The extension's look.** It has no asset catalogue or fonts of its own, so `ShareTheme` reads the colours and Geist from the app that contains it (found by walking up from the extension's bundle to the `.app`), and falls back to system colours and type if they aren't there.
+- **The extension's look.** The confirmation draws with `Brand.Colors`: `Shared/Brand.xcassets` is named as a resource of the share target in `project.yml`, as the widget's is (so its Info.plist lives in `Config/`). Geist is not copied into the extension; `ShareFonts` reads it from the app that contains the extension (found by walking up from the extension's bundle to the `.app`) and falls back to the system font if it isn't there.
 
 ### Not verified yet
 
-- Sharing from Safari, Instagram and TikTok on an iPhone and from Safari on the Mac, in real apps. What the Instagram and TikTok share sheets put in the link and the text, and whether the extension can read the app's colours and font from inside its sandbox on a device.
+- Sharing from Safari, Instagram and TikTok on an iPhone and from Safari on the Mac, in real apps. What the Instagram and TikTok share sheets put in the link and the text, and whether the extension can read the app's Geist font from inside its sandbox on a device.
 
 ## The Mac's file entitlement
 
