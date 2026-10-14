@@ -245,11 +245,11 @@ struct SharedImportTests {
   }
 
   private func link(_ string: String) -> NSItemProvider {
-    NSItemProvider(object: URL(string: string)! as NSURL)
+    NSItemProvider(item: URL(string: string)! as NSURL, typeIdentifier: UTType.url.identifier)
   }
 
   private func text(_ string: String) -> NSItemProvider {
-    NSItemProvider(object: string as NSString)
+    NSItemProvider(item: string as NSString, typeIdentifier: UTType.plainText.identifier)
   }
 
   @Test func theExtensionKeepsALink() async {
@@ -270,6 +270,14 @@ struct SharedImportTests {
     let attributed = NSItemProvider(
       item: NSAttributedString(string: caption), typeIdentifier: UTType.plainText.identifier)
     #expect(await SharedItemReader.read([item([attributed])])?.text == caption)
+  }
+
+  @Test func theExtensionReadsAProviderMadeFromAnObject() async {
+    // Made this way the provider hands over archived bytes on a phone and UTF-8 on a Mac.
+    let provider = NSItemProvider(object: URL(string: reel)! as NSURL)
+    #expect(await SharedItemReader.read([item([provider])])?.url == reel)
+    let words = NSItemProvider(object: caption as NSString)
+    #expect(await SharedItemReader.read([item([words])])?.text == caption)
   }
 
   @Test func theExtensionKeepsTextAlone() async {

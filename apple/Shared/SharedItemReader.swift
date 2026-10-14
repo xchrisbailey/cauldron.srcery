@@ -47,8 +47,19 @@ enum SharedItemReader {
   static func string(from item: any NSSecureCoding) -> String? {
     if let string = item as? String { return string }
     if let attributed = item as? NSAttributedString { return attributed.string }
-    if let data = item as? Data { return String(data: data, encoding: .utf8) }
+    if let data = item as? Data { return string(from: data) }
     return nil
+  }
+
+  /// Bytes are the text in UTF-8, or a property list holding it (as a link can arrive, alone or
+  /// first in an array).
+  private static func string(from data: Data) -> String? {
+    if let text = String(data: data, encoding: .utf8) { return text }
+    switch try? PropertyListSerialization.propertyList(from: data, format: nil) {
+    case let text as String: return text
+    case let list as [Any]: return list.first as? String
+    default: return nil
+    }
   }
 
   private static func isBlank(_ string: String) -> Bool {
