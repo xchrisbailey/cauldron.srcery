@@ -6,7 +6,7 @@ import SwiftUI
 /// (tap two) for one serving, or change the servings first. Banished recipes aren't offered.
 /// The recipe's per-serving numbers are copied onto the entry, with a link back to it.
 struct AddRecipeTab: View {
-  static let isAvailable = true
+  nonisolated static let isAvailable = true
 
   let context: AddContext
 

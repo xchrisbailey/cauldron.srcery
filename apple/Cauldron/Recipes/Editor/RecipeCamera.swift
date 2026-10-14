@@ -13,7 +13,7 @@ enum RecipeCamera {
     hasUsageDescription && cameraAvailable
   }
 
-  static var isOffered: Bool {
+  @MainActor static var isOffered: Bool {
     #if os(iOS)
       isOffered(
         hasUsageDescription: Bundle.main.object(forInfoDictionaryKey: "NSCameraUsageDescription")

@@ -145,10 +145,12 @@ struct RecipePhotoSection: View {
         preview = await Task.detached { RecipePhotoView.thumbnail(of: data, maxPixel: 800) }.value
       }
 
+      // Worked out here: the picker builds its label off the main actor.
+      let pickLabel = (shownData == nil ? Copy.photos.add : Copy.photos.replace).text
       HStack {
         PhotosPicker(selection: $picked, matching: .images) {
           Label {
-            Text(verbatim: (shownData == nil ? Copy.photos.add : Copy.photos.replace).text)
+            Text(verbatim: pickLabel)
           } icon: {
             Image(systemName: "photo")
           }

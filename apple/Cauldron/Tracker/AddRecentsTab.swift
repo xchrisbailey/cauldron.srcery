@@ -5,7 +5,7 @@ import SwiftUI
 /// The add sheet's "Recent" way in (#180): favourites first, then what was logged lately, most
 /// often first. One tap logs it again as it was last logged; the star keeps it as a favourite.
 struct AddRecentsTab: View {
-  static let isAvailable = true
+  nonisolated static let isAvailable = true
 
   let context: AddContext
 

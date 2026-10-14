@@ -6,7 +6,7 @@ import SwiftUI
 /// with numbers to check before they are logged. When the model can't be reached the description
 /// is saved as a waiting entry instead. The rules are in `DescribeModel`.
 struct AddDescribeTab: View {
-  static let isAvailable = true
+  nonisolated static let isAvailable = true
 
   let context: AddContext
   /// Closes the sheet, from the waiting state's button.
