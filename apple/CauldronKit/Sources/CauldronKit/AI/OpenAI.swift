@@ -57,14 +57,17 @@ public enum OpenAI {
       outputTokens: response.usage?.outputTokens ?? 0)
   }
 
-  /// What a refusal means. A bad key is 401 or 403, a spent quota is 429 (`insufficient_quota`
-  /// too, which is why it is a limit and not a failure), and a model it doesn't know is 404.
+  /// What a refusal means. A bad key is 401 or 403, a spent quota is 429, an account with no
+  /// credit is 429 with the code `insufficient_quota`, and a model it doesn't know is 404.
   /// Only a request it understood and rejected is a failure, and that says what kind with the
   /// error's `code` or `type`, never its message, which can quote the request.
   static func error(status: Int, body: Data) -> RecipeAIError {
     switch status {
     case 401, 403: return .invalidKey
-    case 429: return .rateLimited
+    case 429:
+      let failure = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error
+      return failure?.code == "insufficient_quota" || failure?.type == "insufficient_quota"
+        ? .noCredit : .rateLimited
     case 404: return .invalidModel
     // A timeout, or a status that isn't HTTP at all.
     case 408, ..<100, 500...599: return .unreachable

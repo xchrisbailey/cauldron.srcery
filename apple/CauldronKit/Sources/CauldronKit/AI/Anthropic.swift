@@ -76,13 +76,20 @@ public enum Anthropic {
   static func error(status: Int, body: Data) -> RecipeAIError {
     switch status {
     case 401, 403: return .invalidKey
-    case 402, 429: return .rateLimited
+    case 402: return .noCredit
+    case 429: return .rateLimited
     case 404: return .invalidModel
     // A timeout, a status that isn't HTTP at all, and 529 among the server errors.
     case 408, ..<100, 500...599: return .unreachable
     case 400..<500:
       let failure = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error
       guard let type = failure?.type else { return .failed(detail: "status \(status)") }
+      // An account without API credit is refused as a bad request, named only in the message.
+      if type == "invalid_request_error",
+        failure?.message?.localizedCaseInsensitiveContains("credit balance") == true
+      {
+        return .noCredit
+      }
       #if DEBUG
         // Debug builds add Anthropic's explanation, which names the field a request got wrong.
         // A 400 is about the request, never the key, and release builds leave it out.

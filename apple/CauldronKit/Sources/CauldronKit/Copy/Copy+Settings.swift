@@ -114,6 +114,12 @@ extension Copy {
         plain("\(provider.displayName) didn't accept that key. Check it and save it again.")
       }
 
+      public func noCredit(_ provider: AIProvider) -> CopyString {
+        plain(
+          "Your \(provider.displayName) account has no API credit left. Add credit on \(provider.displayName)'s site, or pick another provider. Estimates wait and finish later."
+        )
+      }
+
       public func rateLimited(_ provider: AIProvider) -> CopyString {
         plain(
           "Your \(provider.displayName) key has reached its limit for now. Estimates wait and finish later."

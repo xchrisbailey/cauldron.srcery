@@ -6,6 +6,8 @@ public enum RecipeAIError: Error, Sendable, Hashable {
   case invalidKey
   /// The key's quota is spent for now (HTTP 429).
   case rateLimited
+  /// The provider account has no credit left for its API. Adding credit is up to the cook.
+  case noCredit
   /// The provider doesn't know the model named in Settings.
   case invalidModel
   /// Offline, timed out, or the provider answered with a server error.
@@ -20,7 +22,7 @@ public enum RecipeAIError: Error, Sendable, Hashable {
   /// connection. A cancelled request is neither: nobody wants its answer any more.
   public var isUnavailable: Bool {
     switch self {
-    case .missingKey, .invalidKey, .rateLimited, .invalidModel, .unreachable: true
+    case .missingKey, .invalidKey, .rateLimited, .noCredit, .invalidModel, .unreachable: true
     case .cancelled, .failed: false
     }
   }
@@ -43,6 +45,7 @@ public enum RecipeAIStatus: Sendable, Hashable {
   case missingKey
   case invalidKey
   case rateLimited
+  case noCredit
   case invalidModel
 
   /// The status an error leaves behind, or nil when it says nothing lasting (a dropped
@@ -52,6 +55,7 @@ public enum RecipeAIStatus: Sendable, Hashable {
     case .missingKey: self = .missingKey
     case .invalidKey: self = .invalidKey
     case .rateLimited: self = .rateLimited
+    case .noCredit: self = .noCredit
     case .invalidModel: self = .invalidModel
     case .unreachable, .cancelled, .failed: return nil
     }

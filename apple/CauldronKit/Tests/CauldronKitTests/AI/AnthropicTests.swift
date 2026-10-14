@@ -191,10 +191,24 @@ struct AnthropicResponseTests {
     }
   }
 
-  @Test func aSpentBalanceOrRateLimitIsRateLimited() {
-    #expect(throws: RecipeAIError.rateLimited) {
+  @Test func anAccountWithoutCreditIsNoCredit() {
+    #expect(throws: RecipeAIError.noCredit) {
       try AIProvider.anthropic.answer(status: 402, body: failure(type: "billing_error"))
     }
+    // What Anthropic actually sends: a bad request, named only in the message.
+    let low = failure(
+      type: "invalid_request_error",
+      message:
+        "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."
+    )
+    #expect(throws: RecipeAIError.noCredit) {
+      try AIProvider.anthropic.answer(status: 400, body: low)
+    }
+    #expect(RecipeAIStatus(after: .noCredit) == .noCredit)
+    #expect(RecipeAIError.noCredit.isUnavailable)
+  }
+
+  @Test func aRateLimitIsRateLimited() {
     #expect(throws: RecipeAIError.rateLimited) {
       try AIProvider.anthropic.answer(status: 429, body: failure(type: "rate_limit_error"))
     }

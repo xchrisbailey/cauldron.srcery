@@ -270,7 +270,7 @@ struct AIProviderChoiceTests {
 
   @Test func theStatusLinesNameTheChosenProvider() {
     let statuses: [RecipeAIStatus] = [
-      .ready, .missingKey, .invalidKey, .rateLimited, .invalidModel,
+      .ready, .missingKey, .invalidKey, .rateLimited, .noCredit, .invalidModel,
     ]
     for provider in AIProvider.allCases {
       for status in statuses {
@@ -443,7 +443,7 @@ struct AIProviderSettingsTests {
 
   @Test func theStatusLineRendersForEveryProviderAndStatus() throws {
     let statuses: [RecipeAIStatus] = [
-      .ready, .missingKey, .invalidKey, .rateLimited, .invalidModel,
+      .ready, .missingKey, .invalidKey, .rateLimited, .noCredit, .invalidModel,
     ]
     for provider in AIProvider.allCases {
       let rig = try Rig()

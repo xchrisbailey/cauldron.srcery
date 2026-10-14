@@ -213,10 +213,14 @@ struct OpenAIResponseTests {
     }
   }
 
-  @Test func aSpentQuotaOrRateLimitIsRateLimited() {
+  @Test func anAccountWithoutCreditIsNoCreditAndARateLimitIsRateLimited() {
     let quota = failure(type: "insufficient_quota", code: "insufficient_quota")
-    #expect(throws: RecipeAIError.rateLimited) {
+    #expect(throws: RecipeAIError.noCredit) {
       try AIProvider.openai.answer(status: 429, body: quota)
+    }
+    let busy = failure(type: "requests", code: "rate_limit_exceeded")
+    #expect(throws: RecipeAIError.rateLimited) {
+      try AIProvider.openai.answer(status: 429, body: busy)
     }
     #expect(throws: RecipeAIError.rateLimited) {
       try AIProvider.openai.answer(status: 429, body: Data())

@@ -162,6 +162,7 @@ extension RecipeAIStatus {
     case .missingKey: Copy.settings.ai.missingKey(provider)
     case .invalidKey: Copy.settings.ai.invalidKey(provider)
     case .rateLimited: Copy.settings.ai.rateLimited(provider)
+    case .noCredit: Copy.settings.ai.noCredit(provider)
     case .invalidModel: Copy.settings.ai.invalidModel(provider)
     }
   }

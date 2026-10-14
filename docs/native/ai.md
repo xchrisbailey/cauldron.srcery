@@ -33,7 +33,7 @@ Decision 27: a cloud model does the heavy AI, called straight from the device wi
 
 ## When the AI can't be reached
 
-"Can't be reached" means no key, a refused key, a spent quota, a model name the provider doesn't know (404), no connection, a timeout or a 5xx. Each of the first four leaves its own line in Settings, naming the provider, until it next answers. The rules below are the same for every provider.
+"Can't be reached" means no key, a refused key, a spent quota, a model name the provider doesn't know (404), no connection, a timeout or a 5xx. Each of the first four leaves its own line in Settings, naming the provider, until it next answers. The rules below are the same for every provider. An account with no API credit (Anthropic says so in a 400 or a 402, OpenAI with `insufficient_quota`) counts too, with its own line telling the cook to add credit.
 
 - **Reading a recipe falls back** to Apple's on-device model, and the result is marked `rough` so the cook is told to check it. Long text is trimmed to fit. A device with no on-device model reports why the provider wasn't used.
 - **Macro estimates never fall back.** They wait in the queue (`AIJobRecord`) and the recipe or diary entry shows as pending. The queue runs when the app comes forward, when the network comes back, when a key is saved and when the provider is switched. A job waits for as long as the provider is out of reach without using up attempts.

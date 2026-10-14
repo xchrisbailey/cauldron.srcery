@@ -474,12 +474,14 @@ struct AIJobQueueTests {
 struct AISettingsTests {
   @Test func everyStatusHasItsOwnLine() {
     let statuses: [RecipeAIStatus] = [
-      .ready, .missingKey, .invalidKey, .rateLimited, .invalidModel,
+      .ready, .missingKey, .invalidKey, .rateLimited, .noCredit, .invalidModel,
     ]
-    #expect(Set(statuses.map { $0.message(for: .gemini).text }).count == 5)
+    #expect(Set(statuses.map { $0.message(for: .gemini).text }).count == 6)
     #expect(statuses.allSatisfy { $0.message(for: .gemini).tone == .plain })
     #expect(
-      statuses.filter(\.needsAttention) == [.missingKey, .invalidKey, .rateLimited, .invalidModel])
+      statuses.filter(\.needsAttention) == [
+        .missingKey, .invalidKey, .rateLimited, .noCredit, .invalidModel,
+      ])
     #expect(Copy.settings.ai.waiting(1).text == "1 estimate is waiting.")
     #expect(Copy.settings.ai.waiting(3).text == "3 estimates are waiting.")
   }
