@@ -71,10 +71,30 @@ enum RecipeMacroEstimates {
   /// below also asks at once.
   @discardableResult
   static func requestIfMissing(for recipe: RecipeRecord, in context: ModelContext) -> Bool {
-    guard recipe.macros == .none, canDivine(recipe), !recipe.macrosPending else { return false }
+    guard isMissingMacros(recipe) else { return false }
     AIJobQueue.enqueueMacros(for: recipe, in: context)
     try? context.save()
     return true
+  }
+
+  /// Whether "estimate missing macros" in Settings would queue `recipe`: the same test as an
+  /// import's, so a recipe with numbers, with none to read, banished or already waiting is left.
+  static func isMissingMacros(_ recipe: RecipeRecord) -> Bool {
+    recipe.macros == .none && canDivine(recipe) && !recipe.macrosPending
+  }
+
+  /// Queues an estimate for every recipe `isMissingMacros` picks, and returns how many. The
+  /// caller runs the queue.
+  @discardableResult
+  static func requestAllMissing(in context: ModelContext) -> Int {
+    let recipes = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
+    var queued = 0
+    for recipe in recipes where isMissingMacros(recipe) {
+      AIJobQueue.enqueueMacros(for: recipe, in: context)
+      queued += 1
+    }
+    if queued > 0 { try? context.save() }
+    return queued
   }
 
   /// After the editor saved `recipe` from `draft`: queues the estimate Gemini couldn't give

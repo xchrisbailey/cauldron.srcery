@@ -39,6 +39,12 @@ extension Copy {
         plain("Leave empty to use \(model).")
       }
 
+      public func estimateMissing(_ count: Int) -> CopyString {
+        plain(count == 1 ? "Estimate macros for 1 recipe" : "Estimate macros for \(count) recipes")
+      }
+
+      public let nothingMissing = plain("Every recipe with ingredients has macros.")
+
       public func waiting(_ count: Int) -> CopyString {
         plain(count == 1 ? "1 estimate is waiting." : "\(count) estimates are waiting.")
       }

@@ -9,11 +9,16 @@ struct AIQuotaSection: View {
   @Environment(RecipeAIService.self) private var ai
   @Environment(\.modelContext) private var context
   @Query private var jobs: [AIJobRecord]
+  @Query private var recipes: [RecipeRecord]
   @AppStorage(RecipeAIService.modelDefaultsKey) private var model = ""
   @State private var draft = ""
 
   private var waiting: Int {
     jobs.count { $0.status != .failed }
+  }
+
+  private var missing: Int {
+    recipes.count(where: RecipeMacroEstimates.isMissingMacros)
   }
 
   var body: some View {
@@ -23,6 +28,20 @@ struct AIQuotaSection: View {
       if waiting > 0 {
         Text(verbatim: Copy.settings.ai.waiting(waiting).text)
           .brandText(.quantity)
+          .foregroundStyle(Brand.Colors.subtext)
+          .listRowBackground(Brand.Colors.mantle)
+      }
+      if missing > 0 {
+        Button {
+          RecipeMacroEstimates.requestAllMissing(in: context)
+          Task { await AIQueueRunner.drain(in: context, using: ai.estimator) }
+        } label: {
+          Text(verbatim: Copy.settings.ai.estimateMissing(missing).text)
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      } else if !recipes.isEmpty {
+        Text(verbatim: Copy.settings.ai.nothingMissing.text)
+          .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
           .listRowBackground(Brand.Colors.mantle)
       }

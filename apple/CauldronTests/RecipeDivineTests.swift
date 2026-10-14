@@ -43,6 +43,45 @@ struct DivineMacrosTests {
     try context.fetch(FetchDescriptor<AIJobRecord>())
   }
 
+  // MARK: Estimating every recipe that has none
+
+  @Test func estimatingAllQueuesOnlyRecipesWithIngredientsAndNoMacros() async throws {
+    let plain = recipe("Plain")
+    let typed = recipe("Typed")
+    typed.macros = Macros(calories: 500, protein: 1, carbs: 2, fat: 3)
+    typed.macrosSource = .manual
+    let empty = recipe("Empty", lines: [])
+    let gone = recipe("Gone")
+    gone.deletedAt = .now
+    let waiting = recipe("Waiting")
+    AIJobQueue.enqueueMacros(for: waiting, in: context)
+    try context.save()
+
+    #expect(RecipeMacroEstimates.isMissingMacros(plain))
+    #expect(!RecipeMacroEstimates.isMissingMacros(typed))
+    #expect(!RecipeMacroEstimates.isMissingMacros(empty))
+    #expect(!RecipeMacroEstimates.isMissingMacros(gone))
+    #expect(!RecipeMacroEstimates.isMissingMacros(waiting))
+
+    #expect(RecipeMacroEstimates.requestAllMissing(in: context) == 1)
+    #expect(plain.macrosPending)
+    #expect(try jobs().count == 2)
+    // Asking again queues nothing more.
+    #expect(RecipeMacroEstimates.requestAllMissing(in: context) == 0)
+
+    let (ai, _, _) = service([goodAnswer, goodAnswer])
+    await AIQueueRunner.drain(in: context, using: ai.estimator)
+    #expect(plain.macros == estimate && plain.macrosSource == .estimated)
+    #expect(typed.macros.calories == 500 && typed.macrosSource == .manual)
+    #expect(try jobs().isEmpty)
+  }
+
+  @Test func theSettingsLineCountsWhatWouldBeQueued() {
+    #expect(Copy.settings.ai.estimateMissing(1).text == "Estimate macros for 1 recipe")
+    #expect(Copy.settings.ai.estimateMissing(4).text == "Estimate macros for 4 recipes")
+    #expect(Copy.settings.ai.estimateMissing(4).tone == .plain)
+  }
+
   // MARK: The button
 
   @Test func theButtonFillsTheMacrosAndMarksThemAsAnEstimate() async throws {
