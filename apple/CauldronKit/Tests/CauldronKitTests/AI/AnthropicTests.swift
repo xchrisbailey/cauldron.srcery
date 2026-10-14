@@ -220,16 +220,37 @@ struct AnthropicResponseTests {
     }
   }
 
-  @Test func otherRejectionsAreFailuresNamedByTypeNeverByMessage() {
-    let invalid = failure(type: "invalid_request_error", message: "bad near \(secret)")
-    #expect(throws: RecipeAIError.failed(detail: "rejected: invalid_request_error")) {
-      try AIProvider.anthropic.answer(status: 400, body: invalid)
-    }
+  @Test func otherRejectionsAreFailuresNamedByType() {
+    let invalid = failure(type: "invalid_request_error", message: "output_config: bad field")
+    #if DEBUG
+      // Debug builds add Anthropic's explanation, to find what a request got wrong.
+      #expect(
+        throws: RecipeAIError.failed(
+          detail: "rejected: invalid_request_error: output_config: bad field")
+      ) {
+        try AIProvider.anthropic.answer(status: 400, body: invalid)
+      }
+    #else
+      #expect(throws: RecipeAIError.failed(detail: "rejected: invalid_request_error")) {
+        try AIProvider.anthropic.answer(status: 400, body: invalid)
+      }
+    #endif
     #expect(throws: RecipeAIError.failed(detail: "rejected: request_too_large")) {
-      try AIProvider.anthropic.answer(status: 413, body: failure(type: "request_too_large"))
+      try AIProvider.anthropic.answer(
+        status: 413, body: json(["type": "error", "error": ["type": "request_too_large"]]))
     }
     #expect(throws: RecipeAIError.failed(detail: "status 418")) {
       try AIProvider.anthropic.answer(status: 418, body: Data())
+    }
+  }
+
+  @Test func aRejectionNeverCarriesAKeyEvenInDebugBuilds() {
+    let body = failure(type: "invalid_request_error", message: "key \(secret) is bad")
+    do throws(RecipeAIError) {
+      _ = try AIProvider.anthropic.answer(status: 400, body: body)
+      Issue.record("should have thrown")
+    } catch {
+      #expect(!"\(error)".contains("test-secret"))
     }
   }
 

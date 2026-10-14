@@ -83,10 +83,25 @@ public enum Anthropic {
     case 400..<500:
       let failure = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error
       guard let type = failure?.type else { return .failed(detail: "status \(status)") }
+      #if DEBUG
+        // Debug builds add Anthropic's explanation, which names the field a request got wrong.
+        // A 400 is about the request, never the key, and release builds leave it out.
+        if type == "invalid_request_error", let message = failure?.message {
+          return .failed(detail: "rejected: \(type): \(redactingKeys(message).prefix(300))")
+        }
+      #endif
       return .failed(detail: "rejected: \(type.prefix(64))")
     default:
       return .failed(detail: "status \(status)")
     }
+  }
+
+  /// `text` with anything that looks like an API key (a word starting `sk-`) cut down to its
+  /// prefix, so an explanation can be shown without the key in it.
+  static func redactingKeys(_ text: String) -> String {
+    text.split(separator: " ", omittingEmptySubsequences: false)
+      .map { word in word.contains("sk-") ? "sk-…" : String(word) }
+      .joined(separator: " ")
   }
 
   // MARK: Wire shapes
@@ -134,7 +149,10 @@ public enum Anthropic {
   }
 
   struct ErrorBody: Decodable {
-    struct Failure: Decodable { let type: String? }
+    struct Failure: Decodable {
+      let type: String?
+      let message: String?
+    }
     let error: Failure
   }
 }
