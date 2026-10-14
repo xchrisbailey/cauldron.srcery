@@ -143,7 +143,7 @@ struct RecipeLogForm: View {
           Button(action: log) {
             Text(verbatim: entry.log.text).foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           .brandText(.control)
         }

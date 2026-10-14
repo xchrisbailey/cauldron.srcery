@@ -176,7 +176,7 @@ struct CheckInView: View {
           Button(action: { finish(accepting: check) }) {
             Text(verbatim: t.accept.text).foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           Button(t.notNow.text) { finish(accepting: nil) }
             .buttonStyle(.bordered)

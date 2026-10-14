@@ -81,7 +81,7 @@ struct AddDescribeTab: View {
             Text(verbatim: (asking ? describe.divining : describe.divine).text)
               .foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           .brandText(.control)
           .disabled(asking)
@@ -129,7 +129,7 @@ struct AddDescribeTab: View {
             Text(verbatim: describe.log(model.rows.count).text)
               .foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           .brandText(.control)
           .disabled(model.rows.isEmpty)
@@ -182,7 +182,7 @@ struct AddDescribeTab: View {
           Button(action: onClose) {
             Text(verbatim: Copy.ui.close.text).foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           .brandText(.control)
         }

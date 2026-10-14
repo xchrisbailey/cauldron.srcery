@@ -156,7 +156,7 @@ struct DiaryQuickAdd: View {
             // `base` reads on the brand colour in both appearances.
             Text(verbatim: Copy.tracker.entry.log.text).foregroundStyle(Brand.Colors.base)
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(.brandProminent)
           .tint(Brand.Colors.magic)
           .brandText(.control)
         }

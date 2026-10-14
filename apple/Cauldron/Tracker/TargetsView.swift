@@ -127,13 +127,13 @@ struct TargetsEditor: View {
           Spacer()
           if step < Self.steps - 1 {
             Button(t.continue.text, action: next)
-              .buttonStyle(.borderedProminent)
+              .buttonStyle(.brandProminent)
           } else {
             Button(t.save.text) {
               attempted = true
               save()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.brandProminent)
             .disabled(form.calculation == nil)
           }
         }
@@ -194,7 +194,7 @@ private struct AboutStep: View {
       ) {
         Text(verbatim: t.birthDate.text)
       }
-      .brandText(.quantity)
+      .brandText(.body)
       .opacity(form.birthDate == nil ? 0.55 : 1)
       .listRowBackground(Brand.Colors.mantle)
       FieldError(errors[.birthDate])
@@ -569,9 +569,15 @@ struct NumberField: View {
 
   var body: some View {
     HStack {
-      TextField(label, text: $text)
+      // A field named by its unit ("ft", "in") shows the unit once, after the number.
+      if label != unit {
+        Text(verbatim: label).brandText(.body)
+        Spacer()
+      }
+      TextField(label, text: $text, prompt: Text(0, format: .number))
         .multilineTextAlignment(.trailing)
         .brandText(.quantity)
+        .frame(maxWidth: label != unit ? 120 : .infinity)
         #if os(iOS)
           .keyboardType(decimal ? .decimalPad : .numberPad)
         #endif
