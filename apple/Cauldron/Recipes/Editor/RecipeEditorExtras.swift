@@ -119,31 +119,30 @@ struct RecipePhotoSection: View {
 
   var body: some View {
     Section {
-      ZStack {
-        Rectangle().fill(Brand.Colors.crust)
-        if let preview {
-          Image(decorative: preview, scale: 1).resizable().scaledToFill()
-        } else {
-          Image(systemName: AppDestination.recipes.systemImage)
-            .font(.system(size: 28, weight: .light))
-            .foregroundStyle(Brand.Colors.magic)
-            .accessibilityHidden(true)
+      let photoAlt = Copy.photos.alt(draft.title.isEmpty ? Copy.editor.title.text : draft.title)
+        .text
+      // The rectangle sets the size, so a wide photo can't widen the form.
+      Rectangle().fill(Brand.Colors.crust)
+        .overlay {
+          if let preview {
+            Image(decorative: preview, scale: 1).resizable().scaledToFill()
+          } else {
+            Image(systemName: AppDestination.recipes.systemImage)
+              .font(.system(size: 28, weight: .light))
+              .foregroundStyle(Brand.Colors.magic)
+              .accessibilityHidden(true)
+          }
         }
-        if working { ProgressView() }
-      }
-      .frame(height: 180)
-      .frame(maxWidth: .infinity)
-      .clipShape(RoundedRectangle(cornerRadius: 10))
-      .accessibilityElement()
-      .accessibilityLabel(
-        Text(
-          verbatim: Copy.photos.alt(draft.title.isEmpty ? Copy.editor.title.text : draft.title).text
-        )
-      )
-      .task(id: shownData?.count) {
-        let data = shownData
-        preview = await Task.detached { RecipePhotoView.thumbnail(of: data, maxPixel: 800) }.value
-      }
+        .overlay { if working { ProgressView() } }
+        .frame(height: 180)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: photoAlt))
+        .task(id: shownData?.count) {
+          let data = shownData
+          preview = await Task.detached { RecipePhotoView.thumbnail(of: data, maxPixel: 800) }.value
+        }
 
       // Worked out here: the picker builds its label off the main actor.
       let pickLabel = (shownData == nil ? Copy.photos.add : Copy.photos.replace).text
