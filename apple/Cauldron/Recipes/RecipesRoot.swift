@@ -197,53 +197,92 @@ struct RecipesRoot: View {
     }
   }
 
+  @ViewBuilder
   private func list(_ visible: [RecipeRecord], opening: Opening) -> some View {
-    List(selection: opening == .beside ? $selection : .constant(nil)) {
-      ForEach(visible) { recipe in
-        RecipeCardView(recipe: recipe, selected: opening == .beside && selection == recipe.id)
-          .tag(recipe.id)
-          .overlay {
-            // A link with no label of its own, so the row has no disclosure arrow.
-            if opening == .over {
-              NavigationLink(value: recipe.id) { EmptyView() }.opacity(0)
-            }
-          }
-          .listRowBackground(Color.clear)
-          .listRowSeparator(.hidden)
-          .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
-          .swipeActions(edge: .trailing) { banishButton(recipe) }
-          #if os(iOS)
-            .contextMenu { banishButton(recipe) }
-          #else
-            // Drag it onto a day in the week, in another window.
-            .draggable(RecipeDrag(id: recipe.id))
-          #endif
-      }
+    switch opening {
+    case .beside:
+      // The list's selection is the recipe shown beside it.
+      macLibraryMenus(
+        List(selection: $selection) { rows(visible, opening: opening) }
+          .libraryListStyle())
+    case .over:
+      // No selection here: a list with a selection binding, even a constant one, takes the
+      // tap for selecting, so a link in the row never fires. Each row pushes its recipe.
+      List { rows(visible, opening: opening) }
+        .libraryListStyle()
     }
-    .listStyle(.plain)
-    .scrollContentBackground(.hidden)
-    .background(Brand.Colors.base)
-    #if os(macOS)
-      // Double-click opens a recipe in a window of its own; so does the menu.
-      .contextMenu(forSelectionType: UUID.self) { ids in
-        if let id = ids.first, let recipe = recipes.first(where: { $0.id == id }) {
-          Button {
-            openWindow(value: RecipeWindowRequest(recipeID: id))
-          } label: {
-            Text(verbatim: Copy.macMenu.openInNewWindow.text)
+  }
+
+  private func rows(_ visible: [RecipeRecord], opening: Opening) -> some View {
+    ForEach(visible) { recipe in
+      row(recipe, opening: opening)
+    }
+  }
+
+  @ViewBuilder
+  private func row(_ recipe: RecipeRecord, opening: Opening) -> some View {
+    switch opening {
+    case .beside:
+      card(recipe, selected: selection == recipe.id).tag(recipe.id)
+    case .over:
+      Button {
+        path.append(recipe.id)
+      } label: {
+        card(recipe, selected: false)
+      }
+      .buttonStyle(.plain)
+    }
+  }
+
+  private func card(_ recipe: RecipeRecord, selected: Bool) -> some View {
+    RecipeCardView(recipe: recipe, selected: selected)
+      .contentShape(Rectangle())
+      .listRowBackground(Color.clear)
+      .listRowSeparator(.hidden)
+      .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+      .swipeActions(edge: .trailing) { banishButton(recipe) }
+      #if os(iOS)
+        .contextMenu { banishButton(recipe) }
+      #else
+        // Drag it onto a day in the week, in another window.
+        .draggable(RecipeDrag(id: recipe.id))
+      #endif
+  }
+}
+
+extension View {
+  fileprivate func libraryListStyle() -> some View {
+    self
+      .listStyle(.plain)
+      .scrollContentBackground(.hidden)
+      .background(Brand.Colors.base)
+  }
+}
+
+extension RecipesRoot {
+  fileprivate func macLibraryMenus(_ list: some View) -> some View {
+    list
+      #if os(macOS)
+        // Double-click opens a recipe in a window of its own; so does the menu.
+        .contextMenu(forSelectionType: UUID.self) { ids in
+          if let id = ids.first, let recipe = recipes.first(where: { $0.id == id }) {
+            Button {
+              openWindow(value: RecipeWindowRequest(recipeID: id))
+            } label: {
+              Text(verbatim: Copy.macMenu.openInNewWindow.text)
+            }
+            Divider()
+            banishButton(recipe)
           }
-          Divider()
-          banishButton(recipe)
+        } primaryAction: { ids in
+          for id in ids { openWindow(value: RecipeWindowRequest(recipeID: id)) }
         }
-      } primaryAction: { ids in
-        for id in ids { openWindow(value: RecipeWindowRequest(recipeID: id)) }
-      }
-      .onDeleteCommand {
-        if let id = selection, let recipe = recipes.first(where: { $0.id == id }) {
-          banishing = recipe
+        .onDeleteCommand {
+          if let id = selection, let recipe = recipes.first(where: { $0.id == id }) {
+            banishing = recipe
+          }
         }
-      }
-    #endif
+      #endif
   }
 
   private func banishButton(_ recipe: RecipeRecord) -> some View {
