@@ -78,6 +78,9 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # iCloud sync is told about changes from other devices by a silent push. Xcode has no
+        # generated-key setting for this one, so it lives here; the Mac ignores it.
+        UIBackgroundModes: [remote-notification]
         CFBundleURLTypes:
           - CFBundleURLName: computer.srcery.cauldron
             CFBundleURLSchemes: [cauldron]
@@ -89,8 +92,6 @@ targets:
         # Copied from Copy.settings.health.shareUsage and updateUsage; a test keeps them equal.
         INFOPLIST_KEY_NSHealthShareUsageDescription: "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry."
-        # iCloud sync is told about changes from other devices by a silent push.
-        "INFOPLIST_KEY_UIBackgroundModes[sdk=iphone*]": remote-notification
         # XcodeGen writes these empty on a multiplatform target unless they are set here.
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
         TARGETED_DEVICE_FAMILY: "1,2"

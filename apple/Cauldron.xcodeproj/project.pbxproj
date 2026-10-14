@@ -76,6 +76,15 @@
 			path = CauldronTests;
 			sourceTree = "<group>";
 		};
+		3DABC10515F3549713FFCAF0 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		42B06C750BCE9B7F3059D1D9 /* CauldronShare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
@@ -83,6 +92,15 @@
 			explicitFolders = (
 			);
 			path = CauldronShare;
+			sourceTree = "<group>";
+		};
+		667BABEF98556BB64AE8CA91 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		772BB1DCA60483B50D6459FF /* Shared */ = {
@@ -110,24 +128,6 @@
 			explicitFolders = (
 			);
 			path = Cauldron;
-			sourceTree = "<group>";
-		};
-		"TEMP_0C0DA60B-4FE6-4EF4-AEC2-3A30E1329E2C" /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Shared;
-			sourceTree = "<group>";
-		};
-		"TEMP_A5EFFEDE-170C-4E5C-B5A4-00C3FD43AB66" /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -212,6 +212,8 @@
 				302A41EEEF3008F8313D0454 /* CauldronTests */,
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
 				772BB1DCA60483B50D6459FF /* Shared */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
+				3DABC10515F3549713FFCAF0 /* Shared */,
 				D94BA9855C4BC9ABBEBE8DE9 /* Fonts */,
 				DBE63DD144F2F41305297219 /* Packages */,
 				CB6F8DF74E722531A4147D2E /* Shared */,
@@ -239,7 +241,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
-				772BB1DCA60483B50D6459FF /* Shared */,
+				3DABC10515F3549713FFCAF0 /* Shared */,
 			);
 			name = Cauldron;
 			packageProductDependencies = (
@@ -285,7 +287,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
-				"TEMP_A5EFFEDE-170C-4E5C-B5A4-00C3FD43AB66" /* Shared */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
 			);
 			name = CauldronShare;
 			packageProductDependencies = (
@@ -309,7 +311,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
-				"TEMP_0C0DA60B-4FE6-4EF4-AEC2-3A30E1329E2C" /* Shared */,
+				772BB1DCA60483B50D6459FF /* Shared */,
 			);
 			name = CauldronWidgets;
 			packageProductDependencies = (
@@ -539,7 +541,6 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphone*]" = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -605,7 +606,6 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphone*]" = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
