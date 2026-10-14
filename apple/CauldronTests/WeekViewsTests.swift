@@ -45,11 +45,14 @@ import Testing
           renders(
             flow.modelContainer(container).environment(\.colorScheme, scheme), width: 420,
             height: 640))
-        let recipePage = StirRecipeSheet(recipe: recipe, scale: .servings(6), today: today) { _ in }
-        #expect(
-          renders(
-            recipePage.modelContainer(container).environment(\.colorScheme, scheme), width: 420,
-            height: 360))
+        // A batch spread over several days, and a recipe of one serving.
+        for scale in [Scale.servings(6), .servings(1)] {
+          let recipePage = StirRecipeSheet(recipe: recipe, scale: scale, today: today) { _ in }
+          #expect(
+            renders(
+              recipePage.modelContainer(container).environment(\.colorScheme, scheme), width: 420,
+              height: 900))
+        }
       }
     }
 

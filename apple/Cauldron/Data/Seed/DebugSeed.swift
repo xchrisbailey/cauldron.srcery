@@ -96,7 +96,7 @@
 
     // MARK: Plan
 
-    /// Recipe (an index into `recipes`), day of the week from Monday, slot and servings.
+    /// Recipe (an index into `recipes`), day of the week from its first day, slot and servings.
     private static let week: [(recipe: Int, day: Int, slot: MealSlot, servings: Int)] = [
       (1, 0, .dinner, 4),
       (3, 1, .lunch, 4),
@@ -108,11 +108,13 @@
     private static func insertPlan(
       for today: LocalDate, recipes: [RecipeRecord], into context: ModelContext
     ) {
-      let monday = today.startOfWeek(startingOn: .monday)
+      // The store is empty, so it has no preference: the week starts on the standard day, as the
+      // Week section will show it.
+      let first = today.startOfWeek(startingOn: .standard)
       for entry in week {
         let recipe = recipes[entry.recipe]
         let planned = PlanEntryRecord(
-          day: monday.adding(days: entry.day), slot: entry.slot, title: recipe.title,
+          day: first.adding(days: entry.day), slot: entry.slot, title: recipe.title,
           servings: entry.servings)
         context.insert(planned)
         planned.recipe = recipe

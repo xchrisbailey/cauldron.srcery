@@ -39,6 +39,12 @@ extension Copy {
     public let moveHint = plain("Drag a meal to move it to another day.")
     public let weekStarts = plain("Week starts on")
     public let monday = plain("Monday")
+    // The other five days exist for the week-start picker; the reference only names these two.
+    public let tuesday = plain("Tuesday")
+    public let wednesday = plain("Wednesday")
+    public let thursday = plain("Thursday")
+    public let friday = plain("Friday")
+    public let saturday = plain("Saturday")
     public let sunday = plain("Sunday")
     public let couldntSave = plain(
       "Couldn't save that change. Check your connection and try again.")
@@ -54,6 +60,19 @@ extension Copy {
     public let spread = Spread()
 
     public init() {}
+
+    /// A day of the week by name, for choosing the day a week starts on.
+    public func dayName(_ day: WeekStartDay) -> CopyString {
+      switch day {
+      case .sunday: sunday
+      case .monday: monday
+      case .tuesday: tuesday
+      case .wednesday: wednesday
+      case .thursday: thursday
+      case .friday: friday
+      case .saturday: saturday
+      }
+    }
 
     public func clearConfirm(_ range: String) -> CopyString {
       plain("Clear every meal planned for \(range)? This can't be undone.")

@@ -1,9 +1,9 @@
 import CauldronKit
 import SwiftUI
 
-/// Settings: appearance, the iCloud status, and one section for each feature that adds its own
-/// (export, HealthKit, AI quota). Those three are views of their own in `Sections/`, so
-/// replacing one doesn't touch this file.
+/// Settings: appearance, the first day of the week, the iCloud status, and one section for each
+/// feature that adds its own (export, HealthKit, AI quota). Those are views of their own in
+/// `Sections/`, so replacing one doesn't touch this file.
 struct SettingsView: View {
   @AppStorage(AppearanceChoice.storageKey) private var appearance = AppearanceChoice.system
   @Environment(SyncStatusModel.self) private var sync
@@ -27,6 +27,8 @@ struct SettingsView: View {
         } footer: {
           Text(verbatim: Copy.settings.appearance.hint.text)
         }
+
+        WeekStartSection()
 
         Section {
           SyncStatusRow(status: sync.status)

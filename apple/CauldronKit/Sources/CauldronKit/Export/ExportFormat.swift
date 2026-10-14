@@ -658,7 +658,8 @@ public struct ExportedTargetOverrides: Sendable, Hashable, Codable {
 
 public struct ExportedPreferences: Sendable, Hashable, Codable {
   public var id: UUID
-  /// 0 for Sunday, 1 for Monday.
+  /// The day a week starts on, numbered as `Weekday` is: 0 for Sunday, 1 for Monday, up to 6
+  /// for Saturday.
   public var weekStartsOn: Int
   /// `asWritten`, `metric` or `us`.
   public var unitSystem: String

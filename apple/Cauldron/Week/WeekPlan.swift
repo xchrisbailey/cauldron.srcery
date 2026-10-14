@@ -165,6 +165,17 @@ enum WeekPlan {
     }
   }
 
+  /// Stirs a recipe in as a spread chosen on a stir sheet, and returns what to tell the cook. It
+  /// is saved with the rules of `stir(_:days:slot:into:)`; a refusal leaves nothing written.
+  static func stir(
+    _ recipe: RecipeRecord, spread plan: SpreadPlan, into context: ModelContext
+  ) throws -> String {
+    try commit(in: context) {
+      try stir(recipe, days: plan.entries, slot: plan.slot, into: context)
+    }
+    return Copy.week.spread.stirred(plan.picked.count).text
+  }
+
   /// Stirs a recipe into one meal. Nil `servings` follows the recipe's own.
   @discardableResult
   static func stir(
@@ -368,6 +379,19 @@ enum WeekPlan {
       (1...WeekLimits.servings).contains(wanted)
     else { return nil }
     return wanted
+  }
+
+  /// The servings a batch makes at the scale the cook chose: what they scaled to, or the recipe's
+  /// own times the multiplier. Nil when neither is known, or a scale is out of bounds.
+  static func batchServings(for scale: Scale, recipeServings: Int?) -> Int? {
+    let own = recipeServings.flatMap { (1...WeekLimits.servings).contains($0) ? $0 : nil }
+    switch scale {
+    case .servings(let wanted):
+      return (1...WeekLimits.servings).contains(wanted) ? wanted : own
+    case .multiplier(let multiplier):
+      guard let own, multiplier.isFinite, multiplier > 0 else { return own }
+      return min(max(1, Int((Double(own) * multiplier).rounded())), WeekLimits.servings)
+    }
   }
 
   // MARK: Saving

@@ -48,7 +48,7 @@ Reads apply it. `ModelContext.current(_:)` and `weighIn(on:)` return the winner,
 
 ## Gather weeks
 
-- A Gather list belongs to a week start, as in the web app. Changing the first day of the week re-keys the list: the week's hand-added items and ticks stay stored under the old week start and are no longer shown.
+- A Gather list belongs to a week start, as in the web app. The first day of the week can be any day (`PreferencesRecord.weekStartsOnRaw`, numbered as `Weekday`: 0 for Sunday to 6 for Saturday; an unknown value reads as Monday). Changing it, from Settings or the Week page, re-keys the list: the week's hand-added items and ticks stay stored under the old week start and are no longer shown.
 - **Known limit:** a device that rebuilds a week against a plan it has only half received (Gather rows before the plan entries, or the reverse) can delete lines or untick them, because the rebuild believes the week no longer needs them. This needs a design decision once sync is on (#162).
 
 ## Where the store lives

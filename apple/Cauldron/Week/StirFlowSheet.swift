@@ -122,7 +122,6 @@ struct StirFlowSheet: View {
 /// Choosing the days a recipe's servings feed, and how many go to each.
 private struct SpreadView: View {
   let recipe: RecipeRecord
-  let target: MealTarget
   let today: LocalDate
   let onFinish: (String) -> Void
 
@@ -135,7 +134,6 @@ private struct SpreadView: View {
     onFinish: @escaping (String) -> Void
   ) {
     self.recipe = recipe
-    self.target = target
     self.today = today
     self.onFinish = onFinish
     _plan = State(
@@ -146,9 +144,6 @@ private struct SpreadView: View {
   var body: some View {
     List {
       Section {
-        Text(verbatim: Copy.week.spread.hint.text)
-          .brandText(.body)
-          .foregroundStyle(Brand.Colors.subtext)
         Picker(selection: $plan.slot) {
           ForEach(MealSlot.allCases, id: \.self) { slot in
             Text(verbatim: Copy.week.slots[slot].text).tag(slot)
@@ -157,38 +152,7 @@ private struct SpreadView: View {
           Text(verbatim: Copy.week.slot.text)
         }
       }
-      Section {
-        HStack {
-          Button {
-            plan.spreadOneADay()
-          } label: {
-            Text(verbatim: Copy.week.spread.oneADay.text)
-          }
-          Button {
-            plan.putAllOnAnchor()
-          } label: {
-            Text(verbatim: Copy.week.spread.allOn(WeekDates.label(plan.anchor, long: false)).text)
-          }
-        }
-        .buttonStyle(.borderless)
-        ForEach(plan.days, id: \.self) { day in dayRow(day) }
-      } header: {
-        Text(verbatim: Copy.week.spread.days.text)
-      }
-      Section {
-        Text(verbatim: plan.summary)
-          .brandText(.quantity)
-          .foregroundStyle(plan.isOver ? Brand.Colors.heat : Brand.Colors.subtext)
-        if let problem {
-          Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
-        }
-        Button(action: stir) {
-          Text(verbatim: Copy.week.spread.stir(plan.picked.count).text)
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(RecipeActionButtonStyle(.primary))
-        .disabled(!plan.canStir)
-      }
+      SpreadSections(plan: $plan, today: today, problem: problem, onStir: stir)
     }
     .scrollContentBackground(.hidden)
     .background(Brand.Colors.base)
@@ -198,50 +162,9 @@ private struct SpreadView: View {
     #endif
   }
 
-  private func dayRow(_ day: LocalDate) -> some View {
-    let servings = plan.servings(on: day)
-    let label = WeekDates.label(day, long: true)
-    return HStack {
-      Button {
-        plan.toggle(day)
-      } label: {
-        HStack(spacing: 10) {
-          Image(systemName: servings == nil ? "circle" : "checkmark.circle.fill")
-            .foregroundStyle(servings == nil ? Brand.Colors.overlay1 : Brand.Colors.magic)
-          Text(verbatim: label)
-            .brandText(.body)
-            .foregroundStyle(day == today ? Brand.Colors.heat : Brand.Colors.ink)
-        }
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(.plain)
-      .accessibilityAddTraits(servings == nil ? [] : .isSelected)
-      Spacer(minLength: 8)
-      if let servings {
-        HStack(spacing: 4) {
-          WeekIconButton(
-            systemImage: "minus", label: Copy.week.spread.fewer(label).text
-          ) { plan.step(day, by: -1) }
-          Text(verbatim: Copy.week.spread.servingsOn(servings).text)
-            .brandText(.quantity)
-            .frame(minWidth: 72)
-            .accessibilityLabel(Text(verbatim: Copy.week.spread.servingsOn(servings).text))
-          WeekIconButton(
-            systemImage: "plus", label: Copy.week.spread.more(label).text
-          ) { plan.step(day, by: 1) }
-          .disabled(servings >= WeekLimits.servings)
-        }
-      }
-    }
-    .opacity(day < today ? 0.65 : 1)
-  }
-
   private func stir() {
     do {
-      try WeekPlan.commit(in: context) {
-        try WeekPlan.stir(recipe, days: plan.entries, slot: plan.slot, into: context)
-      }
-      onFinish(Copy.week.spread.stirred(plan.picked.count).text)
+      onFinish(try WeekPlan.stir(recipe, spread: plan, into: context))
     } catch {
       problem = WeekPlan.message(for: error).text
     }

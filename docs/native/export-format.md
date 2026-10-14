@@ -32,6 +32,7 @@ Conventions:
 - **Days** are `YYYY-MM-DD` in the cook's calendar, never a moment. **Moments** are ISO 8601 in UTC to the millisecond (`2026-10-11T09:30:00.000Z`); finer precision in the store is rounded.
 - **A nil field is left out**, and a list is always present, even empty. Read an absent field as unknown.
 - **Enums are plain strings** (`slot: "dinner"`, `unit: "fl_oz"`), so a value a later build adds doesn't make the file unreadable. The values are listed in the doc comments on the types.
+- **`preferences.weekStartsOn`** is the day a week starts on as a number: 0 for Sunday, 1 for Monday, up to 6 for Saturday (the numbering of `LocalDate.weekday`). Earlier exports only held 0 or 1, with the same meaning, so the format version did not change. A reader should treat a number outside 0 to 6 as Monday, as the app does.
 - **Quantities** are `{ "min": 2 }` or `{ "min": 1, "max": 2 }`. Ingredients keep everything the recipe holds: section, quantity, unit, item, note, optional, alt measure, the original line and the merge key. A line is never reduced to text.
 - **Keys are sorted and the output is indented**, so two exports of the same data are the same bytes.
 
