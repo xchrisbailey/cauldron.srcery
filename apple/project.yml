@@ -70,6 +70,17 @@ targets:
       - package: CauldronKit
       - target: CauldronWidgets
       - target: CauldronShare
+    # The URL scheme the macros widget's tap opens the app with. The rest of the Info.plist is
+    # still generated from the INFOPLIST_KEY_ settings below; Xcode merges the two. The file sits
+    # outside the synced folder, which would bundle it as a resource as well.
+    info:
+      path: Config/Cauldron-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: computer.srcery.cauldron
+            CFBundleURLSchemes: [cauldron]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
@@ -108,10 +119,16 @@ targets:
     sources:
       - CauldronWidgets
       - Shared
+      # The brand colours the macros widget draws with. As in the app, a synced folder alone
+      # gets no Resources phase, so the catalogue is named as a resource.
+      - path: Shared/Brand.xcassets
+        buildPhase: resources
     dependencies:
       - package: CauldronKit
+    # Outside the synced folders: the Resources phase the brand catalogue needs would bundle an
+    # Info.plist found in one as a resource as well.
     info:
-      path: CauldronWidgets/Info.plist
+      path: Config/CauldronWidgets-Info.plist
       properties:
         CFBundleDisplayName: Cauldron
         CFBundleShortVersionString: $(MARKETING_VERSION)

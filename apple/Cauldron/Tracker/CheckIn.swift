@@ -65,10 +65,12 @@ enum CheckInWrites {
   }
 
   /// Sets the targets to the proposal, on the same row the targets form uses. Hand-set targets
-  /// stay as they are when `keepOverrides`; otherwise every target is calculated again.
+  /// stay as they are when `keepOverrides`; otherwise every target is calculated again. The
+  /// macros widget is told of the new targets.
   @MainActor
   static func accept(
-    _ check: CheckIn, keepOverrides: Bool, today: LocalDate, in context: ModelContext
+    _ check: CheckIn, keepOverrides: Bool, today: LocalDate, in context: ModelContext,
+    publishing publisher: TodayMacrosPublisher = .shared
   ) throws {
     guard let row = try context.current(TargetsRecord.self) else { throw Failure.noTargets }
     row.calories = check.proposal.targets.calories
@@ -83,6 +85,7 @@ enum CheckInWrites {
     }
     row.checkedInOn = today
     try commit(context)
+    publisher.publish(from: context)
   }
 
   /// Leaves the targets alone and asks again next week.
