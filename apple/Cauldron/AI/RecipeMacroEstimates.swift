@@ -5,7 +5,7 @@ import SwiftData
 /// Divining a recipe's macros from its ingredients: when it can be asked for, asking, and what
 /// each screen shows meanwhile. Estimates for saved recipes go through `AIJobQueue`, so the
 /// button, an import and a late answer all take one path. They are never filled from the
-/// on-device model: `RecipeAIService.estimator` is Gemini alone.
+/// on-device model: `RecipeAIService.estimator` is the cloud provider alone.
 @MainActor
 enum RecipeMacroEstimates {
   /// What a recipe's page shows of the estimate.
@@ -15,7 +15,7 @@ enum RecipeMacroEstimates {
     case hidden
     /// Can be asked for now.
     case idle
-    /// Asked for and not answered yet (Gemini out of reach, or the answer on its way).
+    /// Asked for and not answered yet (the AI out of reach, or the answer on its way).
     case waiting
     /// The last try gave up after bad answers. Asking again starts a fresh one.
     case failed
@@ -38,7 +38,7 @@ enum RecipeMacroEstimates {
   // MARK: Saved recipes
 
   /// The button: queues an estimate and runs the queue straight away, so the same path serves
-  /// whether Gemini answers now or the estimate waits. The cook is looking at the button, so a
+  /// whether the AI answers now or the estimate waits. The cook is looking at the button, so a
   /// bad answer to this ask is shown as a failure at once instead of waiting for the queue's
   /// next attempts (which jobs queued by an import or a save still get).
   static func divine(
@@ -52,7 +52,7 @@ enum RecipeMacroEstimates {
   }
 
   /// A job left waiting after a bad answer (it has used an attempt and kept the error) is
-  /// marked failed, and the recipe stops showing as waiting. One left waiting because Gemini
+  /// marked failed, and the recipe stops showing as waiting. One left waiting because the AI
   /// is out of reach has used no attempt, and keeps waiting.
   private static func giveUpOnBadAnswer(for recipe: RecipeRecord, in context: ModelContext) {
     let bad = (recipe.aiJobs ?? []).filter {
@@ -97,7 +97,7 @@ enum RecipeMacroEstimates {
     return queued
   }
 
-  /// After the editor saved `recipe` from `draft`: queues the estimate Gemini couldn't give
+  /// After the editor saved `recipe` from `draft`: queues the estimate the AI couldn't give
   /// while the cook was editing, using the ingredients as saved. An imported recipe whose page
   /// gave no nutrition is queued the same way (the pipeline leaves the estimate to the app).
   /// Numbers typed or read from the page stand in for it. Returns whether one was queued, in
@@ -109,7 +109,7 @@ enum RecipeMacroEstimates {
     (draft.estimateOnSave || draft.imported != nil) && requestIfMissing(for: recipe, in: context)
   }
 
-  /// `requestIfMissing(for:in:)`, then runs the queue so the numbers appear as soon as Gemini
+  /// `requestIfMissing(for:in:)`, then runs the queue so the numbers appear as soon as the AI
   /// answers.
   @discardableResult
   static func requestIfMissing(
@@ -128,16 +128,16 @@ enum RecipeMacroEstimates {
     case filled(Macros)
     /// The draft has no ingredient lines.
     case needsIngredients
-    /// Gemini can't be reached. Save queues the estimate for the saved recipe.
+    /// The AI can't be reached. Save queues the estimate for the saved recipe.
     case queued
-    /// Gemini answered with nothing usable.
+    /// The AI answered with nothing usable.
     case failed
     /// Asked to stop before an answer came; nothing changes.
     case cancelled
   }
 
   /// Estimates from `input`, the draft's ingredients as currently typed rather than the saved
-  /// ones, straight through Gemini and not the queue. The caller puts the answer in its draft
+  /// ones, straight through the AI and not the queue. The caller puts the answer in its draft
   /// (`RecipeDraft.apply`). Nothing is written to the store, so closing the editor without
   /// saving leaves no job or pending flag behind.
   static func divine(_ input: MacroEstimateInput?, using ai: RecipeAIService) async -> DraftOutcome

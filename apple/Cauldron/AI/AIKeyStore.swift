@@ -1,8 +1,9 @@
+import CauldronKit
 import Foundation
 import Security
 import Synchronization
 
-/// Where the Gemini key is kept. The key is never compiled in, logged or exported.
+/// Where a provider's key is kept. The key is never compiled in, logged or exported.
 protocol AIKeyStore: Sendable {
   func key() -> String?
   /// Saves `key`, or removes the saved one when it is nil or blank.
@@ -16,14 +17,23 @@ struct AIKeyFailure: Error, Equatable {
 /// The keychain. The key is saved as synchronizable, so iCloud Keychain carries it to the
 /// cook's other devices. That needs the keychain entitlement, which arrives with signing
 /// (#162); a build without it keeps the key on this device instead.
+///
+/// Each provider has an item of its own. Gemini's is the one the app has always used
+/// (`computer.srcery.cauldron.gemini`), so a key saved before there were other providers is
+/// still found.
 struct KeychainKeyStore: AIKeyStore {
-  private static let service = "computer.srcery.cauldron.gemini"
-  private static let account = "api-key"
+  let provider: AIProvider
+
+  static func service(for provider: AIProvider) -> String {
+    "computer.srcery.cauldron.\(provider.rawValue)"
+  }
+
+  static let account = "api-key"
 
   private func query(synchronizable: Any) -> [CFString: Any] {
     [
       kSecClass: kSecClassGenericPassword,
-      kSecAttrService: Self.service,
+      kSecAttrService: Self.service(for: provider),
       kSecAttrAccount: Self.account,
       kSecAttrSynchronizable: synchronizable,
     ]

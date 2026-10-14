@@ -101,7 +101,7 @@ struct RecipeEditorSheet: View {
   }
 
   /// Estimates the macros from the ingredients as they are now, into the draft. Nothing is
-  /// stored until Save, so Cancel leaves nothing behind. If Gemini can't be reached, Save
+  /// stored until Save, so Cancel leaves nothing behind. If the AI can't be reached, Save
   /// queues the estimate for the saved recipe instead.
   private func divine() {
     guard let ai, !divining else { return }
@@ -127,7 +127,7 @@ struct RecipeEditorSheet: View {
     do {
       let saved = try RecipeSaver.save(draft, into: recipe, context: context)
       // An estimate that couldn't be had while editing is asked for now, with the saved
-      // ingredients; if Gemini is still out of reach it waits in the queue.
+      // ingredients; if the AI is still out of reach it waits in the queue.
       if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {
         let context = context
         Task { await AIQueueRunner.drain(in: context, using: ai.estimator) }

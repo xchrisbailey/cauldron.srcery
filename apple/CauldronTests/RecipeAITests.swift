@@ -96,7 +96,7 @@ func service(
   let transport = ScriptedTransport(replies)
   let ai = RecipeAIService(
     keys: keys,
-    gemini: GeminiRecipeAI(keys: keys, transport: transport) { "gemini-test" },
+    client: CloudRecipeAI(provider: .gemini, keys: keys, transport: transport) { "gemini-test" },
     onDevice: onDevice ? StubOnDevice() : nil)
   return (ai, transport, keys)
 }
@@ -135,11 +135,11 @@ struct GeminiClientTests {
   @Test func theModelCanBeChangedInSettings() throws {
     let defaults = try #require(UserDefaults(suiteName: "RecipeAITests.model"))
     defaults.removePersistentDomain(forName: "RecipeAITests.model")
-    #expect(RecipeAIService.chosenModel(defaults) == "gemini-3.5-flash-lite")
-    defaults.set("  gemini-3.5-pro ", forKey: RecipeAIService.modelDefaultsKey)
-    #expect(RecipeAIService.chosenModel(defaults) == "gemini-3.5-pro")
-    defaults.set("   ", forKey: RecipeAIService.modelDefaultsKey)
-    #expect(RecipeAIService.chosenModel(defaults) == "gemini-3.5-flash-lite")
+    #expect(RecipeAIService.chosenModel(for: .gemini, defaults) == "gemini-3.5-flash-lite")
+    defaults.set("  gemini-3.5-pro ", forKey: RecipeAIService.modelDefaultsKey(for: .gemini))
+    #expect(RecipeAIService.chosenModel(for: .gemini, defaults) == "gemini-3.5-pro")
+    defaults.set("   ", forKey: RecipeAIService.modelDefaultsKey(for: .gemini))
+    #expect(RecipeAIService.chosenModel(for: .gemini, defaults) == "gemini-3.5-flash-lite")
   }
 }
 
@@ -225,7 +225,8 @@ struct RecipeAIServiceTests {
   @Test func aKeychainThatRefusesIsReported() {
     let keys = MemoryKeyStore(nil, failsToSave: true)
     let ai = RecipeAIService(
-      keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: NoTransport()) { "m" },
+      keys: keys,
+      client: CloudRecipeAI(provider: .gemini, keys: keys, transport: NoTransport()) { "m" },
       onDevice: nil)
     #expect(!ai.saveKey("abc"))
     #expect(ai.keyNotSaved)
@@ -394,7 +395,7 @@ struct AIJobQueueTests {
     let entry = try describedEntry()
     let keys = MemoryKeyStore("test-key")
     let transport = HeldTransport(answering: answer(mealJSON))
-    let ai = GeminiRecipeAI(keys: keys, transport: transport) { "gemini-test" }
+    let ai = CloudRecipeAI(provider: .gemini, keys: keys, transport: transport) { "gemini-test" }
     let context = context
 
     let first = Task { @MainActor in await AIJobQueue.drain(in: context, using: ai) }
@@ -475,8 +476,8 @@ struct AISettingsTests {
     let statuses: [RecipeAIStatus] = [
       .ready, .missingKey, .invalidKey, .rateLimited, .invalidModel,
     ]
-    #expect(Set(statuses.map(\.message.text)).count == 5)
-    #expect(statuses.allSatisfy { $0.message.tone == .plain })
+    #expect(Set(statuses.map { $0.message(for: .gemini).text }).count == 5)
+    #expect(statuses.allSatisfy { $0.message(for: .gemini).tone == .plain })
     #expect(
       statuses.filter(\.needsAttention) == [.missingKey, .invalidKey, .rateLimited, .invalidModel])
     #expect(Copy.settings.ai.waiting(1).text == "1 estimate is waiting.")

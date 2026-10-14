@@ -43,7 +43,7 @@ struct RecipeDraft: Equatable {
   /// What the imported page published, the same way: Save marks those numbers as the page's
   /// for as long as the fields still hold them.
   var pageMacros: Macros?
-  /// Gemini couldn't be reached when the cook asked for an estimate, so Save queues one for
+  /// The AI couldn't be reached when the cook asked for an estimate, so Save queues one for
   /// the saved recipe (if the cook has typed no numbers by then).
   var estimateOnSave = false
   var sourceURL = "" {
@@ -303,7 +303,7 @@ struct ImportedFrom: Equatable {
   var siteName: String?
   /// When the page was fetched; nil for pasted text.
   var fetchedAt: Date?
-  /// The on-device model read it because Gemini couldn't be reached.
+  /// The on-device model read it because the AI couldn't be reached.
   var rough: Bool
 }
 

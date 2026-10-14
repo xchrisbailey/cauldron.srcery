@@ -15,7 +15,7 @@ A personal recipe box, weekly meal planner and macro tracker, by srcery. It is a
 - **Swift 6 language mode with strict concurrency**, on iOS 27 and macOS 27 only.
 - **UI**: SwiftUI with Observation (`@Observable`, no `ObservableObject`). Native structure in srcery style: a tab bar on iPhone, a sidebar on Mac, lists, sheets and swipe actions.
 - **Data**: SwiftData, read in views with `@Query`, synced through the iCloud private database `iCloud.computer.srcery.cauldron`. There are no accounts and no sharing.
-- **AI**: Gemini Flash, called straight from the device behind the `RecipeAI` service, with Chris's own key from the Keychain (decision 27; see `docs/native/ai.md`). Recipe parsing falls back to Apple's on-device model when Gemini can't be reached and is then marked rough. Macro estimates are queued until Gemini is back, and never guessed.
+- **AI**: Gemini, OpenAI or Claude, called straight from the device behind the `RecipeAI` service, with the user's own key from the Keychain (decision 27; see `docs/native/ai.md`). Recipe parsing falls back to Apple's on-device model when the chosen provider can't be reached and is then marked rough. Macro estimates are queued until it is back, and never guessed.
 - **Tests**: Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest.
 - **Lint and format**: Apple `swift-format`, configured in `apple/.swift-format`.
 - **CI/CD**: Xcode Cloud ships TestFlight builds on `v*` tags and does nothing else. Tests and lint run locally.

@@ -2,15 +2,14 @@ import CauldronKit
 import SwiftData
 import SwiftUI
 
-/// Settings' section for the AI: the Gemini key, the model, and a line that says how things
-/// stand. A missing or refused key and a spent quota show here as a line that stays, never
+/// Settings' section for the AI: which provider, its key and model, and a line that says how
+/// things stand. A missing or refused key and a spent quota show here as a line that stays, never
 /// as an alert.
 struct AIQuotaSection: View {
   @Environment(RecipeAIService.self) private var ai
   @Environment(\.modelContext) private var context
   @Query private var jobs: [AIJobRecord]
   @Query private var recipes: [RecipeRecord]
-  @AppStorage(RecipeAIService.modelDefaultsKey) private var model = ""
   @State private var draft = ""
 
   private var waiting: Int {
@@ -23,6 +22,22 @@ struct AIQuotaSection: View {
 
   var body: some View {
     Section {
+      Picker(
+        selection: Binding(
+          get: { ai.provider },
+          set: { provider in
+            // The key being typed belongs to the provider it was typed for.
+            draft = ""
+            AIQueueRunner.switchProvider(to: provider, in: context, ai: ai)
+          })
+      ) {
+        ForEach(AIProvider.allCases, id: \.self) { provider in
+          Text(verbatim: provider.displayName).tag(provider)
+        }
+      } label: {
+        Text(verbatim: Copy.settings.ai.providerLabel.text)
+      }
+      .listRowBackground(Brand.Colors.mantle)
       AIStatusLine(status: ai.status)
         .listRowBackground(Brand.Colors.mantle)
       if waiting > 0 {
@@ -51,7 +66,7 @@ struct AIQuotaSection: View {
           verbatim: ai.hasKey
             ? Copy.settings.ai.keySaved.text : Copy.settings.ai.keyPlaceholder.text)
       ) {
-        Text(verbatim: Copy.settings.ai.keyLabel.text)
+        Text(verbatim: Copy.settings.ai.keyLabel(ai.provider).text)
       }
       .autocorrectionDisabled()
       .listRowBackground(Brand.Colors.mantle)
@@ -79,36 +94,51 @@ struct AIQuotaSection: View {
         }
         .listRowBackground(Brand.Colors.mantle)
       }
-      TextField(
-        text: $model, prompt: Text(verbatim: Gemini.defaultModel)
-      ) {
-        Text(verbatim: Copy.settings.ai.modelLabel.text)
-      }
-      .autocorrectionDisabled()
-      #if os(iOS)
-        .textInputAutocapitalization(.never)
-      #endif
-      .listRowBackground(Brand.Colors.mantle)
+      AIModelField(provider: ai.provider)
+        .id(ai.provider)
+        .listRowBackground(Brand.Colors.mantle)
     } header: {
       Text(verbatim: Copy.settings.ai.title.text)
     } footer: {
       VStack(alignment: .leading, spacing: 4) {
-        Text(verbatim: Copy.settings.ai.modelHint(Gemini.defaultModel).text)
-        Text(verbatim: Copy.settings.ai.hint.text)
+        Text(verbatim: Copy.settings.ai.modelHint(ai.provider.defaultModel).text)
+        Text(verbatim: Copy.settings.ai.hint(ai.provider).text)
       }
     }
   }
 }
 
+/// The model field for one provider. Its key in `UserDefaults` is fixed when the view is made,
+/// so the section makes a new one when the provider changes.
+private struct AIModelField: View {
+  let provider: AIProvider
+  @AppStorage private var model: String
+
+  init(provider: AIProvider) {
+    self.provider = provider
+    _model = AppStorage(wrappedValue: "", RecipeAIService.modelDefaultsKey(for: provider))
+  }
+
+  var body: some View {
+    TextField(text: $model, prompt: Text(verbatim: provider.defaultModel)) {
+      Text(verbatim: Copy.settings.ai.modelLabel.text)
+    }
+    .autocorrectionDisabled()
+    #if os(iOS)
+      .textInputAutocapitalization(.never)
+    #endif
+  }
+}
+
 extension RecipeAIStatus {
-  /// What the status line says.
-  var message: CopyString {
+  /// What the status line says, naming `provider`.
+  func message(for provider: AIProvider) -> CopyString {
     switch self {
-    case .ready: Copy.settings.ai.ready
-    case .missingKey: Copy.settings.ai.missingKey
-    case .invalidKey: Copy.settings.ai.invalidKey
-    case .rateLimited: Copy.settings.ai.rateLimited
-    case .invalidModel: Copy.settings.ai.invalidModel
+    case .ready: Copy.settings.ai.ready(provider)
+    case .missingKey: Copy.settings.ai.missingKey(provider)
+    case .invalidKey: Copy.settings.ai.invalidKey(provider)
+    case .rateLimited: Copy.settings.ai.rateLimited(provider)
+    case .invalidModel: Copy.settings.ai.invalidModel(provider)
     }
   }
 
@@ -117,11 +147,12 @@ extension RecipeAIStatus {
 
 /// How the AI stands, as one line. It sits in Settings and beside AI actions.
 struct AIStatusLine: View {
+  @Environment(RecipeAIService.self) private var ai
   let status: RecipeAIStatus
 
   var body: some View {
     Label {
-      Text(verbatim: status.message.text)
+      Text(verbatim: status.message(for: ai.provider).text)
         .brandText(.body)
     } icon: {
       Image(systemName: status.needsAttention ? "exclamationmark.circle" : "sparkles")

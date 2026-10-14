@@ -2,7 +2,7 @@ import CauldronKit
 import Foundation
 import SwiftData
 
-/// The estimates waiting for Gemini. A job waits for as long as Gemini can't be reached and
+/// The estimates waiting for the AI. A job waits for as long as the AI can't be reached and
 /// runs when it can; an estimate is never guessed. Only a bad answer uses up attempts.
 ///
 /// Jobs sync, so the same one can run on two devices. Everything a job writes is therefore
@@ -53,7 +53,7 @@ enum AIJobQueue {
       predicate: #Predicate { $0.statusRaw != failed }, sortBy: [SortDescriptor(\.createdAt)])
   }
 
-  /// Runs every waiting job, oldest first. It stops at the first one Gemini can't be reached
+  /// Runs every waiting job, oldest first. It stops at the first one the AI can't be reached
   /// for, since the rest would only fail the same way. Returns how many finished.
   ///
   /// Only one drain runs at a time. A call that arrives while one is running asks it to go

@@ -432,7 +432,9 @@ struct DescribeItTests {
     let keys = MemoryKeyStore("k")
     let transport = SlowTransport()
     let ai = RecipeAIService(
-      keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: transport) { "m" }, onDevice: nil)
+      keys: keys,
+      client: CloudRecipeAI(provider: .gemini, keys: keys, transport: transport) { "m" },
+      onDevice: nil)
     let model = model("eggs")
     let work = try #require(model.startDivining(using: ai, in: context))
     #expect(model.phase == .asking)
@@ -451,7 +453,9 @@ struct DescribeItTests {
     let keys = MemoryKeyStore("k")
     let transport = SlowTransport()
     let ai = RecipeAIService(
-      keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: transport) { "m" }, onDevice: nil)
+      keys: keys,
+      client: CloudRecipeAI(provider: .gemini, keys: keys, transport: transport) { "m" },
+      onDevice: nil)
     var model: DescribeModel? = model("eggs")
     let work = try #require(model?.startDivining(using: ai, in: context))
     while transport.requestCount == 0 { await Task.yield() }
@@ -468,7 +472,9 @@ struct DescribeItTests {
     let keys = MemoryKeyStore("k")
     let transport = SlowTransport()
     let ai = RecipeAIService(
-      keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: transport) { "m" }, onDevice: nil)
+      keys: keys,
+      client: CloudRecipeAI(provider: .gemini, keys: keys, transport: transport) { "m" },
+      onDevice: nil)
     let model = model("eggs")
     let first = try #require(model.startDivining(using: ai, in: context))
     #expect(model.startDivining(using: ai, in: context) == nil)
@@ -515,7 +521,8 @@ struct DescribeItViewsTests {
     let keys = MemoryKeyStore("k")
     let held = SlowTransport()
     let asking = RecipeAIService(
-      keys: keys, gemini: GeminiRecipeAI(keys: keys, transport: held) { "m" }, onDevice: nil)
+      keys: keys,
+      client: CloudRecipeAI(provider: .gemini, keys: keys, transport: held) { "m" }, onDevice: nil)
     let writing = DescribeModel(day: day, slot: .lunch)
 
     let typed = DescribeModel(day: day, slot: .lunch)
