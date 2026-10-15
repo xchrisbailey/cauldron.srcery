@@ -8,13 +8,19 @@ The pipeline is pure and lives in `apple/CauldronKit/Sources/CauldronKit/Imports
 
 Plain-http links rely on App Transport Security refusing them (`blocked("insecure")`). Nothing may add an ATS exception to the app without restoring a check in `AddressRules`, because ATS is the only thing stopping a cleartext request to the local network today.
 
+## The macros of an import
+
+As the web import did (`withMacros` in `distill.ts`), a recipe whose source published no nutrition has its macros estimated during the import. `Distilled.macroEstimate` is the ask (built by `MacroEstimateInput.limited`, so held to the web's limits); `ImportModel` makes it beside the cover photo, within `DistillOptions.macroTimeout` (30 s), through `RecipeMacroEstimates.divine`. The numbers go into the draft's macro fields, marked as an estimate (`estimatedMacros`, so Save records them as `.estimated`) and flagged for the cook to check and edit. Nutrition the page published always wins, and nothing is asked then.
+
+When the estimate can't be had (no key, a refused key, no credit, offline, too slow, or an answer with nothing usable) the fields stay empty and the draft is marked `estimateOnSave`: Save queues the estimate for the saved recipe, which runs when the provider can be reached (decision 10: queued, never guessed). Numbers the cook types, or clears, before saving stand in its place.
+
 ## The cover photo
 
 `CoverPhoto` fetches it through the same fetcher: at most 15 MB, `Accept: image/*`, and 20 seconds for the fetch and the decode together (a decode still running at the limit is left to finish and its result dropped). An image from a page may declare at most 24 megapixels, checked from its header before decoding, because a file under 100 KB can declare 100 megapixels; the picker path keeps its own 100 megapixel cap. A photo that fails for any reason is dropped silently and never fails the import.
 
 ## From a photo
 
-A third way into the same sheet (#172): photograph a cookbook page or recipe card. The pages are read on the device and the text goes down the paste path, so everything after it (the draft in the editor, unsure fields flagged, a rough reading warned about, macros queued on save) is the same as for pasted text, with the source recorded as pasted text and no link.
+A third way into the same sheet (#172): photograph a cookbook page or recipe card. The pages are read on the device and the text goes down the paste path, so everything after it (the draft in the editor, unsure fields flagged, a rough reading warned about, the macro estimate) is the same as for pasted text, with the source recorded as pasted text and no link.
 
 - **Getting pages in.** iPhone and iPad: VisionKit's document scanner (several pages in one go, each straightened) or the photo library. Mac: the photo library, image files from the open panel, or files dropped on the sheet. There is no scanner on the Mac. At most ten pages; a picture over the photo picker's 100 megapixel cap (checked from its header) or 15 MB is refused with the same words the picker uses. The scanner closing without saving is a cancel. A device with no scanner, or a refused camera, says so in plain words and leaves the library and pasting open. Pages stay in memory: nothing is written to disk and no image leaves the device.
 - **Reading.** `VisionTextReader` (behind `RecipeTextReader`) uses the Swift Vision API, `RecognizeTextRequest`, at the accurate level with language correction and automatic language detection, on a picture shrunk to 4096 px on its long side so a 48 megapixel photo doesn't fill memory. It runs off the main actor, one page at a time (the wait says "Page 1 of 2"), and honours Stop.

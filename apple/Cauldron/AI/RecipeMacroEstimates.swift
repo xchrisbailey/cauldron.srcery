@@ -98,15 +98,15 @@ enum RecipeMacroEstimates {
   }
 
   /// After the editor saved `recipe` from `draft`: queues the estimate the AI couldn't give
-  /// while the cook was editing, using the ingredients as saved. An imported recipe whose page
-  /// gave no nutrition is queued the same way (the pipeline leaves the estimate to the app).
-  /// Numbers typed or read from the page stand in for it. Returns whether one was queued, in
-  /// which case the caller runs the queue.
+  /// while the cook was editing or importing (out of reach, or too slow), using the ingredients
+  /// as saved. A draft that holds an estimate, or numbers the page published or the cook typed,
+  /// has nothing waiting. Returns whether one was queued, in which case the caller runs the
+  /// queue.
   @discardableResult
   static func queueAfterSave(
     of draft: RecipeDraft, saved recipe: RecipeRecord, in context: ModelContext
   ) -> Bool {
-    (draft.estimateOnSave || draft.imported != nil) && requestIfMissing(for: recipe, in: context)
+    draft.estimateOnSave && requestIfMissing(for: recipe, in: context)
   }
 
   /// `requestIfMissing(for:in:)`, then runs the queue so the numbers appear as soon as the AI
@@ -142,9 +142,18 @@ enum RecipeMacroEstimates {
   /// saving leaves no job or pending flag behind.
   static func divine(_ input: MacroEstimateInput?, using ai: RecipeAIService) async -> DraftOutcome
   {
+    await divine(input, using: ai.estimator)
+  }
+
+  /// `divine(_:using:)` for any estimator. With a `limit`, an answer that hasn't come by then
+  /// counts as the AI being out of reach: the estimate is left for after Save, as for an import
+  /// (`MACRO_TIMEOUT` in the reference).
+  static func divine(
+    _ input: MacroEstimateInput?, using estimator: any RecipeAI, within limit: Duration? = nil
+  ) async -> DraftOutcome {
     guard let input else { return .needsIngredients }
     do {
-      let macros = try await ai.estimator.estimateMacros(input)
+      let macros = try await ask(estimator, input, within: limit)
       // The lines weren't food: the draft stays as it was.
       return macros == .none ? .failed : .filled(macros)
     } catch {
@@ -154,6 +163,36 @@ enum RecipeMacroEstimates {
       case .retry, .fail: return .failed
       }
     }
+  }
+}
+
+extension RecipeMacroEstimates {
+  /// One estimate, given up on as unreachable if it takes longer than `limit`.
+  fileprivate static func ask(
+    _ estimator: any RecipeAI, _ input: MacroEstimateInput, within limit: Duration?
+  ) async throws(RecipeAIError) -> Macros {
+    guard let limit else { return try await estimator.estimateMacros(input) }
+    let result = await withTaskGroup(of: Result<Macros, RecipeAIError>.self) { group in
+      group.addTask {
+        do throws(RecipeAIError) {
+          return .success(try await estimator.estimateMacros(input))
+        } catch {
+          return .failure(error)
+        }
+      }
+      group.addTask {
+        do {
+          try await Task.sleep(for: limit)
+          return .failure(.unreachable)
+        } catch {
+          return .failure(.cancelled)
+        }
+      }
+      let first = await group.next()
+      group.cancelAll()
+      return first ?? .failure(.cancelled)
+    }
+    return try result.get()
   }
 }
 

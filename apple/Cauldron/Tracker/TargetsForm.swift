@@ -53,12 +53,12 @@ struct TargetsForm: Equatable {
   /// True when a body profile was already saved.
   private(set) var hasProfile = false
 
-  /// A blank form, with the units a cook in this region expects.
-  init(today: LocalDate, measurement: Locale.MeasurementSystem = Locale.current.measurementSystem) {
+  /// A blank form, in metric (cm and kg) whatever the region, as the web's is. A cook who
+  /// chooses pounds or feet and inches keeps them: the saved profile wins when the form opens.
+  init(today: LocalDate) {
     self.today = today
-    let imperial = measurement == .us
-    weightUnit = imperial ? .lb : .kg
-    heightUnit = imperial ? .ftin : .cm
+    weightUnit = .kg
+    heightUnit = .cm
   }
 
   /// Today in the cook's own calendar.
@@ -75,11 +75,8 @@ struct TargetsForm: Equatable {
   }
 
   /// The form as saved: the body profile and targets (if any) and the latest weigh-in.
-  static func load(
-    from context: ModelContext, today: LocalDate,
-    measurement: Locale.MeasurementSystem = Locale.current.measurementSystem
-  ) throws -> TargetsForm {
-    var form = TargetsForm(today: today, measurement: measurement)
+  static func load(from context: ModelContext, today: LocalDate) throws -> TargetsForm {
+    var form = TargetsForm(today: today)
     let from = today.adding(days: -weighInWindowDays).description
     let to = today.description
     let recent = try context.fetch(

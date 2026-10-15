@@ -46,6 +46,8 @@
         item(.goGather)
         item(.goTracker)
         Divider()
+        item(.summonRecipe)
+        Divider()
         item(.goToToday)
         item(.previous)
         item(.next)

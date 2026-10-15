@@ -106,13 +106,17 @@ public struct DistillOptions: Sendable, Hashable {
   public var retryDelay: Duration
   /// Recipe pages are rarely over 1 MB; some carry a lot of inline script.
   public var maxPageBytes: Int
+  /// How long the app waits for the macro estimate asked for during an import (`MACRO_TIMEOUT`
+  /// in the reference). One that isn't back by then is left for after the recipe is saved.
+  public var macroTimeout: Duration
 
   public init(
     timeout: Duration = .seconds(120), retryDelay: Duration = .milliseconds(400),
-    maxPageBytes: Int = 5 * 1024 * 1024
+    maxPageBytes: Int = 5 * 1024 * 1024, macroTimeout: Duration = .seconds(30)
   ) {
     self.timeout = timeout
     self.retryDelay = retryDelay
     self.maxPageBytes = maxPageBytes
+    self.macroTimeout = macroTimeout
   }
 }

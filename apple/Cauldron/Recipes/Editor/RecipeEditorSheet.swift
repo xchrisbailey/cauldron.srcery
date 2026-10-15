@@ -18,6 +18,8 @@ struct RecipeEditorSheet: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
+  @Environment(\.draftKeeper) private var draftKeeper
+  @Environment(\.scenePhase) private var scenePhase
   /// Tells the shared-import queue this editor is open, so nothing shared replaces it.
   @State private var openToken = UUID()
   @State private var draft: RecipeDraft
@@ -27,6 +29,17 @@ struct RecipeEditorSheet: View {
   @State private var couldntSave = false
   @State private var saveLatch = SaveLatch()
   @State private var confirmingLeave = false
+  @State private var confirmingStartOver = false
+  /// The fields the cook has been to and left: a problem with one shows at once, the rest only
+  /// once Save has been tried.
+  @State private var touched: Set<RecipeDraft.Field> = []
+  @FocusState private var focus: RecipeDraft.Field?
+  /// A new recipe's draft is kept on this device as it changes; this is how that stands.
+  @State private var keptStatus = DraftKeepStatus.idle
+  /// The draft was restored (or there was none), so what is kept may be changed.
+  @State private var restored = false
+  /// The recipe is saved, so nothing more is kept.
+  @State private var finished = false
   @State private var divining = false
   @State private var divineMessage: CopyString?
 
@@ -45,14 +58,32 @@ struct RecipeEditorSheet: View {
     _draft = State(initialValue: start)
   }
 
-  private var isDirty: Bool { draft != initial }
+  /// Only a new recipe typed from scratch is kept as a draft: an edit is saved or left, and an
+  /// import is the sheet's own until it is saved.
+  private var keepsDraft: Bool { recipe == nil && importing == nil }
+
+  /// Leaving would lose something: an edit or an import not yet saved, or a new recipe that
+  /// couldn't be kept.
+  private var isDirty: Bool { keepsDraft ? keptStatus == .failed : draft != initial }
+
+  private var keep: DraftKeep { DraftKeep(keeper: draftKeeper ?? DraftKeepers.shared) }
+
+  /// The problems to show: all of them once Save has been tried, before that those of fields
+  /// the cook has been to and left (`errorFor` in the web editor).
+  private var shownErrors: RecipeDraft.Errors? {
+    triedToSave ? draft.validate() : draft.validate().showing(touched)
+  }
 
   var body: some View {
     NavigationStack {
       RecipeEditorForm(
-        draft: $draft, recipe: recipe, errors: triedToSave ? draft.validate() : nil,
+        draft: $draft, recipe: recipe, errors: shownErrors, showsSummary: triedToSave,
         couldntSave: couldntSave, divining: divining, divineMessage: divineMessage,
-        onDivine: divine, duplicate: importing?.duplicate,
+        onDivine: divine, focus: $focus,
+        keptNote: keepsDraft && keptStatus == .kept ? Copy.editor.draftKept : nil,
+        onStartOver: keepsDraft && (keptStatus == .kept || !draft.hasNothingToKeep)
+          ? { confirmingStartOver = true } : nil,
+        duplicate: importing?.duplicate,
         onOpenDuplicate: {
           if let id = importing?.duplicate?.id { onOpenDuplicate(id) }
         }
@@ -68,6 +99,8 @@ struct RecipeEditorSheet: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button {
+            // A kept draft is on this device already; one that couldn't be kept asks first.
+            if keepsDraft { keepDraft() }
             if isDirty { confirmingLeave = true } else { dismiss() }
           } label: {
             Text(verbatim: Copy.recipeView.cancel.text)
@@ -82,8 +115,28 @@ struct RecipeEditorSheet: View {
       }
     }
     .interactiveDismissDisabled(isDirty)
-    .onAppear { sharing?.editorOpened(openToken) }
-    .onDisappear { sharing?.editorClosed(openToken) }
+    .onAppear {
+      sharing?.editorOpened(openToken)
+      restoreKeptDraft()
+    }
+    .onDisappear {
+      sharing?.editorClosed(openToken)
+      keepDraft()
+    }
+    // Kept a moment after the cook stops changing something, and as soon as the app leaves the
+    // screen or the editor closes, so the last change isn't lost (`wait: 800` in the web editor).
+    .task(id: draft) {
+      guard keepsDraft, restored, !finished else { return }
+      try? await Task.sleep(for: .milliseconds(800))
+      guard !Task.isCancelled else { return }
+      keepDraft()
+    }
+    .onChange(of: scenePhase) { _, phase in
+      if phase != .active { keepDraft() }
+    }
+    .onChange(of: focus) { old, _ in
+      if let old { touched.insert(old) }
+    }
     .confirmationDialog(
       Text(verbatim: Copy.editor.leaveTitle.text), isPresented: $confirmingLeave,
       titleVisibility: .visible
@@ -100,9 +153,50 @@ struct RecipeEditorSheet: View {
     } message: {
       Text(verbatim: Copy.editor.leaveBody.text)
     }
+    .confirmationDialog(
+      Text(verbatim: Copy.editor.startOver.text), isPresented: $confirmingStartOver,
+      titleVisibility: .visible
+    ) {
+      Button(role: .destructive) {
+        startOver()
+      } label: {
+        Text(verbatim: Copy.editor.startOver.text)
+      }
+      Button(role: .cancel) {
+      } label: {
+        Text(verbatim: Copy.editor.stay.text)
+      }
+    } message: {
+      Text(verbatim: Copy.editor.startOverConfirm.text)
+    }
     #if os(macOS)
       .frame(minWidth: 560, idealWidth: 640, minHeight: 640, idealHeight: 760)
     #endif
+  }
+
+  /// A new recipe opens on the draft kept last time, if there is one.
+  private func restoreKeptDraft() {
+    guard keepsDraft, !restored else { return }
+    restored = true
+    if let kept = keep.restored() {
+      draft = kept
+      keptStatus = .kept
+    }
+  }
+
+  /// Writes the draft down now, or clears it when it is empty again.
+  private func keepDraft() {
+    guard keepsDraft, restored, !finished else { return }
+    keptStatus = keep.keep(draft)
+  }
+
+  /// Drops the kept draft and the form with it.
+  private func startOver() {
+    keep.clear()
+    keptStatus = .idle
+    touched = []
+    triedToSave = false
+    draft = RecipeDraft()
   }
 
   /// Estimates the macros from the ingredients as they are now, into the draft. Nothing is
@@ -131,6 +225,11 @@ struct RecipeEditorSheet: View {
     couldntSave = false
     do {
       let saved = try RecipeSaver.save(draft, into: recipe, context: context)
+      // Saved, so the draft is not needed, and the editor's last write must not bring it back.
+      if keepsDraft {
+        finished = true
+        keep.clear()
+      }
       // An estimate that couldn't be had while editing is asked for now, with the saved
       // ingredients; if the AI is still out of reach it waits in the queue.
       if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {

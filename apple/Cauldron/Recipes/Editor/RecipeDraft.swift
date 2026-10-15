@@ -43,8 +43,9 @@ struct RecipeDraft: Equatable {
   /// What the imported page published, the same way: Save marks those numbers as the page's
   /// for as long as the fields still hold them.
   var pageMacros: Macros?
-  /// The AI couldn't be reached when the cook asked for an estimate, so Save queues one for
-  /// the saved recipe (if the cook has typed no numbers by then).
+  /// The AI couldn't be reached (or was too slow) when an estimate was wanted, whether the
+  /// cook asked or an import did, so Save queues one for the saved recipe (if there are no
+  /// numbers by then).
   var estimateOnSave = false
   var sourceURL = "" {
     didSet { if sourceURL != oldValue { review.remove(.sourceUrl) } }
@@ -117,6 +118,8 @@ struct RecipeDraft: Equatable {
     // Read back from the fields, so what Save compares is what the cook sees.
     estimatedMacros = typedMacros
     estimateOnSave = false
+    // An estimate is for the cook to check (`divine` in the web editor flags it the same way).
+    review.insert(.macros)
   }
 
   /// Puts the numbers an imported page published into the macro fields.
@@ -134,14 +137,12 @@ struct RecipeDraft: Equatable {
     ingredients.filter { !$0.isHeading && !$0.isBlank }.map { trimmed($0.text) }
   }
 
-  /// The ask for an estimate, or nil when there is no ingredient to estimate from.
+  /// The ask for an estimate, or nil when there is no ingredient to estimate from. Held to the
+  /// limits the web editor holds it to (`MacroEstimateInput.limited`).
   var estimateInput: MacroEstimateInput? {
-    let lines = ingredientLines
-    guard !lines.isEmpty else { return nil }
-    let title = trimmed(title)
-    return MacroEstimateInput(
-      title: title.isEmpty ? nil : title,
-      servings: Self.whole(servings, in: 1...RecipeLimits.servings).number, ingredients: lines)
+    MacroEstimateInput.limited(
+      title: title, servings: Self.whole(servings, in: 1...RecipeLimits.servings).number,
+      lines: ingredientLines)
   }
 
   private static func text(_ number: Int?) -> String { number.map(String.init) ?? "" }
@@ -203,6 +204,49 @@ struct RecipeDraft: Equatable {
     if ingredients.isEmpty { ingredients = [.line("")] }
   }
 
+  // MARK: Fixing a reading
+
+  /// Changes how a line was read, by hand (`onCorrect` in `IngredientRows.tsx`).
+  mutating func correctIngredient(_ id: UUID, _ change: (inout ParsedIngredient) -> Void) {
+    guard let index = ingredients.firstIndex(where: { $0.id == id }) else { return }
+    ingredients[index].correct(change)
+  }
+
+  /// Sets a line's amount from what the cook typed ("1 1/2", "2-3", blank for none). Returns
+  /// false and changes nothing when the text isn't an amount, for the field to say so.
+  @discardableResult
+  mutating func setIngredientQuantity(_ id: UUID, from text: String) -> Bool {
+    switch readQuantityEntry(text) {
+    case .invalid: return false
+    case .blank: correctIngredient(id) { $0.quantity = nil }
+    case .value(let quantity): correctIngredient(id) { $0.quantity = quantity }
+    }
+    return true
+  }
+
+  mutating func setIngredientUnit(_ id: UUID, _ unit: UnitCode?) {
+    correctIngredient(id) { $0.unit = unit }
+  }
+
+  mutating func setIngredientItem(_ id: UUID, _ item: String) {
+    correctIngredient(id) { $0.item = item }
+  }
+
+  /// A blank note is no note.
+  mutating func setIngredientNote(_ id: UUID, _ note: String) {
+    correctIngredient(id) { $0.note = note.isEmpty ? nil : note }
+  }
+
+  mutating func setIngredientOptional(_ id: UUID, _ optional: Bool) {
+    correctIngredient(id) { $0.optional = optional }
+  }
+
+  /// Reads a line from its text again, undoing fixes made by hand.
+  mutating func resetIngredient(_ id: UUID) {
+    guard let index = ingredients.firstIndex(where: { $0.id == id }) else { return }
+    ingredients[index].resetReading()
+  }
+
   private static func ingredientPaste(_ pasted: String) -> [String] {
     pasted.split(whereSeparator: \.isNewline)
       .map { line in
@@ -255,6 +299,22 @@ struct RecipeDraft: Equatable {
     guard let index = steps.firstIndex(where: { $0.id == id }) else { return }
     steps[index].timerSeconds = nil
     steps[index].timerSet = true
+  }
+
+  /// Sets a step's timer from minutes typed into its field (`Timer` in `StepRows.tsx`): blank
+  /// or zero removes it, a number sets it (held to the limit), and anything else leaves it. Once
+  /// set by hand the timer no longer follows the step's text.
+  mutating func setTimer(_ id: UUID, minutes text: String) {
+    guard let index = steps.firstIndex(where: { $0.id == id }) else { return }
+    switch readStepTimerEntry(minutes: text) {
+    case .clear:
+      clearTimer(id)
+    case .set(let seconds):
+      steps[index].timerSeconds = seconds
+      steps[index].timerSet = true
+    case .unchanged:
+      break
+    }
   }
 
   private static func stepPaste(_ pasted: String) -> [String] {
@@ -326,6 +386,9 @@ struct IngredientRowDraft: Equatable, Identifiable {
   private(set) var parsed: ParsedIngredient?
   /// The importer wasn't sure it read this line right. Editing the line clears it.
   private(set) var flagged = false
+  /// The cook changed the reading by hand, or the stored one differs from what the parser
+  /// makes of the text. Retyping the line reads it again and clears this.
+  private(set) var corrected = false
 
   static func line(_ text: String) -> IngredientRowDraft {
     IngredientRowDraft(
@@ -348,37 +411,72 @@ struct IngredientRowDraft: Equatable, Identifiable {
     readHeading(text).map { .heading($0) } ?? .line(text)
   }
 
+  /// A row kept in an unfinished draft, as it was.
+  static func restored(heading: Bool, text: String, parsed: ParsedIngredient?, corrected: Bool)
+    -> IngredientRowDraft
+  {
+    var row = IngredientRowDraft(
+      isHeading: heading, text: text,
+      parsed: heading ? nil : parsed ?? (text.isEmpty ? nil : parseIngredientLine(text)))
+    row.corrected = !heading && corrected
+    return row
+  }
+
   static func stored(_ ingredient: Ingredient) -> IngredientRowDraft {
-    IngredientRowDraft(
-      isHeading: false, text: ingredient.original,
-      parsed: ParsedIngredient(
-        quantity: ingredient.quantity, unit: ingredient.unit, item: ingredient.item,
-        note: ingredient.note, optional: ingredient.optional, alt: ingredient.alt,
-        original: ingredient.original))
+    let stored = ParsedIngredient(
+      quantity: ingredient.quantity, unit: ingredient.unit, item: ingredient.item,
+      note: ingredient.note, optional: ingredient.optional, alt: ingredient.alt,
+      original: ingredient.original)
+    var row = IngredientRowDraft(isHeading: false, text: ingredient.original, parsed: stored)
+    row.corrected = !stored.sameReading(as: parseIngredientLine(ingredient.original))
+    return row
   }
 
   mutating func setText(_ newText: String) {
     if newText != text { flagged = false }
     text = newText
+    corrected = false
     if !isHeading { parsed = newText.isEmpty ? nil : parseIngredientLine(newText) }
+  }
+
+  /// Changes how the line was read, by hand. The text stays as typed; the reading is what is
+  /// saved (quantity, unit, item, note), so a fix made here is not undone by saving.
+  mutating func correct(_ change: (inout ParsedIngredient) -> Void) {
+    guard !isHeading, var reading = parsed else { return }
+    change(&reading)
+    parsed = reading
+    corrected = true
+    flagged = false
+  }
+
+  /// Reads the line from its text again, undoing hand fixes.
+  mutating func resetReading() {
+    guard !isHeading else { return }
+    parsed = isBlank ? nil : parseIngredientLine(text)
+    corrected = false
   }
 
   var isBlank: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-  /// The reading, as the editor shows it under the line.
+  /// The reading, as the editor shows it under the line: what was read, not converted, so the
+  /// cook sees what a fix would change.
   var reading: Reading? {
     guard let parsed else { return nil }
-    let measure = parsed.quantity.map { measureParts($0, unit: parsed.unit) }
     return Reading(
-      amount: measure?.amount, unit: measure?.unit, item: parsed.item, note: parsed.note,
-      optional: parsed.optional)
+      amount: parsed.quantity.map { formatQuantity($0, unit: parsed.unit) },
+      unit: parsed.unit?.editorLabel, item: parsed.item,
+      note: parsed.note, optional: parsed.optional,
+      alt: parsed.alt.map {
+        Reading.Alt(
+          amount: formatQuantity($0.quantity, unit: $0.unit), unit: $0.unit.editorLabel)
+      })
   }
 
   /// Whether the reading says more than the text does: an amount, a note, or an item that
   /// isn't just the line. A plain "salt" has nothing to add.
   var readingAddsToText: Bool {
     guard let reading else { return false }
-    return reading.amount != nil || reading.note != nil || reading.optional
+    return reading.amount != nil || reading.note != nil || reading.optional || reading.alt != nil
       || reading.item != text.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
@@ -388,6 +486,24 @@ struct IngredientRowDraft: Equatable, Identifiable {
     var item: String
     var note: String?
     var optional: Bool
+    /// The second measure of the same amount, like the "(190g)" in "1 1/2 cups (190g) flour".
+    var alt: Alt?
+
+    struct Alt: Equatable {
+      var amount: String
+      var unit: String
+    }
+
+    init(
+      amount: String?, unit: String?, item: String, note: String?, optional: Bool, alt: Alt? = nil
+    ) {
+      self.amount = amount
+      self.unit = unit
+      self.item = item
+      self.note = note
+      self.optional = optional
+      self.alt = alt
+    }
   }
 }
 
@@ -412,6 +528,13 @@ struct StepRowDraft: Equatable, Identifiable {
     return row
   }
 
+  /// A step kept in an unfinished draft, as it was.
+  static func restored(text: String, section: String?, timerSeconds: Int?, timerSet: Bool)
+    -> StepRowDraft
+  {
+    StepRowDraft(text: text, section: section, timerSeconds: timerSeconds, timerSet: timerSet)
+  }
+
   static func blank() -> StepRowDraft {
     StepRowDraft(text: "", section: nil, timerSeconds: nil, timerSet: false)
   }
@@ -429,4 +552,12 @@ struct StepRowDraft: Equatable, Identifiable {
   }
 
   var isBlank: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+}
+
+extension ParsedIngredient {
+  /// Whether two readings say the same thing. The original line is not part of it.
+  func sameReading(as other: ParsedIngredient) -> Bool {
+    quantity == other.quantity && unit == other.unit && item == other.item && note == other.note
+      && optional == other.optional && alt == other.alt
+  }
 }

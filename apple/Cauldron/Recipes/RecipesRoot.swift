@@ -10,6 +10,12 @@ struct RecipesRoot: View {
   private var recipes: [RecipeRecord]
   @State private var search = ""
   @State private var sort = RecipeSort.recent
+  /// The tag the library is narrowed to, by its name in lowercase.
+  @State private var tagFilter: String?
+  /// Whether the tag rename sheet is open (on the tag in `tagFilter`).
+  @State private var renamingTag = false
+  /// Whether ⌘K's search of the recipes is open.
+  @State private var summoning = false
   /// The recipe open beside the list.
   @State private var selection: UUID?
   /// The recipes open over the list, on iPhone.
@@ -54,6 +60,17 @@ struct RecipesRoot: View {
     .sheet(isPresented: $conjuring) {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
+    .sheet(isPresented: $summoning) {
+      RecipeSummonSheet(recipes: recipes) { recipe in
+        summoning = false
+        open(recipe)
+      }
+    }
+    .sheet(isPresented: $renamingTag) {
+      TagRenameSheet(
+        name: tagOptions.first { $0.key == tagFilter }?.name ?? tagFilter ?? "",
+        onRename: renameTag)
+    }
     .sheet(item: $distilling, onDismiss: { sharing?.importOpen = false }) { model in
       ImportSheet(
         model: model, waiting: sharing?.waiting ?? 0, onSaved: { open($0) },
@@ -67,7 +84,16 @@ struct RecipesRoot: View {
         \.libraryCommands,
         LibraryCommands(
           newRecipe: { conjuring = true }, find: { searchFocused = true },
-          importRecipe: startDistilling))
+          importRecipe: startDistilling, summon: { summoning = true }))
+    #else
+      // ⌘K on an iPad or iPhone with a keyboard, as the Mac's menu has it.
+      .background {
+        Button(Copy.recipes.summon.text) { summoning = true }
+        .keyboardShortcut("k", modifiers: .command)
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+      }
     #endif
     .overlay(alignment: .bottom) {
       if let notice {
@@ -172,6 +198,7 @@ struct RecipesRoot: View {
           Image(systemName: "square.and.arrow.down")
         }
       }
+      if !tagOptions.isEmpty || tagFilter != nil { tagMenu }
       Menu {
         Picker(selection: $sort) {
           ForEach(RecipeSort.allCases) { choice in
@@ -190,6 +217,39 @@ struct RecipesRoot: View {
     }
   }
 
+  private var tagOptions: [TagOption] {
+    RecipeLibrary.tagOptions(recipes, selected: tagFilter)
+  }
+
+  /// Narrows the library to one tag, with the number of recipes beside each; when one is
+  /// chosen it can be renamed from here.
+  private var tagMenu: some View {
+    Menu {
+      Picker(selection: $tagFilter) {
+        Text(verbatim: Copy.library.allTags.text).tag(String?.none)
+        ForEach(tagOptions) { option in
+          Text(verbatim: option.label).tag(Optional(option.key))
+        }
+      } label: {
+        Text(verbatim: Copy.library.tag.text)
+      }
+      if tagFilter != nil {
+        Divider()
+        Button {
+          renamingTag = true
+        } label: {
+          Text(verbatim: Copy.libraryNative.renameTag.text)
+        }
+      }
+    } label: {
+      Label {
+        Text(verbatim: Copy.library.tag.text)
+      } icon: {
+        Image(systemName: tagFilter == nil ? "tag" : "tag.fill")
+      }
+    }
+  }
+
   // MARK: Library
 
   /// Where a tapped card opens its recipe.
@@ -197,11 +257,11 @@ struct RecipesRoot: View {
 
   @ViewBuilder
   private func library(opening: Opening) -> some View {
-    let visible = RecipeLibrary.visible(recipes, matching: search, sort: sort)
+    let visible = RecipeLibrary.visible(recipes, matching: search, tag: tagFilter, sort: sort)
     if recipes.isEmpty {
       EmptyState(systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty)
     } else if visible.isEmpty {
-      EmptyState(systemImage: "magnifyingglass", message: Copy.library.noResults)
+      NoMatchesView(onClear: clearFilters)
     } else {
       list(visible, opening: opening)
     }
@@ -340,7 +400,7 @@ extension RecipesRoot {
   private func makeImportModel() -> ImportModel {
     let context = context
     return ImportModel(
-      fetcher: fetcher, extractor: ai?.extractor, reader: reader,
+      fetcher: fetcher, extractor: ai?.extractor, estimator: ai?.estimator, reader: reader,
       findDuplicate: { links in
         let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
         return DuplicateLinks.find(in: saved, links: links).map {
@@ -349,9 +409,28 @@ extension RecipesRoot {
       })
   }
 
-  /// Shows a recipe that was just made, whatever the search says.
+  /// Takes off the search and the tag.
+  private func clearFilters() {
+    search = ""
+    tagFilter = nil
+  }
+
+  /// Renames the tag the library is narrowed to, and follows it to its new name.
+  private func renameTag(to name: String) -> RecipeTagRename.Failure? {
+    guard let key = tagFilter else { return .missing }
+    switch RecipeTagRename.rename(key, to: name, in: context) {
+    case .success(let renamed):
+      tagFilter = renamed
+      return nil
+    case .failure(let failure):
+      return failure
+    }
+  }
+
+  /// Shows a recipe that was just made, or found, whatever the search and tag say.
   private func open(_ recipe: RecipeRecord) {
     search = ""
+    tagFilter = nil
     if sideBySide { selection = recipe.id } else { path = [recipe.id] }
   }
 

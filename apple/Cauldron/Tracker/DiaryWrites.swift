@@ -88,6 +88,48 @@ enum DiaryWrites {
     return added
   }
 
+  /// Copies the entries of `source` (all of them, or one meal's) onto the end of the same meals
+  /// on `target`, with the same numbers, source and recipe. An entry that waits for the model
+  /// copies as waiting. Copying a day onto itself is refused, and so is a copy that would pass
+  /// the day's limit, in which case nothing is copied. A day with nothing to copy copies nothing.
+  @discardableResult
+  static func copy(
+    from source: LocalDate, to target: LocalDate, slot: MealSlot? = nil, in context: ModelContext
+  ) throws -> [DiaryEntryRecord] {
+    guard source != target else { throw Failure.invalid }
+    let key = source.description
+    let originals = try context.fetch(
+      FetchDescriptor<DiaryEntryRecord>(predicate: #Predicate { $0.dayKey == key })
+    )
+    .filter { slot == nil || $0.slot == slot }
+    .sorted {
+      ($0.position, $0.createdAt, $0.id.uuidString) < ($1.position, $1.createdAt, $1.id.uuidString)
+    }
+    guard !originals.isEmpty else { return [] }
+    guard try count(on: target, in: context) + originals.count <= TrackerLimits.perDay else {
+      throw Failure.dayFull
+    }
+    var next: [MealSlot: Int] = [:]
+    var copies: [DiaryEntryRecord] = []
+    for original in originals {
+      let position =
+        try next[original.slot] ?? nextPosition(on: target, slot: original.slot, in: context)
+      next[original.slot] = position + 1
+      let record = DiaryEntryRecord(
+        day: target, slot: original.slot, name: original.name, servings: original.servings,
+        source: original.source)
+      record.amount = original.amount
+      record.macros = original.macros
+      record.macrosPending = original.macrosPending
+      record.recipe = original.recipe
+      record.position = position
+      context.insert(record)
+      copies.append(record)
+    }
+    try commit(context)
+    return copies
+  }
+
   /// Changes an entry's name, amount, servings, numbers, meal and day. Typing numbers into an
   /// entry that waits for them ends the wait. Moving it to another meal
   /// or day puts it last there; a day that is already full refuses.
