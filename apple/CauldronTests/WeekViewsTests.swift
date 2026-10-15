@@ -56,6 +56,23 @@ import Testing
       }
     }
 
+    @Test func theDroppedRecipeSheetRendersInBothAppearances() throws {
+      let container = try seeded()
+      let context = ModelContext(container)
+      let recipe = try #require(try context.fetch(FetchDescriptor<RecipeRecord>()).first)
+      let today = try DebugSeed.today()
+      let target = MealTarget(day: today, slot: .lunch)
+      for scheme in [ColorScheme.light, .dark] {
+        let sheet = DroppedRecipeSheet(
+          recipe: recipe, target: target, position: 0, days: today.weekDays(), today: today
+        ) { _ in }
+        #expect(
+          renders(
+            sheet.modelContainer(container).environment(\.colorScheme, scheme), width: 420,
+            height: 700), "\(scheme)")
+      }
+    }
+
     @Test func theEntrySheetRendersForARecipeAndForFreeText() throws {
       let container = try seeded()
       let entries = try ModelContext(container).fetch(FetchDescriptor<PlanEntryRecord>())

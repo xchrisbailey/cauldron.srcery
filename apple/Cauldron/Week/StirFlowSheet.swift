@@ -119,10 +119,47 @@ struct StirFlowSheet: View {
   }
 }
 
-/// Choosing the days a recipe's servings feed, and how many go to each.
-private struct SpreadView: View {
+/// A recipe dropped on a meal of the week: the same days step the picker leads to, opened
+/// straight on the recipe, set to the dropped day and meal. `position` is where in the meal it
+/// was dropped (nil for the end), and it holds while the meal is the one dropped on.
+struct DroppedRecipeSheet: View {
   let recipe: RecipeRecord
+  let target: MealTarget
+  let position: Int?
+  let days: [LocalDate]
   let today: LocalDate
+  let onFinish: (String) -> Void
+
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    NavigationStack {
+      SpreadView(
+        recipe: recipe, target: target, days: days, today: today, position: position,
+        onFinish: onFinish
+      )
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button {
+            dismiss()
+          } label: {
+            Text(verbatim: Copy.week.cancel.text)
+          }
+        }
+      }
+    }
+    #if os(macOS)
+      .frame(minWidth: 440, minHeight: 520)
+    #endif
+  }
+}
+
+/// Choosing the days a recipe's servings feed, and how many go to each.
+struct SpreadView: View {
+  let recipe: RecipeRecord
+  let target: MealTarget
+  let today: LocalDate
+  let position: Int?
   let onFinish: (String) -> Void
 
   @Environment(\.modelContext) private var context
@@ -131,10 +168,12 @@ private struct SpreadView: View {
 
   init(
     recipe: RecipeRecord, target: MealTarget, days: [LocalDate], today: LocalDate,
-    onFinish: @escaping (String) -> Void
+    position: Int? = nil, onFinish: @escaping (String) -> Void
   ) {
     self.recipe = recipe
+    self.target = target
     self.today = today
+    self.position = position
     self.onFinish = onFinish
     _plan = State(
       initialValue: SpreadPlan(
@@ -164,7 +203,10 @@ private struct SpreadView: View {
 
   private func stir() {
     do {
-      onFinish(try WeekPlan.stir(recipe, spread: plan, into: context))
+      let placed = position.map {
+        Placement(day: target.day, slot: target.slot, position: $0)
+      }
+      onFinish(try WeekPlan.stir(recipe, spread: plan, placed: placed, into: context))
     } catch {
       problem = WeekPlan.message(for: error).text
     }

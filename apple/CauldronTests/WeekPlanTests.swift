@@ -135,6 +135,25 @@ struct WeekPlanTests {
     }
   }
 
+  @Test func aMealTitleIsMeasuredInUTF16UnitsLikeTheWeb() throws {
+    let context = try context()
+    // An emoji is two units in JavaScript, so half the limit of them is the most that fits.
+    let half = WeekLimits.title / 2
+    let fits = String(repeating: "😀", count: half)
+    let tooLong = String(repeating: "😀", count: half + 1)
+    #expect(fits.count <= WeekLimits.title && tooLong.count <= WeekLimits.title)
+    #expect(WeekLimits.fits(title: fits) && !WeekLimits.fits(title: tooLong))
+    let entry = try WeekPlan.stirText(fits, at: dinner(monday), into: context)
+    #expect(entry.title == fits)
+    #expect(throws: WeekPlanError.emptyTitle) {
+      try WeekPlan.stirText(tooLong, at: dinner(monday), into: context)
+    }
+    #expect(throws: WeekPlanError.emptyTitle) {
+      try WeekPlan.apply(EntryChange(title: tooLong), to: entry, in: context)
+    }
+    #expect(entry.title == fits)
+  }
+
   // MARK: Changing
 
   private func filled(_ context: ModelContext) throws -> [PlanEntryRecord] {

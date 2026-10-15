@@ -12,6 +12,10 @@ enum WeekLimits {
   static let perSlot = 20
   static let servings = RecipeLimits.servings
   static let title = RecipeLimits.title
+
+  /// Whether `text` is within the title limit. The reference counts UTF-16 units (JavaScript
+  /// string length), so an emoji counts as two or more.
+  static func fits(title text: String) -> Bool { text.utf16.count <= title }
 }
 
 /// Why the week refused a change.
@@ -36,6 +40,15 @@ enum WeekPlanError: Error, Equatable {
 struct MealTarget: Hashable {
   var day: LocalDate
   var slot: MealSlot
+}
+
+/// Where one of the entries a stir adds goes in its meal, instead of at the end: the entry on
+/// `day` is put at `position` when the stir is into `slot`. A recipe dropped on a meal and then
+/// spread over the week places only the entry for the day it was dropped on.
+struct Placement: Equatable {
+  var day: LocalDate
+  var slot: MealSlot
+  var position: Int
 }
 
 /// A change to one entry. A nil field is left as it is; `servings` is `.some(nil)` to follow
@@ -141,10 +154,11 @@ enum WeekPlan {
   // MARK: Adding
 
   /// Stirs a recipe into the week: one entry for each day, each with its own servings. All of
-  /// them land or none do.
+  /// them land or none do. `placed` puts the entry it names before the others in its meal.
   @discardableResult
   static func stir(
-    _ recipe: RecipeRecord, days: [DayServings], slot: MealSlot, into context: ModelContext
+    _ recipe: RecipeRecord, days: [DayServings], slot: MealSlot, placed: Placement? = nil,
+    into context: ModelContext
   ) throws -> [PlanEntryRecord] {
     guard !recipe.isBanished else { throw WeekPlanError.recipeBanished }
     guard !days.isEmpty else { throw WeekPlanError.noDays }
@@ -158,20 +172,23 @@ enum WeekPlan {
       guard held < WeekLimits.perSlot else { throw WeekPlanError.slotFull }
       counts[day.date] = held + 1
     }
-    return try days.map {
-      try insert(
-        title: recipe.title, recipe: recipe, servings: $0.servings,
-        at: MealTarget(day: $0.date, slot: slot), position: nil, in: context)
+    return try days.map { day in
+      let position = placed.flatMap { $0.day == day.date && $0.slot == slot ? $0.position : nil }
+      return try insert(
+        title: recipe.title, recipe: recipe, servings: day.servings,
+        at: MealTarget(day: day.date, slot: slot), position: position, in: context)
     }
   }
 
   /// Stirs a recipe in as a spread chosen on a stir sheet, and returns what to tell the cook. It
-  /// is saved with the rules of `stir(_:days:slot:into:)`; a refusal leaves nothing written.
+  /// is saved with the rules of `stir(_:days:slot:placed:into:)`; a refusal leaves nothing
+  /// written.
   static func stir(
-    _ recipe: RecipeRecord, spread plan: SpreadPlan, into context: ModelContext
+    _ recipe: RecipeRecord, spread plan: SpreadPlan, placed: Placement? = nil,
+    into context: ModelContext
   ) throws -> String {
     try commit(in: context) {
-      try stir(recipe, days: plan.entries, slot: plan.slot, into: context)
+      try stir(recipe, days: plan.entries, slot: plan.slot, placed: placed, into: context)
     }
     return Copy.week.spread.stirred(plan.picked.count).text
   }
@@ -202,16 +219,23 @@ enum WeekPlan {
     return MealTarget(day: day, slot: defaultSlot)
   }
 
-  /// Stirs a recipe that was dragged onto a day, found by its id, with its own servings. It goes
-  /// the way "Stir into the week" does, so a banished recipe is refused and a full meal is too.
-  @discardableResult
-  static func stir(
-    recipeID: UUID, at target: MealTarget, into context: ModelContext
-  ) throws -> PlanEntryRecord {
+  /// The recipe dragged out of the library onto the week, found by its id. A recipe that is gone
+  /// or banished is refused before the spread step opens.
+  static func droppedRecipe(id: UUID, in context: ModelContext) throws -> RecipeRecord {
     let found = try context.fetch(
-      FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == recipeID }))
+      FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == id }))
     guard let recipe = found.first else { throw WeekPlanError.recipeMissing }
-    return try stir(recipe, at: target, servings: nil, into: context)
+    guard !recipe.isBanished else { throw WeekPlanError.recipeBanished }
+    return recipe
+  }
+
+  /// Where a recipe dropped on a meal goes: before `before` when it landed on another entry,
+  /// otherwise the end (nil). Port of `dropAt` in `apps/web/src/lib/plan.ts`.
+  static func dropAt(
+    _ entries: [PlanEntryRecord], target: MealTarget, before: UUID?
+  ) -> Int? {
+    guard let before else { return nil }
+    return inSlot(entries, target).firstIndex { $0.id == before }
   }
 
   /// Stirs a meal that isn't a recipe into the week ("Leftovers").
@@ -220,7 +244,7 @@ enum WeekPlan {
     _ text: String, at target: MealTarget, into context: ModelContext
   ) throws -> PlanEntryRecord {
     let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !title.isEmpty, title.count <= WeekLimits.title else { throw WeekPlanError.emptyTitle }
+    guard !title.isEmpty, WeekLimits.fits(title: title) else { throw WeekPlanError.emptyTitle }
     return try insert(
       title: title, recipe: nil, servings: nil, at: target, position: nil, in: context)
   }
@@ -257,7 +281,7 @@ enum WeekPlan {
     }
     if let text = change.title, isFreeText(entry) {
       let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !title.isEmpty, title.count <= WeekLimits.title else {
+      guard !title.isEmpty, WeekLimits.fits(title: title) else {
         throw WeekPlanError.emptyTitle
       }
       if entry.title != title { entry.title = title }

@@ -20,6 +20,23 @@ struct DiaryEditor {
     return added
   }
 
+  /// Copies a day, or one meal of it, onto the end of `target`. Entries still waiting for an
+  /// estimate wait there too, each with a job of its own.
+  @discardableResult
+  func copy(from source: LocalDate, to target: LocalDate, slot: MealSlot? = nil) throws
+    -> [DiaryEntryRecord]
+  {
+    let copies = try DiaryWrites.copy(from: source, to: target, slot: slot, in: context)
+    guard !copies.isEmpty else { return [] }
+    for record in copies where record.macrosPending {
+      AIJobQueue.enqueueMeal(record.name, for: record, in: context)
+    }
+    if copies.contains(where: \.macrosPending) { try? context.save() }
+    health.diaryChanged(saved: copies.compactMap(HealthEntry.init), removed: [], in: context)
+    widget.publish(from: context)
+    return copies
+  }
+
   func update(_ record: DiaryEntryRecord, with valid: EntryDraft.Valid) throws {
     try DiaryWrites.update(record, with: valid, in: context)
     health.diaryChanged(saved: [HealthEntry(record)].compactMap { $0 }, removed: [], in: context)
