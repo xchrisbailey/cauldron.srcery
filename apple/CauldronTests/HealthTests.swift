@@ -842,7 +842,7 @@ struct HealthSyncTests {
     await store.setWeights([reading("s1", today.adding(days: -2), 71.4)])
     let sync = await sync(store)
     await sync.importWeights(into: context)
-    let form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    let form = try TargetsForm.load(from: context, today: today)
     #expect(form.weight == "71.4")
   }
 
@@ -851,7 +851,7 @@ struct HealthSyncTests {
     await store.setWeights([reading("s1", today, 73.4)])
     let sync = await sync(store)
     await sync.importWeights(into: context)
-    var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var form = try TargetsForm.load(from: context, today: today)
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
     form.cm = "168"
@@ -1079,7 +1079,7 @@ struct HealthSyncTests {
 
   @Test func aHealthWeightLeftAsShownIsNotClaimedByTheTargetsForm() async throws {
     // The form opens before the weight is imported, so it doesn't know the day has one.
-    var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var form = try TargetsForm.load(from: context, today: today)
     let store = FakeHealthStore()
     await store.setWeights([reading("s1", today, 73.44)])
     let sync = await sync(store)

@@ -21,8 +21,12 @@ struct TargetsFormTests {
   /// A cook who can be calculated: a 36-year-old woman, 168 cm, 74.2 kg, losing half a kilo a
   /// week. The numbers it makes (1450 kcal, 134 g protein, 129 g carbs, 45 g fat) are the
   /// debug seed's, worked out by hand against the web calculator.
-  private func filled(measurement: Locale.MeasurementSystem = .metric) -> TargetsForm {
-    var form = TargetsForm(today: today, measurement: measurement)
+  private func filled(imperial: Bool = false) -> TargetsForm {
+    var form = TargetsForm(today: today)
+    if imperial {
+      form.weightUnit = .lb
+      form.heightUnit = .ftin
+    }
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
     form.cm = "168"
@@ -79,7 +83,7 @@ struct TargetsFormTests {
   }
 
   @Test func savesTheProfileInMetricWithTheUnitsShown() throws {
-    var form = filled(measurement: .us)
+    var form = filled(imperial: true)
     form.feet = "5"
     form.inches = "6"
     form.weight = "163.6"
@@ -155,7 +159,7 @@ struct TargetsFormTests {
   @Test func anUnchangedWeightIsNotWeighedInAgain() throws {
     context.insert(WeighInRecord(day: today.adding(days: -2), weightKg: 74.2))
     try context.save()
-    var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var form = try TargetsForm.load(from: context, today: today)
     #expect(form.weight == "74.2")
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
@@ -167,7 +171,7 @@ struct TargetsFormTests {
   @Test func aChangedWeightIsWeighedInOnTopOfTheLastOne() throws {
     context.insert(WeighInRecord(day: today.adding(days: -2), weightKg: 74.2))
     try context.save()
-    var form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var form = try TargetsForm.load(from: context, today: today)
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
     form.cm = "168"
@@ -214,7 +218,7 @@ struct TargetsFormTests {
     form.overrides[.calories] = "1800"
     try form.save(in: context)
 
-    var reopened = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var reopened = try TargetsForm.load(from: context, today: today)
     #expect(reopened.overrides == [.fat: "60", .calories: "1800"])
     #expect(reopened.startsOnTargets)
 
@@ -236,7 +240,7 @@ struct TargetsFormTests {
 
   @Test func anEditedProfileLeavesNonOverriddenTargetsToTheCalculator() throws {
     try filled().save(in: context)
-    var reopened = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    var reopened = try TargetsForm.load(from: context, today: today)
     #expect(reopened.overrides.isEmpty)
     reopened.activity = .veryActive
     try reopened.save(in: context)
@@ -252,13 +256,13 @@ struct TargetsFormTests {
   // MARK: Checks
 
   @Test func aBlankFormAsksForEveryField() {
-    let errors = TargetsForm(today: today, measurement: .metric).aboutErrors()
+    let errors = TargetsForm(today: today).aboutErrors()
     let required = Copy.validation.required
     #expect(errors[.sex] == required)
     #expect(errors[.birthDate] == required)
     #expect(errors[.height] == required)
     #expect(errors[.weight] == required)
-    #expect(TargetsForm(today: today, measurement: .metric).calculation == nil)
+    #expect(TargetsForm(today: today).calculation == nil)
   }
 
   @Test func aGoodFormHasNoErrors() {
@@ -299,7 +303,7 @@ struct TargetsFormTests {
   }
 
   @Test func feetWithNoInchesCountAsWholeFeet() {
-    var form = filled(measurement: .us)
+    var form = filled(imperial: true)
     form.feet = "5"
     form.inches = ""
     #expect(form.heightCm == 152.4)
@@ -335,7 +339,7 @@ struct TargetsFormTests {
     var form = filled()
     form.overrides[.calories] = "500"
     #expect(throws: TargetsForm.Invalid.self) { try form.save(in: context) }
-    var blank = TargetsForm(today: today, measurement: .metric)
+    var blank = TargetsForm(today: today)
     blank.weight = "70"
     #expect(throws: TargetsForm.Invalid.self) { try blank.save(in: context) }
     #expect(try count(TargetsRecord.self) == 0)
@@ -345,13 +349,10 @@ struct TargetsFormTests {
 
   // MARK: Units
 
-  @Test func unitsFollowTheRegion() {
-    let american = TargetsForm(today: today, measurement: .us)
-    #expect(american.weightUnit == .lb && american.heightUnit == .ftin)
-    for system in [Locale.MeasurementSystem.metric, .uk] {
-      let form = TargetsForm(today: today, measurement: system)
-      #expect(form.weightUnit == .kg && form.heightUnit == .cm)
-    }
+  @Test func aFreshFormIsMetricWhateverTheRegion() {
+    // The web starts everyone on cm and kg; a US locale does not change that.
+    let form = TargetsForm(today: today)
+    #expect(form.weightUnit == .kg && form.heightUnit == .cm)
   }
 
   @Test func switchingUnitsKeepsTheSameBody() {
@@ -385,10 +386,10 @@ struct TargetsFormTests {
   // MARK: Opening
 
   @Test func aNewCookStartsOnTheFirstStepWithNothingFilledIn() throws {
-    let form = try TargetsForm.load(from: context, today: today, measurement: .us)
+    let form = try TargetsForm.load(from: context, today: today)
     #expect(!form.startsOnTargets)
     #expect(form.weight.isEmpty && form.sex == nil && form.overrides.isEmpty)
-    #expect(form.weightUnit == .lb)
+    #expect(form.weightUnit == .kg && form.heightUnit == .cm)
   }
 
   @Test func theWeightComesFromTheLatestWeighInInTheLastYear() throws {
@@ -396,7 +397,7 @@ struct TargetsFormTests {
     context.insert(WeighInRecord(day: today.adding(days: -20), weightKg: 72))
     context.insert(WeighInRecord(day: today.adding(days: -3), weightKg: 71.4))
     try context.save()
-    let form = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    let form = try TargetsForm.load(from: context, today: today)
     #expect(form.weight == "71.4")
     // No profile yet, so the cook still starts at the beginning.
     #expect(!form.startsOnTargets)
@@ -404,25 +405,25 @@ struct TargetsFormTests {
     context.insert(WeighInRecord(day: today.adding(days: -1), weightKg: 71.0))
     try context.save()
     #expect(
-      try TargetsForm.load(from: context, today: today, measurement: .metric).weight == "71")
+      try TargetsForm.load(from: context, today: today).weight == "71")
   }
 
   @Test func aWeighInOlderThanAYearIsNotUsed() throws {
     context.insert(WeighInRecord(day: today.adding(days: -366), weightKg: 90))
     try context.save()
     #expect(
-      try TargetsForm.load(from: context, today: today, measurement: .metric).weight.isEmpty)
+      try TargetsForm.load(from: context, today: today).weight.isEmpty)
   }
 
   @Test func aSavedCookReopensInTheirOwnUnits() throws {
-    var form = filled(measurement: .us)
+    var form = filled(imperial: true)
     form.feet = "5"
     form.inches = "6"
     form.weight = "163.6"
     try form.save(in: context)
 
-    // The region says metric now, but the saved choice wins.
-    let reopened = try TargetsForm.load(from: context, today: today, measurement: .metric)
+    // A fresh form is metric, but the saved choice wins.
+    let reopened = try TargetsForm.load(from: context, today: today)
     #expect(reopened.weightUnit == .lb && reopened.heightUnit == .ftin)
     #expect(reopened.weight == "163.6")
     #expect(reopened.feet == "5" && reopened.inches == "6")
@@ -469,7 +470,9 @@ struct TargetsScreenTests {
   private let today = LocalDate(year: 2026, month: 10, day: 10)!
 
   private func complete() -> TargetsForm {
-    var form = TargetsForm(today: today, measurement: .us)
+    var form = TargetsForm(today: today)
+    form.weightUnit = .lb
+    form.heightUnit = .ftin
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
     form.feet = "5"
@@ -492,7 +495,7 @@ struct TargetsScreenTests {
   }
 
   @Test func aBlankFormDrawsEveryStepWithItsErrors() {
-    let blank = TargetsForm(today: today, measurement: .metric)
+    let blank = TargetsForm(today: today)
     for step in 0...2 {
       let view = TargetsEditor(
         form: .constant(blank), saveError: Copy.tracker.targets.fixThese, step: step

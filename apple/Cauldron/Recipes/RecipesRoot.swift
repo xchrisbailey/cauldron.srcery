@@ -400,7 +400,7 @@ extension RecipesRoot {
   private func makeImportModel() -> ImportModel {
     let context = context
     return ImportModel(
-      fetcher: fetcher, extractor: ai?.extractor, reader: reader,
+      fetcher: fetcher, extractor: ai?.extractor, estimator: ai?.estimator, reader: reader,
       findDuplicate: { links in
         let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
         return DuplicateLinks.find(in: saved, links: links).map {

@@ -139,14 +139,16 @@ enum AIJobQueue {
         dropIfLongOrphaned(job, in: context, now: now)
         return false
       }
-      let lines = recipe.ingredients.map(\.original).filter { !$0.isEmpty }
-      guard !recipe.isBanished, !lines.isEmpty else {
+      // Held to the limits the web editor holds an ask to, so a long recipe isn't refused.
+      let input = MacroEstimateInput.limited(
+        title: recipe.title, servings: recipe.servings,
+        lines: recipe.ingredients.map(\.original))
+      guard !recipe.isBanished, let input else {
         recipe.macrosPending = false
         context.delete(job)
         return true
       }
-      let macros = try await ai.estimateMacros(
-        MacroEstimateInput(title: recipe.title, servings: recipe.servings, ingredients: lines))
+      let macros = try await ai.estimateMacros(input)
       // The cook may have typed their own while this waited. Theirs stand. An estimate with
       // nothing in it (the lines weren't food) leaves the recipe as it was.
       let typedIn = recipe.macrosSource == .manual && recipe.macros != .none

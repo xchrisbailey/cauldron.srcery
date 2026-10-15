@@ -20,6 +20,14 @@ extension RecipeDraft {
     subscript(field: Field) -> CopyString? { byField[field] }
     var isEmpty: Bool { byField.isEmpty }
 
+    /// Only the problems of `fields`: what shows for the fields the cook has been to, before
+    /// they try to save.
+    func showing(_ fields: Set<Field>) -> Errors {
+      var shown = Errors()
+      shown.byField = byField.filter { fields.contains($0.key) }
+      return shown
+    }
+
     /// The first problem found for a field wins, as in the web editor.
     fileprivate mutating func add(_ field: Field, _ message: CopyString) {
       if byField[field] == nil { byField[field] = message }

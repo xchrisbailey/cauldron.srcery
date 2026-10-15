@@ -10,6 +10,8 @@ struct RecipeIngredientsSection: View {
   let recipe: RecipeRecord?
   let errors: RecipeDraft.Errors?
   @FocusState private var focus: UUID?
+  /// The line whose reading is open for fixing.
+  @State private var fixing: UUID?
 
   var body: some View {
     Section {
@@ -36,8 +38,10 @@ struct RecipeIngredientsSection: View {
                   verbatim: row.isHeading
                     ? Copy.editor.heading(index(of: row.id)).text
                     : Copy.editor.ingredientLine(index(of: row.id)).text))
-            if let reading = row.reading, !row.isBlank, row.readingAddsToText {
-              ReadingView(reading: reading)
+            if !row.isBlank, !row.isHeading {
+              IngredientFixView(
+                draft: $draft, row: row, open: fixing == row.id,
+                toggle: { fixing = fixing == row.id ? nil : row.id })
             }
             if let error = errors?[.ingredient(row.id)] {
               Text(verbatim: error.text).brandText(.control).foregroundStyle(Brand.Colors.heat)
@@ -125,16 +129,27 @@ private struct IngredientRowView: View {
   }
 }
 
-/// How a line was read: amount and unit in Geist Mono, then the item and its note.
+/// How a line was read: amount and unit in Geist Mono, then the item and its note. `showsEmpty`
+/// marks an empty amount or item with a dash, as the editor's chips do.
 struct ReadingView: View {
   let reading: IngredientRowDraft.Reading
+  var showsEmpty = false
 
   var body: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
+    FlowLayout(spacing: 8) {
       if let amount = reading.amount {
         QuantityText(amount, unit: reading.unit)
+      } else if showsEmpty {
+        QuantityText("—", unit: reading.unit)
+      } else if let unit = reading.unit {
+        QuantityText(unit)
       }
-      Text(verbatim: reading.item).brandText(.control)
+      if let alt = reading.alt {
+        Text(verbatim: "(\(alt.amount) \(alt.unit))").brandText(.quantity)
+      }
+      if !reading.item.isEmpty || showsEmpty {
+        Text(verbatim: reading.item.isEmpty ? "—" : reading.item).brandText(.control)
+      }
       if let note = reading.note {
         Text(verbatim: note).brandText(.control).foregroundStyle(Brand.Colors.subtext)
       }
@@ -153,6 +168,8 @@ struct RecipeStepsSection: View {
   let recipe: RecipeRecord?
   let errors: RecipeDraft.Errors?
   @FocusState private var focus: UUID?
+  /// The step whose timer is open for changing.
+  @State private var timing: UUID?
 
   var body: some View {
     Section {
@@ -174,20 +191,9 @@ struct RecipeStepsSection: View {
               .brandText(.body)
               .focused($focus, equals: step.id)
               .accessibilityLabel(Text(verbatim: Copy.editor.step(index(of: step.id)).text))
-            if let seconds = step.timerSeconds {
-              Button {
-                draft.clearTimer(step.id)
-              } label: {
-                Label {
-                  Text(verbatim: formatTimer(seconds)).brandText(.quantity)
-                } icon: {
-                  Image(systemName: "timer")
-                }
-              }
-              .buttonStyle(.borderless)
-              .foregroundStyle(Brand.Colors.heat)
-              .accessibilityHint(Text(verbatim: Copy.editor.clearTimer.text))
-            }
+            StepTimerView(
+              draft: $draft, step: step, open: timing == step.id,
+              toggle: { timing = timing == step.id ? nil : step.id })
             if let error = errors?[.step(step.id)] {
               Text(verbatim: error.text).brandText(.control).foregroundStyle(Brand.Colors.heat)
             }

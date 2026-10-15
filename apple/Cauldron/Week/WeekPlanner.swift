@@ -5,11 +5,15 @@ import SwiftUI
 /// What a sheet over the week is for.
 private enum WeekSheet: Identifiable {
   case stir(MealTarget)
+  /// A recipe dropped on a meal: the days step, at `position` in the meal (nil for the end).
+  case dropped(UUID, MealTarget, Int?)
   case change(UUID)
 
   var id: String {
     switch self {
     case .stir(let target): "stir-\(target.day)-\(target.slot.rawValue)"
+    case .dropped(let id, let target, let position):
+      "dropped-\(id.uuidString)-\(target.day)-\(target.slot.rawValue)-\(position ?? -1)"
     case .change(let id): "change-\(id.uuidString)"
     }
   }
@@ -92,6 +96,8 @@ struct WeekPlanner: View {
           self.sheet = nil
           show(WeekNotice(text: text))
         }
+      case .dropped(let id, let target, let position):
+        droppedSheet(id, target, position, snapshot)
       case .change(let id):
         changeSheet(id, snapshot)
       }
@@ -273,10 +279,28 @@ struct WeekPlanner: View {
     applyChange(id, change)
   }
 
-  /// A recipe dragged out of the library onto the week.
-  private func planRecipe(_ id: UUID, at target: MealTarget) {
-    if perform({ _ = try WeekPlan.stir(recipeID: id, at: target, into: context) }) {
-      show(WeekNotice(text: Copy.week.stirred(WeekDates.label(target.day, long: true)).text))
+  /// A recipe dragged out of the library onto a meal, before `before` when it landed on a card.
+  /// It opens the days step, as the picker does, set to that meal.
+  private func planRecipe(_ id: UUID, at target: MealTarget, before: UUID?) {
+    do {
+      _ = try WeekPlan.droppedRecipe(id: id, in: context)
+      sheet = .dropped(id, target, WeekPlan.dropAt(records, target: target, before: before))
+    } catch {
+      show(WeekNotice(text: WeekPlan.message(for: error).text))
+    }
+  }
+
+  @ViewBuilder
+  private func droppedSheet(
+    _ id: UUID, _ target: MealTarget, _ position: Int?, _ snapshot: WeekSnapshot
+  ) -> some View {
+    if let recipe = try? WeekPlan.droppedRecipe(id: id, in: context) {
+      DroppedRecipeSheet(
+        recipe: recipe, target: target, position: position, days: snapshot.days, today: today
+      ) { text in
+        self.sheet = nil
+        show(WeekNotice(text: text))
+      }
     }
   }
 
