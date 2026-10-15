@@ -7,8 +7,8 @@
 /// `String` inside a `CopyString`, so a String Catalog can take over the lookup later without
 /// touching the call sites.
 ///
-/// `settings`, `export`, `recipeEditor`, `brewMode`, `macMenu`, `describeNative` and
-/// `importNative` are the native-only sections (see `Copy+Settings.swift`,
+/// `settings`, `export`, `recipeEditor`, `brewMode`, `macMenu`, `describeNative`,
+/// `importNative` and `libraryNative` are the native-only sections (see `Copy+Settings.swift`,
 /// `Copy+Export.swift`, `Copy+RecipeEditor.swift`, `Copy+BrewMode.swift`,
 /// `Copy+MacMenu.swift`, `Copy+DescribeNative.swift` and `Copy+ImportNative.swift`); the rest
 /// is the web table.
@@ -39,6 +39,7 @@ public enum Copy {
   public static let macMenu = catalogue.macMenu
   public static let describeNative = catalogue.describeNative
   public static let importNative = catalogue.importNative
+  public static let libraryNative = catalogue.libraryNative
 
   public struct Catalogue: Sendable {
     public let errors = Errors()
@@ -64,6 +65,7 @@ public enum Copy {
     public let macMenu = MacMenu()
     public let describeNative = DescribeNative()
     public let importNative = ImportNative()
+    public let libraryNative = LibraryNative()
 
     public init() {}
   }

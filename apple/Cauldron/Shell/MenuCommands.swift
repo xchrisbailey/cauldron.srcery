@@ -12,11 +12,13 @@ struct NavigationCommands {
   let go: (AppDestination) -> Void
 }
 
-/// The recipe library: add a recipe, find one, and distill one from a link or pasted text.
+/// The recipe library: add a recipe, find one, summon one to open, and distill one from a link
+/// or pasted text.
 struct LibraryCommands {
   let newRecipe: () -> Void
   let find: () -> Void
   let importRecipe: () -> Void
+  let summon: () -> Void
 }
 
 /// The recipe that is open, in the library or in a window of its own.
@@ -90,6 +92,7 @@ enum MenuCommand: CaseIterable {
   case newRecipe
   case importRecipe
   case findRecipes
+  case summonRecipe
   case addMeal
   case addItem
   case logFood
@@ -126,6 +129,7 @@ enum MenuCommand: CaseIterable {
     // D for Distill; Shift-Command-I is Add Item.
     case .importRecipe: KeyboardShortcut("d", modifiers: [.command, .shift])
     case .findRecipes: KeyboardShortcut("f", modifiers: .command)
+    case .summonRecipe: KeyboardShortcut("k", modifiers: .command)
     case .addMeal: KeyboardShortcut("m", modifiers: [.command, .shift])
     case .addItem: KeyboardShortcut("i", modifiers: [.command, .shift])
     case .logFood: KeyboardShortcut("l", modifiers: [.command, .shift])
@@ -155,7 +159,7 @@ struct FrontWindow {
   func isEnabled(_ command: MenuCommand) -> Bool {
     switch command {
     case .goRecipes, .goWeek, .goGather, .goTracker: navigation != nil
-    case .newRecipe, .importRecipe, .findRecipes: library != nil
+    case .newRecipe, .importRecipe, .findRecipes, .summonRecipe: library != nil
     case .addMeal: add?.kind == .meal
     case .addItem: add?.kind == .item
     case .logFood: add?.kind == .food
@@ -172,6 +176,7 @@ struct FrontWindow {
     case .newRecipe: Copy.macMenu.newRecipe.text
     case .importRecipe: Copy.macMenu.importRecipe.text
     case .findRecipes: Copy.macMenu.findRecipes.text
+    case .summonRecipe: Copy.recipes.summon.text
     case .addMeal: Copy.macMenu.addMeal.text
     case .addItem: Copy.macMenu.addItem.text
     case .logFood: Copy.macMenu.logFood.text
@@ -201,6 +206,7 @@ struct FrontWindow {
     case .newRecipe: library?.newRecipe()
     case .importRecipe: library?.importRecipe()
     case .findRecipes: library?.find()
+    case .summonRecipe: library?.summon()
     case .addMeal, .addItem, .logFood: add?.perform()
     case .goToToday: steps?.today()
     case .previous: steps?.previous()

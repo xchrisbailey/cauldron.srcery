@@ -1,0 +1,121 @@
+import CauldronKit
+import SwiftData
+import SwiftUI
+
+/// ⌘K: type to find a recipe and open it. Arrow keys move through the matches and Return opens
+/// the one that is lit; the first is lit until an arrow key says otherwise. A match is by name,
+/// ingredient, tag or description, as in the library's search, with a title that starts with
+/// what was typed first.
+struct RecipeSummonSheet: View {
+  /// The recipes that can be found; the sheet leaves out any that were banished.
+  let recipes: [RecipeRecord]
+  let onOpen: (RecipeRecord) -> Void
+  @State private var query = ""
+  @State private var lit: UUID?
+  @FocusState private var focused: Bool
+
+  private var results: [RecipeRecord] { RecipeLibrary.summon(recipes, matching: query) }
+
+  var body: some View {
+    let results = results
+    let current = results.first { $0.id == lit } ?? results.first
+    VStack(alignment: .leading, spacing: 12) {
+      TextField(Copy.recipes.summon.text, text: $query)
+        .brandText(.body)
+        .textFieldStyle(.plain)
+        .padding(12)
+        .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Brand.Colors.surface0, lineWidth: 1))
+        .focused($focused)
+        .autocorrectionDisabled()
+        #if os(iOS)
+          .textInputAutocapitalization(.never)
+        #endif
+        .onSubmit { if let current { onOpen(current) } }
+        .onKeyPress(.downArrow) { step(1, in: results, from: current) }
+        .onKeyPress(.upArrow) { step(-1, in: results, from: current) }
+        .accessibilityLabel(Text(verbatim: Copy.recipes.summon.text))
+      Text(verbatim: heading(results))
+        .brandText(.control)
+        .foregroundStyle(Brand.Colors.subtext)
+      ScrollView {
+        LazyVStack(spacing: 2) {
+          ForEach(results) { recipe in
+            row(recipe, lit: recipe.id == current?.id)
+          }
+        }
+      }
+      #if os(macOS)
+        Text(verbatim: Copy.library.summonHelp.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+      #endif
+    }
+    .padding(16)
+    .background(Brand.Colors.base)
+    #if os(macOS)
+      .frame(minWidth: 460, minHeight: 360)
+    #else
+      .presentationDetents([.medium, .large])
+    #endif
+    .onAppear { focused = true }
+    .onChange(of: query) { lit = nil }
+  }
+
+  /// What sits above the matches: how to search until something is typed, then what the
+  /// matches are, or that there are none.
+  private func heading(_ results: [RecipeRecord]) -> String {
+    if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return Copy.recipes.summonHint.text
+    }
+    return (results.isEmpty ? Copy.library.noResults : Copy.library.results).text
+  }
+
+  private func row(_ recipe: RecipeRecord, lit: Bool) -> some View {
+    Button {
+      onOpen(recipe)
+    } label: {
+      HStack(alignment: .firstTextBaseline, spacing: 12) {
+        Text(verbatim: recipe.title)
+          .brandText(.body)
+          .lineLimit(1)
+        Spacer(minLength: 0)
+        if let time = RecipeTimes(recipe).total {
+          Text(verbatim: time)
+            .brandText(.quantity)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+      }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 9)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(
+        lit ? Brand.Colors.magic.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 8)
+      )
+      .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+    .buttonStyle(.plain)
+    .accessibilityAddTraits(lit ? .isSelected : [])
+  }
+
+  private func step(
+    _ delta: Int, in results: [RecipeRecord], from current: RecipeRecord?
+  ) -> KeyPress.Result {
+    guard !results.isEmpty else { return .ignored }
+    let index = results.firstIndex { $0.id == current?.id } ?? 0
+    lit = results[(index + delta + results.count) % results.count].id
+    return .handled
+  }
+}
+
+#if DEBUG
+  #Preview("Summon") {
+    let container = RecipePreviewData.container()
+    RecipeSummonPreview().modelContainer(container)
+  }
+
+  private struct RecipeSummonPreview: View {
+    @Query private var recipes: [RecipeRecord]
+    var body: some View { RecipeSummonSheet(recipes: recipes) { _ in } }
+  }
+#endif
