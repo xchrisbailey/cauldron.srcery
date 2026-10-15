@@ -6,13 +6,22 @@ import SwiftUI
 struct RecipeEditorForm: View {
   @Binding var draft: RecipeDraft
   let recipe: RecipeRecord?
-  /// What's wrong, once the cook has tried to save; nil before.
+  /// The problems to show: every one once the cook has tried to save, before that only those of
+  /// fields they have been to and left.
   let errors: RecipeDraft.Errors?
+  /// Whether to say at the top that some fields need a fix: once Save has been tried, not
+  /// before.
+  var showsSummary = true
   let couldntSave: Bool
   /// Whether an estimate is being asked for, and what the last ask came to if it needs saying.
   var divining = false
   var divineMessage: CopyString?
   var onDivine: () -> Void = {}
+  /// Which field has the keyboard, so the editor knows when one is left.
+  var focus: FocusState<RecipeDraft.Field?>.Binding?
+  /// A new recipe's draft is kept: say so, and offer to start over.
+  var keptNote: CopyString?
+  var onStartOver: (() -> Void)?
   /// For a draft from Distill: the recipe already saved from the same link, and opening it.
   var duplicate: ImportReview.Duplicate?
   var onOpenDuplicate: () -> Void = {}
@@ -21,7 +30,28 @@ struct RecipeEditorForm: View {
 
   var body: some View {
     List {
-      if let errors, !errors.isEmpty {
+      if keptNote != nil || onStartOver != nil {
+        Section {
+          HStack(alignment: .firstTextBaseline) {
+            if let keptNote {
+              Text(verbatim: keptNote.text)
+                .brandText(.control)
+                .foregroundStyle(Brand.Colors.subtext)
+            }
+            Spacer(minLength: 8)
+            if let onStartOver {
+              Button(action: onStartOver) {
+                Text(verbatim: Copy.editor.startOver.text)
+              }
+              .buttonStyle(.borderless)
+              .brandText(.control)
+              .tint(Brand.Colors.magic)
+            }
+          }
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
+      if showsSummary, let errors, !errors.isEmpty {
         Section {
           Text(verbatim: Copy.editor.fixErrors.text)
             .brandText(.control)
@@ -47,10 +77,12 @@ struct RecipeEditorForm: View {
 
       Section {
         EditorField(
-          label: Copy.editor.title, text: $draft.title, error: errors?[.title], axis: .vertical,
+          label: Copy.editor.title, text: $draft.title, error: errors?[.title], focus: focus,
+          field: .title, axis: .vertical,
           optional: false, flagged: draft.review.contains(.title))
         EditorField(
           label: Copy.editor.description, text: $draft.summary, error: errors?[.summary],
+          focus: focus, field: .summary,
           axis: .vertical, flagged: draft.review.contains(.description))
       }
       .listRowBackground(Brand.Colors.mantle)
@@ -58,16 +90,20 @@ struct RecipeEditorForm: View {
       Section {
         EditorField(
           label: Copy.editor.servings, text: $draft.servings, error: errors?[.servings],
+          focus: focus, field: .servings,
           mono: true, numeric: true, flagged: draft.review.contains(.servings))
         EditorField(
           label: Copy.editor.prepMinutes, text: $draft.prepMinutes, error: errors?[.prepMinutes],
+          focus: focus, field: .prepMinutes,
           mono: true, numeric: true, flagged: draft.review.contains(.prepMinutes))
         EditorField(
           label: Copy.editor.cookMinutes, text: $draft.cookMinutes, error: errors?[.cookMinutes],
+          focus: focus, field: .cookMinutes,
           mono: true, numeric: true, flagged: draft.review.contains(.cookMinutes))
         EditorField(
           label: Copy.editor.totalMinutes, text: $draft.totalMinutes,
-          error: errors?[.totalMinutes], mono: true, numeric: true,
+          error: errors?[.totalMinutes], focus: focus, field: .totalMinutes, mono: true,
+          numeric: true,
           flagged: draft.review.contains(.totalMinutes))
       }
       .listRowBackground(Brand.Colors.mantle)
@@ -76,16 +112,19 @@ struct RecipeEditorForm: View {
         divineRow
         EditorField(
           label: Copy.editor.macroFields.calories, text: $draft.calories,
-          error: errors?[.calories], mono: true, numeric: true,
+          error: errors?[.calories], focus: focus, field: .calories, mono: true, numeric: true,
           flagged: draft.review.contains(.macros))
         EditorField(
           label: Copy.editor.macroFields.protein, text: $draft.protein, error: errors?[.protein],
+          focus: focus, field: .protein,
           mono: true, numeric: true, flagged: draft.review.contains(.macros))
         EditorField(
           label: Copy.editor.macroFields.carbs, text: $draft.carbs, error: errors?[.carbs],
+          focus: focus, field: .carbs,
           mono: true, numeric: true, flagged: draft.review.contains(.macros))
         EditorField(
-          label: Copy.editor.macroFields.fat, text: $draft.fat, error: errors?[.fat], mono: true,
+          label: Copy.editor.macroFields.fat, text: $draft.fat, error: errors?[.fat], focus: focus,
+          field: .fat, mono: true,
           numeric: true, flagged: draft.review.contains(.macros))
       } header: {
         Text(verbatim: Copy.editor.macros.text)
@@ -100,6 +139,7 @@ struct RecipeEditorForm: View {
       Section {
         EditorField(
           label: Copy.editor.sourceUrl, text: $draft.sourceURL, error: errors?[.sourceURL],
+          focus: focus, field: .sourceURL,
           url: true, flagged: draft.review.contains(.sourceUrl))
       }
       .listRowBackground(Brand.Colors.mantle)
@@ -109,7 +149,8 @@ struct RecipeEditorForm: View {
 
       Section {
         EditorField(
-          label: Copy.editor.notes, text: $draft.notes, error: errors?[.notes], axis: .vertical,
+          label: Copy.editor.notes, text: $draft.notes, error: errors?[.notes], focus: focus,
+          field: .notes, axis: .vertical,
           flagged: draft.review.contains(.notes))
       }
       .listRowBackground(Brand.Colors.mantle)
@@ -177,6 +218,9 @@ struct EditorField: View {
   let label: CopyString
   @Binding var text: String
   var error: CopyString?
+  /// Where the editor learns the field was left, with the field it stands for.
+  var focus: FocusState<RecipeDraft.Field?>.Binding?
+  var field: RecipeDraft.Field?
   var axis: Axis = .horizontal
   var mono = false
   var numeric = false
@@ -194,7 +238,7 @@ struct EditorField: View {
           .foregroundStyle(Brand.Colors.subtext)
         if flagged { FlagNote() }
       }
-      field
+      tracked(entry)
         .textFieldStyle(.plain)
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -218,8 +262,18 @@ struct EditorField: View {
     optional ? Text(verbatim: Copy.editor.optional.text) : nil
   }
 
+  /// The entry, reporting to the editor which field has the keyboard when it is told which.
   @ViewBuilder
-  private var field: some View {
+  private func tracked(_ entry: some View) -> some View {
+    if let focus, let field {
+      entry.focused(focus, equals: field)
+    } else {
+      entry
+    }
+  }
+
+  @ViewBuilder
+  private var entry: some View {
     if axis == .vertical {
       TextField("", text: $text, prompt: prompt, axis: .vertical).lineLimit(1...8)
     } else {

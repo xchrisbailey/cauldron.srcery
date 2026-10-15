@@ -310,15 +310,11 @@ public enum Distill {
 
   /// What to estimate macros from, for a recipe whose source gave no nutrition: its ingredient
   /// lines and yield. Nil when the source gave macros or there are no ingredient lines. The
-  /// reference estimated inline; on the device the estimate is queued until the model can be
-  /// reached (`withMacros`).
+  /// app asks for it during the import, as the reference did (`withMacros`), and queues it for
+  /// after the recipe is saved when the model can't be reached in time.
   public static func macroEstimateInput(for recipe: ExtractedRecipe) -> MacroEstimateInput? {
-    let lines = recipe.ingredients.map { $0.line.jsTrimmed().jsPrefix(RecipeLimits.line) }
-      .filter { !$0.isEmpty }.prefix(RecipeLimits.ingredients)
-    if recipe.macros != nil || lines.isEmpty { return nil }
-    let servings = recipe.servings.flatMap { (1...RecipeLimits.servings).contains($0) ? $0 : nil }
-    return MacroEstimateInput(
-      title: recipe.title?.jsPrefix(RecipeLimits.title), servings: servings,
-      ingredients: Array(lines))
+    guard recipe.macros == nil else { return nil }
+    return MacroEstimateInput.limited(
+      title: recipe.title, servings: recipe.servings, lines: recipe.ingredients.map(\.line))
   }
 }

@@ -25,6 +25,9 @@ extension RecipeDraft {
     cookMinutes = Self.number(draft.cookMinutes)
     totalMinutes = Self.number(draft.totalMinutes)
     if let macros = draft.macros, macros != .none { fill(withPage: macros) }
+    // No numbers from the page: the app asks for an estimate, and if that can't be had Save
+    // queues it (`ImportModel`).
+    estimateOnSave = distilled.macroEstimate != nil
     sourceURL = kept?.url ?? draft.sourceUrl ?? ""
     notes = draft.notes ?? ""
     tags = draft.tags

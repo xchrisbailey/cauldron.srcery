@@ -100,6 +100,9 @@ final class ImportModel: Identifiable {
 
   @ObservationIgnored private let fetcher: any PageFetcher
   @ObservationIgnored private let extractor: (any RecipeExtracting)?
+  /// Asked for the macro estimate during the import, as the reference did. Nil where there is
+  /// no AI service: the estimate is then left for after the recipe is saved.
+  @ObservationIgnored private let estimator: (any RecipeAI)?
   @ObservationIgnored private let reader: any RecipeTextReader
   @ObservationIgnored private let maxPixels: Int
   @ObservationIgnored private let options: DistillOptions
@@ -115,6 +118,7 @@ final class ImportModel: Identifiable {
 
   init(
     fetcher: any PageFetcher, extractor: (any RecipeExtracting)?,
+    estimator: (any RecipeAI)? = nil,
     reader: any RecipeTextReader = VisionTextReader(),
     maxPixels: Int = PhotoProcessing.maxPixels,
     options: DistillOptions = DistillOptions(),
@@ -123,6 +127,7 @@ final class ImportModel: Identifiable {
   ) {
     self.fetcher = fetcher
     self.extractor = extractor
+    self.estimator = estimator
     self.reader = reader
     self.maxPixels = maxPixels
     self.options = options
@@ -354,11 +359,13 @@ final class ImportModel: Identifiable {
     }
 
     // The cover photo is only a nicety: it takes as long as it takes (up to its limit) and
-    // never fails the import.
+    // never fails the import. The macro estimate is asked for beside it, for the cook to check.
     var photo = keptPhoto
+    async let estimate = estimateMacros(for: distilled)
     if case .link = request, let image = distilled.imageUrl {
       photo = await CoverPhoto.fetch(image, using: fetcher)
     }
+    let outcome = await estimate
     guard run == generation, !Task.isCancelled else { return }
 
     var keptLink: String?
@@ -368,8 +375,11 @@ final class ImportModel: Identifiable {
     case .text(_, let link): keptLink = link
     case .pages: break
     }
-    let draft = RecipeDraft(
+    var draft = RecipeDraft(
       importing: distilled, photo: photo, link: keptLink, fetchedAt: fetchedAt)
+    // An estimate goes into the fields, flagged to check. One that couldn't be had (no key, out
+    // of reach, too slow) is queued by Save instead; it is never guessed (decision 10).
+    if let outcome { draft.apply(outcome) }
     let links: [String?]
     switch request {
     case .link(let address): links = [address, distilled.draft.sourceUrl]
@@ -378,6 +388,14 @@ final class ImportModel: Identifiable {
     }
     reading = nil
     phase = .ready(ImportReview(draft: draft, duplicate: findDuplicate(links)))
+  }
+
+  /// Asks for the macros of a recipe whose source published none, within the import's limit
+  /// (`withMacros` in the reference). Nil when there is nothing to ask or nobody to ask.
+  private func estimateMacros(for distilled: Distilled) async -> RecipeMacroEstimates.DraftOutcome?
+  {
+    guard let input = distilled.macroEstimate, let estimator else { return nil }
+    return await RecipeMacroEstimates.divine(input, using: estimator, within: options.macroTimeout)
   }
 
   /// What went wrong reading pages that isn't a failure of distilling the text.
