@@ -28,6 +28,10 @@ struct RecipeCommands {
   let stir: () -> Void
   /// Nil in a recipe's own window, which is already what it would open.
   let openInWindow: (() -> Void)?
+  /// Nil where a copy can't be made.
+  var duplicate: (() -> Void)?
+  /// Nil where the recipe can't be printed.
+  var printRecipe: (() -> Void)?
 }
 
 /// The one thing a section adds, which is a different thing in each.
@@ -103,6 +107,8 @@ enum MenuCommand: CaseIterable {
   case editRecipe
   case brewRecipe
   case stirRecipe
+  case duplicateRecipe
+  case printRecipe
   case openRecipeInWindow
 
   /// The command that goes to a section; nil for Settings, which the Mac gives its own
@@ -139,6 +145,8 @@ enum MenuCommand: CaseIterable {
     case .editRecipe: KeyboardShortcut("e", modifiers: .command)
     case .brewRecipe: KeyboardShortcut("b", modifiers: .command)
     case .stirRecipe: KeyboardShortcut("s", modifiers: [.command, .shift])
+    case .duplicateRecipe: KeyboardShortcut("d", modifiers: .command)
+    case .printRecipe: KeyboardShortcut("p", modifiers: .command)
     case .openRecipeInWindow: KeyboardShortcut("o", modifiers: [.command, .shift])
     }
   }
@@ -163,6 +171,8 @@ struct FrontWindow {
     case .previous, .next: steps != nil
     case .editRecipe, .brewRecipe: recipe != nil
     case .stirRecipe: recipe.map { !$0.isBanished } ?? false
+    case .duplicateRecipe: recipe.map { !$0.isBanished && $0.duplicate != nil } ?? false
+    case .printRecipe: recipe?.printRecipe != nil
     case .openRecipeInWindow: recipe?.openInWindow != nil
     }
   }
@@ -185,6 +195,8 @@ struct FrontWindow {
     case .editRecipe: Copy.recipeView.edit.text
     case .brewRecipe: Copy.recipes.startBrewing.text
     case .stirRecipe: Copy.week.stirIntoWeek.text
+    case .duplicateRecipe: Copy.recipeView.duplicate.text
+    case .printRecipe: Copy.recipeView.print.text
     case .openRecipeInWindow: Copy.macMenu.openInNewWindow.text
     }
   }
@@ -208,6 +220,8 @@ struct FrontWindow {
     case .editRecipe: recipe?.edit()
     case .brewRecipe: recipe?.brew()
     case .stirRecipe: recipe?.stir()
+    case .duplicateRecipe: recipe?.duplicate?()
+    case .printRecipe: recipe?.printRecipe?()
     case .openRecipeInWindow: recipe?.openInWindow?()
     }
   }

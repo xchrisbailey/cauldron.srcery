@@ -63,11 +63,14 @@ enum RecipeLibrary {
 enum RecipeNotice {
   case banished(RecipeRecord)
   case restored
+  /// A copy was made and its editor opened.
+  case duplicated
 
   var text: String {
     switch self {
     case .banished(let recipe): Copy.recipeView.banished(recipe.title).text
     case .restored: Copy.recipeView.restored.text
+    case .duplicated: Copy.recipeView.duplicated.text
     }
   }
 
@@ -75,7 +78,7 @@ enum RecipeNotice {
   var undoLabel: String? {
     switch self {
     case .banished: Copy.recipeView.undo.text
-    case .restored: nil
+    case .restored, .duplicated: nil
     }
   }
 }

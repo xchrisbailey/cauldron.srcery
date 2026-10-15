@@ -16,12 +16,18 @@ struct RecipeDetailView: View {
   #if os(macOS)
     @Environment(\.openWindow) private var openWindow
   #endif
+  /// The unit system is the cook's one choice, kept for every page and for brew mode.
+  @Query private var preferences: [PreferencesRecord]
   @State private var scale: Scale
-  /// The cook's choice on this page; until they make one, the preference in Settings.
-  @State private var chosenUnits: UnitSystemChoice?
+  /// The ingredients ticked off while cooking. Not kept: it starts empty each time the page
+  /// opens, as on the web.
+  @State private var checked: Set<Int> = []
   /// The editor and the week's sheet, held here so the Recipe menu can open them.
   @State private var editing = false
   @State private var choosing = false
+  /// The copy just made, whose editor is open.
+  @State private var copy: RecipeRecord?
+  @State private var couldntCopy = false
 
   init(recipe: RecipeRecord, inOwnWindow: Bool = false, onBanish: @escaping () -> Void) {
     self.recipe = recipe
@@ -30,9 +36,10 @@ struct RecipeDetailView: View {
     _scale = State(initialValue: .initial(servings: recipe.servings))
   }
 
-  private var units: UnitSystemChoice {
-    chosenUnits ?? (try? context.current(PreferencesRecord.self))?.unitSystem ?? .asWritten
-  }
+  private var units: UnitSystemChoice { UnitPreference.current(preferences) }
+
+  /// What this page prints, at the scale and in the units on screen.
+  private var printout: RecipePrintout { RecipePrintout(recipe, scale: scale, units: units) }
 
   var body: some View {
     ScrollView {
@@ -54,6 +61,7 @@ struct RecipeDetailView: View {
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
     #endif
+    .sheet(item: $copy) { RecipeCopySheet(copy: $0) }
     #if os(macOS)
       .focusedSceneValue(\.recipeCommands, menuCommands)
     #endif
@@ -71,7 +79,9 @@ struct RecipeDetailView: View {
         edit: { editing = true },
         brew: { openWindow(value: BrewRequest(recipeID: recipeID, scale: scale)) },
         stir: { choosing = true },
-        openInWindow: openInWindow)
+        openInWindow: openInWindow,
+        duplicate: { makeCopy() },
+        printRecipe: { RecipePrinting.print(printout) })
     }
   #endif
 
@@ -180,20 +190,28 @@ struct RecipeDetailView: View {
   }
 
   private var actions: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(spacing: 8) { actionButtons }
-      VStack(spacing: 8) { actionButtons }
+    VStack(spacing: 8) {
+      row {
+        RecipeBrewAction(recipe: recipe, scale: scale)
+        RecipeAddToWeekAction(recipe: recipe, scale: scale, isChoosing: $choosing)
+      }
+      row {
+        RecipeLogAction(recipe: recipe)
+        RecipeMarkBrewedAction(recipe: recipe)
+        RecipeEditAction(recipe: recipe, isEditing: $editing)
+      }
     }
-    // Four buttons that each fill their share would stretch across a wide window.
+    // Buttons that each fill their share would stretch across a wide window.
     .frame(maxWidth: 640, alignment: .leading)
   }
 
-  @ViewBuilder
-  private var actionButtons: some View {
-    RecipeBrewAction(recipe: recipe, scale: scale)
-    RecipeAddToWeekAction(recipe: recipe, scale: scale, isChoosing: $choosing)
-    RecipeLogAction(recipe: recipe)
-    RecipeEditAction(recipe: recipe, isEditing: $editing)
+  /// Side by side where they fit, stacked where they don't.
+  private func row(@ViewBuilder _ buttons: () -> some View) -> some View {
+    let buttons = buttons()
+    return ViewThatFits(in: .horizontal) {
+      HStack(spacing: 8) { buttons }
+      VStack(spacing: 8) { buttons }
+    }
   }
 
   // MARK: Ingredients and method
@@ -214,10 +232,21 @@ struct RecipeDetailView: View {
   private var ingredients: some View {
     let rows = IngredientRow.rows(
       recipe.ingredients, factor: scale.factor(recipeServings: recipe.servings), system: units)
+    let lineCount = rows.filter { if case .line = $0 { true } else { false } }.count
     return VStack(alignment: .leading, spacing: 10) {
-      sectionTitle(Copy.recipeView.ingredients)
+      HStack(alignment: .firstTextBaseline) {
+        sectionTitle(Copy.recipeView.ingredients)
+        Spacer(minLength: 8)
+        if lineCount > 0 {
+          Text(verbatim: Copy.recipeView.checked(checked.count, lineCount).text)
+            .brandText(.quantity)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+      }
       Picker(
-        selection: Binding(get: { units }, set: { chosenUnits = $0 })
+        selection: Binding(
+          get: { units },
+          set: { UnitPreference.set($0, preferences: preferences, in: context) })
       ) {
         Text(verbatim: Copy.recipeView.asWritten.text).tag(UnitSystemChoice.asWritten)
         Text(verbatim: Copy.recipeView.metric.text).tag(UnitSystemChoice.metric)
@@ -227,7 +256,7 @@ struct RecipeDetailView: View {
       }
       .pickerStyle(.segmented)
       .labelsHidden()
-      ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+      ForEach(Array(rows.enumerated()), id: \.offset) { offset, row in
         switch row {
         case .heading(let name):
           Text(verbatim: name)
@@ -236,10 +265,21 @@ struct RecipeDetailView: View {
             .padding(.top, 6)
             .accessibilityAddTraits(.isHeader)
         case .line(let line):
-          IngredientLineView(line: line)
+          Toggle(isOn: tick(offset)) {
+            IngredientLineView(line: line, done: checked.contains(offset))
+          }
+          .toggleStyle(IngredientTickStyle())
         }
       }
     }
+  }
+
+  /// Whether the ingredient at a row is ticked off. Rows are counted with their headings, which
+  /// stay put when the scale or the units change.
+  private func tick(_ offset: Int) -> Binding<Bool> {
+    Binding(
+      get: { checked.contains(offset) },
+      set: { if $0 { checked.insert(offset) } else { checked.remove(offset) } })
   }
 
   private var method: some View {
@@ -283,19 +323,74 @@ struct RecipeDetailView: View {
   }
 
   private var footer: some View {
-    Button(role: .destructive, action: onBanish) {
-      Text(verbatim: Copy.recipes.banishConfirm(recipe.title).verb.text)
+    VStack(alignment: .leading, spacing: 0) {
+      if couldntCopy {
+        Text(verbatim: Copy.errors.internal.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.heat)
+      }
+      FlowLayout(spacing: 20) {
+        printButton
+        footerButton(Copy.recipeView.duplicate.text, color: Brand.Colors.subtext) { makeCopy() }
+          .disabled(recipe.isBanished)
+        Button(role: .destructive, action: onBanish) {
+          Text(verbatim: Copy.recipes.banishConfirm(recipe.title).verb.text)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.heat)
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+      }
+    }
+  }
+
+  /// The Mac prints straight to its print panel. The phone shares the recipe as a PDF, whose
+  /// share sheet has Print, Save to Files and the rest.
+  @ViewBuilder
+  private var printButton: some View {
+    #if os(macOS)
+      footerButton(Copy.recipeView.print.text, color: Brand.Colors.subtext) {
+        RecipePrinting.print(printout)
+      }
+    #else
+      ShareLink(item: printout, preview: SharePreview(printout.title)) {
+        Text(verbatim: Copy.recipeView.print.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+          .frame(minHeight: 44)
+      }
+    #endif
+  }
+
+  private func footerButton(
+    _ title: String, color: Color, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Text(verbatim: title)
         .brandText(.control)
-        .foregroundStyle(Brand.Colors.heat)
+        .foregroundStyle(color)
         .frame(minHeight: 44)
     }
     .buttonStyle(.plain)
+  }
+
+  /// Makes a copy and opens its editor.
+  private func makeCopy() {
+    guard !recipe.isBanished else { return }
+    couldntCopy = false
+    do {
+      copy = try RecipeDuplication.duplicate(recipe, context: context)
+    } catch {
+      couldntCopy = true
+    }
   }
 }
 
 /// An ingredient line: the amount in Geist Mono with its unit, then the item.
 struct IngredientLineView: View {
   let line: IngredientRow.Line
+  /// Ticked off: struck through and quieter.
+  var done = false
   @ScaledMetric private var amountWidth: CGFloat = 84
 
   var body: some View {
@@ -318,6 +413,8 @@ struct IngredientLineView: View {
       .brandText(.body)
       Spacer(minLength: 0)
     }
+    .strikethrough(done)
+    .foregroundStyle(done ? AnyShapeStyle(Brand.Colors.overlay1) : AnyShapeStyle(.foreground))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text(verbatim: spoken))
   }
@@ -359,5 +456,27 @@ struct StepView: View {
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
       Text(verbatim: "\(Copy.editor.step(number).text). \(text)" + (timer.map { " \($0)" } ?? "")))
+  }
+}
+
+/// A tick box before an ingredient, for crossing it off while cooking. The whole line is the
+/// button, and VoiceOver reads it as a switch with the ingredient as its name.
+struct IngredientTickStyle: ToggleStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    Button {
+      configuration.isOn.toggle()
+    } label: {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+          .foregroundStyle(configuration.isOn ? Brand.Colors.magic : Brand.Colors.overlay1)
+          .frame(width: 22)
+          .accessibilityHidden(true)
+        configuration.label
+      }
+      .frame(minHeight: 36)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityRepresentation { Toggle(isOn: configuration.$isOn) { configuration.label } }
   }
 }

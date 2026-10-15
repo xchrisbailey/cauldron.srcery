@@ -13,6 +13,9 @@ struct BrewScreen: View {
 
   @Environment(\.modelContext) private var context
   @State private var couldntSave = false
+  /// The log sheet, offered on the last step, and the editor, offered when there are no steps.
+  @State private var logging = false
+  @State private var editing = false
   @ScaledMetric(relativeTo: .title) private var stepSize: CGFloat = 24
 
   var body: some View {
@@ -31,6 +34,12 @@ struct BrewScreen: View {
         controls
       } else {
         EmptyState(systemImage: "timer", message: Copy.brewing.noSteps)
+        Button {
+          editing = true
+        } label: {
+          Text(verbatim: Copy.brewing.editRecipe.text)
+        }
+        .buttonStyle(RecipeActionButtonStyle(.primary))
         Button(action: onClose) {
           Text(verbatim: Copy.brewing.leave.text)
         }
@@ -52,6 +61,14 @@ struct BrewScreen: View {
       }
     }
     .onDisappear { model.end() }
+    .sheet(isPresented: $logging) {
+      RecipeLogSheet(recipe: recipe, onClose: { logging = false })
+    }
+    // The steps this brew was planned from are the ones the recipe had when it began, so after
+    // an edit the cook goes back to the recipe and starts again.
+    .sheet(isPresented: $editing) {
+      RecipeEditorSheet(recipe: recipe, onSaved: { _ in onClose() })
+    }
   }
 
   // MARK: Top
@@ -175,30 +192,15 @@ struct BrewScreen: View {
 
   private var controls: some View {
     VStack(spacing: 10) {
-      HStack(spacing: 8) {
-        Button {
-          model.previous()
-        } label: {
-          Text(verbatim: Copy.brewing.previousStep.text)
+      // Side by side where they fit; stacked, with the way forward first, where they don't.
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 8) {
+          previousButton
+          forwardButtons
         }
-        .buttonStyle(RecipeActionButtonStyle())
-        .disabled(!model.canGoBack)
-        .keyboardShortcut(.leftArrow, modifiers: [])
-        if model.isLast {
-          Button {
-            Task { await finish() }
-          } label: {
-            Text(verbatim: Copy.brewing.brewed.text)
-          }
-          .buttonStyle(RecipeActionButtonStyle(.primary))
-        } else {
-          Button {
-            model.next()
-          } label: {
-            Text(verbatim: Copy.brewing.nextStep.text)
-          }
-          .buttonStyle(RecipeActionButtonStyle(.primary))
-          .keyboardShortcut(.rightArrow, modifiers: [])
+        VStack(spacing: 8) {
+          forwardButtons
+          previousButton
         }
       }
       if couldntSave {
@@ -220,6 +222,44 @@ struct BrewScreen: View {
           .brandText(.control)
           .foregroundStyle(Brand.Colors.overlay1)
       #endif
+    }
+  }
+
+  private var previousButton: some View {
+    Button {
+      model.previous()
+    } label: {
+      Text(verbatim: Copy.brewing.previousStep.text)
+    }
+    .buttonStyle(RecipeActionButtonStyle())
+    .disabled(!model.canGoBack)
+    .keyboardShortcut(.leftArrow, modifiers: [])
+  }
+
+  /// Next step; on the last step, Log it and Brewed.
+  @ViewBuilder
+  private var forwardButtons: some View {
+    if model.isLast {
+      Button {
+        logging = true
+      } label: {
+        Text(verbatim: Copy.tracker.logRecipe.title.text)
+      }
+      .buttonStyle(RecipeActionButtonStyle())
+      Button {
+        Task { await finish() }
+      } label: {
+        Text(verbatim: Copy.brewing.brewed.text)
+      }
+      .buttonStyle(RecipeActionButtonStyle(.primary))
+    } else {
+      Button {
+        model.next()
+      } label: {
+        Text(verbatim: Copy.brewing.nextStep.text)
+      }
+      .buttonStyle(RecipeActionButtonStyle(.primary))
+      .keyboardShortcut(.rightArrow, modifiers: [])
     }
   }
 

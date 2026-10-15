@@ -8,11 +8,11 @@ struct BrewSession: Identifiable {
   let model: BrewModel
   let recipe: RecipeRecord
 
-  /// Starts brewing a recipe at a scale, with the unit system from Settings.
+  /// Starts brewing a recipe at a scale, in the unit system the cook chose on the recipe's page.
   @MainActor
   static func make(recipe: RecipeRecord, scale: Scale, context: ModelContext) -> BrewSession {
-    let units = (try? context.current(PreferencesRecord.self))?.unitSystem ?? .asWritten
-    let plan = BrewPlan(BrewRecipe(recipe), scale: scale, units: units)
+    let plan = BrewPlan(
+      BrewRecipe(recipe), scale: scale, units: UnitPreference.current(in: context))
     return BrewSession(model: BrewLive.model(for: plan), recipe: recipe)
   }
 

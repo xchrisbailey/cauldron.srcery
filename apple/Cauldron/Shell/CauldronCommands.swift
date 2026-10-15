@@ -55,8 +55,13 @@
         item(.brewRecipe)
         item(.stirRecipe)
         Divider()
+        item(.duplicateRecipe)
+        item(.printRecipe)
+        Divider()
         item(.openRecipeInWindow)
       }
+      // Print lives in the Recipe menu, where it acts on the open recipe.
+      CommandGroup(replacing: .printItem) {}
     }
 
     private func item(_ command: MenuCommand) -> some View {
