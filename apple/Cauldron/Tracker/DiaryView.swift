@@ -146,7 +146,11 @@ private struct DiaryDayList: View {
   @State private var adding: AddRequest?
   @State private var editing: DiaryEntryRecord?
   @State private var weighing = false
+  @State private var copying = false
   @State private var failure: CopyString?
+  /// The line at the bottom after a copy, for a few seconds; the count restarts its timer.
+  @State private var copied: CopyString?
+  @State private var copiedCount = 0
   /// The line at the bottom after a delete, with Undo; the count restarts its timer.
   @State private var notice: DiaryWrites.Removed?
   @State private var noticeCount = 0
@@ -189,6 +193,11 @@ private struct DiaryDayList: View {
           Text(verbatim: Copy.tracker.diary.empty.text)
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
+          Button(Copy.tracker.copyDay.copyYesterday.text) {
+            finishCopy(
+              CopyDayOutcome.run(from: day.adding(days: -1), to: day, slot: nil, in: context))
+          }
+          .brandText(.control)
         }
         .listRowBackground(Color.clear)
       }
@@ -227,8 +236,19 @@ private struct DiaryDayList: View {
       }
     }
     .scrollContentBackground(.hidden)
-    #if os(macOS)
-      .toolbar {
+    .toolbar {
+      ToolbarItem {
+        Button {
+          copying = true
+        } label: {
+          Label {
+            Text(verbatim: Copy.tracker.copyDay.open.text)
+          } icon: {
+            Image(systemName: "doc.on.doc")
+          }
+        }
+      }
+      #if os(macOS)
         ToolbarItem {
           Button(action: logFood) {
             Label {
@@ -238,9 +258,19 @@ private struct DiaryDayList: View {
             }
           }
         }
-      }
+      #endif
+    }
+    #if os(macOS)
       .focusedSceneValue(\.addCommand, AddCommand(kind: .food, perform: logFood))
     #endif
+    .sheet(isPresented: $copying) {
+      CopyDaySheet(
+        day: day, onClose: { copying = false },
+        onDone: { message, failed in
+          copying = false
+          finishCopy((message, failed))
+        })
+    }
     .sheet(isPresented: $weighing) {
       WeightEntrySheet(
         day: day, today: today, unit: weightUnit, existing: Deduplication.keeper(of: weighIns),
@@ -262,7 +292,16 @@ private struct DiaryDayList: View {
         DiaryNoticeBanner(name: notice.name, onUndo: undo)
           .padding(16)
           .transition(.move(edge: .bottom).combined(with: .opacity))
+      } else if let copied {
+        DiaryMessageBanner(message: copied)
+          .padding(16)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
       }
+    }
+    .task(id: copiedCount) {
+      guard copied != nil else { return }
+      try? await Task.sleep(for: .seconds(4))
+      if !Task.isCancelled { withAnimation { copied = nil } }
     }
     .task(id: noticeCount) {
       guard notice != nil else { return }
@@ -324,6 +363,16 @@ private struct DiaryDayList: View {
       show(try DiaryEditor(context: context).remove(record))
     } catch {
       failure = Copy.tracker.diary.couldntSave
+    }
+  }
+
+  /// A copy that ran says how many went in; one that was refused is an alert.
+  private func finishCopy(_ outcome: (message: CopyString, failed: Bool)) {
+    if outcome.failed {
+      failure = outcome.message
+    } else {
+      withAnimation { copied = outcome.message }
+      copiedCount += 1
     }
   }
 
@@ -438,6 +487,23 @@ extension EntryRow {
       }
       .accessibilityHidden(true)
     }
+  }
+}
+
+/// A line at the bottom that says what just happened, such as "Copied 3 items.".
+struct DiaryMessageBanner: View {
+  let message: CopyString
+
+  var body: some View {
+    Text(verbatim: message.text)
+      .brandText(.body)
+      .lineLimit(2)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
+      .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface1, lineWidth: 1))
+      .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+      .accessibilityElement(children: .combine)
   }
 }
 

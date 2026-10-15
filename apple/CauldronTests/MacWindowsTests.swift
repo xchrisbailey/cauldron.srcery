@@ -186,28 +186,80 @@ struct MacWindowsTests {
 
   // MARK: Dropping a recipe on the week
 
-  @Test func aDroppedRecipeIsPlannedOnThatDayWithItsOwnServings() throws {
+  @Test func aDroppedRecipeOpensTheSpreadSetToTheDroppedDayAndMeal() throws {
     let context = try context()
     let soup = recipe("Soup", servings: 6, in: context)
+    let found = try WeekPlan.droppedRecipe(id: soup.id, in: context)
+    #expect(found === soup)
+    // Nothing is planned until the cook stirs it in from the days step.
+    #expect(try entries(in: context).isEmpty)
+
     let tuesday = monday.adding(days: 1)
-    let entry = try WeekPlan.stir(
-      recipeID: soup.id, at: MealTarget(day: tuesday, slot: WeekPlan.defaultSlot), into: context)
-    #expect(entry.recipe === soup)
-    #expect(entry.title == "Soup")
-    #expect(entry.dayKey == "2026-10-06")
-    #expect(entry.slot == .dinner)
-    #expect(entry.servings == nil, "it keeps following the recipe's own servings")
-    #expect(try entries(in: context).count == 1)
+    let plan = SpreadPlan(
+      days: monday.weekDays(), anchor: tuesday, slot: .lunch, recipeServings: soup.servings)
+    #expect(plan.anchor == tuesday && plan.slot == .lunch)
+    #expect(plan.entries == [DayServings(date: tuesday, servings: 1)])
+    try WeekPlan.stir(soup, spread: plan, into: context)
+    let entry = try #require(try entries(in: context).first)
+    #expect(entry.dayKey == "2026-10-06" && entry.slot == .lunch && entry.recipe === soup)
   }
 
-  @Test func aDropOnAMealGoesInThatMealAfterWhatIsThere() throws {
+  @Test func aDropOnAMealCardPlacesTheRecipeBeforeIt() throws {
     let context = try context()
     let soup = recipe("Soup", in: context)
-    try WeekPlan.stirText("Leftovers", at: MealTarget(day: monday, slot: .lunch), into: context)
-    let entry = try WeekPlan.stir(
-      recipeID: soup.id, at: MealTarget(day: monday, slot: .lunch), into: context)
-    #expect(entry.slot == .lunch)
-    #expect(entry.position == 1)
+    let lunch = MealTarget(day: monday, slot: .lunch)
+    try WeekPlan.stirText("Leftovers", at: lunch, into: context)
+    try WeekPlan.stirText("Salad", at: lunch, into: context)
+    let all = try entries(in: context)
+    let salad = try #require(all.first { $0.title == "Salad" })
+    // Dropped on the second card: it goes in front of it, as `dropAt` does on the web.
+    let position = try #require(WeekPlan.dropAt(all, target: lunch, before: salad.id))
+    #expect(position == 1)
+    let plan = SpreadPlan(
+      days: monday.weekDays(), anchor: monday, slot: .lunch, recipeServings: soup.servings)
+    try WeekPlan.stir(
+      soup, spread: plan,
+      placed: Placement(day: monday, slot: .lunch, position: position), into: context)
+    #expect(try titles(lunch, in: context) == ["Leftovers", "Soup", "Salad"])
+    #expect(try positions(lunch, in: context) == [0, 1, 2])
+  }
+
+  @Test func aDropOnTheMealItselfGoesAtTheEnd() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let lunch = MealTarget(day: monday, slot: .lunch)
+    try WeekPlan.stirText("Leftovers", at: lunch, into: context)
+    let all = try entries(in: context)
+    #expect(WeekPlan.dropAt(all, target: lunch, before: nil) == nil)
+    // A card that is not in the meal (gone since the drag began) also means the end.
+    #expect(WeekPlan.dropAt(all, target: lunch, before: UUID()) == nil)
+    let plan = SpreadPlan(
+      days: monday.weekDays(), anchor: monday, slot: .lunch, recipeServings: soup.servings)
+    try WeekPlan.stir(soup, spread: plan, into: context)
+    #expect(try titles(lunch, in: context) == ["Leftovers", "Soup"])
+  }
+
+  @Test func theDropPositionHoldsOnlyForTheDroppedDayAndMeal() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let tuesday = monday.adding(days: 1)
+    for day in [monday, tuesday] {
+      try WeekPlan.stirText("Early", at: dinner(day), into: context)
+    }
+    let placed = Placement(day: monday, slot: .dinner, position: 0)
+    try WeekPlan.stir(
+      soup,
+      days: [DayServings(date: monday, servings: 1), DayServings(date: tuesday, servings: 1)],
+      slot: .dinner, placed: placed, into: context)
+    #expect(try titles(dinner(monday), in: context) == ["Soup", "Early"])
+    #expect(try titles(dinner(tuesday), in: context) == ["Early", "Soup"])
+
+    // The cook moved the stir to another meal in the spread: the position no longer applies.
+    try WeekPlan.stirText("First", at: MealTarget(day: monday, slot: .snack), into: context)
+    try WeekPlan.stir(
+      soup, days: [DayServings(date: monday, servings: 1)], slot: .snack, placed: placed,
+      into: context)
+    #expect(try titles(MealTarget(day: monday, slot: .snack), in: context) == ["First", "Soup"])
   }
 
   @Test func aBanishedRecipeCantBeDroppedOnTheWeek() throws {
@@ -215,8 +267,7 @@ struct MacWindowsTests {
     let soup = recipe("Soup", in: context)
     RecipeLibrary.banish(soup)
     #expect(throws: WeekPlanError.recipeBanished) {
-      try WeekPlan.stir(
-        recipeID: soup.id, at: MealTarget(day: monday, slot: .dinner), into: context)
+      try WeekPlan.droppedRecipe(id: soup.id, in: context)
     }
     #expect(try entries(in: context).isEmpty)
   }
@@ -224,36 +275,48 @@ struct MacWindowsTests {
   @Test func aRecipeThatIsntThereCantBeDropped() throws {
     let context = try context()
     #expect(throws: WeekPlanError.recipeMissing) {
-      try WeekPlan.stir(
-        recipeID: UUID(), at: MealTarget(day: monday, slot: .dinner), into: context)
+      try WeekPlan.droppedRecipe(id: UUID(), in: context)
     }
     #expect(try entries(in: context).isEmpty)
     #expect(WeekPlanError.recipeMissing.message == Copy.week.couldntSave)
   }
 
-  @Test func aFullMealRefusesADroppedRecipe() throws {
+  @Test func aFullMealRefusesADroppedRecipeAtTheSpreadStep() throws {
     let context = try context()
     let soup = recipe("Soup", in: context)
     let target = MealTarget(day: monday, slot: .dinner)
     for _ in 0..<WeekLimits.perSlot {
       try WeekPlan.stir(soup, at: target, servings: nil, into: context)
     }
+    try context.save()
+    let plan = SpreadPlan(
+      days: monday.weekDays(), anchor: monday, slot: .dinner, recipeServings: soup.servings)
     #expect(throws: WeekPlanError.slotFull) {
-      try WeekPlan.stir(recipeID: soup.id, at: target, into: context)
+      try WeekPlan.stir(soup, spread: plan, into: context)
     }
     #expect(try entries(in: context).count == WeekLimits.perSlot)
   }
 
-  @Test func aRefusedDropRollsBackWhenCommitted() throws {
+  @Test func aRefusedSpreadRollsBackWhenCommitted() throws {
     let context = try context()
     let soup = recipe("Soup", in: context)
+    let plan = SpreadPlan(
+      days: monday.weekDays(), anchor: monday, slot: .dinner, recipeServings: soup.servings)
     RecipeLibrary.banish(soup)
+    try context.save()
     #expect(throws: WeekPlanError.recipeBanished) {
-      try WeekPlan.commit(in: context) {
-        try WeekPlan.stir(
-          recipeID: soup.id, at: MealTarget(day: monday, slot: .dinner), into: context)
-      }
+      try WeekPlan.stir(soup, spread: plan, into: context)
     }
     #expect(try entries(in: context).isEmpty)
+  }
+
+  private func dinner(_ day: LocalDate) -> MealTarget { MealTarget(day: day, slot: .dinner) }
+
+  private func titles(_ target: MealTarget, in context: ModelContext) throws -> [String] {
+    WeekPlan.inSlot(try entries(in: context), target).map(\.title)
+  }
+
+  private func positions(_ target: MealTarget, in context: ModelContext) throws -> [Int] {
+    WeekPlan.inSlot(try entries(in: context), target).map(\.position)
   }
 }

@@ -378,7 +378,7 @@ struct TodayMacrosWritingTests {
   }
 
   @Test func savingTheTargetsWritesThem() throws {
-    var form = TargetsForm(today: today, measurement: .metric)
+    var form = TargetsForm(today: today)
     form.sex = .female
     form.birthDate = LocalDate(year: 1990, month: 5, day: 14)
     form.cm = "168"
