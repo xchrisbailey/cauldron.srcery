@@ -12,15 +12,19 @@ import SwiftUI
   typealias PlatformHostingController = NSHostingController
 #endif
 
-/// The share sheet's Cauldron entry. It does as little as it can: it reads the first link and
-/// any text it was given, leaves them in the App Group's inbox, says so, and closes. A share
-/// extension can't open its app, so the app runs the import and opens the draft the next time
-/// the cook opens it, and the confirmation says that. How the item is chosen is
-/// `SharedItemReader`; how the confirmation looks is `ShareConfirmation`.
+/// The share sheet's Cauldron entry. It reads the first link and any text it was given, runs the
+/// import and shows the recipe it found. Save leaves the finished recipe in the App Group's
+/// inbox for the app to put in the recipe box; Edit in Cauldron, and every failure, leave the
+/// link or text for the app to open as a draft, as before. A share extension can't open its app
+/// or the app's store, so the app takes either the next time it comes forward.
+///
+/// The sheet closes only after what it is leaving is written. How the item is chosen is
+/// `SharedItemReader`; what the sheet does is `ShareSheetModel`, and how it looks is
+/// `ShareSheetView`.
 final class ShareViewController: PlatformViewController {
   #if os(macOS)
     override func loadView() {
-      view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 200))
+      view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 320))
     }
   #endif
 
@@ -29,34 +33,31 @@ final class ShareViewController: PlatformViewController {
     Task { @MainActor in
       let item = await SharedItemReader.read(
         extensionContext?.inputItems as? [NSExtensionItem] ?? [])
-      show(Self.outcome(of: item), keyNote: Self.keyNote())
-      try? await Task.sleep(for: .seconds(1.6))
+      guard let item else {
+        show(ShareConfirmation(outcome: .failed(Copy.importNative.nothingToSend.text)))
+        try? await Task.sleep(for: .seconds(1.6))
+        extensionContext?.completeRequest(returningItems: nil)
+        return
+      }
+      show(
+        ShareSheetView(
+          model: ShareSheetModel.live(item: item) { [weak self] closing in
+            self?.close(closing)
+          }))
+    }
+  }
+
+  private func close(_ closing: ShareSheetModel.Closing) {
+    switch closing {
+    case .done:
       extensionContext?.completeRequest(returningItems: nil)
+    case .cancelled:
+      extensionContext?.cancelRequest(withError: CocoaError(.userCancelled))
     }
   }
 
-  /// Leaves `item` for the app, and what to tell the cook about it.
-  private static func outcome(of item: SharedItem?) -> ShareConfirmation.Outcome {
-    guard let item else { return .failed(Copy.importNative.nothingToSend.text) }
-    guard (try? ShareInbox.add(item)) != nil else {
-      return .failed(Copy.importNative.couldntSend.text)
-    }
-    return .sent(
-      title: Copy.importNative.sentToCauldron.text, detail: Copy.importNative.opensAsDraft.text)
-  }
-
-  /// For now (#200): whether the AI key the app saved can be read here, for the provider the
-  /// app has chosen. It says only whether there is one; the key itself is never shown.
-  private static func keyNote() -> String {
-    let defaults = RecipeAIService.sharedDefaults ?? .standard
-    let provider = RecipeAIService.chosenProvider(defaults)
-    let found = KeychainKeyStore(provider: provider).key() != nil
-    return (found ? Copy.importNative.aiKeyAvailable : Copy.importNative.noAIKey).text
-  }
-
-  private func show(_ outcome: ShareConfirmation.Outcome, keyNote: String?) {
-    let host = PlatformHostingController(
-      rootView: ShareConfirmation(outcome: outcome, keyNote: keyNote))
+  private func show(_ content: some View) {
+    let host = PlatformHostingController(rootView: content)
     addChild(host)
     host.view.frame = view.bounds
     #if os(iOS)

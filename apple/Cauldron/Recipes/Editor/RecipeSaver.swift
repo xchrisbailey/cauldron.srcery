@@ -13,15 +13,21 @@ enum RecipeSaver {
 
   /// Saves `draft` into `recipe`, or into a new recipe when it's nil, and saves the context.
   /// Throws `Failure.invalid` for a draft that fails validation, before anything is touched.
+  /// A new recipe gets `id` when it is given: the share sheet's finished recipes bring their
+  /// own, so receiving one twice can tell it is there.
   @discardableResult
   static func save(
-    _ draft: RecipeDraft, into existing: RecipeRecord?, context: ModelContext, now: Date = .now
+    _ draft: RecipeDraft, into existing: RecipeRecord?, context: ModelContext, now: Date = .now,
+    id: UUID? = nil
   ) throws -> RecipeRecord {
     let errors = draft.validate()
     guard errors.isEmpty else { throw Failure.invalid(errors) }
 
     let recipe = existing ?? RecipeRecord(title: "")
-    if existing == nil { context.insert(recipe) }
+    if existing == nil {
+      if let id { recipe.id = id }
+      context.insert(recipe)
+    }
     // Where an import came from is recorded once, when it becomes a recipe.
     if existing == nil, let imported = draft.imported {
       recipe.sourcePlatform = imported.platform
