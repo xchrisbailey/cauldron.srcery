@@ -98,6 +98,9 @@ private struct SharedImportsPickUp: ViewModifier {
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
         guard scenePhase == .active else { return }
+        // Recipes that synced in while the app was away count for the share sheet's duplicate
+        // check too.
+        SavedLinksIndex.live.rewrite(from: context)
         // An estimate a finished recipe is waiting for runs at once, if the AI can be reached.
         if queue.pickUp(in: context) > 0, let ai {
           await AIQueueRunner.drain(in: context, using: ai.estimator)

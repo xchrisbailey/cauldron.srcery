@@ -34,6 +34,8 @@ final class ShareSheetModel {
     /// No macros yet: the estimate could not be asked for, so the app asks once the recipe is
     /// saved. Never a guess.
     var macrosPending: Bool
+    /// A recipe from the same link is already in the box (#204). Saving still works.
+    var duplicate = false
   }
 
   /// Something to tell the cook, in plain words, and whether `sendToCauldron()` is still open.
@@ -105,7 +107,9 @@ final class ShareSheetModel {
     let importer = ImportModel(
       fetcher: URLSessionPageFetcher(), extractor: ai.extractor,
       estimator: macroEstimator(for: ai),
-      options: DistillOptions(macroTimeout: macroTimeout), cover: .sheetThumbnail)
+      options: DistillOptions(macroTimeout: macroTimeout),
+      findDuplicate: duplicateLookup(savedLinks: { SavedLinksIndex.appGroup.read() }),
+      cover: .sheetThumbnail)
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
       inboxFolder: ShareInbox.folder(), close: close)
@@ -133,7 +137,9 @@ final class ShareSheetModel {
       return .reading
     case .ready(let review):
       return .ready(
-        Self.summary(of: review.draft, thumbnail: review.thumbnail, coverLink: review.coverLink))
+        Self.summary(
+          of: review.draft, thumbnail: review.thumbnail, coverLink: review.coverLink,
+          duplicate: review.duplicate != nil))
     case .failed(let notice):
       return .failed(Notice(message: notice.message, canSend: true))
     }
@@ -207,7 +213,8 @@ final class ShareSheetModel {
   }
 
   static func summary(
-    of draft: RecipeDraft, thumbnail: ProcessedPhoto? = nil, coverLink: String? = nil
+    of draft: RecipeDraft, thumbnail: ProcessedPhoto? = nil, coverLink: String? = nil,
+    duplicate: Bool = false
   ) -> Review {
     let typed = draft.typedMacros
     let macros = typed == Macros() ? nil : typed
@@ -217,7 +224,21 @@ final class ShareSheetModel {
       steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty,
       thumbnail: thumbnail, coverLink: coverLink, macros: macros,
       macrosEstimated: macros != nil && macros == draft.estimatedMacros,
-      macrosPending: macros == nil && draft.estimateOnSave)
+      macrosPending: macros == nil && draft.estimateOnSave, duplicate: duplicate)
+
+  }
+
+  /// The import's check for a recipe already in the box, from the saved-links index: `savedLinks`
+  /// gives the index's keys, and any of the import's links among them is a duplicate. The index
+  /// holds links, not recipes, so the duplicate it names has no id or title; the sheet only asks
+  /// whether there is one. The rules are the app's (`SavedLinks`).
+  static func duplicateLookup(
+    savedLinks: @escaping @MainActor () -> Set<String>
+  ) -> @MainActor ([String?]) -> ImportReview.Duplicate? {
+    { links in
+      SavedLinks.contains(savedLinks(), anyOf: links)
+        ? ImportReview.Duplicate(id: UUID(), title: "") : nil
+    }
   }
 
   /// The site a link is on: its host, less a leading "www.".

@@ -14,11 +14,12 @@ enum RecipeSaver {
   /// Saves `draft` into `recipe`, or into a new recipe when it's nil, and saves the context.
   /// Throws `Failure.invalid` for a draft that fails validation, before anything is touched.
   /// A new recipe gets `id` when it is given: the share sheet's finished recipes bring their
-  /// own, so receiving one twice can tell it is there.
+  /// own, so receiving one twice can tell it is there. Once the recipe is saved the saved-links
+  /// index is rewritten, so the share sheet knows its link.
   @discardableResult
   static func save(
     _ draft: RecipeDraft, into existing: RecipeRecord?, context: ModelContext, now: Date = .now,
-    id: UUID? = nil
+    id: UUID? = nil, index: SavedLinksIndex = .live
   ) throws -> RecipeRecord {
     let errors = draft.validate()
     guard errors.isEmpty else { throw Failure.invalid(errors) }
@@ -53,6 +54,7 @@ enum RecipeSaver {
     recipe.refreshSearchText()
     recipe.updatedAt = now
     try context.save()
+    index.rewrite(from: context)
     return recipe
   }
 

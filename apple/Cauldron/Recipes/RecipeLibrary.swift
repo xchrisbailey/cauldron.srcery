@@ -77,16 +77,26 @@ enum RecipeLibrary {
     return options.sorted { ($0.key, $0.name) < ($1.key, $1.name) }
   }
 
-  /// Banishes a recipe. It is soft-deleted, so it can be restored until it is purged.
-  static func banish(_ recipe: RecipeRecord, at date: Date = .now) {
+  /// Banishes a recipe. It is soft-deleted, so it can be restored until it is purged. Its link
+  /// leaves the saved-links index, so the share sheet no longer calls it a duplicate.
+  static func banish(
+    _ recipe: RecipeRecord, at date: Date = .now, index: SavedLinksIndex = .live
+  ) {
     guard recipe.deletedAt == nil else { return }
     recipe.deletedAt = date
+    rewrite(index, for: recipe)
   }
 
   /// Brings a banished recipe back. A recipe that wasn't banished is left alone.
-  static func restore(_ recipe: RecipeRecord) {
+  static func restore(_ recipe: RecipeRecord, index: SavedLinksIndex = .live) {
     guard recipe.deletedAt != nil else { return }
     recipe.deletedAt = nil
+    rewrite(index, for: recipe)
+  }
+
+  private static func rewrite(_ index: SavedLinksIndex, for recipe: RecipeRecord) {
+    guard let context = recipe.modelContext else { return }
+    index.rewrite(from: context)
   }
 
   /// The web's order (`apps/api/src/Recipes.ts`): newest and last cooked break a tie by id,

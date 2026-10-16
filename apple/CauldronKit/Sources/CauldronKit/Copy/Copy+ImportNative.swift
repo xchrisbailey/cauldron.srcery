@@ -17,6 +17,10 @@ extension Copy {
     public let saveToRecipes = plain("Save to recipes")
     /// The share sheet's way to finish the recipe in the app, as a draft.
     public let editInCauldron = plain("Edit in Cauldron")
+    /// The share sheet's banner when a recipe from the same link is already in the box, and the
+    /// Save button's label then. Saving still works.
+    public let alreadyInBox = plain("You already have this one")
+    public let saveAnotherCopy = plain("Save another copy")
     /// When the share sheet couldn't read the recipe: leave the link for the app instead.
     public let sendInstead = plain("Send to Cauldron instead")
     /// The share sheet's confirmation after Save, and what it means.
