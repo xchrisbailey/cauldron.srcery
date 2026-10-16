@@ -128,7 +128,8 @@ enum RecipeSaver {
     recipe.tags = chosen
   }
 
-  private static func savePhoto(
+  /// Also how a cover photo fetched after the recipe was saved is attached to it.
+  static func savePhoto(
     _ change: PhotoChange, into recipe: RecipeRecord, context: ModelContext
   ) {
     switch change {

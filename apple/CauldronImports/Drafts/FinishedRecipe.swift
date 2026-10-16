@@ -8,7 +8,9 @@ import Foundation
 /// It is the structured draft (`KeptDraft`: ingredients as read, not as a blob of text), where
 /// the recipe came from, and the numbers the page published. The macros are in the draft too,
 /// either an estimate or none with `estimateOnSave` set, which is the marker for the app to
-/// queue the estimate once the recipe is saved. The cover photo is not carried (#203).
+/// queue the estimate once the recipe is saved. The cover photo is not carried: the extension
+/// has little memory to spare, so it leaves the photo's link (`coverLink`) and the app fetches
+/// the full-size photo itself (#203).
 ///
 /// The `id` becomes the saved recipe's own id, so a payload that is received twice (a crash
 /// between the save and the delete) finds its recipe already there.
@@ -31,12 +33,19 @@ public struct FinishedRecipe: Codable, Equatable {
   public var source: Source?
   /// What the imported page published, which the saver marks as the page's.
   public var pageMacros: Macros?
+  /// The link to the page's cover photo, for the app to fetch. Absent in a payload from before
+  /// there was one, and when the page had none.
+  public var coverLink: String?
 
   /// - Parameters:
   ///   - draft: the recipe as the sheet read it.
   ///   - id: the recipe's id once saved.
   ///   - sharedAt: when the cook shared it.
-  public init(draft: RecipeDraft, id: UUID = UUID(), sharedAt: Date = .now) {
+  ///   - coverLink: where the page's cover photo is.
+  public init(
+    draft: RecipeDraft, id: UUID = UUID(), sharedAt: Date = .now, coverLink: String? = nil
+  ) {
+    self.coverLink = coverLink
     self.id = id
     self.sharedAt = sharedAt
     var kept = KeptDraft(draft)

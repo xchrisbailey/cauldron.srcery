@@ -23,6 +23,17 @@ final class ShareSheetModel {
     var steps: Int
     /// The draft can be saved as it is.
     var canSave: Bool
+    /// A small picture of the recipe's cover, when the page had one that could be fetched.
+    var thumbnail: ProcessedPhoto?
+    /// Where the full-size cover is, which the app fetches when it adds the recipe.
+    var coverLink: String?
+    /// The macros per serving, when there are any to show: the page's, or the estimate.
+    var macros: Macros?
+    /// The macros are an estimate.
+    var macrosEstimated: Bool
+    /// No macros yet: the estimate could not be asked for, so the app asks once the recipe is
+    /// saved. Never a guess.
+    var macrosPending: Bool
   }
 
   /// Something to tell the cook, in plain words, and whether `sendToCauldron()` is still open.
@@ -91,12 +102,27 @@ final class ShareSheetModel {
     item: SharedItem, close: @escaping @MainActor (Closing) -> Void
   ) -> ShareSheetModel {
     let ai = RecipeAIService.live(suiteName: AppGroup.id)
-    // The macro estimate is left to the app (`estimateOnSave`); the sheet doesn't ask.
     let importer = ImportModel(
-      fetcher: URLSessionPageFetcher(), extractor: ai.extractor, estimator: nil)
+      fetcher: URLSessionPageFetcher(), extractor: ai.extractor,
+      estimator: macroEstimator(for: ai),
+      options: DistillOptions(macroTimeout: macroTimeout), cover: .sheetThumbnail)
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
       inboxFolder: ShareInbox.folder(), close: close)
+  }
+
+  /// How long the sheet waits for the macro estimate before leaving it for the app. The app's
+  /// own import waits 30 seconds; the sheet is a quick "keep this one" moment.
+  static let macroTimeout = Duration.seconds(10)
+
+  /// Who the sheet asks for the macro estimate, if anybody. The chosen cloud provider alone, and
+  /// only when it has a key: with none, asking could only fail. Whether it can be reached is
+  /// found by asking, within `macroTimeout`, and the import does not ask at all after the
+  /// on-device model had to read the recipe (the cloud provider had just failed to answer).
+  /// An estimate that isn't had is marked pending and the app asks later; the on-device model
+  /// never estimates, so a guess never reaches a recipe.
+  static func macroEstimator(for ai: RecipeAIService) -> (any RecipeAI)? {
+    ai.hasKey ? ai.estimator : nil
   }
 
   /// Where the sheet is.
@@ -106,7 +132,8 @@ final class ShareSheetModel {
     case .editing, .working:
       return .reading
     case .ready(let review):
-      return .ready(Self.summary(of: review.draft))
+      return .ready(
+        Self.summary(of: review.draft, thumbnail: review.thumbnail, coverLink: review.coverLink))
     case .failed(let notice):
       return .failed(Notice(message: notice.message, canSend: true))
     }
@@ -132,7 +159,8 @@ final class ShareSheetModel {
   /// the file is written; if it can't be written, the old path is offered instead.
   func save() {
     guard outcome == nil, case .ready(let review) = phase, review.canSave else { return }
-    let recipe = FinishedRecipe(draft: review.draft, id: id, sharedAt: now())
+    let recipe = FinishedRecipe(
+      draft: review.draft, id: id, sharedAt: now(), coverLink: review.coverLink)
     do {
       try FinishedInbox.add(recipe, in: finishedFolder)
     } catch {
@@ -178,11 +206,18 @@ final class ShareSheetModel {
     await closing?.value
   }
 
-  static func summary(of draft: RecipeDraft) -> Review {
-    Review(
+  static func summary(
+    of draft: RecipeDraft, thumbnail: ProcessedPhoto? = nil, coverLink: String? = nil
+  ) -> Review {
+    let typed = draft.typedMacros
+    let macros = typed == Macros() ? nil : typed
+    return Review(
       draft: draft, title: draft.trimmed(draft.title), source: source(of: draft.sourceURL),
       ingredients: draft.ingredients.filter { !$0.isHeading && !$0.isBlank }.count,
-      steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty)
+      steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty,
+      thumbnail: thumbnail, coverLink: coverLink, macros: macros,
+      macrosEstimated: macros != nil && macros == draft.estimatedMacros,
+      macrosPending: macros == nil && draft.estimateOnSave)
   }
 
   /// The site a link is on: its host, less a leading "www.".
