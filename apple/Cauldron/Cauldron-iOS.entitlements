@@ -20,5 +20,9 @@
 	<array>
 		<string>group.computer.srcery.cauldron</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)computer.srcery.cauldron.shared</string>
+	</array>
 </dict>
 </plist>

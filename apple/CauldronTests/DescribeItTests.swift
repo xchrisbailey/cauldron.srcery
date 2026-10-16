@@ -6,6 +6,7 @@ import Synchronization
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 // Describe it (#179), against a scripted Gemini. The pipeline cases are ported from
 // `apps/api/test/tracker-describe.test.ts`; what the reference's HTTP route did (rounding,

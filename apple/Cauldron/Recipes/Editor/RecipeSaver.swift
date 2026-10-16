@@ -1,3 +1,4 @@
+import CauldronImports
 import CauldronKit
 import Foundation
 import SwiftData
@@ -12,15 +13,22 @@ enum RecipeSaver {
 
   /// Saves `draft` into `recipe`, or into a new recipe when it's nil, and saves the context.
   /// Throws `Failure.invalid` for a draft that fails validation, before anything is touched.
+  /// A new recipe gets `id` when it is given: the share sheet's finished recipes bring their
+  /// own, so receiving one twice can tell it is there. Once the recipe is saved the saved-links
+  /// index is rewritten, so the share sheet knows its link.
   @discardableResult
   static func save(
-    _ draft: RecipeDraft, into existing: RecipeRecord?, context: ModelContext, now: Date = .now
+    _ draft: RecipeDraft, into existing: RecipeRecord?, context: ModelContext, now: Date = .now,
+    id: UUID? = nil, index: SavedLinksIndex = .live
   ) throws -> RecipeRecord {
     let errors = draft.validate()
     guard errors.isEmpty else { throw Failure.invalid(errors) }
 
     let recipe = existing ?? RecipeRecord(title: "")
-    if existing == nil { context.insert(recipe) }
+    if existing == nil {
+      if let id { recipe.id = id }
+      context.insert(recipe)
+    }
     // Where an import came from is recorded once, when it becomes a recipe.
     if existing == nil, let imported = draft.imported {
       recipe.sourcePlatform = imported.platform
@@ -46,6 +54,7 @@ enum RecipeSaver {
     recipe.refreshSearchText()
     recipe.updatedAt = now
     try context.save()
+    index.rewrite(from: context)
     return recipe
   }
 
@@ -121,7 +130,8 @@ enum RecipeSaver {
     recipe.tags = chosen
   }
 
-  private static func savePhoto(
+  /// Also how a cover photo fetched after the recipe was saved is attached to it.
+  static func savePhoto(
     _ change: PhotoChange, into recipe: RecipeRecord, context: ModelContext
   ) {
     switch change {
@@ -140,12 +150,5 @@ enum RecipeSaver {
         recipe.photo = photo
       }
     }
-  }
-}
-
-extension RecipeDraft.Reading {
-  /// The number, or nil for a blank (or invalid) field.
-  var number: Value? {
-    if case .value(let value) = self { value } else { nil }
   }
 }

@@ -1,48 +1,12 @@
+import CauldronImports
 import CauldronKit
 import Foundation
 import Observation
+import SwiftData
 import SwiftUI
 
-/// How something shared to Cauldron is imported, chosen from what the share sheet gave.
-enum SharedImportRoute: Equatable, Sendable {
-  /// A web link, read as if it had been typed into the import sheet.
-  case link(String)
-  /// An Instagram or TikTok post with its caption, which the share sheet provides. The caption
-  /// goes down the pasted-text path, so no token is needed, and the post stays as the source.
-  case caption(String, post: String)
-  /// Text with no link: the pasted-text path.
-  case text(String)
-
-  /// The route for `item`, or nil when it holds nothing to read (the extension doesn't leave
-  /// such an item, but a damaged one is skipped rather than opening an empty sheet).
-  init?(_ item: SharedItem) {
-    let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    let link = item.url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    if !link.isEmpty {
-      // A caption beats the link only for a post. Some platforms put the link in the caption
-      // too, so it is taken out before judging whether any caption is left.
-      if Distill.classify(link) != .web {
-        let caption = text.replacingOccurrences(of: link, with: "")
-          .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !caption.isEmpty {
-          self = .caption(caption, post: link)
-          return
-        }
-      }
-      self = .link(link)
-      return
-    }
-    guard !text.isEmpty else { return nil }
-    // Some apps share a link as plain text. Pasted into the paste box it would be no recipe.
-    if !text.contains(where: \.isWhitespace), Distill.isAcceptedLink(text) {
-      self = .link(text)
-    } else {
-      self = .text(text)
-    }
-  }
-}
-
 /// What the share extension left in the inbox, waiting to be opened as imports one at a time.
+/// It also takes the recipes the extension finished (#201) and puts them in the box.
 ///
 /// The app picks the inbox up when it comes forward. A waiting item is opened only when nothing
 /// else is in the way: no import sheet and no editor is open (`readyToOpen`), so a draft the cook
@@ -52,19 +16,26 @@ enum SharedImportRoute: Equatable, Sendable {
 final class SharedImportQueue {
   /// Items picked up and not opened yet, oldest first.
   private(set) var pending: [SharedImportRoute] = []
+  /// Saved recipes still waiting for their cover photo (`fetchCovers`).
+  @ObservationIgnored private var covers: [FinishedRecipeReceiver.Cover] = []
+  /// The recipes whose covers are being fetched now, so a second pick-up doesn't fetch them again.
+  @ObservationIgnored private var fetching: Set<UUID> = []
   /// An import sheet is open (shared or typed).
   var importOpen = false
   @ObservationIgnored private let folder: URL?
+  @ObservationIgnored private let finishedFolder: URL?
   @ObservationIgnored private let enabled: Bool
   /// The editors open now, each by its own token so one that is closed twice counts once.
   private var editors: Set<UUID> = []
 
   /// - Parameters:
   ///   - folder: the inbox folder; nil is the App Group's, looked up when it is first read.
+  ///   - finishedFolder: the folder of finished recipes, the same way.
   ///   - enabled: false under test and in previews, where nothing is picked up so the real
   ///     inbox is never touched.
-  init(folder: URL? = nil, enabled: Bool) {
+  init(folder: URL? = nil, finishedFolder: URL? = nil, enabled: Bool) {
     self.folder = folder
+    self.finishedFolder = finishedFolder
     self.enabled = enabled
   }
 
@@ -75,11 +46,73 @@ final class SharedImportQueue {
   var readyToOpen: Bool { !pending.isEmpty && !importOpen && editors.isEmpty }
 
   /// Takes what is in the inbox. Called at launch and whenever the app comes forward.
-  func pickUp() {
-    guard enabled else { return }
+  ///
+  /// Finished recipes go first, into `context`: a recipe that can't be saved as it is falls back
+  /// to a link for a draft, which the second step then finds. Without a context only drafts are
+  /// taken. Returns how many recipes were added.
+  ///
+  /// - Parameter includingDrafts: false takes the finished recipes and leaves the links and text
+  ///   for the next time the app comes forward (`receiveWhileOpen`).
+  @discardableResult
+  func pickUp(in context: ModelContext? = nil, includingDrafts: Bool = true) -> Int {
+    guard enabled else { return 0 }
+    var added = 0
+    if let context {
+      // The folder is the truth about what waits for a photo, so each pick-up replaces the list.
+      let received = FinishedRecipeReceiver.receive(
+        from: finishedFolder ?? FinishedInbox.folder(), into: context,
+        draftsFolder: folder ?? ShareInbox.folder())
+      added = received.added
+      covers = received.covers
+    }
+    guard includingDrafts else { return added }
     pending.append(
       contentsOf: ShareInbox.takeAll(from: folder ?? ShareInbox.folder()).compactMap(
         SharedImportRoute.init))
+    return added
+  }
+
+  /// Fetches the cover photos of the recipes `pickUp` added, and removes their files. It takes
+  /// as long as the pages take, so it is run apart from the pick-up, which does not wait.
+  func fetchCovers(into context: ModelContext, using fetcher: any PageFetcher) async {
+    let waiting = covers.filter { !fetching.contains($0.recipeID) }
+    covers = []
+    let ids = Set(waiting.map(\.recipeID))
+    fetching.formUnion(ids)
+    defer { fetching.subtract(ids) }
+    await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher)
+  }
+
+  /// What follows a pick-up that added `added` recipes: the estimates they wait for run at once
+  /// if the AI can be reached, then their full-size covers are fetched.
+  func settle(
+    added: Int, in context: ModelContext, ai: RecipeAIService?, fetcher: any PageFetcher
+  ) async {
+    if added > 0, let ai {
+      await AIQueueRunner.drain(in: context, using: ai.estimator)
+    }
+    await fetchCovers(into: context, using: fetcher)
+  }
+
+  /// Takes finished recipes as the share extension leaves them, for as long as the task runs.
+  /// This is how a recipe saved from the Mac's share popover reaches an app that is already open
+  /// and in front, which no scene change would tell. Only finished recipes are taken: a link or
+  /// text for a draft waits for the app to come forward, so no sheet opens by itself.
+  ///
+  /// - Parameter then: runs after each look at the folder, with how many recipes it added. What
+  ///   it does (an estimate, a cover photo) doesn't hold up the next look.
+  func receiveWhileOpen(
+    in context: ModelContext, then: @escaping @MainActor @Sendable (Int) async -> Void
+  ) async {
+    guard enabled, let folder = finishedFolder ?? FinishedInbox.folder() else { return }
+    var running: [Task<Void, Never>] = []
+    for await _ in FolderWatcher.changes(in: folder) {
+      let added = pickUp(in: context, includingDrafts: false)
+      running.append(Task { await then(added) })
+    }
+    // Cancelled: what is still going stops with the watch.
+    if Task.isCancelled { running.forEach { $0.cancel() } }
+    for task in running { await task.value }
   }
 
   /// The next item to open, removed from the queue; nil unless `readyToOpen`.
@@ -95,22 +128,41 @@ final class SharedImportQueue {
 
 private struct SharedImportsPickUp: ViewModifier {
   let queue: SharedImportQueue
+  let ai: RecipeAIService?
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.modelContext) private var context
+  @Environment(\.pageFetcher) private var fetcher
 
   func body(content: Content) -> some View {
     content
       .environment(queue)
+      #if os(macOS)
+        // The share popover leaves a recipe while the window is open, and no scene change says
+        // so: watch the folder it leaves it in.
+        .task {
+          await queue.receiveWhileOpen(in: context) { [queue, context, ai, fetcher] added in
+            await queue.settle(added: added, in: context, ai: ai, fetcher: fetcher)
+          }
+        }
+      #endif
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
-        if scenePhase == .active { queue.pickUp() }
+        guard scenePhase == .active else { return }
+        // Recipes that synced in while the app was away count for the share sheet's duplicate
+        // check too.
+        SavedLinksIndex.live.rewrite(from: context)
+        // What a finished recipe is waiting for: its estimate and its full-size cover.
+        let added = queue.pickUp(in: context)
+        await queue.settle(added: added, in: context, ai: ai, fetcher: fetcher)
       }
   }
 }
 
 extension View {
   /// Gives the view the queue of shared items and picks the inbox up whenever the app comes
-  /// forward.
-  func sharedImports(_ queue: SharedImportQueue) -> some View {
-    modifier(SharedImportsPickUp(queue: queue))
+  /// forward. Recipes the share sheet finished are saved into the view's context; `ai` runs
+  /// the macro estimates they are waiting for.
+  func sharedImports(_ queue: SharedImportQueue, ai: RecipeAIService? = nil) -> some View {
+    modifier(SharedImportsPickUp(queue: queue, ai: ai))
   }
 }

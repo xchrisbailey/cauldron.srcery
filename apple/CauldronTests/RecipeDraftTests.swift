@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 @MainActor
 @Suite("Recipe draft")

@@ -8,5 +8,11 @@
 	<array>
 		<string>group.computer.srcery.cauldron</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)computer.srcery.cauldron.shared</string>
+	</array>
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

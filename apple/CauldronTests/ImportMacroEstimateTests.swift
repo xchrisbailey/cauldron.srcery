@@ -5,6 +5,7 @@ import Synchronization
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// An estimator that answers one way and keeps what it was asked. Never the real provider.
 final class ScriptedEstimator: RecipeAI {

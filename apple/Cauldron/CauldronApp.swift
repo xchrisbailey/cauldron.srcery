@@ -1,3 +1,4 @@
+import CauldronImports
 import CauldronKit
 import Network
 import SwiftData
@@ -26,6 +27,8 @@ struct CauldronApp: App {
     }
     changeStamps = ChangeStamps(on: container.mainContext)
     CauldronStore.tidyAtLaunch(container.mainContext, mode: CauldronStore.launchMode)
+    // The share sheet's duplicate check reads this, so it starts from what the store holds.
+    SavedLinksIndex.live.rewrite(from: container.mainContext)
     // An export left in the temporary folder is a full copy of the cook's data.
     ExportFiles.sweep()
     // Takes the notification delegate now, so a timer that ends with the app open shows its
@@ -53,12 +56,19 @@ struct CauldronApp: App {
         #endif
         .environment(sync)
         .environment(ai)
-        .sharedImports(sharedImports)
+        .sharedImports(sharedImports, ai: ai)
         .task { await sync.run() }
+        // The share extension reads the AI choices from the App Group, so they follow Settings
+        // there whenever the app comes forward or goes away.
+        .onChange(of: scenePhase, initial: true) {
+          guard CauldronStore.launchMode != .inMemory else { return }
+          RecipeAIService.shareChoices(to: RecipeAIService.sharedDefaults)
+        }
         // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
+          RecipeAIService.moveKeys(mode: CauldronStore.launchMode)
           ai.refreshKey()
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }

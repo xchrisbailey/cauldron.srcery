@@ -11,6 +11,45 @@ extension Copy {
     public let nothingToSend = plain("There's no link or text here for Cauldron to read.")
     /// The share extension had something to send but couldn't leave it for the app.
     public let couldntSend = plain("Cauldron couldn't keep that. Try sharing it again.")
+    /// The share sheet while it reads the shared page or caption.
+    public let readingRecipe = plain("Reading the recipe…")
+    /// The share sheet's button that keeps the recipe it found.
+    public let saveToRecipes = plain("Save to recipes")
+    /// The share sheet's way to finish the recipe in the app, as a draft.
+    public let editInCauldron = plain("Edit in Cauldron")
+    /// The same button when the recipe has ingredient lines to check: it nudges toward fixing.
+    public let fixInCauldron = plain("Fix it in Cauldron")
+    /// The labels under the share sheet's stats strip. The total time's is `recipeView.total`.
+    public let ingredientsLabel = plain("ingredients")
+    public let stepsLabel = plain("steps")
+    public let servesLabel = plain("serves")
+    /// A stat in that strip the recipe has no value for (total time, servings).
+    public let unknownStat = plain("–")
+    /// The share sheet's macro line when the numbers are an estimate, not the page's.
+    public func estimatedMacros(_ line: String) -> CopyString { plain("\(line) · estimate") }
+    /// The share sheet's folded sections.
+    public let ingredientsSection = plain("Ingredients")
+    public let stepsSection = plain("Steps")
+    /// The share sheet when the page needs an AI to be read and there's no key (and no model on
+    /// the device). The next step is the button under it.
+    public let noAIKey = plain(
+      "Cauldron needs an AI key to read this, and there isn't one yet. Add one in Cauldron's Settings, or send it to Cauldron to finish later."
+    )
+    /// The share sheet's banner when a recipe from the same link is already in the box, and the
+    /// Save button's label then. Saving still works.
+    public let alreadyInBox = plain("You already have this one")
+    public let saveAnotherCopy = plain("Save another copy")
+    /// When the share sheet couldn't read the recipe: leave the link for the app instead.
+    public let sendInstead = plain("Send to Cauldron instead")
+    /// The share sheet's confirmation after Save, and what it means.
+    public let savedToRecipes = plain("Saved to your recipes")
+    public let savedDetail = plain("It's in your recipe box the next time you open Cauldron.")
+    /// Under the share sheet's summary when the macro estimate couldn't be asked for; the app
+    /// asks once the recipe is saved.
+    public let macrosLater = plain("Macros are worked out once the recipe is in Cauldron.")
+    /// The share sheet couldn't leave the finished recipe for the app.
+    public let couldntSave = plain(
+      "Cauldron couldn't keep that recipe. Send it to Cauldron instead.")
     /// On a draft the on-device model read because the AI couldn't be reached. The web app had
     /// no such state: it only ever had the one model.
     public let rough = plain(
@@ -70,6 +109,11 @@ extension Copy {
 
     /// On the import sheet while more shared items wait their turn.
     public func moreShared(_ count: Int) -> CopyString { plain("\(count) more shared") }
+
+    /// In the share sheet's summary, in the tips colour: lines the import wasn't sure of.
+    public func linesToCheck(_ count: Int) -> CopyString {
+      plain(count == 1 ? "1 ingredient line to check" : "\(count) ingredient lines to check")
+    }
 
     /// The accessibility label of a page's thumbnail.
     public func page(_ number: Int) -> CopyString { plain("Page \(number)") }

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Which links the fetcher refuses to open, judged on the link as written.
 @Suite("Address rules")

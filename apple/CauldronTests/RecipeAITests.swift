@@ -6,6 +6,7 @@ import Synchronization
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Answers requests from a list, in order, and keeps what it was sent.
 final class ScriptedTransport: AITransport {

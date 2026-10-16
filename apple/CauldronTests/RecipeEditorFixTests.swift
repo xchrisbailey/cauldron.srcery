@@ -5,6 +5,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Fixing how an ingredient line was read, a step's timer, and when a field's problem shows.
 /// Ported from `IngredientRows.tsx`, `StepRows.tsx` and `RecipeEditor.tsx`, and the

@@ -5,6 +5,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 private let estimate = Macros(calories: 310, protein: 17, carbs: 18, fat: 19)
 private let emptyJSON = #"{"servings":null,"calories":null,"protein":null,"carbs":null,"fat":null}"#

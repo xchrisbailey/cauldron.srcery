@@ -5,14 +5,20 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// A photo ready to store: JPEG, no larger than `PhotoProcessing.maxPixel` on its long side.
-struct ProcessedPhoto: Equatable, Sendable {
-  var data: Data
-  var width: Int
-  var height: Int
+public struct ProcessedPhoto: Equatable, Sendable {
+  public var data: Data
+  public var width: Int
+  public var height: Int
+
+  public init(data: Data, width: Int, height: Int) {
+    self.data = data
+    self.width = width
+    self.height = height
+  }
 }
 
 /// Why a photo couldn't be used. Each has a plain message from the copy module.
-enum PhotoError: Error, Equatable, Sendable {
+public enum PhotoError: Error, Equatable, Sendable {
   /// The file isn't an image this device can read.
   case unsupported
   /// It's over the size limit before any processing.
@@ -22,7 +28,7 @@ enum PhotoError: Error, Equatable, Sendable {
   /// It looks like an image but can't be decoded or re-encoded.
   case unreadable
 
-  var message: CopyString {
+  public var message: CopyString {
     switch self {
     case .unsupported: Copy.photos.unsupported
     case .tooLarge: Copy.photos.tooLarge
@@ -34,18 +40,18 @@ enum PhotoError: Error, Equatable, Sendable {
 
 /// Downscales and compresses a photo before it's saved. A pure function of the bytes, so it
 /// runs off the main thread and without a view.
-enum PhotoProcessing {
+public enum PhotoProcessing {
   /// The long side, in pixels. Enough for a full-width hero on a large display.
-  static let maxPixel = 2048
-  static let quality = 0.8
+  public static let maxPixel = 2048
+  public static let quality = 0.8
   /// The same 15 MB the web uploads allow.
-  static let maxBytes = 15 * 1024 * 1024
+  public static let maxBytes = 15 * 1024 * 1024
   /// Beyond this many pixels (about 100 megapixels) decoding is refused rather than risked.
-  static let maxPixels = 100_000_000
+  public static let maxPixels = 100_000_000
 
   /// `maxPixels` is how many pixels an image may declare before decoding is refused. The
   /// default is generous, for a photo the cook picked; an image from a web page gets less.
-  static func process(
+  public static func process(
     _ data: Data, maxPixel: Int = PhotoProcessing.maxPixel,
     maxPixels: Int = PhotoProcessing.maxPixels
   ) -> Result<ProcessedPhoto, PhotoError> {
@@ -83,7 +89,7 @@ enum PhotoProcessing {
 
   /// Whether `data` is an image this device can read that is within the limits, and its size in
   /// pixels, from its header alone: nothing is decoded.
-  static func inspect(_ data: Data, maxPixels: Int = PhotoProcessing.maxPixels)
+  public static func inspect(_ data: Data, maxPixels: Int = PhotoProcessing.maxPixels)
     -> Result<(width: Int, height: Int), PhotoError>
   {
     header(of: data, maxPixels: maxPixels).map { (width: $0.1, height: $0.2) }
@@ -107,6 +113,20 @@ enum PhotoProcessing {
     // Read from the header, before anything is decoded: a tiny file can declare a huge image.
     guard pixelWidth * pixelHeight <= maxPixels else { return .failure(.tooBig) }
     return .success((source, pixelWidth, pixelHeight))
+  }
+
+  /// The image shrunk to `maxPixel` on its long side and turned upright, for showing small. Nil
+  /// when there is nothing to decode.
+  public static func thumbnail(of data: Data?, maxPixel: Int) -> CGImage? {
+    guard let data, let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+      return nil
+    }
+    let options: [CFString: Any] = [
+      kCGImageSourceCreateThumbnailFromImageAlways: true,
+      kCGImageSourceCreateThumbnailWithTransform: true,
+      kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
   }
 
   /// JPEG has no transparency, so a transparent PNG would come out black without this.

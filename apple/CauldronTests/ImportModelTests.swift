@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// The Distill sheet's logic with a scripted fetcher and model: nothing here touches the
 /// network or a real store.

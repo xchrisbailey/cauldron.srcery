@@ -20,6 +20,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CauldronKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)computer.srcery.cauldron.shared</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>

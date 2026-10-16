@@ -6,6 +6,7 @@ import Synchronization
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// A `PageFetcher` that answers from a list of links and keeps what it was asked. A link it has
 /// no answer for is a 404. Nothing here touches the network.

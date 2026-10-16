@@ -10,11 +10,11 @@ import Synchronization
 ///   local or private address) for the first request and every redirect. At most `maxRedirects` redirects are followed; a fourth is the answer itself.
 /// - The body is read as it arrives and stops at `maxBytes`.
 /// - Failures end as the `FetchError` that `Seams.swift` documents.
-struct URLSessionPageFetcher: PageFetcher {
+public struct URLSessionPageFetcher: PageFetcher {
   /// What the reference sent.
-  static let userAgent = "Cauldron/1.0 (+https://srcery.computer)"
+  public static let userAgent = "Cauldron/1.0 (+https://srcery.computer)"
   /// The reference followed three.
-  static let maxRedirects = 3
+  public static let maxRedirects = 3
 
   private let session: URLSession
 
@@ -22,7 +22,7 @@ struct URLSessionPageFetcher: PageFetcher {
   ///   - idleTimeout: how long the server may stay silent (the reference allowed 10 seconds).
   ///   - totalTimeout: how long a whole fetch may take, redirects and body included.
   ///   - protocolClasses: what answers the requests in place of the network, for tests.
-  init(
+  public init(
     idleTimeout: TimeInterval = 10, totalTimeout: TimeInterval = 30,
     protocolClasses: [AnyClass]? = nil
   ) {
@@ -40,15 +40,15 @@ struct URLSessionPageFetcher: PageFetcher {
   }
 
   /// The one fetcher the app uses, so a session isn't made for every screen that wants one.
-  static let live: URLSessionPageFetcher = {
+  public static let live: URLSessionPageFetcher = {
     liveCreations.withLock { $0 += 1 }
     return URLSessionPageFetcher()
   }()
 
   /// How many times `live` was made, for a test to check it is once.
-  static let liveCreations = Mutex(0)
+  public static let liveCreations = Mutex(0)
 
-  func fetch(_ request: FetchRequest) async throws(FetchError) -> FetchedPage {
+  public func fetch(_ request: FetchRequest) async throws(FetchError) -> FetchedPage {
     let url = try Self.checked(request.url)
     var urlRequest = URLRequest(url: url)
     urlRequest.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
@@ -90,7 +90,7 @@ struct URLSessionPageFetcher: PageFetcher {
   /// The link as a URL, or why it isn't one to open (`AddressRules`). `URL(string:)` writes an
   /// internationalised host in punycode, so a link the pipeline accepts as typed
   /// (`https://пример.рф/x`) is fetched under its ASCII name.
-  static func checked(_ link: String) throws(FetchError) -> URL {
+  public static func checked(_ link: String) throws(FetchError) -> URL {
     guard let url = URL(string: link) else { throw .blocked(detail: "scheme") }
     if let reason = AddressRules.refusal(for: url) { throw .blocked(detail: reason) }
     return url
@@ -98,7 +98,7 @@ struct URLSessionPageFetcher: PageFetcher {
 
   /// Where a failure ends up. A pure function of the error, so the mapping can be tested for
   /// every code without a network.
-  static func fetchError(from error: any Error) -> FetchError {
+  public static func fetchError(from error: any Error) -> FetchError {
     if let error = error as? FetchError { return error }
     if error is CancellationError { return .cancelled }
     guard let error = error as? URLError else { return .unreachable(detail: "read") }
@@ -133,21 +133,21 @@ struct URLSessionPageFetcher: PageFetcher {
 /// redirect's own status and a redirect to somewhere else entirely as `blocked`.
 private final class RedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
   private struct State {
-    var followed = 0
-    var refusal: FetchError?
+    public var followed = 0
+    public var refusal: FetchError?
   }
 
   private let limit: Int
   private let state = Mutex(State())
 
-  init(limit: Int) {
+  public init(limit: Int) {
     self.limit = limit
   }
 
   /// Set when a redirect went somewhere that isn't one to open.
-  var refusal: FetchError? { state.withLock { $0.refusal } }
+  public var refusal: FetchError? { state.withLock { $0.refusal } }
 
-  func urlSession(
+  public func urlSession(
     _ session: URLSession, task: URLSessionTask,
     willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest
   ) async -> URLRequest? {

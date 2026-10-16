@@ -5,6 +5,7 @@ import Synchronization
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Answers `URLSession` requests from a table instead of the network. Each test uses its own
 /// host, so the suite can run in parallel.

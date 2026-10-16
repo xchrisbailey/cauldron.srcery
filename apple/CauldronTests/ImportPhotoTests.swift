@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Distilling from photographed pages: the flow with a scripted reader and model. Nothing here
 /// runs Vision, the camera or the network.
