@@ -26,7 +26,7 @@ enum CauldronStore {
 
   /// The App Group the app and its extensions share. The store lives in its container, so the
   /// widget and the share extension read the same data as the app.
-  static let appGroupID = "group.computer.srcery.cauldron"
+  static let appGroupID = AppGroupName.id
 
   /// In debug builds, `-localStore` opens a store kept on this device only, in a file of its
   /// own, so demo data (`-seed`) never reaches iCloud.

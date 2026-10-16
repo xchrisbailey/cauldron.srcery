@@ -1,9 +1,45 @@
 import CauldronKit
 import Foundation
+import Synchronization
 import Testing
 
 @testable import Cauldron
 @testable import CauldronImports
+
+/// An on-device model that reads any text as one recipe, and counts how often it was asked.
+private final class DeviceReader: RecipeAI {
+  private let count = Mutex(0)
+  var asked: Int { count.withLock { $0 } }
+
+  func extract(_ input: ExtractInput) async throws(RecipeAIError) -> Extraction {
+    count.withLock { $0 += 1 }
+    return Extraction(
+      outcome: .found, recipe: readRecipe(title: "From the device"), usage: nil)
+  }
+
+  func estimateMacros(_ input: MacroEstimateInput) async throws(RecipeAIError) -> Macros {
+    throw .unreachable
+  }
+
+  func estimateMeal(_ text: String) async throws(RecipeAIError) -> [DescribedItem] {
+    throw .unreachable
+  }
+}
+
+/// A cloud provider that has a key and can't be reached.
+private struct Unreachable: RecipeAI {
+  func extract(_ input: ExtractInput) async throws(RecipeAIError) -> Extraction {
+    throw .unreachable
+  }
+
+  func estimateMacros(_ input: MacroEstimateInput) async throws(RecipeAIError) -> Macros {
+    throw .unreachable
+  }
+
+  func estimateMeal(_ text: String) async throws(RecipeAIError) -> [DescribedItem] {
+    throw .unreachable
+  }
+}
 
 /// The share sheet's logic with a scripted page and model: from what was shared to the ready
 /// summary, and what Save, Edit in Cauldron and every way out leave behind. Folders are
@@ -130,9 +166,9 @@ struct ShareSheetModelTests {
   }
 
   @Test func theSiteIsTheLinksHostWithoutWww() {
-    #expect(ShareSheetModel.source(of: "https://www.seriouseats.com/a/b") == "seriouseats.com")
-    #expect(ShareSheetModel.source(of: "https://cook.example/x") == "cook.example")
-    #expect(ShareSheetModel.source(of: "") == nil)
+    #expect(SiteName.of("https://www.seriouseats.com/a/b") == "seriouseats.com")
+    #expect(SiteName.of("https://cook.example/x") == "cook.example")
+    #expect(SiteName.of("") == nil)
   }
 
   // MARK: Save
@@ -406,6 +442,103 @@ struct ShareSheetModelTests {
     #expect(notice.kind == .unreadable)
     #expect(notice.message != Copy.importNative.noAIKey)
     #expect(notice.canSend)
+  }
+
+  @Test func withNoKeyTheOnDeviceModelIsNotAskedAndAPageThatNeedsOneGetsTheNoKeyNotice()
+    async throws
+  {
+    defer { tidy() }
+    // A device model that could read the page is there, and is still not used without a key.
+    let device = DeviceReader()
+    let ai = RecipeAIService(
+      keys: MemoryKeyStore(nil), client: Unreachable(), onDevice: device)
+    #expect(ShareSheetModel.extractor(for: ai) == nil)
+    let sheet = sheet(
+      SharedItem(url: ImportFixtures.soupLink),
+      fetcher: ScriptedFetcher([
+        ImportFixtures.soupLink: .html("<article><p>A long story about my week.</p></article>")
+      ]),
+      extractor: ShareSheetModel.extractor(for: ai), keyMissing: !ai.hasKey)
+    sheet.start()
+    await sheet.finished()
+
+    #expect(
+      sheet.phase
+        == .failed(.init(message: Copy.importNative.noAIKey, canSend: true, kind: .noKey)))
+    #expect(device.asked == 0)
+  }
+
+  @Test func withNoKeyAPageTheStructuredDataReadsStillComesBackReady() async throws {
+    defer { tidy() }
+    let device = DeviceReader()
+    let ai = RecipeAIService(
+      keys: MemoryKeyStore(nil), client: Unreachable(), onDevice: device)
+    let sheet = sheet(
+      tacos, fetcher: tacosFetcher, extractor: ShareSheetModel.extractor(for: ai),
+      keyMissing: !ai.hasKey)
+    sheet.start()
+    await sheet.finished()
+    let review = try ready(sheet)
+    #expect(review.title == "Smoky black bean tacos")
+    #expect(!review.rough)
+  }
+
+  @Test func withAKeyThatCantBeReachedTheOnDeviceModelStillReadsItMarkedRough() async throws {
+    defer { tidy() }
+    let ai = RecipeAIService(
+      keys: MemoryKeyStore("test-key"), client: Unreachable(), onDevice: DeviceReader())
+    #expect(ShareSheetModel.extractor(for: ai) != nil)
+    let sheet = sheet(
+      SharedItem(url: ImportFixtures.soupLink),
+      fetcher: ScriptedFetcher([ImportFixtures.soupLink: ImportFixtures.soup]),
+      extractor: ShareSheetModel.extractor(for: ai), keyMissing: !ai.hasKey)
+    sheet.start()
+    await sheet.finished()
+    let review = try ready(sheet)
+    #expect(review.rough)
+    #expect(review.title == "From the device")
+  }
+
+  // MARK: A read that ends with nothing to show
+
+  @Test(arguments: [
+    "https://user:secret@cook.example/tacos",
+    "https://cook.example/" + String(repeating: "a", count: 3000),
+  ])
+  func aLinkTheImportTurnsDownEndsInTheFailedNoticeAndCanBeSent(link: String) async throws {
+    defer { tidy() }
+    let fetcher = ScriptedFetcher()
+    let sheet = sheet(SharedItem(url: link), fetcher: fetcher)
+    sheet.start()
+    await sheet.finished()
+
+    #expect(
+      sheet.phase
+        == .failed(.init(message: Copy.validation.link, canSend: true, kind: .unreadable)))
+    #expect(fetcher.requests.isEmpty)
+    sheet.sendToCauldron()
+    #expect(sheet.phase == .sent)
+    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [link])
+  }
+
+  @Test func aReadThatEndsCancelledWithoutTheCookCancellingEndsInTheFailedNotice() async throws {
+    defer { tidy() }
+    let closings = Closings()
+    let sheet = sheet(
+      tacos, fetcher: ScriptedFetcher([ImportFixtures.tacosLink: .fail(.cancelled)]),
+      closings: closings)
+    sheet.start()
+    await sheet.finished()
+
+    guard case .failed(let notice) = sheet.phase else {
+      Issue.record("should fail: \(sheet.phase)")
+      return
+    }
+    #expect(notice.canSend)
+    #expect(notice.kind == .unreadable)
+    #expect(closings.all.isEmpty)
+    sheet.sendToCauldron()
+    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.tacosLink])
   }
 
   @Test func aRecipeFromThePageNeedsNoKey() async throws {

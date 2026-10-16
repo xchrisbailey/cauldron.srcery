@@ -99,12 +99,14 @@ public final class RecipeAIService {
   /// the app's own; the share extension names the App Group's (`AppGroup.id`), where the app
   /// leaves them for it.
   public static func live(suiteName: String? = nil) -> RecipeAIService {
-    RecipeAIService(
-      defaults: suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard,
+    // `UserDefaults` is safe to use from any thread; the model provider below is `@Sendable`.
+    nonisolated(unsafe) let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+    return RecipeAIService(
+      defaults: defaults,
       keys: { KeychainKeyStore(provider: $0) },
       makeClient: { provider, keys in
         CloudRecipeAI(provider: provider, keys: keys, transport: URLSessionTransport()) {
-          chosenModel(for: provider, suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard)
+          chosenModel(for: provider, defaults)
         }
       },
       onDevice: OnDeviceRecipeAI.make())

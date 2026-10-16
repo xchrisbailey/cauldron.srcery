@@ -167,7 +167,7 @@ private struct ReadySummary: View {
     if let macros = review.macros, let line = macroLine(macros) {
       Text(
         verbatim: review.macrosEstimated
-          ? "\(line.text) · \(Copy.tracker.diary.estimate.text)" : line.text
+          ? Copy.importNative.estimatedMacros(line.text).text : line.text
       )
       .font(ShareFonts.mono(size: bodySize - 2))
       .foregroundStyle(Brand.Colors.subtext)
@@ -251,9 +251,12 @@ private struct StatsStrip: View {
       stat("\(review.ingredients)", Copy.importNative.ingredientsLabel.text)
       stat("\(review.steps)", Copy.importNative.stepsLabel.text)
       stat(
-        review.minutes.flatMap { $0 > 0 ? formatTimer($0 * 60) : nil } ?? "–",
+        review.minutes.flatMap { $0 > 0 ? formatTimer($0 * 60) : nil }
+          ?? Copy.importNative.unknownStat.text,
         Copy.recipeView.total.text)
-      stat(review.servings.map(String.init) ?? "–", Copy.importNative.servesLabel.text)
+      stat(
+        review.servings.map(String.init) ?? Copy.importNative.unknownStat.text,
+        Copy.importNative.servesLabel.text)
     }
     .padding(.vertical, 10)
     .background(Brand.Colors.mantle, in: .rect(cornerRadius: 12))

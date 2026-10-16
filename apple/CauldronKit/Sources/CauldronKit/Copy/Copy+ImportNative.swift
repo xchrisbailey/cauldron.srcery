@@ -23,6 +23,10 @@ extension Copy {
     public let ingredientsLabel = plain("ingredients")
     public let stepsLabel = plain("steps")
     public let servesLabel = plain("serves")
+    /// A stat in that strip the recipe has no value for (total time, servings).
+    public let unknownStat = plain("–")
+    /// The share sheet's macro line when the numbers are an estimate, not the page's.
+    public func estimatedMacros(_ line: String) -> CopyString { plain("\(line) · estimate") }
     /// The share sheet's folded sections.
     public let ingredientsSection = plain("Ingredients")
     public let stepsSection = plain("Steps")
@@ -105,15 +109,6 @@ extension Copy {
 
     /// On the import sheet while more shared items wait their turn.
     public func moreShared(_ count: Int) -> CopyString { plain("\(count) more shared") }
-
-    /// In the share sheet's summary.
-    public func ingredientCount(_ count: Int) -> CopyString {
-      plain(count == 1 ? "1 ingredient" : "\(count) ingredients")
-    }
-
-    public func stepCount(_ count: Int) -> CopyString {
-      plain(count == 1 ? "1 step" : "\(count) steps")
-    }
 
     /// In the share sheet's summary, in the tips colour: lines the import wasn't sure of.
     public func linesToCheck(_ count: Int) -> CopyString {

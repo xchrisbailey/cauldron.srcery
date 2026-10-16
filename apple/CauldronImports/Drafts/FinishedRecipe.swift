@@ -22,6 +22,8 @@ public struct FinishedRecipe: Codable, Equatable {
   public struct Source: Codable, Equatable {
     public var platform: String
     public var author: String?
+    /// The site's own name. Absent in a payload from before it was carried.
+    public var siteName: String?
     public var fetchedAt: Date?
     public var rough: Bool
   }
@@ -54,8 +56,8 @@ public struct FinishedRecipe: Codable, Equatable {
     pageMacros = draft.pageMacros
     source = draft.imported.map {
       Source(
-        platform: $0.platform.rawValue, author: $0.author, fetchedAt: $0.fetchedAt,
-        rough: $0.rough)
+        platform: $0.platform.rawValue, author: $0.author, siteName: $0.siteName,
+        fetchedAt: $0.fetchedAt, rough: $0.rough)
     }
   }
 
@@ -66,7 +68,7 @@ public struct FinishedRecipe: Codable, Equatable {
     if let source {
       recipe.imported = ImportedFrom(
         platform: SourcePlatform(rawValue: source.platform) ?? .manual, author: source.author,
-        siteName: nil, fetchedAt: source.fetchedAt, rough: source.rough)
+        siteName: source.siteName, fetchedAt: source.fetchedAt, rough: source.rough)
     }
     return recipe
   }

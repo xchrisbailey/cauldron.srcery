@@ -128,8 +128,7 @@ enum RecipeScale {
 enum RecipeSource {
   /// The link's host without "www.", or the text as it was when it isn't a link.
   static func host(_ url: String) -> String {
-    guard let host = URL(string: url)?.host(), !host.isEmpty else { return url }
-    return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    SiteName.of(url) ?? url
   }
 
   /// The link, when it is one a browser should open.

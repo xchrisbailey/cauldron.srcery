@@ -83,6 +83,17 @@ final class SharedImportQueue {
     await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher)
   }
 
+  /// What follows a pick-up that added `added` recipes: the estimates they wait for run at once
+  /// if the AI can be reached, then their full-size covers are fetched.
+  func settle(
+    added: Int, in context: ModelContext, ai: RecipeAIService?, fetcher: any PageFetcher
+  ) async {
+    if added > 0, let ai {
+      await AIQueueRunner.drain(in: context, using: ai.estimator)
+    }
+    await fetchCovers(into: context, using: fetcher)
+  }
+
   /// Takes finished recipes as the share extension leaves them, for as long as the task runs.
   /// This is how a recipe saved from the Mac's share popover reaches an app that is already open
   /// and in front, which no scene change would tell. Only finished recipes are taken: a link or
@@ -130,10 +141,7 @@ private struct SharedImportsPickUp: ViewModifier {
         // so: watch the folder it leaves it in.
         .task {
           await queue.receiveWhileOpen(in: context) { [queue, context, ai, fetcher] added in
-            if added > 0, let ai {
-              await AIQueueRunner.drain(in: context, using: ai.estimator)
-            }
-            await queue.fetchCovers(into: context, using: fetcher)
+            await queue.settle(added: added, in: context, ai: ai, fetcher: fetcher)
           }
         }
       #endif
@@ -143,12 +151,9 @@ private struct SharedImportsPickUp: ViewModifier {
         // Recipes that synced in while the app was away count for the share sheet's duplicate
         // check too.
         SavedLinksIndex.live.rewrite(from: context)
-        // An estimate a finished recipe is waiting for runs at once, if the AI can be reached.
-        if queue.pickUp(in: context) > 0, let ai {
-          await AIQueueRunner.drain(in: context, using: ai.estimator)
-        }
-        // The full-size cover of a recipe the share sheet finished.
-        await queue.fetchCovers(into: context, using: fetcher)
+        // What a finished recipe is waiting for: its estimate and its full-size cover.
+        let added = queue.pickUp(in: context)
+        await queue.settle(added: added, in: context, ai: ai, fetcher: fetcher)
       }
   }
 }

@@ -14,6 +14,13 @@ public struct ImportReview: Equatable {
       self.id = id
       self.title = title
     }
+
+    /// A recipe is known to be there but not which: what the share sheet's saved-links index can
+    /// say, since it holds links and not recipes. Nothing opens it; the sheet only asks whether
+    /// there is one. `ImportModel` carries it as it would any other.
+    public static var unidentified: Duplicate {
+      Duplicate(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)), title: "")
+    }
   }
 
   public var draft: RecipeDraft

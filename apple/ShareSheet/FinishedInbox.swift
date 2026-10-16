@@ -17,13 +17,7 @@ enum FinishedInbox {
 
   /// The folder. Nil when the build has no App Group (no signing team).
   static func folder(fileManager: FileManager = .default) -> URL? {
-    guard
-      let root = fileManager.containerURL(
-        forSecurityApplicationGroupIdentifier: ShareInbox.appGroupID)
-    else { return nil }
-    let folder = root.appending(path: "FinishedRecipes", directoryHint: .isDirectory)
-    try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-    return folder
+    AppGroupFolder.named("FinishedRecipes", fileManager: fileManager)
   }
 
   /// Leaves `recipe` for the app. Throws when there is no folder or it can't be written. The

@@ -134,7 +134,7 @@ final class ShareSheetModel {
   ) -> ShareSheetModel {
     let ai = RecipeAIService.live(suiteName: AppGroup.id)
     let importer = ImportModel(
-      fetcher: URLSessionPageFetcher(), extractor: ai.extractor,
+      fetcher: URLSessionPageFetcher(), extractor: extractor(for: ai),
       estimator: macroEstimator(for: ai),
       options: DistillOptions(macroTimeout: macroTimeout),
       findDuplicate: duplicateLookup(savedLinks: { SavedLinksIndex.appGroup.read() }),
@@ -158,12 +158,26 @@ final class ShareSheetModel {
     ai.hasKey ? ai.estimator : nil
   }
 
+  /// Who reads a page the heuristics and the page's own data can't: the chosen provider, and
+  /// with no key for it, nobody. The sheet doesn't fall back to the on-device model then: a page
+  /// that needs a model gets the no-key notice and Send to Cauldron, where the app can read it
+  /// with the key. The fallback for a provider that has a key but can't be reached stays in
+  /// `RecipeAIService.extractor`, on the device and marked rough.
+  static func extractor(for ai: RecipeAIService) -> (any RecipeExtracting)? {
+    ai.hasKey ? ai.extractor : nil
+  }
+
   /// Where the sheet is.
   var phase: Phase {
     if let outcome { return outcome }
     switch importer.phase {
-    case .editing, .working:
+    case .working:
       return .reading
+    case .editing:
+      // Before `start()` the sheet is about to read. After it, the import is back on its form
+      // without a result: it turned the link down (too long, or carrying credentials), or the
+      // run ended cancelled though the cook didn't cancel. Nothing is coming, so say so.
+      return started ? .failed(Self.stalled(importer)) : .reading
     case .ready(let review):
       return .ready(
         Self.summary(
@@ -172,6 +186,14 @@ final class ShareSheetModel {
     case .failed(let notice):
       return .failed(failure(notice))
     }
+  }
+
+  /// The notice for an import that ended on its form with no result. The share is not lost: the
+  /// link or text can still be sent to the app.
+  private static func stalled(_ importer: ImportModel) -> Notice {
+    Notice(
+      message: importer.linkError ?? Copy.imports.failure(.couldntRead), canSend: true,
+      kind: .unreadable)
   }
 
   /// A page no model read while the AI has no key: that is the reason to give, not "no recipe".
@@ -256,16 +278,16 @@ final class ShareSheetModel {
     duplicate: Bool = false
   ) -> Review {
     let lines = draft.ingredients.filter { !$0.isHeading && !$0.isBlank }
-    func minutes(_ text: String) -> Int? { Int(draft.trimmed(text)) }
+    func number(_ text: String) -> Int? { Int(draft.trimmed(text)) }
     let typed = draft.typedMacros
     let macros = typed == Macros() ? nil : typed
     return Review(
-      draft: draft, title: draft.trimmed(draft.title), source: source(of: draft.sourceURL),
+      draft: draft, title: draft.trimmed(draft.title), source: SiteName.of(draft.sourceURL),
       ingredients: lines.count, steps: draft.steps.filter { !$0.isBlank }.count,
       minutes: recipeMinutes(
-        totalMinutes: minutes(draft.totalMinutes), prepMinutes: minutes(draft.prepMinutes),
-        cookMinutes: minutes(draft.cookMinutes)),
-      servings: minutes(draft.servings), linesToCheck: lines.filter(\.flagged).count,
+        totalMinutes: number(draft.totalMinutes), prepMinutes: number(draft.prepMinutes),
+        cookMinutes: number(draft.cookMinutes)),
+      servings: number(draft.servings), linesToCheck: lines.filter(\.flagged).count,
       rough: draft.imported?.rough ?? false, canSave: draft.validate().isEmpty,
       thumbnail: thumbnail, coverLink: coverLink, macros: macros,
       macrosEstimated: macros != nil && macros == draft.estimatedMacros,
@@ -274,20 +296,14 @@ final class ShareSheetModel {
 
   /// The import's check for a recipe already in the box, from the saved-links index: `savedLinks`
   /// gives the index's keys, and any of the import's links among them is a duplicate. The index
-  /// holds links, not recipes, so the duplicate it names has no id or title; the sheet only asks
+  /// holds links, not recipes, so the duplicate it names is `.unidentified`; the sheet only asks
   /// whether there is one. The rules are the app's (`SavedLinks`).
   static func duplicateLookup(
     savedLinks: @escaping @MainActor () -> Set<String>
   ) -> @MainActor ([String?]) -> ImportReview.Duplicate? {
     { links in
       SavedLinks.contains(savedLinks(), anyOf: links)
-        ? ImportReview.Duplicate(id: UUID(), title: "") : nil
+        ? .unidentified : nil
     }
-  }
-
-  /// The site a link is on: its host, less a leading "www.".
-  static func source(of link: String) -> String? {
-    guard let host = URL(string: link)?.host(), !host.isEmpty else { return nil }
-    return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
   }
 }

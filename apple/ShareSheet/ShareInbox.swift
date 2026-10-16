@@ -12,18 +12,12 @@ struct SharedItem: Codable, Sendable, Equatable, Identifiable {
 /// file per item in the App Group container, so the extension and the app never write the same
 /// file. Shared by the app and its extensions.
 enum ShareInbox {
-  static let appGroupID = AppGroupName.id
   /// Text beyond this is cut: far more than any recipe, and the import caps it again.
   static let textMax = 50_000
 
   /// The inbox folder. Nil when the build has no App Group (no signing team).
   static func folder(fileManager: FileManager = .default) -> URL? {
-    guard
-      let root = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
-    else { return nil }
-    let folder = root.appending(path: "ShareInbox", directoryHint: .isDirectory)
-    try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-    return folder
+    AppGroupFolder.named("ShareInbox", fileManager: fileManager)
   }
 
   /// Leaves `item` for the app. Throws when there is no inbox or it can't be written.
