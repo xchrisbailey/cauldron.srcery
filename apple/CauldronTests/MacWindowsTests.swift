@@ -5,6 +5,7 @@ import Testing
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// A recipe in its own window, a recipe dragged onto the week, and the Mac layouts at a wide
 /// window.

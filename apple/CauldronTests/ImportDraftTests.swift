@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// An import becoming a draft in the editor, and the draft becoming a recipe.
 @MainActor

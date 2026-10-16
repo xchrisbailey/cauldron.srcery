@@ -1,4 +1,4 @@
-import ImageIO
+import CauldronImports
 import SwiftData
 import SwiftUI
 
@@ -35,14 +35,7 @@ struct RecipePhotoView: View {
   }
 
   nonisolated static func thumbnail(of data: Data?, maxPixel: Int) -> CGImage? {
-    guard let data, let source = CGImageSourceCreateWithData(data as CFData, nil) else {
-      return nil
-    }
-    let options: [CFString: Any] = [
-      kCGImageSourceCreateThumbnailFromImageAlways: true,
-      kCGImageSourceCreateThumbnailWithTransform: true,
-      kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-    ]
-    return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    PhotoProcessing.thumbnail(of: data, maxPixel: maxPixel)
   }
+
 }

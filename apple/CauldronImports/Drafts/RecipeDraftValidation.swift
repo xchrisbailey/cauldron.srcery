@@ -3,7 +3,7 @@ import Foundation
 
 extension RecipeDraft {
   /// Where a problem is: a field, or a row of the ingredient list or the method.
-  enum Field: Hashable {
+  public enum Field: Hashable {
     case title, summary, servings, prepMinutes, cookMinutes, totalMinutes
     case calories, protein, carbs, fat
     case sourceURL, notes, tags
@@ -14,15 +14,15 @@ extension RecipeDraft {
 
   /// What's wrong with a draft, by field, in the copy module's plain words. It checks what the
   /// web editor checks (the limits in `RecipeLimits`), so a recipe is valid on every device.
-  struct Errors {
+  public struct Errors {
     fileprivate(set) var byField: [Field: CopyString] = [:]
 
-    subscript(field: Field) -> CopyString? { byField[field] }
-    var isEmpty: Bool { byField.isEmpty }
+    public subscript(field: Field) -> CopyString? { byField[field] }
+    public var isEmpty: Bool { byField.isEmpty }
 
     /// Only the problems of `fields`: what shows for the fields the cook has been to, before
     /// they try to save.
-    func showing(_ fields: Set<Field>) -> Errors {
+    public func showing(_ fields: Set<Field>) -> Errors {
       var shown = Errors()
       shown.byField = byField.filter { fields.contains($0.key) }
       return shown
@@ -34,7 +34,7 @@ extension RecipeDraft {
     }
   }
 
-  func validate() -> Errors {
+  public func validate() -> Errors {
     var errors = Errors()
     let validation = Copy.validation
 
@@ -137,16 +137,18 @@ extension RecipeDraft {
 
   // MARK: Reading what was typed
 
-  func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+  public func trimmed(_ text: String) -> String {
+    text.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
 
-  enum Reading<Value: Equatable>: Equatable {
+  public enum Reading<Value: Equatable>: Equatable {
     case blank
     case value(Value)
     case invalid
   }
 
   /// A whole number in `range`, nil when blank, invalid when anything else.
-  static func whole(_ text: String, in range: ClosedRange<Int>) -> Reading<Int> {
+  public static func whole(_ text: String, in range: ClosedRange<Int>) -> Reading<Int> {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if text.isEmpty { return .blank }
     guard let number = Double(text), number.isFinite, number == number.rounded(),
@@ -156,12 +158,19 @@ extension RecipeDraft {
   }
 
   /// A finite number from 0 to the grams limit.
-  static func grams(_ text: String) -> Reading<Double> {
+  public static func grams(_ text: String) -> Reading<Double> {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if text.isEmpty { return .blank }
     guard let number = Double(text), number.isFinite,
       (0...Double(RecipeLimits.grams)).contains(number)
     else { return .invalid }
     return .value(number)
+  }
+}
+
+extension RecipeDraft.Reading {
+  /// The number, or nil for a blank (or invalid) field.
+  public var number: Value? {
+    if case .value(let value) = self { value } else { nil }
   }
 }

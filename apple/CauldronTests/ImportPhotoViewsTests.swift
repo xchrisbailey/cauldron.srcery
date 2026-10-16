@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// The photo parts of the Distill sheet in each of their states, drawn in both appearances.
 @MainActor

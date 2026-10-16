@@ -6,6 +6,7 @@ import Testing
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// The live reader, against a picture drawn here: a recipe page set in two columns under a
 /// title. This runs Vision for real (on the device or the simulator the tests run on), so it

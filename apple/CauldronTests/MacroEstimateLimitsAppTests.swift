@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// Every way of asking for a macro estimate holds its input to the web's limits, so a long
 /// recipe's queued estimate isn't refused by the model's input checks.

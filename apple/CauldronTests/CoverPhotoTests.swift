@@ -5,6 +5,7 @@ import Testing
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 @Suite("Import cover photo")
 struct CoverPhotoTests {

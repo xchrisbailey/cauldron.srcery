@@ -5,6 +5,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// The first day of the week as a preference, and everything that follows it.
 @MainActor

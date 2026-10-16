@@ -5,46 +5,56 @@ import Observation
 
 /// What the cook gets to review after Distill: the draft, and the recipe already in the box
 /// from the same link, if there is one.
-struct ImportReview: Equatable {
-  struct Duplicate: Equatable {
-    var id: UUID
-    var title: String
+public struct ImportReview: Equatable {
+  public struct Duplicate: Equatable {
+    public var id: UUID
+    public var title: String
+
+    public init(id: UUID, title: String) {
+      self.id = id
+      self.title = title
+    }
   }
 
-  var draft: RecipeDraft
-  var duplicate: Duplicate?
+  public var draft: RecipeDraft
+  public var duplicate: Duplicate?
+
+  public init(draft: RecipeDraft, duplicate: Duplicate?) {
+    self.draft = draft
+    self.duplicate = duplicate
+  }
 }
 
 /// Why a distill failed, in the plain words of the copy module, and what to offer next.
-struct ImportFailureNotice: Equatable {
-  var code: ImportFailureCode
-  var message: CopyString
+public struct ImportFailureNotice: Equatable {
+  public var code: ImportFailureCode
+  public var message: CopyString
   /// The failure was of a link, which the cook can paste the text of instead (`Failed` in the
   /// reference offers it when the job had a link).
-  var canPaste: Bool
+  public var canPaste: Bool
   /// The failure may pass, so trying again is worth offering.
-  var canRetry: Bool
+  public var canRetry: Bool
   /// The failure was of photos, which the cook can change and read again.
-  var canChangePhotos = false
+  public var canChangePhotos = false
 }
 
 /// A page the cook captured, held in memory until it is read. Never written to disk.
-struct ScannedPage: Identifiable, Equatable {
-  let id = UUID()
+public struct ScannedPage: Identifiable, Equatable {
+  public let id = UUID()
   /// The image as captured, in any format ImageIO reads.
-  let data: Data
+  public let data: Data
   /// A small picture of it for the page strip.
-  let thumbnail: CGImage?
+  public let thumbnail: CGImage?
 
-  static func == (left: ScannedPage, right: ScannedPage) -> Bool { left.id == right.id }
+  public static func == (left: ScannedPage, right: ScannedPage) -> Bool { left.id == right.id }
 }
 
 /// The Distill sheet's logic: what was typed, running the pipeline, and where it ended. The
 /// views only show it. Nothing is stored; the cook saves from the editor.
 @MainActor
 @Observable
-final class ImportModel: Identifiable {
-  enum Phase: Equatable {
+public final class ImportModel: Identifiable {
+  public enum Phase: Equatable {
     /// The form: a link or pasted text.
     case editing
     case working
@@ -63,15 +73,15 @@ final class ImportModel: Identifiable {
   }
 
   /// Where a run in progress is, when it is reading pages.
-  struct ReadingProgress: Equatable {
-    var page: Int
-    var of: Int
+  public struct ReadingProgress: Equatable {
+    public var page: Int
+    public var of: Int
   }
 
   /// A recipe has at most this many pages.
-  static let pageLimit = 10
+  public static let pageLimit = 10
 
-  var link = "" {
+  public var link = "" {
     didSet {
       guard link != oldValue else { return }
       linkError = nil
@@ -79,24 +89,24 @@ final class ImportModel: Identifiable {
       if !trimmed(link).isEmpty { pastingFor = nil }
     }
   }
-  var text = ""
-  private(set) var linkError: CopyString?
-  private(set) var phase = Phase.editing
+  public var text = ""
+  public private(set) var linkError: CopyString?
+  public private(set) var phase = Phase.editing
   /// The cook stopped the last run; the form says so.
-  private(set) var stopped = false
+  public private(set) var stopped = false
   /// The link whose page couldn't be read, while its text is being pasted instead.
-  private(set) var pastingFor: String?
+  public private(set) var pastingFor: String?
   /// The pages photographed or chosen so far, in the order they were captured.
-  private(set) var pages: [ScannedPage] = []
+  public private(set) var pages: [ScannedPage] = []
   /// Offer the first page's picture as the recipe photo once the draft is made. Off unless the
   /// cook turns it on: a cookbook page is rarely the picture anyone wants.
-  var keepFirstPage = false
+  public var keepFirstPage = false
   /// Why the last page added, or the scanner, didn't work; the photo section says so.
-  private(set) var photoMessage: CopyString?
+  public private(set) var photoMessage: CopyString?
   /// Which page is being read, while one is.
-  private(set) var reading: ReadingProgress?
+  public private(set) var reading: ReadingProgress?
   /// The paste box is the way on: pages couldn't be read, or the cook gave up on them.
-  private(set) var prefersPaste = false
+  public private(set) var prefersPaste = false
 
   @ObservationIgnored private let fetcher: any PageFetcher
   @ObservationIgnored private let extractor: (any RecipeExtracting)?
@@ -116,7 +126,7 @@ final class ImportModel: Identifiable {
   /// Counts runs, so the end of one that was stopped is ignored.
   @ObservationIgnored private var generation = 0
 
-  init(
+  public init(
     fetcher: any PageFetcher, extractor: (any RecipeExtracting)?,
     estimator: (any RecipeAI)? = nil,
     reader: any RecipeTextReader = VisionTextReader(),
@@ -139,18 +149,18 @@ final class ImportModel: Identifiable {
 
   /// A link takes the place of text, as in the reference: the paste box is off while one is
   /// typed.
-  var pasteIsOff: Bool { !trimmed(link).isEmpty }
+  public var pasteIsOff: Bool { !trimmed(link).isEmpty }
 
   /// Pages take the place of a link and of pasted text while there are any: what was typed is
   /// kept, and comes back when the pages are taken away.
-  var pagesAreOn: Bool { !pages.isEmpty }
+  public var pagesAreOn: Bool { !pages.isEmpty }
 
-  var canStart: Bool {
+  public var canStart: Bool {
     phase == .editing && (pagesAreOn || !trimmed(link).isEmpty || !trimmed(text).isEmpty)
   }
 
   /// Runs the pages, or the link, or the pasted text when there is no link.
-  func start() {
+  public func start() {
     guard phase == .editing else { return }
     if pagesAreOn {
       run(.pages(pages, keepFirstPage: keepFirstPage))
@@ -171,7 +181,7 @@ final class ImportModel: Identifiable {
   /// Starts on something shared to Cauldron, as if the cook had typed or pasted it and pressed
   /// Distill: a link takes the link path with all its checks, and a caption is pasted text with
   /// the post kept as its source. Only on a clean form.
-  func start(sharing route: SharedImportRoute) {
+  public func start(sharing route: SharedImportRoute) {
     guard phase == .editing, link.isEmpty, text.isEmpty, !pagesAreOn else { return }
     switch route {
     case .link(let address):
@@ -186,7 +196,7 @@ final class ImportModel: Identifiable {
   }
 
   /// Gives up on the run in progress and goes back to the form with what was typed.
-  func stop() {
+  public func stop() {
     guard phase == .working else { return }
     generation += 1
     task?.cancel()
@@ -198,7 +208,7 @@ final class ImportModel: Identifiable {
 
   /// After a link couldn't be read: the form again, on the paste box, with the link kept as the
   /// source of what is pasted.
-  func pasteInstead() {
+  public func pasteInstead() {
     guard case .failed(let notice) = phase, notice.canPaste else { return }
     switch lastRequest {
     case .link(let address)?:
@@ -220,20 +230,20 @@ final class ImportModel: Identifiable {
   }
 
   /// After photos couldn't be read: the form again with the pages as they were, to change.
-  func changePhotos() {
+  public func changePhotos() {
     guard case .failed(let notice) = phase, notice.canChangePhotos else { return }
     stopped = false
     phase = .editing
   }
 
   /// Runs the last request again.
-  func retry() {
+  public func retry() {
     guard case .failed(let notice) = phase, notice.canRetry, let lastRequest else { return }
     run(lastRequest)
   }
 
   /// Back to a clean form. Pasted text that couldn't be read is kept so it can be fixed.
-  func another() {
+  public func another() {
     let keepsText: Bool
     if case .text? = lastRequest, case .failed = phase {
       keepsText = true
@@ -252,7 +262,7 @@ final class ImportModel: Identifiable {
   }
 
   /// The sheet closed: stops whatever is running and keeps nothing.
-  func discard() {
+  public func discard() {
     generation += 1
     task?.cancel()
     task = nil
@@ -263,7 +273,7 @@ final class ImportModel: Identifiable {
 
   /// Adds pages from the images' bytes, up to the limit. An image that can't be used is left out
   /// with the reason in `photoMessage`; the rest are kept.
-  func addPages(_ images: [Data]) async {
+  public func addPages(_ images: [Data]) async {
     guard phase == .editing else { return }
     photoMessage = nil
     var refusal: CopyString?
@@ -278,7 +288,7 @@ final class ImportModel: Identifiable {
       let made = await Task.detached { () -> Result<CGImage?, PhotoError> in
         switch PhotoProcessing.inspect(image, maxPixels: limit) {
         case .failure(let error): return .failure(error)
-        case .success: return .success(RecipePhotoView.thumbnail(of: image, maxPixel: 240))
+        case .success: return .success(PhotoProcessing.thumbnail(of: image, maxPixel: 240))
         }
       }.value
       guard phase == .editing else { return }
@@ -292,7 +302,7 @@ final class ImportModel: Identifiable {
     photoMessage = refusal ?? (overflow ? Copy.importNative.pageLimit(Self.pageLimit) : nil)
   }
 
-  func removePage(_ id: UUID) {
+  public func removePage(_ id: UUID) {
     guard phase == .editing else { return }
     pages.removeAll { $0.id == id }
     if pages.isEmpty { keepFirstPage = false }
@@ -300,12 +310,12 @@ final class ImportModel: Identifiable {
   }
 
   /// The photo section couldn't capture: the scanner is missing, refused, or stopped.
-  func reportPhotoProblem(_ message: CopyString?) {
+  public func reportPhotoProblem(_ message: CopyString?) {
     photoMessage = message
   }
 
   /// Waits for the run in progress to end; for tests.
-  func finished() async {
+  public func finished() async {
     await task?.value
   }
 

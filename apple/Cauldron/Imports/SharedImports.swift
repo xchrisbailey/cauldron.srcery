@@ -1,18 +1,10 @@
+import CauldronImports
 import CauldronKit
 import Foundation
 import Observation
 import SwiftUI
 
-/// How something shared to Cauldron is imported, chosen from what the share sheet gave.
-enum SharedImportRoute: Equatable, Sendable {
-  /// A web link, read as if it had been typed into the import sheet.
-  case link(String)
-  /// An Instagram or TikTok post with its caption, which the share sheet provides. The caption
-  /// goes down the pasted-text path, so no token is needed, and the post stays as the source.
-  case caption(String, post: String)
-  /// Text with no link: the pasted-text path.
-  case text(String)
-
+extension SharedImportRoute {
   /// The route for `item`, or nil when it holds nothing to read (the extension doesn't leave
   /// such an item, but a damaged one is skipped rather than opening an empty sheet).
   init?(_ item: SharedItem) {

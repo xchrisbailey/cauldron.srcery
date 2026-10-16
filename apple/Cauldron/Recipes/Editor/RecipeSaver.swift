@@ -1,3 +1,4 @@
+import CauldronImports
 import CauldronKit
 import Foundation
 import SwiftData
@@ -140,12 +141,5 @@ enum RecipeSaver {
         recipe.photo = photo
       }
     }
-  }
-}
-
-extension RecipeDraft.Reading {
-  /// The number, or nil for a blank (or invalid) field.
-  var number: Value? {
-    if case .value(let value) = self { value } else { nil }
   }
 }

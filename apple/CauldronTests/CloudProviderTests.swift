@@ -5,6 +5,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 // Response bodies here are written by hand from each provider's documented shapes, not
 // recorded from the live APIs.

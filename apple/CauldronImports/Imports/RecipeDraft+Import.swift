@@ -13,7 +13,9 @@ extension RecipeDraft {
   ///   - link: a link to keep as the source when the text was pasted after the link couldn't be
   ///     read.
   ///   - fetchedAt: when the page was fetched; nil for pasted text.
-  init(importing distilled: Distilled, photo: ProcessedPhoto?, link: String?, fetchedAt: Date?) {
+  public init(
+    importing distilled: Distilled, photo: ProcessedPhoto?, link: String?, fetchedAt: Date?
+  ) {
     self.init()
     let draft = distilled.draft
     let kept = link.map { (platform: Distill.classify($0), url: Distill.normalizeURL($0)) }
@@ -57,7 +59,7 @@ extension RecipeDraft {
   }
 
   /// Whether anything in the draft is flagged for a second look.
-  var needsReview: Bool {
+  public var needsReview: Bool {
     !review.isEmpty || ingredients.contains(where: \.flagged) || steps.contains(where: \.flagged)
   }
 
@@ -66,5 +68,5 @@ extension RecipeDraft {
 
 extension ImportSource {
   /// The same place, as a recipe records it.
-  var sourcePlatform: SourcePlatform { SourcePlatform(rawValue: rawValue) ?? .manual }
+  public var sourcePlatform: SourcePlatform { SourcePlatform(rawValue: rawValue) ?? .manual }
 }

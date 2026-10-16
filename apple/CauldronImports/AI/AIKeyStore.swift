@@ -4,14 +4,14 @@ import Security
 import Synchronization
 
 /// Where a provider's key is kept. The key is never compiled in, logged or exported.
-protocol AIKeyStore: Sendable {
+public protocol AIKeyStore: Sendable {
   func key() -> String?
   /// Saves `key`, or removes the saved one when it is nil or blank.
   func setKey(_ key: String?) throws
 }
 
-struct AIKeyFailure: Error, Equatable {
-  let status: Int32
+public struct AIKeyFailure: Error, Equatable {
+  public let status: Int32
 }
 
 /// The keychain. The key is saved as synchronizable, so iCloud Keychain carries it to the
@@ -21,14 +21,14 @@ struct AIKeyFailure: Error, Equatable {
 /// Each provider has an item of its own. Gemini's is the one the app has always used
 /// (`computer.srcery.cauldron.gemini`), so a key saved before there were other providers is
 /// still found.
-struct KeychainKeyStore: AIKeyStore {
-  let provider: AIProvider
+public struct KeychainKeyStore: AIKeyStore {
+  public let provider: AIProvider
 
-  static func service(for provider: AIProvider) -> String {
+  public static func service(for provider: AIProvider) -> String {
     "computer.srcery.cauldron.\(provider.rawValue)"
   }
 
-  static let account = "api-key"
+  public static let account = "api-key"
 
   private func query(synchronizable: Any) -> [CFString: Any] {
     [
@@ -39,7 +39,7 @@ struct KeychainKeyStore: AIKeyStore {
     ]
   }
 
-  func key() -> String? {
+  public func key() -> String? {
     var query = query(synchronizable: kSecAttrSynchronizableAny)
     query[kSecReturnData] = true
     query[kSecMatchLimit] = kSecMatchLimitOne
@@ -50,7 +50,7 @@ struct KeychainKeyStore: AIKeyStore {
     return key
   }
 
-  func setKey(_ key: String?) throws {
+  public func setKey(_ key: String?) throws {
     let trimmed = key?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let removed = SecItemDelete(query(synchronizable: kSecAttrSynchronizableAny) as CFDictionary)
     guard !trimmed.isEmpty else {
@@ -73,20 +73,20 @@ struct KeychainKeyStore: AIKeyStore {
 }
 
 /// A key held in memory, for tests and previews.
-final class MemoryKeyStore: AIKeyStore {
+public final class MemoryKeyStore: AIKeyStore {
   private let stored: Mutex<String?>
   private let failsToSave: Bool
 
-  init(_ key: String? = nil, failsToSave: Bool = false) {
+  public init(_ key: String? = nil, failsToSave: Bool = false) {
     stored = Mutex(key)
     self.failsToSave = failsToSave
   }
 
-  func key() -> String? {
+  public func key() -> String? {
     stored.withLock { $0 }
   }
 
-  func setKey(_ key: String?) throws {
+  public func setKey(_ key: String?) throws {
     if failsToSave { throw AIKeyFailure(status: errSecMissingEntitlement) }
     let trimmed = key?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     stored.withLock { $0 = trimmed.isEmpty ? nil : trimmed }

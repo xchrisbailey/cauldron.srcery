@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 @MainActor
 @Suite("App shell")

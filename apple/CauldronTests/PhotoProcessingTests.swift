@@ -5,6 +5,7 @@ import Testing
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 @Suite("Photo processing")
 struct PhotoProcessingTests {

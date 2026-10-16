@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// The share extension's confirmation and the "more shared" line, drawn in both appearances.
 @MainActor

@@ -4,6 +4,7 @@ import Testing
 import UniformTypeIdentifiers
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// What the share extension leaves, how the app routes it and queues it, and how the extension
 /// reads what the share sheet gives it. Nothing here touches the real inbox or the network.

@@ -8,10 +8,10 @@ import Foundation
 /// What this does NOT cover: a public name that resolves to a private address (DNS rebinding,
 /// or a name someone pointed at 192.168.0.1). Catching that needs the resolved address, and the
 /// device has no resolver of its own to ask. The rules judge the link as written.
-enum AddressRules {
+public enum AddressRules {
   /// Why a link isn't one to open, or nil when it is. The answer is `FetchError.blocked`'s
   /// `detail`.
-  static func refusal(for url: URL) -> String? {
+  public static func refusal(for url: URL) -> String? {
     guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
       return "scheme"
     }
@@ -23,7 +23,7 @@ enum AddressRules {
 
   /// `host` as `URL.host` gives it: brackets removed from an IPv6 address, internationalised
   /// names already in punycode.
-  static func refusal(forHost host: String) -> String? {
+  public static func refusal(forHost host: String) -> String? {
     var host = host.lowercased()
     while host.hasSuffix(".") { host.removeLast() }
     if host.isEmpty { return "host" }
@@ -65,7 +65,7 @@ enum AddressRules {
 
   /// The address a host of one to four numbers stands for, as `inet_aton` reads it: the last
   /// number fills the bytes that are left.
-  static func ipv4(_ labels: [Substring]) -> UInt32? {
+  public static func ipv4(_ labels: [Substring]) -> UInt32? {
     guard (1...4).contains(labels.count) else { return nil }
     let numbers = labels.compactMap(number)
     guard numbers.count == labels.count else { return nil }
@@ -80,7 +80,7 @@ enum AddressRules {
     return UInt32(truncatingIfNeeded: (address << UInt64(room)) | last)
   }
 
-  static func isPrivate(v4 address: UInt32) -> Bool {
+  public static func isPrivate(v4 address: UInt32) -> Bool {
     func within(_ base: UInt32, _ bits: Int) -> Bool {
       let mask: UInt32 = bits == 0 ? 0 : ~UInt32(0) << UInt32(32 - bits)
       return address & mask == base & mask
@@ -106,7 +106,7 @@ enum AddressRules {
     return withUnsafeBytes(of: &address) { Array($0) }
   }
 
-  static func isPrivate(v6 bytes: [UInt8]) -> Bool {
+  public static func isPrivate(v6 bytes: [UInt8]) -> Bool {
     guard bytes.count == 16 else { return true }
     func embedded(at offset: Int) -> UInt32 {
       bytes[offset...].prefix(4).reduce(0) { ($0 << 8) | UInt32($1) }

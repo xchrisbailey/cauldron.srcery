@@ -2,11 +2,10 @@ import CauldronKit
 import CoreGraphics
 import Foundation
 import ImageIO
-import SwiftUI
 import Vision
 
 /// Why a page couldn't be read.
-enum PageReadError: Error, Equatable, Sendable {
+public enum PageReadError: Error, Equatable, Sendable {
   /// The bytes aren't an image this device can decode.
   case unreadable
   /// Recognition itself failed.
@@ -18,7 +17,7 @@ enum PageReadError: Error, Equatable, Sendable {
 /// Reads the text off a photographed page. Everything here is on the device: an image never
 /// leaves it, and only the text goes on to the model, as pasted text does. The live one is
 /// `VisionTextReader`; tests use a fake.
-protocol RecipeTextReader: Sendable {
+public protocol RecipeTextReader: Sendable {
   /// The text on one page, as lines in reading order, or an empty string when there is none.
   /// `image` is the bytes of an image in any format ImageIO reads.
   func read(_ image: Data) async throws(PageReadError) -> String
@@ -27,16 +26,16 @@ protocol RecipeTextReader: Sendable {
 /// Vision's text recognition, at the accurate level with language correction, and the text put
 /// in reading order (`ReadingOrder`). The Swift API (`RecognizeTextRequest`) is the current one
 /// for iOS 27 and macOS 27: the older `VNRecognizeTextRequest` is its Objective-C twin.
-struct VisionTextReader: RecipeTextReader {
+public struct VisionTextReader: RecipeTextReader {
   /// A photo is shrunk to this on its long side before it is read. A page photographed on a
   /// phone is 12 to 48 megapixels; recognition gets nothing from more than this (an A4 page at
   /// 350 dpi), and the decode would hold hundreds of megabytes.
-  static let longSide = 4096
+  public static let longSide = 4096
 
-  init() {}
+  public init() {}
 
   @concurrent
-  func read(_ image: Data) async throws(PageReadError) -> String {
+  public func read(_ image: Data) async throws(PageReadError) -> String {
     guard let page = Self.page(from: image, longSide: Self.longSide) else { throw .unreadable }
     var request = RecognizeTextRequest()
     request.recognitionLevel = .accurate
@@ -55,7 +54,7 @@ struct VisionTextReader: RecipeTextReader {
   }
 
   /// Vision's boxes start at the bottom-left corner; reading order's start at the top-left.
-  static func fragments(from observations: [RecognizedTextObservation]) -> [TextFragment] {
+  public static func fragments(from observations: [RecognizedTextObservation]) -> [TextFragment] {
     observations.map { observation in
       let box = observation.boundingBox.cgRect
       return TextFragment(
@@ -67,7 +66,7 @@ struct VisionTextReader: RecipeTextReader {
   }
 
   /// The image upright (its orientation applied) and no larger than `longSide`.
-  static func page(from data: Data, longSide: Int) -> CGImage? {
+  public static func page(from data: Data, longSide: Int) -> CGImage? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
       CGImageSourceGetCount(source) > 0,
       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
@@ -84,10 +83,4 @@ struct VisionTextReader: RecipeTextReader {
     ]
     return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
   }
-}
-
-extension EnvironmentValues {
-  /// What reads text off a photographed page for Distill: Vision unless a preview or a test says
-  /// otherwise.
-  @Entry var recipeTextReader: any RecipeTextReader = VisionTextReader()
 }

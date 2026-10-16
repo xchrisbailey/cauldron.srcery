@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 /// A new recipe's unfinished draft is kept on this device and offered again, as the web
 /// editor's was (`lib/recipe-draft.ts`).
