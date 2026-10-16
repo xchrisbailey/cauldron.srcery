@@ -92,10 +92,26 @@ struct FinishedRecipeTests {
     #expect(opened.ingredients.compactMap(\.parsed).map(\.item) == ["olive oil", "onion"])
     #expect(opened.ingredients.first?.parsed?.quantity?.min == 2)
     #expect(opened.imported?.author == "Ada Cook")
+    #expect(opened.imported?.siteName == "Eats")
     #expect(opened.imported?.platform == .web)
     #expect(opened.pageMacros == Macros(calories: 300, protein: 20, carbs: 30, fat: 10))
     // The photo itself is not carried: the app fetches it (`coverLink`).
     #expect(opened.photo == .keep)
+  }
+
+  @Test func aPayloadWithoutASiteNameStillDecodesAsVersionOne() throws {
+    let payload = FinishedRecipe(draft: draft())
+    var json = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
+    var source = try #require(json["source"] as? [String: Any])
+    source["siteName"] = nil
+    json["source"] = source
+    let older = try JSONSerialization.data(withJSONObject: json)
+
+    let back = try JSONDecoder().decode(FinishedRecipe.self, from: older)
+    #expect(back.version == 1)
+    #expect(back.recipeDraft.imported?.siteName == nil)
+    #expect(back.recipeDraft.imported?.author == "Ada Cook")
   }
 
   @Test func aWaitingEstimateTravelsAsTheMarkerOnTheDraft() throws {

@@ -53,11 +53,10 @@ enum FinishedRecipeReceiver {
       if let existing = find(id, in: context) {
         // Saved on an earlier pick-up. The photo it was still waiting for, if the file says so
         // and the recipe has none, is fetched now; a recipe banished since stays that way.
-        if let link = entry.recipe.coverLink, existing.deletedAt == nil, existing.photo == nil {
-          received.covers.append(Cover(entry: entry, recipeID: id, link: link))
-        } else {
-          FinishedInbox.remove(entry, fileManager: fileManager)
-        }
+        let wantsCover = !existing.isBanished && existing.photo == nil
+        settle(
+          entry, coverLink: wantsCover ? entry.recipe.coverLink : nil, into: &received,
+          fileManager: fileManager)
         continue
       }
       let draft = entry.recipe.recipeDraft
@@ -65,11 +64,7 @@ enum FinishedRecipeReceiver {
         let saved = try RecipeSaver.save(draft, into: nil, context: context, id: id, index: index)
         // The estimate the sheet couldn't ask for waits in the queue, as an import's does.
         RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context)
-        if let link = entry.recipe.coverLink {
-          received.covers.append(Cover(entry: entry, recipeID: id, link: link))
-        } else {
-          FinishedInbox.remove(entry, fileManager: fileManager)
-        }
+        settle(entry, coverLink: entry.recipe.coverLink, into: &received, fileManager: fileManager)
         received.added += 1
       } catch RecipeSaver.Failure.invalid {
         log.error("A finished recipe was not valid; its link was kept for a draft instead.")
@@ -87,6 +82,19 @@ enum FinishedRecipeReceiver {
     return received
   }
 
+  /// A saved recipe's payload is done with when it has no cover to wait for: its file goes.
+  /// With one, the file stays until the cover is fetched (`attach`).
+  private static func settle(
+    _ entry: FinishedInbox.Entry, coverLink: String?, into received: inout Received,
+    fileManager: FileManager
+  ) {
+    if let coverLink {
+      received.covers.append(Cover(entry: entry, recipeID: entry.recipe.id, link: coverLink))
+    } else {
+      FinishedInbox.remove(entry, fileManager: fileManager)
+    }
+  }
+
   /// Fetches each cover and puts it on its recipe, then removes the payload's file. A task that
   /// is cancelled (the app went away) stops where it is and leaves the files, so the next
   /// pick-up fetches again. A photo that can't be had, or a recipe that has gone, is final:
@@ -98,7 +106,7 @@ enum FinishedRecipeReceiver {
     for cover in covers {
       let photo = await CoverPhoto.fetch(cover.link, using: fetcher)
       if Task.isCancelled { return }
-      if let photo, let recipe = find(cover.recipeID, in: context), recipe.deletedAt == nil,
+      if let photo, let recipe = find(cover.recipeID, in: context), !recipe.isBanished,
         recipe.photo == nil
       {
         RecipeSaver.savePhoto(.replace(photo), into: recipe, context: context)

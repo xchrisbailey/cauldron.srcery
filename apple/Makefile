@@ -30,7 +30,7 @@ lint-store:
 ## `.borderedProminent` draws its label in the tint inside a Form or List, which is also its
 ## fill, so the text disappears. Use `.brandProminent` instead.
 lint-buttons:
-	@if grep -rn --include='*.swift' 'borderedProminent' Cauldron CauldronImports CauldronWidgets; then \
+	@if grep -rn --include='*.swift' 'borderedProminent' Cauldron CauldronImports CauldronWidgets ShareSheet CauldronShare; then \
 		echo "error: use .buttonStyle(.brandProminent), not .borderedProminent"; exit 1; fi
 
 test: test-kit test-app

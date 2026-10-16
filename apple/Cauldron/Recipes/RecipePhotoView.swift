@@ -37,5 +37,4 @@ struct RecipePhotoView: View {
   nonisolated static func thumbnail(of data: Data?, maxPixel: Int) -> CGImage? {
     PhotoProcessing.thumbnail(of: data, maxPixel: maxPixel)
   }
-
 }
