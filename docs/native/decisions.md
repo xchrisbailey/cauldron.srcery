@@ -64,3 +64,7 @@ The #186 audit read the web app against the native one, area by area. Chris's ca
     - Instagram captions come from the post page's preview tags only; the web read them through Meta's oEmbed with a token, which needs a server.
     - Imports run on the device, inside the import sheet: no job queue that survives a relaunch, no 100-a-day import budget (the provider's own rate limit applies), and the import text isn't kept for seven days.
     - Accounts, sign-in, households, hosting, rate limiting and the photo upload pipeline (decisions 1, 2, 4 and 11).
+
+## Round 8: retire the web app (2026-10-16)
+
+34. **Parity is called.** After v0.3.0, Chris said the native app covers everything, so #186's week of native-only use is waived. The TypeScript web app and API are removed from the repo, and the last version is at the `web-final` tag on main. `brand/build.ts` stays, as a small Bun package of its own, because it draws the Apple app icons.

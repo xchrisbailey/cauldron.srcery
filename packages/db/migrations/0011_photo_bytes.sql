@@ -1,1 +1,0 @@
-ALTER TABLE "photo" ADD COLUMN "bytes" integer DEFAULT 0 NOT NULL;

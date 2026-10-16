@@ -8,7 +8,8 @@ A personal recipe box, weekly meal planner and macro tracker, by srcery. It is a
 - `apple/CauldronKit`: a local Swift package with the domain logic: the ingredient line parser, units and scaling, macro maths, adaptive targets, dates, timers and the copy module. It imports no UIKit, AppKit, SwiftUI or SwiftData, so it builds and tests on Linux.
 - `apple/project.yml`: the source of the Xcode project. `Cauldron.xcodeproj` is generated from it with XcodeGen and committed (Xcode Cloud needs it). Source folders are synced, so a new Swift file needs no project change. Edit `project.yml` for targets, settings, capabilities and packages, run `make project`, and commit both.
 - `docs/native`: decisions, plan, and how-to notes.
-- `apps/`, `packages/`, `brand/build.ts` and the Bun tooling: the old TypeScript web app and API, **frozen** as the reference implementation. Read it to port behaviour and tests; don't add features to it. It is removed at parity (#186). Its conventions are in the `web-final` history of this file, and `bun run test` still runs its suite.
+- `brand/`: the brand marks, and `build.ts`, which draws them and the app icons (`AppIcon.appiconset`) from one definition. Run it with `bun install && bun run build` in `brand/`. It is the only non-Swift code left.
+- The old TypeScript web app and API were removed at parity (#186). They live on at the `web-final` tag, with the conventions they were built under in that version of this file.
 
 ## Stack
 
@@ -34,11 +35,11 @@ Run these from `apple/`:
 
 ## Build order
 
-Follow the "Depends on" line at the top of each ticket. Phase 0 (#159 to #162) is the foundation and Phase 1 (#163 to #165) fills `CauldronKit`; the screens in Phases 2 to 5 sit on both. The ingredient line parser feeds the editor, every importer and the Gather list, so keep it strict and port its whole test corpus.
+Follow the "Depends on" line at the top of each ticket. Phase 0 (#159 to #162) is the foundation and Phase 1 (#163 to #165) fills `CauldronKit`; the screens in Phases 2 to 5 sit on both. The ingredient line parser feeds the editor, every importer and the Gather list, so keep it strict and keep its whole test corpus.
 
 ## Conventions
 
-- **Port, don't reinvent.** For anything the web app did, the TypeScript is the reference. Port its tests case for case; where Swift behaves differently, Swift is wrong unless the ticket's PR says why.
+- **The web app is history, not a spec.** It is at the `web-final` tag if you need to see how something used to behave, but the Swift code and its tests are now the reference.
 - **Domain logic lives in `CauldronKit`** as pure functions over plain `Sendable` value types. No SwiftData models, no views and no Apple-only frameworks in it. Use Foundation only where swift-corelibs-foundation has it on Linux.
 - **Services behind protocols.** Every external dependency (the AI model, HealthKit, network fetches, the clock, notifications) is a protocol with a live implementation and a test double. Views and models get them through the SwiftUI environment or an initialiser. Tests use the doubles and an in-memory `ModelContainer`, never the real service.
 - **SwiftData models must stay CloudKit-compatible**: every property optional or defaulted, every relationship optional with an inverse, no `@Attribute(.unique)`. Photos use `.externalStorage`. Once data has synced, schema changes are additive only.
