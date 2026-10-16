@@ -24,7 +24,10 @@ import SwiftUI
 final class ShareViewController: PlatformViewController {
   #if os(macOS)
     override func loadView() {
-      view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 520))
+      let size = ShareSheetView.popoverSize
+      view = NSView(frame: NSRect(origin: .zero, size: size))
+      // The popover takes its size from this, so it is the same for every state.
+      preferredContentSize = size
     }
   #endif
 

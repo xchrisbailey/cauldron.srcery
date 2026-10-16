@@ -18,6 +18,8 @@ final class SharedImportQueue {
   private(set) var pending: [SharedImportRoute] = []
   /// Saved recipes still waiting for their cover photo (`fetchCovers`).
   @ObservationIgnored private var covers: [FinishedRecipeReceiver.Cover] = []
+  /// The recipes whose covers are being fetched now, so a second pick-up doesn't fetch them again.
+  @ObservationIgnored private var fetching: Set<UUID> = []
   /// An import sheet is open (shared or typed).
   var importOpen = false
   @ObservationIgnored private let folder: URL?
@@ -48,8 +50,11 @@ final class SharedImportQueue {
   /// Finished recipes go first, into `context`: a recipe that can't be saved as it is falls back
   /// to a link for a draft, which the second step then finds. Without a context only drafts are
   /// taken. Returns how many recipes were added.
+  ///
+  /// - Parameter includingDrafts: false takes the finished recipes and leaves the links and text
+  ///   for the next time the app comes forward (`receiveWhileOpen`).
   @discardableResult
-  func pickUp(in context: ModelContext? = nil) -> Int {
+  func pickUp(in context: ModelContext? = nil, includingDrafts: Bool = true) -> Int {
     guard enabled else { return 0 }
     var added = 0
     if let context {
@@ -60,6 +65,7 @@ final class SharedImportQueue {
       added = received.added
       covers = received.covers
     }
+    guard includingDrafts else { return added }
     pending.append(
       contentsOf: ShareInbox.takeAll(from: folder ?? ShareInbox.folder()).compactMap(
         SharedImportRoute.init))
@@ -69,9 +75,33 @@ final class SharedImportQueue {
   /// Fetches the cover photos of the recipes `pickUp` added, and removes their files. It takes
   /// as long as the pages take, so it is run apart from the pick-up, which does not wait.
   func fetchCovers(into context: ModelContext, using fetcher: any PageFetcher) async {
-    let waiting = covers
+    let waiting = covers.filter { !fetching.contains($0.recipeID) }
     covers = []
+    let ids = Set(waiting.map(\.recipeID))
+    fetching.formUnion(ids)
+    defer { fetching.subtract(ids) }
     await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher)
+  }
+
+  /// Takes finished recipes as the share extension leaves them, for as long as the task runs.
+  /// This is how a recipe saved from the Mac's share popover reaches an app that is already open
+  /// and in front, which no scene change would tell. Only finished recipes are taken: a link or
+  /// text for a draft waits for the app to come forward, so no sheet opens by itself.
+  ///
+  /// - Parameter then: runs after each look at the folder, with how many recipes it added. What
+  ///   it does (an estimate, a cover photo) doesn't hold up the next look.
+  func receiveWhileOpen(
+    in context: ModelContext, then: @escaping @MainActor @Sendable (Int) async -> Void
+  ) async {
+    guard enabled, let folder = finishedFolder ?? FinishedInbox.folder() else { return }
+    var running: [Task<Void, Never>] = []
+    for await _ in FolderWatcher.changes(in: folder) {
+      let added = pickUp(in: context, includingDrafts: false)
+      running.append(Task { await then(added) })
+    }
+    // Cancelled: what is still going stops with the watch.
+    if Task.isCancelled { running.forEach { $0.cancel() } }
+    for task in running { await task.value }
   }
 
   /// The next item to open, removed from the queue; nil unless `readyToOpen`.
@@ -95,6 +125,18 @@ private struct SharedImportsPickUp: ViewModifier {
   func body(content: Content) -> some View {
     content
       .environment(queue)
+      #if os(macOS)
+        // The share popover leaves a recipe while the window is open, and no scene change says
+        // so: watch the folder it leaves it in.
+        .task {
+          await queue.receiveWhileOpen(in: context) { [queue, context, ai, fetcher] added in
+            if added > 0, let ai {
+              await AIQueueRunner.drain(in: context, using: ai.estimator)
+            }
+            await queue.fetchCovers(into: context, using: fetcher)
+          }
+        }
+      #endif
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
         guard scenePhase == .active else { return }
