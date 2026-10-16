@@ -10,19 +10,24 @@ import SwiftUI
 /// the app, as the tests do, the app is the bundle.
 enum ShareFonts {
   /// Whether Geist could be loaded from the containing app.
-  static let isAvailable: Bool = {
+  static let isAvailable: Bool = register(file: "Geist-Variable", family: "Geist")
+
+  /// Whether Geist Mono could be, for quantities, times and counts.
+  static let isMonoAvailable: Bool = register(file: "GeistMono-Variable", family: "Geist Mono")
+
+  private static func register(file: String, family: String) -> Bool {
     guard let app = containingApp(of: Bundle.main.bundleURL).flatMap({ Bundle(url: $0) }),
-      let url = app.url(forResource: "Geist-Variable", withExtension: "ttf")
+      let url = app.url(forResource: file, withExtension: "ttf")
     else { return false }
     var error: Unmanaged<CFError>?
     // Registered already (the app itself) reports an error and still works, so judge by the
     // family resolving.
     CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
     let descriptor = CTFontDescriptorCreateWithAttributes(
-      [kCTFontFamilyNameAttribute: "Geist"] as CFDictionary)
+      [kCTFontFamilyNameAttribute: family] as CFDictionary)
     return CTFontCopyFamilyName(CTFontCreateWithFontDescriptor(descriptor, 12, nil)) as String
-      == "Geist"
-  }()
+      == family
+  }
 
   /// The app's bundle folder: `url` itself when it is an app, otherwise the nearest folder above
   /// it that is (`Cauldron.app/PlugIns/X.appex` on iPhone, `Cauldron.app/Contents/PlugIns/X.appex`
@@ -40,12 +45,26 @@ enum ShareFonts {
 
   /// Geist at `size` and a weight from 100 to 900, or the system font.
   static func font(size: CGFloat, weight: CGFloat) -> Font {
-    guard isAvailable else {
-      return .system(
-        size: size, weight: weight >= 650 ? .semibold : weight >= 500 ? .medium : .regular)
+    guard isAvailable else { return .system(size: size, weight: systemWeight(weight)) }
+    return variable("Geist-Regular", size: size, weight: weight)
+  }
+
+  /// Geist Mono at `size`, for every quantity, unit, time and count; or the system's monospaced
+  /// font.
+  static func mono(size: CGFloat, weight: CGFloat = 400) -> Font {
+    guard isMonoAvailable else {
+      return .system(size: size, weight: systemWeight(weight), design: .monospaced)
     }
+    return variable("GeistMono-Regular", size: size, weight: weight)
+  }
+
+  private static func systemWeight(_ weight: CGFloat) -> Font.Weight {
+    weight >= 650 ? .semibold : weight >= 500 ? .medium : .regular
+  }
+
+  private static func variable(_ name: String, size: CGFloat, weight: CGFloat) -> Font {
     let attributes: [CFString: Any] = [
-      kCTFontNameAttribute: "Geist-Regular",
+      kCTFontNameAttribute: name,
       // The `wght` axis, as in the app's brand fonts.
       kCTFontVariationAttribute: [NSNumber(value: 0x7767_6874): NSNumber(value: Double(weight))],
     ]

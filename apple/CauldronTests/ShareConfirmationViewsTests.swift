@@ -77,6 +77,77 @@ struct ShareConfirmationViewsTests {
     reading.cancel()
   }
 
+  @Test func theSummaryRendersEveryStateOfTheReadyAndFailedSheetInBothAppearances() async throws {
+    let folder = FileManager.default.temporaryDirectory.appending(
+      path: "ShareSummaryTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    func sheet(
+      _ item: SharedItem, _ replies: [String: ScriptedFetcher.Reply] = [:],
+      extractor: (any RecipeExtracting)? = nil, keyMissing: Bool = false
+    ) -> ShareSheetModel {
+      ShareSheetModel(
+        item: item,
+        importer: ImportModel(
+          fetcher: ScriptedFetcher(replies), extractor: extractor, options: ImportFixtures.quick),
+        finishedFolder: folder, inboxFolder: folder, closeDelay: .seconds(60),
+        keyMissing: { keyMissing }, close: { _ in })
+    }
+    let clean = sheet(
+      SharedItem(url: ImportFixtures.tacosLink),
+      [ImportFixtures.tacosLink: ImportFixtures.tacos(image: false)])
+    let recipe = ExtractedRecipe(
+      title: "Hot honey halloumi", servings: 2, totalMinutes: 20, tags: [],
+      ingredients: [
+        ExtractedLine(line: "225 g halloumi, sliced", section: "Bowl", unsure: false),
+        ExtractedLine(line: "a big drizzle of hot honey", section: "Bowl", unsure: true),
+      ],
+      steps: [ExtractedStep(text: "Fry the halloumi.", section: nil, unsure: true)])
+    let rough = sheet(
+      SharedItem(url: "https://www.instagram.com/reel/Cabc123/", text: "Halloumi bowls"),
+      extractor: ScriptedExtractor(recipe: recipe, rough: true))
+    let noKey = sheet(
+      SharedItem(url: ImportFixtures.soupLink),
+      [ImportFixtures.soupLink: .html("<article><p>A story.</p></article>")],
+      extractor: ScriptedExtractor(failing: .missingKey), keyMissing: true)
+    let unreadable = sheet(SharedItem(url: "https://down.example/a"))
+    for model in [clean, rough, noKey, unreadable] {
+      model.start()
+      await model.finished()
+    }
+    if case .ready(let review) = rough.phase {
+      #expect(review.linesToCheck == 1 && review.rough)
+    } else {
+      Issue.record("the rough sheet should be ready: \(rough.phase)")
+    }
+    if case .failed(let notice) = noKey.phase {
+      #expect(notice.kind == .noKey)
+    } else {
+      Issue.record("the no-key sheet should have failed: \(noKey.phase)")
+    }
+
+    for (model, name) in [
+      (clean, "clean"), (rough, "rough"), (noKey, "no key"), (unreadable, "unreadable"),
+    ] {
+      for scheme in [ColorScheme.light, .dark] {
+        for unfolded in [false, true] {
+          #expect(
+            renders(
+              ShareSheetView(model: model, unfolded: unfolded).environment(\.colorScheme, scheme),
+              height: 560),
+            "\(name) in \(scheme), unfolded \(unfolded)")
+        }
+      }
+    }
+  }
+
+  @Test func geistMonoLoadsFromTheAppTheTestsRunIn() {
+    // Run inside the app, the app is the bundle, as it is for the extension that sits in it.
+    #expect(ShareFonts.isMonoAvailable)
+    _ = ShareFonts.mono(size: 17, weight: 500)
+  }
+
   @Test func theWaitingLineRendersInBothAppearances() {
     for scheme in [ColorScheme.light, .dark] {
       for count in [1, 2, 12] {

@@ -44,7 +44,7 @@ struct ShareSheetModelTests {
   private func sheet(
     _ item: SharedItem, fetcher: ScriptedFetcher = ScriptedFetcher(),
     extractor: (any RecipeExtracting)? = nil, finished: URL? = nil, drafts: URL? = nil,
-    id: UUID = UUID(), closings: Closings = Closings()
+    id: UUID = UUID(), keyMissing: Bool = false, closings: Closings = Closings()
   ) -> ShareSheetModel {
     let finishedFolder = finished ?? self.finished
     let draftsFolder = drafts ?? self.drafts
@@ -52,7 +52,8 @@ struct ShareSheetModelTests {
       item: item,
       importer: ImportModel(fetcher: fetcher, extractor: extractor, options: ImportFixtures.quick),
       finishedFolder: finishedFolder, inboxFolder: draftsFolder, id: id,
-      now: { Date(timeIntervalSince1970: 1_800_000_000) }, closeDelay: .milliseconds(1)
+      now: { Date(timeIntervalSince1970: 1_800_000_000) }, closeDelay: .milliseconds(1),
+      keyMissing: { keyMissing }
     ) { closing in
       closings.all.append(closing)
       closings.filesAtClose.append(
@@ -285,6 +286,146 @@ struct ShareSheetModelTests {
     sheet.start()
     #expect(sheet.phase == .reading)
     sheet.cancel()
+    #expect(closings.all == [.cancelled])
+    #expect(files(in: finished).isEmpty && files(in: drafts).isEmpty)
+  }
+
+  // MARK: The summary (#202)
+
+  private let post = "https://www.instagram.com/reel/Cabc123/"
+
+  /// A caption a model read, with two lines it wasn't sure of.
+  private func caption(rough: Bool = false) -> (SharedItem, ScriptedExtractor) {
+    let recipe = ExtractedRecipe(
+      title: "Hot honey halloumi", servings: 2, prepMinutes: 5, cookMinutes: 15, tags: [],
+      ingredients: [
+        ExtractedLine(line: "225 g halloumi, sliced", section: nil, unsure: false),
+        ExtractedLine(line: "a big drizzle of hot honey", section: nil, unsure: true),
+        ExtractedLine(line: "pickled onions (link in bio)", section: nil, unsure: true),
+      ],
+      steps: [ExtractedStep(text: "Fry the halloumi.", section: nil, unsure: false)])
+    return (
+      SharedItem(url: post, text: "Hot honey halloumi: fry it, drizzle it."),
+      ScriptedExtractor(recipe: recipe, rough: rough)
+    )
+  }
+
+  @Test func theSummaryCountsTheLinesToCheckAndTheNumbers() async throws {
+    defer { tidy() }
+    let (item, extractor) = caption()
+    let sheet = sheet(item, extractor: extractor)
+    sheet.start()
+    await sheet.finished()
+
+    let review = try ready(sheet)
+    #expect(review.ingredients == 3)
+    #expect(review.linesToCheck == 2)
+    #expect(review.steps == 1)
+    #expect(review.servings == 2)
+    // No total given: prep plus cook.
+    #expect(review.minutes == 20)
+    #expect(!review.rough)
+    #expect(review.editLabel == Copy.importNative.fixInCauldron)
+  }
+
+  @Test func aCleanRecipeHasNoLinesToCheckAndOffersEdit() async throws {
+    defer { tidy() }
+    let sheet = sheet(tacos, fetcher: tacosFetcher)
+    sheet.start()
+    await sheet.finished()
+
+    let review = try ready(sheet)
+    #expect(review.linesToCheck == 0)
+    #expect(review.editLabel == Copy.importNative.editInCauldron)
+    // Prep 15 and cook 20 on the page.
+    #expect(review.minutes == 35)
+    #expect(review.servings == 4)
+  }
+
+  @Test func theFixButtonLeavesTheCaptionAndTheLinkForADraftAndNoRecipe() async throws {
+    defer { tidy() }
+    let (item, extractor) = caption()
+    let sheet = sheet(item, extractor: extractor)
+    sheet.start()
+    await sheet.finished()
+    sheet.sendToCauldron()
+
+    #expect(sheet.phase == .sent)
+    #expect(files(in: finished).isEmpty)
+    let kept = ShareInbox.takeAll(from: drafts)
+    #expect(kept.map(\.url) == [post])
+    #expect(kept.map(\.text) == ["Hot honey halloumi: fry it, drizzle it."])
+  }
+
+  @Test func theOnDeviceFallbackIsMarkedRoughAndStaysRoughWhenSaved() async throws {
+    defer { tidy() }
+    let (item, extractor) = caption(rough: true)
+    let sheet = sheet(item, extractor: extractor)
+    sheet.start()
+    await sheet.finished()
+
+    let review = try ready(sheet)
+    #expect(review.rough)
+    sheet.save()
+    let saved = try #require(FinishedInbox.pending(from: finished).first?.recipe).recipeDraft
+    #expect(saved.imported?.rough == true)
+  }
+
+  @Test func aPageOnlyAModelCouldReadWithNoKeyGetsTheNoKeyNotice() async throws {
+    defer { tidy() }
+    let item = SharedItem(url: ImportFixtures.soupLink)
+    let sheet = sheet(
+      item,
+      fetcher: ScriptedFetcher([
+        ImportFixtures.soupLink: .html("<article><p>A long story about my week.</p></article>")
+      ]),
+      extractor: ScriptedExtractor(failing: .missingKey), keyMissing: true)
+    sheet.start()
+    await sheet.finished()
+
+    #expect(
+      sheet.phase
+        == .failed(.init(message: Copy.importNative.noAIKey, canSend: true, kind: .noKey)))
+    sheet.sendToCauldron()
+    #expect(sheet.phase == .sent)
+    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.soupLink])
+  }
+
+  @Test func anUnreadablePageIsNotBlamedOnAMissingKey() async throws {
+    defer { tidy() }
+    let sheet = sheet(
+      SharedItem(url: "https://down.example/a"),
+      fetcher: ScriptedFetcher(["https://down.example/a": .fail(.status(404))]), keyMissing: true)
+    sheet.start()
+    await sheet.finished()
+
+    guard case .failed(let notice) = sheet.phase else {
+      Issue.record("should fail: \(sheet.phase)")
+      return
+    }
+    #expect(notice.kind == .unreadable)
+    #expect(notice.message != Copy.importNative.noAIKey)
+    #expect(notice.canSend)
+  }
+
+  @Test func aRecipeFromThePageNeedsNoKey() async throws {
+    defer { tidy() }
+    let sheet = sheet(tacos, fetcher: tacosFetcher, keyMissing: true)
+    sheet.start()
+    await sheet.finished()
+    _ = try ready(sheet)
+  }
+
+  @Test func cancelWhileReadingStopsTheReadAndLeavesNothing() async throws {
+    defer { tidy() }
+    let closings = Closings()
+    let sheet = sheet(
+      tacos, fetcher: ScriptedFetcher([ImportFixtures.tacosLink: .hold]), closings: closings)
+    sheet.start()
+    #expect(sheet.phase == .reading)
+    sheet.cancel()
+    await sheet.finished()
+    // Still reading as far as the view goes, but closed, and nothing was written.
     #expect(closings.all == [.cancelled])
     #expect(files(in: finished).isEmpty && files(in: drafts).isEmpty)
   }

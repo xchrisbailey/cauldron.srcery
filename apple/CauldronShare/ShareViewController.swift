@@ -24,7 +24,7 @@ import SwiftUI
 final class ShareViewController: PlatformViewController {
   #if os(macOS)
     override func loadView() {
-      view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 320))
+      view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 520))
     }
   #endif
 
