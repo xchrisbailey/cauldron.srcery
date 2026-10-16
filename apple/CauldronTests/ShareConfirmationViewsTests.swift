@@ -30,18 +30,51 @@ struct ShareConfirmationViewsTests {
     }
   }
 
-  @Test func theConfirmationRendersWithTheKeyNote() {
-    for note in [Copy.importNative.aiKeyAvailable.text, Copy.importNative.noAIKey.text] {
+  @Test func theShareSheetRendersInEachPhaseInBothAppearances() async throws {
+    let folder = FileManager.default.temporaryDirectory.appending(
+      path: "ShareViewsTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    func sheet(_ item: SharedItem, _ replies: [String: ScriptedFetcher.Reply]) -> ShareSheetModel {
+      ShareSheetModel(
+        item: item,
+        importer: ImportModel(
+          fetcher: ScriptedFetcher(replies), extractor: nil, options: ImportFixtures.quick),
+        finishedFolder: folder, inboxFolder: folder, closeDelay: .seconds(60), close: { _ in })
+    }
+    let reading = sheet(
+      SharedItem(url: ImportFixtures.tacosLink), [ImportFixtures.tacosLink: .hold])
+    reading.start()
+    let ready = sheet(
+      SharedItem(url: ImportFixtures.tacosLink),
+      [ImportFixtures.tacosLink: ImportFixtures.tacos(image: false)])
+    ready.start()
+    await ready.finished()
+    let saved = sheet(
+      SharedItem(url: ImportFixtures.tacosLink),
+      [ImportFixtures.tacosLink: ImportFixtures.tacos(image: false)])
+    saved.start()
+    await saved.finished()
+    saved.save()
+    let failed = sheet(SharedItem(url: "https://down.example/a"), [:])
+    failed.start()
+    await failed.finished()
+    let sent = sheet(SharedItem(url: "https://down.example/a"), [:])
+    sent.sendToCauldron()
+
+    let phases: [(ShareSheetModel, String)] = [
+      (reading, "reading"), (ready, "ready"), (saved, "saved"), (failed, "failed"),
+      (sent, "sent"),
+    ]
+    for (model, name) in phases {
       for scheme in [ColorScheme.light, .dark] {
-        let outcome = ShareConfirmation.Outcome.sent(
-          title: Copy.importNative.sentToCauldron.text,
-          detail: Copy.importNative.opensAsDraft.text)
         #expect(
-          renders(
-            ShareConfirmation(outcome: outcome, keyNote: note).environment(\.colorScheme, scheme)),
-          "\(note) in \(scheme)")
+          renders(ShareSheetView(model: model).environment(\.colorScheme, scheme)),
+          "\(name) in \(scheme)")
       }
     }
+    reading.cancel()
   }
 
   @Test func theWaitingLineRendersInBothAppearances() {

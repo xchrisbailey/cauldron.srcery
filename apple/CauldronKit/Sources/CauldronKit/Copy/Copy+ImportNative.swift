@@ -11,10 +11,20 @@ extension Copy {
     public let nothingToSend = plain("There's no link or text here for Cauldron to read.")
     /// The share extension had something to send but couldn't leave it for the app.
     public let couldntSend = plain("Cauldron couldn't keep that. Try sharing it again.")
-    /// For now (#200), under the confirmation: whether the share extension can read the AI key
-    /// the app saved. The review sheet replaces it (#201).
-    public let aiKeyAvailable = plain("AI key available")
-    public let noAIKey = plain("No AI key")
+    /// The share sheet while it reads the shared page or caption.
+    public let readingRecipe = plain("Reading the recipe…")
+    /// The share sheet's button that keeps the recipe it found.
+    public let saveToRecipes = plain("Save to recipes")
+    /// The share sheet's way to finish the recipe in the app, as a draft.
+    public let editInCauldron = plain("Edit in Cauldron")
+    /// When the share sheet couldn't read the recipe: leave the link for the app instead.
+    public let sendInstead = plain("Send to Cauldron instead")
+    /// The share sheet's confirmation after Save, and what it means.
+    public let savedToRecipes = plain("Saved to your recipes")
+    public let savedDetail = plain("It's in your recipe box the next time you open Cauldron.")
+    /// The share sheet couldn't leave the finished recipe for the app.
+    public let couldntSave = plain(
+      "Cauldron couldn't keep that recipe. Send it to Cauldron instead.")
     /// On a draft the on-device model read because the AI couldn't be reached. The web app had
     /// no such state: it only ever had the one model.
     public let rough = plain(
@@ -74,6 +84,15 @@ extension Copy {
 
     /// On the import sheet while more shared items wait their turn.
     public func moreShared(_ count: Int) -> CopyString { plain("\(count) more shared") }
+
+    /// In the share sheet's summary.
+    public func ingredientCount(_ count: Int) -> CopyString {
+      plain(count == 1 ? "1 ingredient" : "\(count) ingredients")
+    }
+
+    public func stepCount(_ count: Int) -> CopyString {
+      plain(count == 1 ? "1 step" : "\(count) steps")
+    }
 
     /// The accessibility label of a page's thumbnail.
     public func page(_ number: Int) -> CopyString { plain("Page \(number)") }

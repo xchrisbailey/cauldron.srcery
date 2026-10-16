@@ -1,40 +1,11 @@
 import CauldronImports
-import CauldronKit
 import Foundation
 import Observation
+import SwiftData
 import SwiftUI
 
-extension SharedImportRoute {
-  /// The route for `item`, or nil when it holds nothing to read (the extension doesn't leave
-  /// such an item, but a damaged one is skipped rather than opening an empty sheet).
-  init?(_ item: SharedItem) {
-    let text = item.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    let link = item.url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    if !link.isEmpty {
-      // A caption beats the link only for a post. Some platforms put the link in the caption
-      // too, so it is taken out before judging whether any caption is left.
-      if Distill.classify(link) != .web {
-        let caption = text.replacingOccurrences(of: link, with: "")
-          .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !caption.isEmpty {
-          self = .caption(caption, post: link)
-          return
-        }
-      }
-      self = .link(link)
-      return
-    }
-    guard !text.isEmpty else { return nil }
-    // Some apps share a link as plain text. Pasted into the paste box it would be no recipe.
-    if !text.contains(where: \.isWhitespace), Distill.isAcceptedLink(text) {
-      self = .link(text)
-    } else {
-      self = .text(text)
-    }
-  }
-}
-
 /// What the share extension left in the inbox, waiting to be opened as imports one at a time.
+/// It also takes the recipes the extension finished (#201) and puts them in the box.
 ///
 /// The app picks the inbox up when it comes forward. A waiting item is opened only when nothing
 /// else is in the way: no import sheet and no editor is open (`readyToOpen`), so a draft the cook
@@ -47,16 +18,19 @@ final class SharedImportQueue {
   /// An import sheet is open (shared or typed).
   var importOpen = false
   @ObservationIgnored private let folder: URL?
+  @ObservationIgnored private let finishedFolder: URL?
   @ObservationIgnored private let enabled: Bool
   /// The editors open now, each by its own token so one that is closed twice counts once.
   private var editors: Set<UUID> = []
 
   /// - Parameters:
   ///   - folder: the inbox folder; nil is the App Group's, looked up when it is first read.
+  ///   - finishedFolder: the folder of finished recipes, the same way.
   ///   - enabled: false under test and in previews, where nothing is picked up so the real
   ///     inbox is never touched.
-  init(folder: URL? = nil, enabled: Bool) {
+  init(folder: URL? = nil, finishedFolder: URL? = nil, enabled: Bool) {
     self.folder = folder
+    self.finishedFolder = finishedFolder
     self.enabled = enabled
   }
 
@@ -67,11 +41,23 @@ final class SharedImportQueue {
   var readyToOpen: Bool { !pending.isEmpty && !importOpen && editors.isEmpty }
 
   /// Takes what is in the inbox. Called at launch and whenever the app comes forward.
-  func pickUp() {
-    guard enabled else { return }
+  ///
+  /// Finished recipes go first, into `context`: a recipe that can't be saved as it is falls back
+  /// to a link for a draft, which the second step then finds. Without a context only drafts are
+  /// taken. Returns how many recipes were added.
+  @discardableResult
+  func pickUp(in context: ModelContext? = nil) -> Int {
+    guard enabled else { return 0 }
+    var added = 0
+    if let context {
+      added = FinishedRecipeReceiver.receive(
+        from: finishedFolder ?? FinishedInbox.folder(), into: context,
+        draftsFolder: folder ?? ShareInbox.folder())
+    }
     pending.append(
       contentsOf: ShareInbox.takeAll(from: folder ?? ShareInbox.folder()).compactMap(
         SharedImportRoute.init))
+    return added
   }
 
   /// The next item to open, removed from the queue; nil unless `readyToOpen`.
@@ -87,22 +73,29 @@ final class SharedImportQueue {
 
 private struct SharedImportsPickUp: ViewModifier {
   let queue: SharedImportQueue
+  let ai: RecipeAIService?
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.modelContext) private var context
 
   func body(content: Content) -> some View {
     content
       .environment(queue)
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
-        if scenePhase == .active { queue.pickUp() }
+        guard scenePhase == .active else { return }
+        // An estimate a finished recipe is waiting for runs at once, if the AI can be reached.
+        if queue.pickUp(in: context) > 0, let ai {
+          await AIQueueRunner.drain(in: context, using: ai.estimator)
+        }
       }
   }
 }
 
 extension View {
   /// Gives the view the queue of shared items and picks the inbox up whenever the app comes
-  /// forward.
-  func sharedImports(_ queue: SharedImportQueue) -> some View {
-    modifier(SharedImportsPickUp(queue: queue))
+  /// forward. Recipes the share sheet finished are saved into the view's context; `ai` runs
+  /// the macro estimates they are waiting for.
+  func sharedImports(_ queue: SharedImportQueue, ai: RecipeAIService? = nil) -> some View {
+    modifier(SharedImportsPickUp(queue: queue, ai: ai))
   }
 }

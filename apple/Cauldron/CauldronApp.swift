@@ -54,7 +54,7 @@ struct CauldronApp: App {
         #endif
         .environment(sync)
         .environment(ai)
-        .sharedImports(sharedImports)
+        .sharedImports(sharedImports, ai: ai)
         .task { await sync.run() }
         // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.
