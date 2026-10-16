@@ -6,6 +6,10 @@ import SwiftUI
 /// found with Save and the ways out; a plain notice when it couldn't read; and the two
 /// confirmations. All the logic is `ShareSheetModel`; this only draws it.
 struct ShareSheetView: View {
+  /// The Mac share popover's size (#205). It is fixed: the popover doesn't grow with its content.
+  /// The ready state scrolls inside it with Save pinned under; every other state fits as it is.
+  static let popoverSize = CGSize(width: 380, height: 520)
+
   let model: ShareSheetModel
   /// Starts with the folded sections open; for the view checks.
   var unfolded = false
