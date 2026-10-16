@@ -12,7 +12,7 @@ struct SharedItem: Codable, Sendable, Equatable, Identifiable {
 /// file per item in the App Group container, so the extension and the app never write the same
 /// file. Shared by the app and its extensions.
 enum ShareInbox {
-  static let appGroupID = "group.computer.srcery.cauldron"
+  static let appGroupID = AppGroupName.id
   /// Text beyond this is cut: far more than any recipe, and the import caps it again.
   static let textMax = 50_000
 

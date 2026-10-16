@@ -62,6 +62,9 @@ targets:
       - Cauldron
       # Types the app and its extensions both compile.
       - Shared
+      # The share sheet's inbox, model and views, which the app compiles too so it can read
+      # the inbox and test them (#198).
+      - ShareSheet
       # A synced folder alone gets no Resources phase from XcodeGen. Naming one resource
       # makes it emit the phase, and Xcode then bundles the folder's assets and fonts.
       - path: Cauldron/Fonts/OFL.txt
@@ -194,6 +197,7 @@ targets:
     sources:
       - CauldronShare
       - Shared
+      - ShareSheet
       # The brand colours the confirmation draws with, named as a resource as the widget's are.
       - path: Shared/Brand.xcassets
         buildPhase: resources

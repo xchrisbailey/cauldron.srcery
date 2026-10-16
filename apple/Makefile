@@ -1,6 +1,6 @@
 # All local checks for the native app. There is no CI: run `make ready` before opening a PR.
 
-SWIFT_SOURCES := Cauldron CauldronImports CauldronWidgets Shared CauldronTests CauldronKit/Package.swift CauldronKit/Sources CauldronKit/Tests
+SWIFT_SOURCES := Cauldron CauldronImports CauldronShare CauldronWidgets Shared ShareSheet CauldronTests CauldronKit/Package.swift CauldronKit/Sources CauldronKit/Tests
 XCODEBUILD := xcodebuild -project Cauldron.xcodeproj -scheme Cauldron -skipPackagePluginValidation
 IOS_SIMULATOR ?= platform=iOS Simulator,name=iPhone 17,OS=27.0
 

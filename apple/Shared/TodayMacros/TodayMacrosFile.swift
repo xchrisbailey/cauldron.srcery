@@ -8,7 +8,7 @@ enum TodayMacrosFile {
 
   /// The App Group container. Nil when the build has no App Group (no signing team).
   static func liveFolder(fileManager: FileManager = .default) -> URL? {
-    fileManager.containerURL(forSecurityApplicationGroupIdentifier: ShareInbox.appGroupID)
+    fileManager.containerURL(forSecurityApplicationGroupIdentifier: AppGroupName.id)
   }
 
   /// Replaces the file with `snapshot`. Throws when there is no folder or it can't be written.
