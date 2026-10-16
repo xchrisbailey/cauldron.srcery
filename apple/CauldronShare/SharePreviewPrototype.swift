@@ -115,6 +115,7 @@
     @State private var source = ProtoSource.web
     /// What the last button pressed would have done, shown before the sheet closes.
     @State private var outcome: String?
+    @State private var measuring = false
 
     private var recipe: ProtoRecipe {
       var recipe = source == .web ? ProtoRecipe.web : ProtoRecipe.caption
@@ -159,6 +160,19 @@
         .padding(.top, 56)
         ProtoSwitcher(variant: $variant, phase: $phase, source: $source)
           .padding(.top, 8)
+        // MEASUREMENT (#197): the cost of reading this link here.
+        Button {
+          measuring = true
+        } label: {
+          Text(verbatim: "Measure").font(.system(size: 12, weight: .semibold))
+        }
+        .buttonStyle(.bordered)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.top, 48)
+        .padding(.trailing, 12)
+        if measuring {
+          MeasurePanel(link: sharedLink) { measuring = false }
+        }
         if let outcome {
           Text(verbatim: outcome)
             .font(ShareFonts.font(size: 14, weight: 500))
