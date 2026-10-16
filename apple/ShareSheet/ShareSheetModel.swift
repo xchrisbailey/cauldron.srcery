@@ -21,14 +21,37 @@ final class ShareSheetModel {
     var source: String?
     var ingredients: Int
     var steps: Int
+    /// Total time in minutes (the recipe's total, or prep plus cook); nil when unknown.
+    var minutes: Int?
+    var servings: Int?
+    /// Ingredient lines the import wasn't sure it read right. The cook is nudged to fix them.
+    var linesToCheck: Int
+    /// The on-device model read it because the AI couldn't be reached, so it may be rougher.
+    var rough: Bool
     /// The draft can be saved as it is.
     var canSave: Bool
+
+    /// What the hand-off to the app is called: it nudges toward fixing when lines need it.
+    var editLabel: CopyString {
+      linesToCheck > 0 ? Copy.importNative.fixInCauldron : Copy.importNative.editInCauldron
+    }
   }
 
   /// Something to tell the cook, in plain words, and whether `sendToCauldron()` is still open.
   struct Notice: Equatable {
+    /// Why, for the view to pick its picture; the words are `message`.
+    enum Kind: Equatable {
+      /// The page or text couldn't be read into a recipe.
+      case unreadable
+      /// Reading it needs an AI and there is no key.
+      case noKey
+      /// Anything else: nothing to read, or nothing could be left for the app.
+      case other
+    }
+
     var message: CopyString
     var canSend: Bool
+    var kind = Kind.other
   }
 
   enum Phase: Equatable {
@@ -56,6 +79,7 @@ final class ShareSheetModel {
   private let id: UUID
   private let now: @Sendable () -> Date
   private let closeDelay: Duration
+  private let keyMissing: @MainActor () -> Bool
   private let close: @MainActor (Closing) -> Void
   /// Where the sheet ended, once it has: the import's own phase stands until then.
   private var outcome: Phase?
@@ -69,11 +93,15 @@ final class ShareSheetModel {
   ///   - inboxFolder: where the link or text is left.
   ///   - id: the saved recipe's id.
   ///   - closeDelay: how long the confirmation stays before the sheet closes itself.
+  ///   - keyMissing: whether the chosen AI has no key, which tells "no key" from "no recipe"
+  ///     when a page could only have been read by a model.
   ///   - close: ends the share. It is called only once everything is written.
   init(
     item: SharedItem, importer: ImportModel, finishedFolder: URL?, inboxFolder: URL?,
     id: UUID = UUID(), now: @escaping @Sendable () -> Date = { .now },
-    closeDelay: Duration = .milliseconds(1400), close: @escaping @MainActor (Closing) -> Void
+    closeDelay: Duration = .milliseconds(1400),
+    keyMissing: @escaping @MainActor () -> Bool = { false },
+    close: @escaping @MainActor (Closing) -> Void
   ) {
     self.item = item
     self.importer = importer
@@ -82,6 +110,7 @@ final class ShareSheetModel {
     self.id = id
     self.now = now
     self.closeDelay = closeDelay
+    self.keyMissing = keyMissing
     self.close = close
   }
 
@@ -96,7 +125,7 @@ final class ShareSheetModel {
       fetcher: URLSessionPageFetcher(), extractor: ai.extractor, estimator: nil)
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
-      inboxFolder: ShareInbox.folder(), close: close)
+      inboxFolder: ShareInbox.folder(), keyMissing: { !ai.hasKey }, close: close)
   }
 
   /// Where the sheet is.
@@ -108,8 +137,18 @@ final class ShareSheetModel {
     case .ready(let review):
       return .ready(Self.summary(of: review.draft))
     case .failed(let notice):
-      return .failed(Notice(message: notice.message, canSend: true))
+      return .failed(failure(notice))
     }
+  }
+
+  /// A page no model read while the AI has no key: that is the reason to give, not "no recipe".
+  /// Only these two codes can come of a missing key (Distill treats it as no model at all).
+  private func failure(_ notice: ImportFailureNotice) -> Notice {
+    let needsKey = notice.code == .noRecipe || notice.code == .unavailable
+    if needsKey, keyMissing() {
+      return Notice(message: Copy.importNative.noAIKey, canSend: true, kind: .noKey)
+    }
+    return Notice(message: notice.message, canSend: true, kind: .unreadable)
   }
 
   /// Starts reading what was shared. Once only.
@@ -179,10 +218,16 @@ final class ShareSheetModel {
   }
 
   static func summary(of draft: RecipeDraft) -> Review {
-    Review(
+    let lines = draft.ingredients.filter { !$0.isHeading && !$0.isBlank }
+    func minutes(_ text: String) -> Int? { Int(draft.trimmed(text)) }
+    return Review(
       draft: draft, title: draft.trimmed(draft.title), source: source(of: draft.sourceURL),
-      ingredients: draft.ingredients.filter { !$0.isHeading && !$0.isBlank }.count,
-      steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty)
+      ingredients: lines.count, steps: draft.steps.filter { !$0.isBlank }.count,
+      minutes: recipeMinutes(
+        totalMinutes: minutes(draft.totalMinutes), prepMinutes: minutes(draft.prepMinutes),
+        cookMinutes: minutes(draft.cookMinutes)),
+      servings: minutes(draft.servings), linesToCheck: lines.filter(\.flagged).count,
+      rough: draft.imported?.rough ?? false, canSave: draft.validate().isEmpty)
   }
 
   /// The site a link is on: its host, less a leading "www.".

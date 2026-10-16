@@ -2,18 +2,20 @@ import CauldronImports
 import CauldronKit
 import SwiftUI
 
-/// The share sheet: reading, a summary of the recipe it found with Save, and what to do when it
-/// couldn't. A basic summary for now (#201); the full Summary layout comes with #202.
+/// The share sheet, variant B ("Summary", #195): reading with Cancel; one screen of what was
+/// found with Save and the ways out; a plain notice when it couldn't read; and the two
+/// confirmations. All the logic is `ShareSheetModel`; this only draws it.
 struct ShareSheetView: View {
   let model: ShareSheetModel
-  @ScaledMetric private var titleSize = 22
+  /// Starts with the folded sections open; for the view checks.
+  var unfolded = false
   @ScaledMetric private var bodySize = 15
 
   var body: some View {
     Group {
       switch model.phase {
       case .reading: reading
-      case .ready(let review): ready(review)
+      case .ready(let review): ReadySummary(review: review, model: model, unfolded: unfolded)
       case .saved:
         ShareConfirmation(
           outcome: .sent(
@@ -29,51 +31,18 @@ struct ShareSheetView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Brand.Colors.base.ignoresSafeArea())
+    .tint(Brand.Colors.magic)
     .task { model.start() }
   }
 
   private var reading: some View {
     VStack(spacing: 16) {
-      ProgressView()
+      ProgressView().tint(Brand.Colors.magic)
       Text(verbatim: Copy.importNative.readingRecipe.text)
         .font(ShareFonts.font(size: bodySize, weight: 400))
         .foregroundStyle(Brand.Colors.subtext)
       Button(Copy.recipeView.cancel.text) { model.cancel() }
         .buttonStyle(ShareButtonStyle(kind: .plain))
-    }
-    .padding(24)
-  }
-
-  private func ready(_ review: ShareSheetModel.Review) -> some View {
-    VStack(spacing: 16) {
-      VStack(spacing: 6) {
-        Text(verbatim: review.title)
-          .font(ShareFonts.font(size: titleSize, weight: 650))
-          .foregroundStyle(Brand.Colors.ink)
-        if let source = review.source {
-          Text(verbatim: source)
-            .font(ShareFonts.font(size: bodySize, weight: 400))
-            .foregroundStyle(Brand.Colors.subtext)
-        }
-        Text(
-          verbatim:
-            "\(Copy.importNative.ingredientCount(review.ingredients).text) · \(Copy.importNative.stepCount(review.steps).text)"
-        )
-        .font(ShareFonts.font(size: bodySize, weight: 400))
-        .monospacedDigit()
-        .foregroundStyle(Brand.Colors.subtext)
-      }
-      .multilineTextAlignment(.center)
-      VStack(spacing: 8) {
-        if review.canSave {
-          Button(Copy.importNative.saveToRecipes.text) { model.save() }
-            .buttonStyle(ShareButtonStyle(kind: .prominent))
-        }
-        Button(Copy.importNative.editInCauldron.text) { model.sendToCauldron() }
-          .buttonStyle(ShareButtonStyle(kind: review.canSave ? .plain : .prominent))
-        Button(Copy.recipeView.cancel.text) { model.cancel() }
-          .buttonStyle(ShareButtonStyle(kind: .plain))
-      }
     }
     .frame(maxWidth: 360)
     .padding(24)
@@ -81,18 +50,23 @@ struct ShareSheetView: View {
 
   private func failed(_ notice: ShareSheetModel.Notice) -> some View {
     VStack(spacing: 16) {
-      Image(systemName: "exclamationmark.circle")
+      Image(systemName: notice.kind == .noKey ? "key" : "exclamationmark.circle")
         .font(.system(size: 40, weight: .light))
-        .foregroundStyle(Brand.Colors.heat)
+        .foregroundStyle(notice.kind == .noKey ? Brand.Colors.tips : Brand.Colors.heat)
         .accessibilityHidden(true)
       Text(verbatim: notice.message.text)
         .font(ShareFonts.font(size: bodySize, weight: 400))
-        .foregroundStyle(Brand.Colors.heat)
+        .foregroundStyle(Brand.Colors.ink)
         .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
       VStack(spacing: 8) {
         if notice.canSend {
           Button(Copy.importNative.sendInstead.text) { model.sendToCauldron() }
             .buttonStyle(ShareButtonStyle(kind: .prominent))
+          Text(verbatim: Copy.importNative.opensAsDraft.text)
+            .font(ShareFonts.font(size: bodySize - 2, weight: 400))
+            .foregroundStyle(Brand.Colors.subtext)
+            .multilineTextAlignment(.center)
         }
         Button(Copy.recipeView.cancel.text) { model.cancel() }
           .buttonStyle(ShareButtonStyle(kind: notice.canSend ? .plain : .prominent))
@@ -100,6 +74,243 @@ struct ShareSheetView: View {
     }
     .frame(maxWidth: 360)
     .padding(24)
+  }
+}
+
+// MARK: - The ready state
+
+/// What was found, in the order the cook reads it: the recipe, its numbers, anything to check,
+/// the folded lists; and Save with the ways out pinned under them so they stay in reach.
+private struct ReadySummary: View {
+  let review: ShareSheetModel.Review
+  let model: ShareSheetModel
+  @State private var ingredientsOpen: Bool
+  @State private var stepsOpen: Bool
+  @ScaledMetric private var bodySize = 15
+
+  init(review: ShareSheetModel.Review, model: ShareSheetModel, unfolded: Bool) {
+    self.review = review
+    self.model = model
+    _ingredientsOpen = State(initialValue: unfolded)
+    _stepsOpen = State(initialValue: unfolded)
+  }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+          header
+          StatsStrip(review: review)
+          macroLineSlot
+          duplicateBannerSlot
+          if review.linesToCheck > 0 {
+            note(Copy.importNative.linesToCheck(review.linesToCheck).text, "exclamationmark.circle")
+          }
+          if review.rough {
+            note(Copy.importNative.rough.text, "wand.and.stars")
+          }
+          DisclosureGroup(isExpanded: $ingredientsOpen) {
+            IngredientList(draft: review.draft).padding(.top, 8)
+          } label: {
+            sectionTitle(Copy.importNative.ingredientsSection.text)
+          }
+          DisclosureGroup(isExpanded: $stepsOpen) {
+            StepList(draft: review.draft).padding(.top, 8)
+          } label: {
+            sectionTitle(Copy.importNative.stepsSection.text)
+          }
+        }
+        .padding(16)
+        .frame(maxWidth: 520, alignment: .leading)
+        .frame(maxWidth: .infinity)
+      }
+      actions
+    }
+  }
+
+  private var header: some View {
+    HStack(alignment: .top, spacing: 12) {
+      thumbnailSlot
+      VStack(alignment: .leading, spacing: 4) {
+        Text(verbatim: review.title)
+          .font(ShareFonts.font(size: 20, weight: 650))
+          .foregroundStyle(Brand.Colors.ink)
+        if let source = review.source {
+          Text(verbatim: source)
+            .font(ShareFonts.font(size: bodySize - 2, weight: 400))
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+      }
+      Spacer(minLength: 0)
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  // The slots below are where #203 (thumbnail and macro line) and #204 (duplicate banner)
+  // put their views. Each is empty until then.
+
+  /// A small photo of the recipe, beside the title.
+  @ViewBuilder private var thumbnailSlot: some View { EmptyView() }
+
+  /// The macros per serving, when they can be worked out.
+  @ViewBuilder private var macroLineSlot: some View { EmptyView() }
+
+  /// "You already have this one", when a recipe from the same link is in the box.
+  @ViewBuilder private var duplicateBannerSlot: some View { EmptyView() }
+
+  private func note(_ text: String, _ symbol: String) -> some View {
+    Label {
+      Text(verbatim: text).fixedSize(horizontal: false, vertical: true)
+    } icon: {
+      Image(systemName: symbol)
+    }
+    .font(ShareFonts.font(size: bodySize - 1, weight: 500))
+    .foregroundStyle(Brand.Colors.tips)
+  }
+
+  private func sectionTitle(_ text: String) -> some View {
+    Text(verbatim: text)
+      .font(ShareFonts.font(size: bodySize + 1, weight: 600))
+      .foregroundStyle(Brand.Colors.ink)
+  }
+
+  private var actions: some View {
+    VStack(spacing: 4) {
+      if review.canSave {
+        Button(Copy.importNative.saveToRecipes.text) { model.save() }
+          .buttonStyle(ShareButtonStyle(kind: .prominent))
+        HStack {
+          Button(Copy.recipeView.cancel.text) { model.cancel() }
+          Button(review.editLabel.text) { model.sendToCauldron() }
+        }
+        .buttonStyle(ShareButtonStyle(kind: .plain))
+      } else {
+        Button(review.editLabel.text) { model.sendToCauldron() }
+          .buttonStyle(ShareButtonStyle(kind: .prominent))
+        Button(Copy.recipeView.cancel.text) { model.cancel() }
+          .buttonStyle(ShareButtonStyle(kind: .plain))
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 8)
+    .frame(maxWidth: .infinity)
+    .background(Brand.Colors.mantle)
+  }
+}
+
+/// Ingredients, steps, total time and servings, set in Geist Mono.
+private struct StatsStrip: View {
+  let review: ShareSheetModel.Review
+  @ScaledMetric private var valueSize = 17
+  @ScaledMetric private var labelSize = 12
+
+  var body: some View {
+    HStack(spacing: 0) {
+      stat("\(review.ingredients)", Copy.importNative.ingredientsLabel.text)
+      stat("\(review.steps)", Copy.importNative.stepsLabel.text)
+      stat(
+        review.minutes.flatMap { $0 > 0 ? formatTimer($0 * 60) : nil } ?? "–",
+        Copy.recipeView.total.text)
+      stat(review.servings.map(String.init) ?? "–", Copy.importNative.servesLabel.text)
+    }
+    .padding(.vertical, 10)
+    .background(Brand.Colors.mantle, in: .rect(cornerRadius: 12))
+  }
+
+  private func stat(_ value: String, _ label: String) -> some View {
+    VStack(spacing: 2) {
+      Text(verbatim: value)
+        .font(ShareFonts.mono(size: valueSize, weight: 500))
+        .foregroundStyle(Brand.Colors.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+      Text(verbatim: label)
+        .font(ShareFonts.font(size: labelSize, weight: 400))
+        .foregroundStyle(Brand.Colors.subtext)
+        .lineLimit(1)
+    }
+    .frame(maxWidth: .infinity)
+    .accessibilityElement(children: .combine)
+  }
+}
+
+/// The ingredient lines as the importer read them; ones it wasn't sure of in the tips colour.
+private struct IngredientList: View {
+  let draft: RecipeDraft
+  @ScaledMetric private var size = 15
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ForEach(draft.ingredients.filter { !$0.isBlank }) { row in
+        if row.isHeading {
+          Text(verbatim: row.text)
+            .font(ShareFonts.font(size: size, weight: 600))
+            .foregroundStyle(Brand.Colors.subtext)
+            .padding(.top, 4)
+        } else {
+          line(row)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private func line(_ row: IngredientRowDraft) -> some View {
+    let colour = row.flagged ? Brand.Colors.tips : Brand.Colors.ink
+    return HStack(alignment: .firstTextBaseline, spacing: 8) {
+      if let parsed = row.parsed {
+        if let quantity = parsed.quantity {
+          let measure = measureParts(quantity, unit: parsed.unit)
+          Text(verbatim: measure.amount)
+            .font(ShareFonts.mono(size: size, weight: 500))
+            .foregroundStyle(colour)
+          if let unit = measure.unit {
+            Text(verbatim: unit)
+              .font(ShareFonts.mono(size: size - 2))
+              .foregroundStyle(Brand.Colors.overlay1)
+          }
+        }
+        Text(verbatim: parsed.note.map { "\(parsed.item), \($0)" } ?? parsed.item)
+          .font(ShareFonts.font(size: size, weight: 400))
+          .foregroundStyle(colour)
+      } else {
+        Text(verbatim: row.text)
+          .font(ShareFonts.font(size: size, weight: 400))
+          .foregroundStyle(colour)
+      }
+      if row.flagged {
+        // Not by colour alone.
+        Image(systemName: "exclamationmark.circle")
+          .font(.system(size: size - 2))
+          .foregroundStyle(Brand.Colors.tips)
+          .accessibilityHidden(true)
+      }
+    }
+  }
+}
+
+/// The steps, numbered.
+private struct StepList: View {
+  let draft: RecipeDraft
+  @ScaledMetric private var size = 15
+
+  var body: some View {
+    let steps = draft.steps.filter { !$0.isBlank }
+    VStack(alignment: .leading, spacing: 12) {
+      ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+          Text(verbatim: "\(index + 1)")
+            .font(ShareFonts.mono(size: size - 1, weight: 500))
+            .foregroundStyle(Brand.Colors.magic)
+            .frame(minWidth: 18, alignment: .trailing)
+          Text(verbatim: step.text)
+            .font(ShareFonts.font(size: size, weight: 400))
+            .foregroundStyle(step.flagged ? Brand.Colors.tips : Brand.Colors.ink)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 
@@ -114,6 +325,7 @@ private struct ShareButtonStyle: ButtonStyle {
     configuration.label
       .font(ShareFonts.font(size: 16, weight: 600))
       .lineLimit(1)
+      .minimumScaleFactor(0.75)
       .frame(maxWidth: .infinity, minHeight: 44)
       .foregroundStyle(kind == .prominent ? Brand.Colors.base : Brand.Colors.magic)
       .background(kind == .prominent ? Brand.Colors.magic : .clear, in: Capsule())

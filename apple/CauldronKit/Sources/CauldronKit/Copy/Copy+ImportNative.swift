@@ -17,6 +17,20 @@ extension Copy {
     public let saveToRecipes = plain("Save to recipes")
     /// The share sheet's way to finish the recipe in the app, as a draft.
     public let editInCauldron = plain("Edit in Cauldron")
+    /// The same button when the recipe has ingredient lines to check: it nudges toward fixing.
+    public let fixInCauldron = plain("Fix it in Cauldron")
+    /// The labels under the share sheet's stats strip. The total time's is `recipeView.total`.
+    public let ingredientsLabel = plain("ingredients")
+    public let stepsLabel = plain("steps")
+    public let servesLabel = plain("serves")
+    /// The share sheet's folded sections.
+    public let ingredientsSection = plain("Ingredients")
+    public let stepsSection = plain("Steps")
+    /// The share sheet when the page needs an AI to be read and there's no key (and no model on
+    /// the device). The next step is the button under it.
+    public let noAIKey = plain(
+      "Cauldron needs an AI key to read this, and there isn't one yet. Add one in Cauldron's Settings, or send it to Cauldron to finish later."
+    )
     /// When the share sheet couldn't read the recipe: leave the link for the app instead.
     public let sendInstead = plain("Send to Cauldron instead")
     /// The share sheet's confirmation after Save, and what it means.
@@ -92,6 +106,11 @@ extension Copy {
 
     public func stepCount(_ count: Int) -> CopyString {
       plain(count == 1 ? "1 step" : "\(count) steps")
+    }
+
+    /// In the share sheet's summary, in the tips colour: lines the import wasn't sure of.
+    public func linesToCheck(_ count: Int) -> CopyString {
+      plain(count == 1 ? "1 ingredient line to check" : "\(count) ingredient lines to check")
     }
 
     /// The accessibility label of a page's thumbnail.
