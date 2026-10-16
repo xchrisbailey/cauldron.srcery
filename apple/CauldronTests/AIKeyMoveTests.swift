@@ -23,12 +23,15 @@ final class MemoryKeychain: KeychainItems {
   private let items: Mutex<[Item: Data]>
   private let defaultGroup: String
   private let groups: Set<String>
+  /// Refusals `move` gives before it works, like a keychain still locked after a restart.
+  private let refusals: Mutex<[OSStatus]>
 
   /// `groups` are the ones the caller's entitlements reach; the first is its default.
-  init(groups: [String], items: [Item: Data] = [:]) {
+  init(groups: [String], items: [Item: Data] = [:], refusingMoves refusals: [OSStatus] = []) {
     self.groups = Set(groups)
     defaultGroup = groups.first ?? ""
     self.items = Mutex(items)
+    self.refusals = Mutex(refusals)
   }
 
   var all: [Item: Data] { items.withLock { $0 } }
@@ -40,7 +43,7 @@ final class MemoryKeychain: KeychainItems {
     if let synchronizable = query.synchronizable, synchronizable != item.synchronizable {
       return false
     }
-    guard item.store == .dataProtection else { return true }
+    guard item.store != .file else { return true }
     if let group = query.group { return item.group == group && groups.contains(group) }
     return item.group.map(groups.contains) ?? false
   }
@@ -68,6 +71,7 @@ final class MemoryKeychain: KeychainItems {
   }
 
   func move(_ query: KeychainQuery, to group: String) -> OSStatus {
+    if let refusal = refusals.withLock({ $0.isEmpty ? nil : $0.removeFirst() }) { return refusal }
     guard groups.contains(group), query.store == .dataProtection else {
       return errSecMissingEntitlement
     }
@@ -83,6 +87,15 @@ final class MemoryKeychain: KeychainItems {
       }
       for item in found.keys { items[item] = nil }
       items.merge(moved) { _, new in new }
+      return errSecSuccess
+    }
+  }
+
+  func replace(_ query: KeychainQuery, with data: Data) -> OSStatus {
+    items.withLock { items in
+      let found = items.keys.filter { matches($0, query) }
+      guard !found.isEmpty else { return errSecItemNotFound }
+      for item in found { items[item] = data }
       return errSecSuccess
     }
   }
@@ -113,9 +126,12 @@ struct AIKeyMoveTests {
       group: group, synchronizable: synchronizable, store: store)
   }
 
-  /// The app's keychain: its own group by default, and the shared one.
-  private func appKeychain(_ items: [MemoryKeychain.Item: Data] = [:]) -> MemoryKeychain {
-    MemoryKeychain(groups: [legacy, shared], items: items)
+  /// The app's keychain: the shared group, which is its default as the first entry of its
+  /// `keychain-access-groups`, and its own.
+  private func appKeychain(
+    _ items: [MemoryKeychain.Item: Data] = [:], refusingMoves refusals: [OSStatus] = []
+  ) -> MemoryKeychain {
+    MemoryKeychain(groups: [shared, legacy], items: items, refusingMoves: refusals)
   }
 
   @Test func aKeySavedBeforeTheGroupIsMovedIntoIt() {
@@ -143,6 +159,48 @@ struct AIKeyMoveTests {
 
     #expect(outcomes[.gemini] == .alreadyMoved)
     #expect(keychain.all == [item(group: shared): Data("old-key".utf8)])
+  }
+
+  @Test func aDifferentKeyFromADeviceOnAnOlderBuildWinsOverTheMovedOne() {
+    // The other device, still on the old build, couldn't see the moved key, and the cook typed
+    // a new one there. It came back in the old group.
+    let keychain = appKeychain([
+      item(group: legacy): Data("new-key".utf8), item(group: shared): Data("old-key".utf8),
+    ])
+
+    let outcomes = AIKeyMove.run(
+      keychain: keychain, shared: shared, legacy: legacy, fileKeychain: false)
+
+    #expect(outcomes[.gemini] == .alreadyMoved)
+    #expect(keychain.all == [item(group: shared): Data("new-key".utf8)])
+  }
+
+  @Test func aMoveTheKeychainRefusedIsTriedAgainNextTime() {
+    // Before the first unlock after a restart, the keychain refuses.
+    let keychain = appKeychain(
+      [item(group: legacy): Data("old-key".utf8)], refusingMoves: [errSecInteractionNotAllowed])
+    let store = KeychainKeyStore(provider: .gemini, group: shared, keychain: keychain)
+
+    let first = AIKeyMove.run(
+      keychain: keychain, shared: shared, legacy: legacy, fileKeychain: false)
+    #expect(first[.gemini] == .failed(errSecInteractionNotAllowed))
+    #expect(store.key() == nil)
+
+    // The app comes forward once it is unlocked.
+    let second = AIKeyMove.run(
+      keychain: keychain, shared: shared, legacy: legacy, fileKeychain: false)
+    #expect(second[.gemini] == .moved)
+    #expect(store.key() == "old-key")
+  }
+
+  @Test func withoutATeamTheKeyIsKeptWhereverTheSystemPutsIt() throws {
+    let keychain = appKeychain()
+    let store = KeychainKeyStore(provider: .gemini, group: nil, keychain: keychain)
+
+    try store.setKey("key")
+
+    #expect(keychain.all.keys.map(\.store) == [.automatic])
+    #expect(store.key() == "key")
   }
 
   @Test func withNoKeyNothingChanges() {

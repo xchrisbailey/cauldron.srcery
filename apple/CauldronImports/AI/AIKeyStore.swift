@@ -24,7 +24,8 @@ public struct AIKeyFailure: Error, Equatable {
 /// before that group existed into it.
 public struct KeychainKeyStore: AIKeyStore {
   public let provider: AIProvider
-  /// The access group, or nil for the default one (a build without a team).
+  /// The access group, or nil in a build without a team, where the key is kept wherever the
+  /// system puts it.
   public let group: String?
   private let keychain: any KeychainItems
 
@@ -46,7 +47,9 @@ public struct KeychainKeyStore: AIKeyStore {
   private func query(synchronizable: Bool?) -> KeychainQuery {
     KeychainQuery(
       service: Self.service(for: provider), account: Self.account, group: group,
-      synchronizable: synchronizable)
+      synchronizable: synchronizable,
+      // Without a group (no team) the data-protection keychain would refuse the key.
+      store: group == nil ? .automatic : .dataProtection)
   }
 
   public func key() -> String? {

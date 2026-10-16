@@ -11,6 +11,11 @@ public struct KeychainQuery: Hashable, Sendable {
     /// The Mac's older file-based keychain, which has no access groups. Only `AIKeyMove`
     /// looks there, for a key that a build which didn't ask for the other one kept on this Mac.
     case file
+    /// Whichever the system picks: the data-protection keychain for an item that syncs, and on
+    /// the Mac the file-based one for an item that doesn't. What the key store used before the
+    /// shared group, and still uses in a build without a team, which the data-protection
+    /// keychain refuses.
+    case automatic
   }
 
   public var service: String
@@ -43,6 +48,8 @@ public protocol KeychainItems: Sendable {
   /// Moves every matching item into `group`, or `errSecDuplicateItem` when `group` already
   /// holds the same item.
   func move(_ query: KeychainQuery, to group: String) -> OSStatus
+  /// Replaces the data of every matching item.
+  func replace(_ query: KeychainQuery, with data: Data) -> OSStatus
   func delete(_ query: KeychainQuery) -> OSStatus
 }
 
@@ -56,10 +63,14 @@ public struct SystemKeychain: KeychainItems {
       kSecAttrService: query.service,
       kSecAttrAccount: query.account,
       kSecAttrSynchronizable: query.synchronizable.map { $0 as Any } ?? kSecAttrSynchronizableAny,
-      // Named on every call. On the Mac, leaving it out means the file-based keychain for an
-      // item that doesn't sync, where access groups don't apply.
-      kSecUseDataProtectionKeychain: query.store == .dataProtection,
     ]
+    // Named on every call that has a group. On the Mac, leaving it out means the file-based
+    // keychain for an item that doesn't sync, where access groups don't apply.
+    switch query.store {
+    case .dataProtection: attributes[kSecUseDataProtectionKeychain] = true
+    case .file: attributes[kSecUseDataProtectionKeychain] = false
+    case .automatic: break
+    }
     if let group = query.group { attributes[kSecAttrAccessGroup] = group }
     return attributes
   }
@@ -85,6 +96,10 @@ public struct SystemKeychain: KeychainItems {
     SecItemUpdate(attributes(query) as CFDictionary, [kSecAttrAccessGroup: group] as CFDictionary)
   }
 
+  public func replace(_ query: KeychainQuery, with data: Data) -> OSStatus {
+    SecItemUpdate(attributes(query) as CFDictionary, [kSecValueData: data] as CFDictionary)
+  }
+
   public func delete(_ query: KeychainQuery) -> OSStatus {
     SecItemDelete(attributes(query) as CFDictionary)
   }
@@ -94,7 +109,7 @@ public struct SystemKeychain: KeychainItems {
 /// in the team prefix at build time.
 public enum AIKeyGroup {
   /// The group the app and the share extension share. Nil in a build without a team, where the
-  /// key stays in the default group as it always did.
+  /// key is kept wherever the system puts it, as it always was.
   public static var shared: String? { value(for: "CauldronKeychainGroup") }
 
   /// The app's own group, where keys were kept before the shared one. Only the app has it.

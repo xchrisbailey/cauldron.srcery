@@ -66,6 +66,7 @@ struct CauldronApp: App {
         }
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
+          RecipeAIService.moveKeys(mode: CauldronStore.launchMode)
           ai.refreshKey()
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }

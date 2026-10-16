@@ -4,9 +4,10 @@ import Security
 
 /// Moves each provider's AI key into the keychain group the app shares with its share extension
 /// (#193), so the extension can read a key saved before the group existed. The app runs it at
-/// launch, before it reads a key. It is safe to run every time: once a key has moved there is
-/// nothing left to move, and a key another device saved with an older build moves as soon as
-/// iCloud Keychain brings it here.
+/// launch, before it reads a key, and again each time it comes forward. It is safe to run every
+/// time: once a key has moved there is nothing left to move, a move the keychain refused (it is
+/// locked before the first unlock) is tried again, and a key another device saved with an older
+/// build moves as soon as iCloud Keychain brings it here.
 public enum AIKeyMove {
   /// What happened to one provider's key.
   public enum Outcome: Equatable, Sendable {
@@ -56,6 +57,15 @@ public enum AIKeyMove {
     case errSecSuccess:
       return .moved
     case errSecDuplicateItem:
+      // Usually the same key. A different one was typed in on a device still on an older
+      // build, which only writes to the old group, so it is the newer: it replaces the moved
+      // copy before the old one goes.
+      let moved = KeychainQuery(
+        service: service, account: account, group: shared, synchronizable: nil)
+      if let kept = keychain.read(old).data, !kept.isEmpty, kept != keychain.read(moved).data {
+        let replaced = keychain.replace(moved, with: kept)
+        guard replaced == errSecSuccess else { return .failed(replaced) }
+      }
       let removed = keychain.delete(old)
       return removed == errSecSuccess || removed == errSecItemNotFound
         ? .alreadyMoved : .failed(removed)
