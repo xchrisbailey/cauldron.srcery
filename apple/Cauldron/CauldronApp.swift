@@ -27,6 +27,8 @@ struct CauldronApp: App {
     }
     changeStamps = ChangeStamps(on: container.mainContext)
     CauldronStore.tidyAtLaunch(container.mainContext, mode: CauldronStore.launchMode)
+    // The share sheet's duplicate check reads this, so it starts from what the store holds.
+    SavedLinksIndex.live.rewrite(from: container.mainContext)
     // An export left in the temporary folder is a full copy of the cook's data.
     ExportFiles.sweep()
     // Takes the notification delegate now, so a timer that ends with the app open shows its

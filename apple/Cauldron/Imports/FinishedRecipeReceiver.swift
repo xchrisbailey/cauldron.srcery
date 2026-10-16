@@ -18,11 +18,12 @@ enum FinishedRecipeReceiver {
   ///   - draftsFolder: the link-or-text inbox. A payload the saver won't take (it can't be
   ///     valid unless the sheet's check and the saver's disagree) is not lost: its link is left
   ///     there to open as a draft, as a failed share would.
+  ///   - index: the saved-links index each saved recipe is added to.
   ///   - fileManager: what removes a payload's file.
   @discardableResult
   static func receive(
     from folder: URL?, into context: ModelContext, draftsFolder: URL?,
-    fileManager: FileManager = .default
+    index: SavedLinksIndex = .live, fileManager: FileManager = .default
   ) -> Int {
     var added = 0
     for entry in FinishedInbox.pending(from: folder, fileManager: fileManager) {
@@ -33,7 +34,7 @@ enum FinishedRecipeReceiver {
       }
       let draft = entry.recipe.recipeDraft
       do {
-        let saved = try RecipeSaver.save(draft, into: nil, context: context, id: id)
+        let saved = try RecipeSaver.save(draft, into: nil, context: context, id: id, index: index)
         // The estimate the sheet couldn't ask for waits in the queue, as an import's does.
         RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context)
         FinishedInbox.remove(entry, fileManager: fileManager)

@@ -64,10 +64,23 @@ struct ShareSheetView: View {
         .foregroundStyle(Brand.Colors.subtext)
       }
       .multilineTextAlignment(.center)
+      if review.duplicate {
+        Text(verbatim: Copy.importNative.alreadyInBox.text)
+          .font(ShareFonts.font(size: bodySize, weight: 600))
+          .foregroundStyle(Brand.Colors.ink)
+          .multilineTextAlignment(.center)
+          .padding(.vertical, 8)
+          .padding(.horizontal, 12)
+          .frame(maxWidth: .infinity)
+          .background(Brand.Colors.surface0, in: RoundedRectangle(cornerRadius: 10))
+      }
       VStack(spacing: 8) {
         if review.canSave {
-          Button(Copy.importNative.saveToRecipes.text) { model.save() }
-            .buttonStyle(ShareButtonStyle(kind: .prominent))
+          Button(
+            (review.duplicate ? Copy.importNative.saveAnotherCopy : Copy.importNative.saveToRecipes)
+              .text
+          ) { model.save() }
+          .buttonStyle(ShareButtonStyle(kind: .prominent))
         }
         Button(Copy.importNative.editInCauldron.text) { model.sendToCauldron() }
           .buttonStyle(ShareButtonStyle(kind: review.canSave ? .plain : .prominent))

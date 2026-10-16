@@ -23,6 +23,8 @@ final class ShareSheetModel {
     var steps: Int
     /// The draft can be saved as it is.
     var canSave: Bool
+    /// A recipe from the same link is already in the box (#204). Saving still works.
+    var duplicate = false
   }
 
   /// Something to tell the cook, in plain words, and whether `sendToCauldron()` is still open.
@@ -93,7 +95,8 @@ final class ShareSheetModel {
     let ai = RecipeAIService.live(suiteName: AppGroup.id)
     // The macro estimate is left to the app (`estimateOnSave`); the sheet doesn't ask.
     let importer = ImportModel(
-      fetcher: URLSessionPageFetcher(), extractor: ai.extractor, estimator: nil)
+      fetcher: URLSessionPageFetcher(), extractor: ai.extractor, estimator: nil,
+      findDuplicate: duplicateLookup(savedLinks: { SavedLinksIndex.appGroup.read() }))
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
       inboxFolder: ShareInbox.folder(), close: close)
@@ -106,7 +109,7 @@ final class ShareSheetModel {
     case .editing, .working:
       return .reading
     case .ready(let review):
-      return .ready(Self.summary(of: review.draft))
+      return .ready(Self.summary(of: review.draft, duplicate: review.duplicate != nil))
     case .failed(let notice):
       return .failed(Notice(message: notice.message, canSend: true))
     }
@@ -178,11 +181,25 @@ final class ShareSheetModel {
     await closing?.value
   }
 
-  static func summary(of draft: RecipeDraft) -> Review {
+  static func summary(of draft: RecipeDraft, duplicate: Bool = false) -> Review {
     Review(
       draft: draft, title: draft.trimmed(draft.title), source: source(of: draft.sourceURL),
       ingredients: draft.ingredients.filter { !$0.isHeading && !$0.isBlank }.count,
-      steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty)
+      steps: draft.steps.filter { !$0.isBlank }.count, canSave: draft.validate().isEmpty,
+      duplicate: duplicate)
+  }
+
+  /// The import's check for a recipe already in the box, from the saved-links index: `savedLinks`
+  /// gives the index's keys, and any of the import's links among them is a duplicate. The index
+  /// holds links, not recipes, so the duplicate it names has no id or title; the sheet only asks
+  /// whether there is one. The rules are the app's (`SavedLinks`).
+  static func duplicateLookup(
+    savedLinks: @escaping @MainActor () -> Set<String>
+  ) -> @MainActor ([String?]) -> ImportReview.Duplicate? {
+    { links in
+      SavedLinks.contains(savedLinks(), anyOf: links)
+        ? ImportReview.Duplicate(id: UUID(), title: "") : nil
+    }
   }
 
   /// The site a link is on: its host, less a leading "www.".
