@@ -146,17 +146,51 @@ private struct ReadySummary: View {
     .accessibilityElement(children: .combine)
   }
 
-  // The slots below are where #203 (thumbnail and macro line) and #204 (duplicate banner)
-  // put their views. Each is empty until then.
+  /// A small photo of the recipe, beside the title (#203).
+  @ViewBuilder private var thumbnailSlot: some View {
+    if let cover = PhotoProcessing.thumbnail(of: review.thumbnail?.data, maxPixel: 240) {
+      Image(decorative: cover, scale: 1)
+        .resizable()
+        .scaledToFill()
+        .frame(width: 72, height: 72)
+        .clipShape(.rect(cornerRadius: 12))
+    }
+  }
 
-  /// A small photo of the recipe, beside the title.
-  @ViewBuilder private var thumbnailSlot: some View { EmptyView() }
+  /// The macros per serving, or why there are none yet (#203). Never a guess: an estimate says
+  /// so.
+  @ViewBuilder private var macroLineSlot: some View {
+    if let macros = review.macros, let line = macroLine(macros) {
+      Text(
+        verbatim: review.macrosEstimated
+          ? "\(line.text) · \(Copy.tracker.diary.estimate.text)" : line.text
+      )
+      .font(ShareFonts.mono(size: bodySize - 2))
+      .foregroundStyle(Brand.Colors.subtext)
+      .accessibilityLabel(Text(verbatim: line.label))
+    } else if review.macrosPending {
+      Text(verbatim: Copy.importNative.macrosLater.text)
+        .font(ShareFonts.font(size: bodySize - 2, weight: 400))
+        .foregroundStyle(Brand.Colors.subtext)
+    }
+  }
 
-  /// The macros per serving, when they can be worked out.
-  @ViewBuilder private var macroLineSlot: some View { EmptyView() }
-
-  /// "You already have this one", when a recipe from the same link is in the box.
-  @ViewBuilder private var duplicateBannerSlot: some View { EmptyView() }
+  /// "You already have this one", when a recipe from the same link is in the box (#204).
+  /// Saving still works.
+  @ViewBuilder private var duplicateBannerSlot: some View {
+    if review.duplicate {
+      Label {
+        Text(verbatim: Copy.importNative.alreadyInBox.text)
+      } icon: {
+        Image(systemName: "square.on.square")
+      }
+      .font(ShareFonts.font(size: bodySize - 1, weight: 500))
+      .foregroundStyle(Brand.Colors.tips)
+      .padding(10)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Brand.Colors.surface0, in: .rect(cornerRadius: 10))
+    }
+  }
 
   private func note(_ text: String, _ symbol: String) -> some View {
     Label {
@@ -174,10 +208,14 @@ private struct ReadySummary: View {
       .foregroundStyle(Brand.Colors.ink)
   }
 
+  private var saveLabel: CopyString {
+    review.duplicate ? Copy.importNative.saveAnotherCopy : Copy.importNative.saveToRecipes
+  }
+
   private var actions: some View {
     VStack(spacing: 4) {
       if review.canSave {
-        Button(Copy.importNative.saveToRecipes.text) { model.save() }
+        Button(saveLabel.text) { model.save() }
           .buttonStyle(ShareButtonStyle(kind: .prominent))
         HStack {
           Button(Copy.recipeView.cancel.text) { model.cancel() }

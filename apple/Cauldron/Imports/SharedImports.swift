@@ -1,4 +1,5 @@
 import CauldronImports
+import CauldronKit
 import Foundation
 import Observation
 import SwiftData
@@ -15,6 +16,8 @@ import SwiftUI
 final class SharedImportQueue {
   /// Items picked up and not opened yet, oldest first.
   private(set) var pending: [SharedImportRoute] = []
+  /// Saved recipes still waiting for their cover photo (`fetchCovers`).
+  @ObservationIgnored private var covers: [FinishedRecipeReceiver.Cover] = []
   /// An import sheet is open (shared or typed).
   var importOpen = false
   @ObservationIgnored private let folder: URL?
@@ -50,14 +53,25 @@ final class SharedImportQueue {
     guard enabled else { return 0 }
     var added = 0
     if let context {
-      added = FinishedRecipeReceiver.receive(
+      // The folder is the truth about what waits for a photo, so each pick-up replaces the list.
+      let received = FinishedRecipeReceiver.receive(
         from: finishedFolder ?? FinishedInbox.folder(), into: context,
         draftsFolder: folder ?? ShareInbox.folder())
+      added = received.added
+      covers = received.covers
     }
     pending.append(
       contentsOf: ShareInbox.takeAll(from: folder ?? ShareInbox.folder()).compactMap(
         SharedImportRoute.init))
     return added
+  }
+
+  /// Fetches the cover photos of the recipes `pickUp` added, and removes their files. It takes
+  /// as long as the pages take, so it is run apart from the pick-up, which does not wait.
+  func fetchCovers(into context: ModelContext, using fetcher: any PageFetcher) async {
+    let waiting = covers
+    covers = []
+    await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher)
   }
 
   /// The next item to open, removed from the queue; nil unless `readyToOpen`.
@@ -76,6 +90,7 @@ private struct SharedImportsPickUp: ViewModifier {
   let ai: RecipeAIService?
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.modelContext) private var context
+  @Environment(\.pageFetcher) private var fetcher
 
   func body(content: Content) -> some View {
     content
@@ -83,10 +98,15 @@ private struct SharedImportsPickUp: ViewModifier {
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
         guard scenePhase == .active else { return }
+        // Recipes that synced in while the app was away count for the share sheet's duplicate
+        // check too.
+        SavedLinksIndex.live.rewrite(from: context)
         // An estimate a finished recipe is waiting for runs at once, if the AI can be reached.
         if queue.pickUp(in: context) > 0, let ai {
           await AIQueueRunner.drain(in: context, using: ai.estimator)
         }
+        // The full-size cover of a recipe the share sheet finished.
+        await queue.fetchCovers(into: context, using: fetcher)
       }
   }
 }

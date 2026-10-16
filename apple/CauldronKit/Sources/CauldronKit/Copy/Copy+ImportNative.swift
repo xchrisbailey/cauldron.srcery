@@ -31,11 +31,18 @@ extension Copy {
     public let noAIKey = plain(
       "Cauldron needs an AI key to read this, and there isn't one yet. Add one in Cauldron's Settings, or send it to Cauldron to finish later."
     )
+    /// The share sheet's banner when a recipe from the same link is already in the box, and the
+    /// Save button's label then. Saving still works.
+    public let alreadyInBox = plain("You already have this one")
+    public let saveAnotherCopy = plain("Save another copy")
     /// When the share sheet couldn't read the recipe: leave the link for the app instead.
     public let sendInstead = plain("Send to Cauldron instead")
     /// The share sheet's confirmation after Save, and what it means.
     public let savedToRecipes = plain("Saved to your recipes")
     public let savedDetail = plain("It's in your recipe box the next time you open Cauldron.")
+    /// Under the share sheet's summary when the macro estimate couldn't be asked for; the app
+    /// asks once the recipe is saved.
+    public let macrosLater = plain("Macros are worked out once the recipe is in Cauldron.")
     /// The share sheet couldn't leave the finished recipe for the app.
     public let couldntSave = plain(
       "Cauldron couldn't keep that recipe. Send it to Cauldron instead.")
