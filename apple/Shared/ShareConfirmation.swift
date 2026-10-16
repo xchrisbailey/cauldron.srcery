@@ -63,6 +63,8 @@ struct ShareConfirmation: View {
   }
 
   let outcome: Outcome
+  /// A plain line under the rest, for now: whether the extension can read the AI key (#200).
+  var keyNote: String?
   @ScaledMetric private var titleSize = 22
   @ScaledMetric private var bodySize = 15
 
@@ -84,6 +86,11 @@ struct ShareConfirmation: View {
         Text(verbatim: message)
           .font(ShareFonts.font(size: bodySize, weight: 400))
           .foregroundStyle(Brand.Colors.heat)
+      }
+      if let keyNote {
+        Text(verbatim: keyNote)
+          .font(ShareFonts.font(size: bodySize, weight: 400))
+          .foregroundStyle(Brand.Colors.subtext)
       }
     }
     .multilineTextAlignment(.center)

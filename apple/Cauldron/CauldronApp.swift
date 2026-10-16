@@ -58,6 +58,12 @@ struct CauldronApp: App {
         .task { await sync.run() }
         // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.
+        // The share extension reads the AI choices from the App Group, so they follow Settings
+        // there whenever the app comes forward or goes away.
+        .onChange(of: scenePhase, initial: true) {
+          guard CauldronStore.launchMode != .inMemory else { return }
+          RecipeAIService.shareChoices(to: RecipeAIService.sharedDefaults)
+        }
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
           ai.refreshKey()

@@ -95,16 +95,44 @@ public final class RecipeAIService {
   }
 
   /// Each provider over the network with its own key from the keychain, and the on-device
-  /// model where there is one.
-  public static func live() -> RecipeAIService {
+  /// model where there is one. The choices are read from the settings named `suiteName`, or
+  /// the app's own; the share extension names the App Group's (`AppGroup.id`), where the app
+  /// leaves them for it.
+  public static func live(suiteName: String? = nil) -> RecipeAIService {
     RecipeAIService(
+      defaults: suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard,
       keys: { KeychainKeyStore(provider: $0) },
       makeClient: { provider, keys in
         CloudRecipeAI(provider: provider, keys: keys, transport: URLSessionTransport()) {
-          chosenModel(for: provider)
+          chosenModel(for: provider, suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard)
         }
       },
       onDevice: OnDeviceRecipeAI.make())
+  }
+
+  // MARK: The share extension's copy of the choices
+
+  /// The App Group's settings, which the share extension can read. Nil in a build without
+  /// the App Group.
+  public nonisolated static var sharedDefaults: UserDefaults? {
+    UserDefaults(suiteName: AppGroup.id)
+  }
+
+  /// Copies the chosen provider and each provider's model from the app's settings into
+  /// `target`, so the share extension asks the same AI the app would. The app calls it
+  /// whenever it comes forward or goes away, which covers a change in Settings.
+  public nonisolated static func shareChoices(
+    from source: UserDefaults = .standard, to target: UserDefaults?
+  ) {
+    guard let target else { return }
+    let keys = [providerDefaultsKey] + AIProvider.allCases.map(modelDefaultsKey(for:))
+    for key in keys {
+      if let value = source.string(forKey: key) {
+        target.set(value, forKey: key)
+      } else {
+        target.removeObject(forKey: key)
+      }
+    }
   }
 
   /// No key, no network and no on-device model, for tests and previews. `key` is Gemini's, the

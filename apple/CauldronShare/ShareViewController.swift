@@ -1,3 +1,4 @@
+import CauldronImports
 import CauldronKit
 import SwiftUI
 
@@ -28,7 +29,7 @@ final class ShareViewController: PlatformViewController {
     Task { @MainActor in
       let item = await SharedItemReader.read(
         extensionContext?.inputItems as? [NSExtensionItem] ?? [])
-      show(Self.outcome(of: item))
+      show(Self.outcome(of: item), keyNote: Self.keyNote())
       try? await Task.sleep(for: .seconds(1.6))
       extensionContext?.completeRequest(returningItems: nil)
     }
@@ -44,8 +45,18 @@ final class ShareViewController: PlatformViewController {
       title: Copy.importNative.sentToCauldron.text, detail: Copy.importNative.opensAsDraft.text)
   }
 
-  private func show(_ outcome: ShareConfirmation.Outcome) {
-    let host = PlatformHostingController(rootView: ShareConfirmation(outcome: outcome))
+  /// For now (#200): whether the AI key the app saved can be read here, for the provider the
+  /// app has chosen. It says only whether there is one; the key itself is never shown.
+  private static func keyNote() -> String {
+    let defaults = RecipeAIService.sharedDefaults ?? .standard
+    let provider = RecipeAIService.chosenProvider(defaults)
+    let found = KeychainKeyStore(provider: provider).key() != nil
+    return (found ? Copy.importNative.aiKeyAvailable : Copy.importNative.noAIKey).text
+  }
+
+  private func show(_ outcome: ShareConfirmation.Outcome, keyNote: String?) {
+    let host = PlatformHostingController(
+      rootView: ShareConfirmation(outcome: outcome, keyNote: keyNote))
     addChild(host)
     host.view.frame = view.bounds
     #if os(iOS)

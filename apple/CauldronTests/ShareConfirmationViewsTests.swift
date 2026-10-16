@@ -30,6 +30,20 @@ struct ShareConfirmationViewsTests {
     }
   }
 
+  @Test func theConfirmationRendersWithTheKeyNote() {
+    for note in [Copy.importNative.aiKeyAvailable.text, Copy.importNative.noAIKey.text] {
+      for scheme in [ColorScheme.light, .dark] {
+        let outcome = ShareConfirmation.Outcome.sent(
+          title: Copy.importNative.sentToCauldron.text,
+          detail: Copy.importNative.opensAsDraft.text)
+        #expect(
+          renders(
+            ShareConfirmation(outcome: outcome, keyNote: note).environment(\.colorScheme, scheme)),
+          "\(note) in \(scheme)")
+      }
+    }
+  }
+
   @Test func theWaitingLineRendersInBothAppearances() {
     for scheme in [ColorScheme.light, .dark] {
       for count in [1, 2, 12] {

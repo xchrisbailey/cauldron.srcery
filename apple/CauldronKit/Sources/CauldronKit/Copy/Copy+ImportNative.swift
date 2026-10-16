@@ -11,6 +11,10 @@ extension Copy {
     public let nothingToSend = plain("There's no link or text here for Cauldron to read.")
     /// The share extension had something to send but couldn't leave it for the app.
     public let couldntSend = plain("Cauldron couldn't keep that. Try sharing it again.")
+    /// For now (#200), under the confirmation: whether the share extension can read the AI key
+    /// the app saved. The review sheet replaces it (#201).
+    public let aiKeyAvailable = plain("AI key available")
+    public let noAIKey = plain("No AI key")
     /// On a draft the on-device model read because the AI couldn't be reached. The web app had
     /// no such state: it only ever had the one model.
     public let rough = plain(

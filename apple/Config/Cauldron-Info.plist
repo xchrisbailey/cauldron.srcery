@@ -29,6 +29,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CauldronKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)computer.srcery.cauldron.shared</string>
+	<key>CauldronLegacyKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)computer.srcery.cauldron</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

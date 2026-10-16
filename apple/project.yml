@@ -82,6 +82,11 @@ targets:
         # iCloud sync is told about changes from other devices by a silent push. Xcode has no
         # generated-key setting for this one, so it lives here; the Mac ignores it.
         UIBackgroundModes: [remote-notification]
+        # The keychain group the AI key lives in, shared with the share extension (#200), and
+        # the app's own group, where a key saved before then is moved from. Signing fills in
+        # the team prefix, so neither name is written out in Swift.
+        CauldronKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron.shared
+        CauldronLegacyKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron
         CFBundleURLTypes:
           - CFBundleURLName: computer.srcery.cauldron
             CFBundleURLSchemes: [cauldron]
@@ -204,6 +209,8 @@ targets:
         CFBundleDisplayName: Cauldron
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # The keychain group the app keeps the AI key in. The extension only reads it.
+        CauldronKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron.shared
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController

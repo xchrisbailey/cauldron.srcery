@@ -115,15 +115,6 @@
 			path = CauldronTests;
 			sourceTree = "<group>";
 		};
-		3DABC10515F3549713FFCAF0 /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Shared;
-			sourceTree = "<group>";
-		};
 		42B06C750BCE9B7F3059D1D9 /* CauldronShare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
@@ -176,6 +167,15 @@
 			explicitFolders = (
 			);
 			path = Cauldron;
+			sourceTree = "<group>";
+		};
+		"TEMP_6288BC47-7BD7-425D-B77F-FA2F51FA58BC" /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -274,7 +274,6 @@
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
 				772BB1DCA60483B50D6459FF /* Shared */,
 				667BABEF98556BB64AE8CA91 /* Shared */,
-				3DABC10515F3549713FFCAF0 /* Shared */,
 				D94BA9855C4BC9ABBEBE8DE9 /* Fonts */,
 				DBE63DD144F2F41305297219 /* Packages */,
 				CB6F8DF74E722531A4147D2E /* Shared */,
@@ -353,7 +352,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
-				3DABC10515F3549713FFCAF0 /* Shared */,
+				"TEMP_6288BC47-7BD7-425D-B77F-FA2F51FA58BC" /* Shared */,
 			);
 			name = CauldronShare;
 			packageProductDependencies = (

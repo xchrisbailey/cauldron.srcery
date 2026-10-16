@@ -15,14 +15,27 @@ public struct AIKeyFailure: Error, Equatable {
 }
 
 /// The keychain. The key is saved as synchronizable, so iCloud Keychain carries it to the
-/// cook's other devices. That needs the keychain entitlement, which arrives with signing
-/// (#162); a build without it keeps the key on this device instead.
+/// cook's other devices; where that is refused it is kept on this device instead.
 ///
 /// Each provider has an item of its own. Gemini's is the one the app has always used
 /// (`computer.srcery.cauldron.gemini`), so a key saved before there were other providers is
-/// still found.
+/// still found. Every call names the access group the app shares with its share extension
+/// (`AIKeyGroup.shared`), so the extension reads the same key; `AIKeyMove` brings a key saved
+/// before that group existed into it.
 public struct KeychainKeyStore: AIKeyStore {
   public let provider: AIProvider
+  /// The access group, or nil for the default one (a build without a team).
+  public let group: String?
+  private let keychain: any KeychainItems
+
+  public init(
+    provider: AIProvider, group: String? = AIKeyGroup.shared,
+    keychain: any KeychainItems = SystemKeychain()
+  ) {
+    self.provider = provider
+    self.group = group
+    self.keychain = keychain
+  }
 
   public static func service(for provider: AIProvider) -> String {
     "computer.srcery.cauldron.\(provider.rawValue)"
@@ -30,45 +43,34 @@ public struct KeychainKeyStore: AIKeyStore {
 
   public static let account = "api-key"
 
-  private func query(synchronizable: Any) -> [CFString: Any] {
-    [
-      kSecClass: kSecClassGenericPassword,
-      kSecAttrService: Self.service(for: provider),
-      kSecAttrAccount: Self.account,
-      kSecAttrSynchronizable: synchronizable,
-    ]
+  private func query(synchronizable: Bool?) -> KeychainQuery {
+    KeychainQuery(
+      service: Self.service(for: provider), account: Self.account, group: group,
+      synchronizable: synchronizable)
   }
 
   public func key() -> String? {
-    var query = query(synchronizable: kSecAttrSynchronizableAny)
-    query[kSecReturnData] = true
-    query[kSecMatchLimit] = kSecMatchLimitOne
-    var result: CFTypeRef?
-    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-      let data = result as? Data, let key = String(data: data, encoding: .utf8), !key.isEmpty
+    let found = keychain.read(query(synchronizable: nil))
+    guard found.status == errSecSuccess, let data = found.data,
+      let key = String(data: data, encoding: .utf8), !key.isEmpty
     else { return nil }
     return key
   }
 
   public func setKey(_ key: String?) throws {
     let trimmed = key?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    let removed = SecItemDelete(query(synchronizable: kSecAttrSynchronizableAny) as CFDictionary)
+    let removed = keychain.delete(query(synchronizable: nil))
     guard !trimmed.isEmpty else {
       guard removed == errSecSuccess || removed == errSecItemNotFound else {
         throw AIKeyFailure(status: removed)
       }
       return
     }
-    var status = add(trimmed, synchronizable: true)
-    if status != errSecSuccess { status = add(trimmed, synchronizable: false) }
+    var status = keychain.add(query(synchronizable: true), data: Data(trimmed.utf8))
+    if status != errSecSuccess {
+      status = keychain.add(query(synchronizable: false), data: Data(trimmed.utf8))
+    }
     guard status == errSecSuccess else { throw AIKeyFailure(status: status) }
-  }
-
-  private func add(_ key: String, synchronizable: Bool) -> OSStatus {
-    var item = query(synchronizable: synchronizable)
-    item[kSecValueData] = Data(key.utf8)
-    item[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlock
-    return SecItemAdd(item as CFDictionary, nil)
   }
 }
 
