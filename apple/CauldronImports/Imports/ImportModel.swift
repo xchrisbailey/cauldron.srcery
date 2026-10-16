@@ -18,10 +18,20 @@ public struct ImportReview: Equatable {
 
   public var draft: RecipeDraft
   public var duplicate: Duplicate?
+  /// The link to the page's cover photo, when it had one a link could fetch. The share sheet
+  /// leaves it for the app, which fetches the full-size photo itself.
+  public var coverLink: String?
+  /// A small picture of the cover, for a screen that only shows it (`CoverMode.thumbnail`).
+  public var thumbnail: ProcessedPhoto?
 
-  public init(draft: RecipeDraft, duplicate: Duplicate?) {
+  public init(
+    draft: RecipeDraft, duplicate: Duplicate?, coverLink: String? = nil,
+    thumbnail: ProcessedPhoto? = nil
+  ) {
     self.draft = draft
     self.duplicate = duplicate
+    self.coverLink = coverLink
+    self.thumbnail = thumbnail
   }
 }
 
@@ -78,6 +88,18 @@ public final class ImportModel: Identifiable {
     public var of: Int
   }
 
+  /// What an import does with the page's cover photo.
+  public enum CoverMode: Equatable, Sendable {
+    /// Fetch the photo and put it in the draft, ready to save (the app's import).
+    case photo
+    /// Fetch only a small picture to show, in `ImportReview.thumbnail`, within `timeout`, and
+    /// leave the draft without a photo (the share sheet, which cannot afford the full one).
+    case thumbnail(maxPixel: Int, timeout: Duration)
+
+    /// The share sheet's: 320 pixels is enough for a small picture at three times the scale.
+    public static let sheetThumbnail = CoverMode.thumbnail(maxPixel: 320, timeout: .seconds(8))
+  }
+
   /// A recipe has at most this many pages.
   public static let pageLimit = 10
 
@@ -118,6 +140,7 @@ public final class ImportModel: Identifiable {
   @ObservationIgnored private let options: DistillOptions
   @ObservationIgnored private let findDuplicate: @MainActor ([String?]) -> ImportReview.Duplicate?
   @ObservationIgnored private let now: @Sendable () -> Date
+  @ObservationIgnored private let cover: CoverMode
   @ObservationIgnored private var lastRequest: Request?
   /// The text read off the pages in the last run, to fix by hand if it can't be distilled.
   @ObservationIgnored private var lastReadText: String?
@@ -133,8 +156,9 @@ public final class ImportModel: Identifiable {
     maxPixels: Int = PhotoProcessing.maxPixels,
     options: DistillOptions = DistillOptions(),
     findDuplicate: @escaping @MainActor ([String?]) -> ImportReview.Duplicate? = { _ in nil },
-    now: @escaping @Sendable () -> Date = { .now }
+    cover: CoverMode = .photo, now: @escaping @Sendable () -> Date = { .now }
   ) {
+    self.cover = cover
     self.fetcher = fetcher
     self.extractor = extractor
     self.estimator = estimator
@@ -371,9 +395,19 @@ public final class ImportModel: Identifiable {
     // The cover photo is only a nicety: it takes as long as it takes (up to its limit) and
     // never fails the import. The macro estimate is asked for beside it, for the cook to check.
     var photo = keptPhoto
+    var thumbnail: ProcessedPhoto?
+    var coverLink: String?
     async let estimate = estimateMacros(for: distilled)
     if case .link = request, let image = distilled.imageUrl {
-      photo = await CoverPhoto.fetch(image, using: fetcher)
+      switch cover {
+      case .photo:
+        photo = await CoverPhoto.fetch(image, using: fetcher)
+      case .thumbnail(let maxPixel, let timeout):
+        if Distill.isAcceptedLink(image) { coverLink = image }
+        thumbnail = await CoverPhoto.fetch(
+          image, using: fetcher, timeout: timeout,
+          decode: CoverPhoto.thumbnailDecode(maxPixel: maxPixel))
+      }
     }
     let outcome = await estimate
     guard run == generation, !Task.isCancelled else { return }
@@ -397,14 +431,20 @@ public final class ImportModel: Identifiable {
     case .pages: links = [nil]
     }
     reading = nil
-    phase = .ready(ImportReview(draft: draft, duplicate: findDuplicate(links)))
+    phase = .ready(
+      ImportReview(
+        draft: draft, duplicate: findDuplicate(links), coverLink: coverLink,
+        thumbnail: thumbnail))
   }
 
   /// Asks for the macros of a recipe whose source published none, within the import's limit
-  /// (`withMacros` in the reference). Nil when there is nothing to ask or nobody to ask.
+  /// (`withMacros` in the reference). Nil when there is nothing to ask or nobody to ask, and
+  /// when the on-device model read the recipe: it is only used when the chosen cloud provider
+  /// couldn't be reached, so asking that provider now would only wait out the limit. The
+  /// estimate is then left for after the recipe is saved.
   private func estimateMacros(for distilled: Distilled) async -> RecipeMacroEstimates.DraftOutcome?
   {
-    guard let input = distilled.macroEstimate, let estimator else { return nil }
+    guard let input = distilled.macroEstimate, let estimator, !distilled.rough else { return nil }
     return await RecipeMacroEstimates.divine(input, using: estimator, within: options.macroTimeout)
   }
 

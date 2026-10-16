@@ -24,6 +24,18 @@ public enum CoverPhoto {
     }
   }
 
+  /// A decode that makes a small picture to show, not one to keep: the share sheet's thumbnail.
+  /// The image is read already shrunk to `maxPixel` on its long side, so a large cover costs the
+  /// extension little memory.
+  public static func thumbnailDecode(maxPixel: Int) -> Decode {
+    { bytes in
+      switch PhotoProcessing.process(bytes, maxPixel: maxPixel, maxPixels: maxPixels) {
+      case .success(let photo): return photo
+      case .failure: return nil
+      }
+    }
+  }
+
   /// The photo, or nil if it can't be had within `timeout`. The limit bounds the whole step as
   /// the import sees it: fetch and decode. A decode that is still running when it passes (it
   /// has no point to be cancelled at) is left to finish on its own and its result is dropped.

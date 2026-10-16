@@ -46,6 +46,13 @@ struct ShareSheetView: View {
 
   private func ready(_ review: ShareSheetModel.Review) -> some View {
     VStack(spacing: 16) {
+      if let cover = Self.cover(of: review.thumbnail) {
+        Image(decorative: cover, scale: 1)
+          .resizable()
+          .scaledToFill()
+          .frame(width: 96, height: 96)
+          .clipShape(RoundedRectangle(cornerRadius: 12))
+      }
       VStack(spacing: 6) {
         Text(verbatim: review.title)
           .font(ShareFonts.font(size: titleSize, weight: 650))
@@ -62,6 +69,17 @@ struct ShareSheetView: View {
         .font(ShareFonts.font(size: bodySize, weight: 400))
         .monospacedDigit()
         .foregroundStyle(Brand.Colors.subtext)
+        if let macros = review.macros, let line = macroLine(macros) {
+          Text(verbatim: macroText(line, estimated: review.macrosEstimated))
+            .font(ShareFonts.font(size: bodySize, weight: 400))
+            .monospacedDigit()
+            .foregroundStyle(Brand.Colors.subtext)
+            .accessibilityLabel(Text(verbatim: line.label))
+        } else if review.macrosPending {
+          Text(verbatim: Copy.importNative.macrosLater.text)
+            .font(ShareFonts.font(size: bodySize, weight: 400))
+            .foregroundStyle(Brand.Colors.subtext)
+        }
       }
       .multilineTextAlignment(.center)
       VStack(spacing: 8) {
@@ -77,6 +95,15 @@ struct ShareSheetView: View {
     }
     .frame(maxWidth: 360)
     .padding(24)
+  }
+
+  /// The thumbnail's bytes as an image to draw.
+  private static func cover(of photo: ProcessedPhoto?) -> CGImage? {
+    PhotoProcessing.thumbnail(of: photo?.data, maxPixel: 320)
+  }
+
+  private func macroText(_ line: MacroLine, estimated: Bool) -> String {
+    estimated ? "\(line.text) · \(Copy.tracker.diary.estimate.text)" : line.text
   }
 
   private func failed(_ notice: ShareSheetModel.Notice) -> some View {

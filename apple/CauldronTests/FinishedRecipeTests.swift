@@ -72,7 +72,8 @@ struct FinishedRecipeTests {
   @discardableResult
   private func receive(fileManager: FileManager = .default) -> Int {
     FinishedRecipeReceiver.receive(
-      from: finished, into: context, draftsFolder: drafts, fileManager: fileManager)
+      from: finished, into: context, draftsFolder: drafts, fileManager: fileManager
+    ).added
   }
 
   // MARK: The payload
@@ -93,7 +94,7 @@ struct FinishedRecipeTests {
     #expect(opened.imported?.author == "Ada Cook")
     #expect(opened.imported?.platform == .web)
     #expect(opened.pageMacros == Macros(calories: 300, protein: 20, carbs: 30, fat: 10))
-    // The cover photo is not carried yet.
+    // The photo itself is not carried: the app fetches it (`coverLink`).
     #expect(opened.photo == .keep)
   }
 
