@@ -1,0 +1,12 @@
+{
+  "name": "cauldron-brand",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build.ts"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  },
+  "packageManager": "bun@1.4.2"
+}
