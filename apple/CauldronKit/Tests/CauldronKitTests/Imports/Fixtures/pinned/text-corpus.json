@@ -1,0 +1,2260 @@
+[
+ {
+  "name": "paste/01-notes-app.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Garlic butter pasta",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "200g spaghetti",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 cloves garlic, minced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/2 cup grated parmesan",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "salt and pepper",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Boil the spaghetti in salted water until al dente.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Melt the butter in a pan and cook the garlic for 1 minute.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Toss the pasta in the butter with a splash of pasta water.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Stir through the parmesan and serve.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/02-email-forward.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Mum's banana bread",
+    "description": "Mum's banana bread",
+    "servings": 8,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 ripe bananas",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/3 cup melted butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3/4 cup sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 egg",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp vanilla",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 1/2 cups flour",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Preheat the oven to 350F and grease a loaf tin.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Mash the bananas and stir in the butter, sugar, egg and vanilla.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Fold in the flour and pour into the tin.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Bake for 55 minutes until a skewer comes out clean.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/03-whatsapp.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Sunday chili",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "500 g minced beef",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 onion, diced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tins chopped tomatoes",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tin kidney beans",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tsp chili powder",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Brown the beef with the onion.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the tomatoes, beans and chili powder.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Simmer for 45 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/04-pdf-hard-breaks.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Lemon Drizzle Cake",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "225 g butter, softened",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "225 g caster sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 eggs",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "225 g self-raising flour",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "zest of 2 lemons",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Heat the oven to 180C. Line a loaf tin with baking paper.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Beat the butter and sugar together until pale and fluffy, then beat in the eggs one at a time.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Fold in the flour and the lemon zest, then spoon into the tin and bake for 45 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/05-blog-junk.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "The Best Crispy Roast Potatoes",
+    "description": "When I was a kid my grandmother roasted potatoes every Sunday and the whole house smelled of rosemary. I have been chasing that smell ever since, and after many failed trays I finally think I have got it.",
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 kg floury potatoes, peeled",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 tbsp goose fat",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 sprigs rosemary",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp flaky salt",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Parboil the potatoes for 10 minutes, then drain and shake them to roughen the edges.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Heat the fat in a roasting tin in a 220C oven.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the potatoes and rosemary and roast for 50 minutes, turning once.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/06-markdown.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Miso Salmon",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "2 salmon fillets",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp white miso",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp honey",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp soy sauce",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix the miso, honey and soy sauce.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Brush over the salmon and rest for 20 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Grill for 8 minutes until caramelised.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/07-markdown-bold.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Shakshuka",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "2 tbsp olive oil",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 red pepper, sliced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tin chopped tomatoes",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 eggs",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Soften the pepper in the oil.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the tomatoes and simmer for 10 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Make wells, crack in the eggs and cover until set.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/08-all-caps.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "CHOCOLATE CHIP COOKIES",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "200 g butter, softened",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "150 g brown sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 egg",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "300 g plain flour",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "200 g chocolate chips",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cream the butter and sugar, then beat in the egg.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Stir in the flour and chocolate chips.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Bake spoonfuls at 180C for 12 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/09-what-youll-need.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Tomato soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "6 ripe tomatoes",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 onion",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 cups vegetable stock",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp olive oil",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Soften the onion in the oil.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the tomatoes and stock and simmer for 20 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Blend until smooth.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/10-wrapped-numbered.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Chicken Curry",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "4 chicken thighs",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 onion, chopped",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp curry paste",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tin coconut milk",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Brown the chicken thighs in a large pan over a high heat, then set aside.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Cook the onion in the same pan until soft, stir in the curry paste and fry for 1 minute.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Return the chicken, pour in the coconut milk and simmer for 25 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/11-blank-line-steps.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Pancakes",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 cup milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 egg",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp sugar",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Whisk the flour, milk, egg and sugar until smooth. Let the batter rest for 10 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Heat a lightly oiled pan over medium heat and pour in a ladle of batter.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Flip when bubbles appear and cook until golden.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/12-for-the-dressing.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Greek Salad",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "4 tomatoes, chopped",
+      "section": "For the salad",
+      "unsure": false
+     },
+     {
+      "line": "1 cucumber, sliced",
+      "section": "For the salad",
+      "unsure": false
+     },
+     {
+      "line": "200 g feta, cubed",
+      "section": "For the salad",
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp olive oil",
+      "section": "For the dressing",
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp red wine vinegar",
+      "section": "For the dressing",
+      "unsure": false
+     },
+     {
+      "line": "1 tsp dried oregano",
+      "section": "For the dressing",
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Combine the salad ingredients in a bowl.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Whisk the dressing and pour it over.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/13-unicode-fractions.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Oat Porridge",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "½ cup rolled oats",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 ¼ cups milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "½ tsp cinnamon",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp maple syrup",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Simmer the oats and milk for 5 minutes, stirring.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Stir in the cinnamon and top with the maple syrup.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/14-bullet-dots.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Guacamole",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 ripe avocados",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 lime, juiced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 small red onion, diced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/2 tsp salt",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mash the avocados with the lime juice.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Stir in the onion and salt.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/15-checkbox-bullets.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Overnight Oats",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup rolled oats",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 cup almond milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp chia seeds",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp honey",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Stir everything together in a jar.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Cover and refrigerate overnight.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/16-emoji-headings.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Beef Stew",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "800 g stewing beef",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 carrots, chopped",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp tomato paste",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "500 ml beef stock",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Brown the beef in batches.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the carrots, paste and stock.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Cover and cook on low for 2 hours.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/17-meta-line.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Veggie Fried Rice",
+    "description": null,
+    "servings": 4,
+    "prepMinutes": 10,
+    "cookMinutes": 20,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 cups cooked rice",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 eggs",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 cup frozen peas",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp soy sauce",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Scramble the eggs in a hot wok and push aside.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the rice, peas and soy sauce and fry for 5 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/18-windows-endings.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Scrambled Eggs",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "4 eggs",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp cream",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Whisk the eggs with the cream.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Melt the butter and stir the eggs gently until just set.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/19-with-notes.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Hummus",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "Keeps for 5 days in the fridge.\nFor a smoother hummus, peel the chickpeas first.",
+    "ingredients": [
+     {
+      "line": "1 tin chickpeas, drained",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp tahini",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 lemon, juiced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 clove garlic",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Blend everything with 3 tbsp cold water until very smooth.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Season and drizzle with olive oil.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/20-caption-hashtags.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Easy garlic bread",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "4 tbsp soft butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 cloves garlic, crushed",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 baguette",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp chopped parsley",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix the butter, garlic and parsley.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Slice the baguette and spread with the butter.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Bake at 200C for 10 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "paste/21-loose-prose.txt",
+  "reading": null
+ },
+ {
+  "name": "paste/22-voice-note.txt",
+  "reading": null
+ },
+ {
+  "name": "paste/23-story-only.txt",
+  "reading": null
+ },
+ {
+  "name": "paste/24-inline-list.txt",
+  "reading": null
+ },
+ {
+  "name": "captions/01-chilli-noodles.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Chilli oil noodles",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "200g wheat noodles",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp chilli oil",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp soy sauce",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp rice vinegar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 spring onion, sliced",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Boil the noodles for 3 minutes and drain.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Toss with the chilli oil, soy sauce and vinegar.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Top with the spring onion.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/02-ingredients-point-down.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Creamy garlic pasta",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "250g spaghetti",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 cloves garlic, minced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/2 cup double cream",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/4 cup grated parmesan",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp butter",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cook the spaghetti until al dente.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Melt the butter and soften the garlic for 1 minute.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Stir in the cream and parmesan.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Toss the pasta through the sauce.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/03-what-you-need-sparkles.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Overnight oats",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1/2 cup rolled oats",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/2 cup milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/4 cup greek yoghurt",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp chia seeds",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp maple syrup",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Stir everything together in a jar.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Cover and chill overnight.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Top with fruit in the morning.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/04-recipe-below.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Crispy smashed potatoes",
+    "description": "Recipe below ⬇️",
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "500g baby potatoes",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp olive oil",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "½ tsp smoked paprika",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "½ tsp salt",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp garlic powder",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Boil the potatoes until tender, about 15 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Smash each one flat on a lined tray.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Drizzle with the oil and sprinkle with the spices.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Roast at 220C for 25 minutes until crisp.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/05-two-sauce-sections.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Sticky teriyaki salmon bowls",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "2 salmon fillets",
+      "section": "For the salmon",
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp oil",
+      "section": "For the salmon",
+      "unsure": false
+     },
+     {
+      "line": "1 cup cooked rice",
+      "section": "For the salmon",
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp soy sauce",
+      "section": "For the sauce",
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp honey",
+      "section": "For the sauce",
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp rice vinegar",
+      "section": "For the sauce",
+      "unsure": false
+     },
+     {
+      "line": "1 clove garlic, grated",
+      "section": "For the sauce",
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix the sauce ingredients in a small bowl.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Sear the salmon in the oil for 4 minutes per side.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Pour over the sauce and let it bubble until sticky.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Serve over the rice.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/06-emoji-steps-heading.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Mango sticky rice",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup glutinous rice",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 can coconut milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3 tbsp sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/2 tsp salt",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 ripe mangoes",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Soak the rice for 2 hours then steam for 25 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Warm the coconut milk with the sugar and salt.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Fold half the coconut mixture into the hot rice.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Serve with sliced mango and the rest of the sauce.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/07-ingredients-in-one-line.txt",
+  "reading": {
+   "clarity": "rough",
+   "recipe": {
+    "title": "Lemon garlic chicken thighs",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "6 chicken thighs, 3 tbsp olive oil, 1 lemon, 4 cloves garlic, 1 tsp oregano",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Rub the thighs with the oil, lemon juice, garlic and oregano.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Bake at 200C for 35 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/08-inline-hashtags.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Fluffy pancakes",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 cup flour",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp baking powder",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 egg",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "3/4 cup milk",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Whisk the dry ingredients together.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the egg and milk and stir until just combined.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Cook spoonfuls in a buttered pan until golden on both sides.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/09-bilingual.txt",
+  "reading": {
+   "clarity": "rough",
+   "recipe": {
+    "title": "Arroz con leche 🍚🥛 / Rice pudding",
+    "description": "Ingredientes / Ingredients:",
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 taza de arroz / 1 cup rice",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "4 tazas de leche / 4 cups milk",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1/2 taza de azúcar / 1/2 cup sugar",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1 rama de canela / 1 cinnamon stick",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "steps": [
+     {
+      "text": "Cocina el arroz con la leche a fuego lento / Simmer the rice in the milk.",
+      "section": "Preparación / Method",
+      "unsure": true
+     },
+     {
+      "text": "Añade el azúcar y la canela / Add the sugar and cinnamon.",
+      "section": "Preparación / Method",
+      "unsure": true
+     },
+     {
+      "text": "Sirve tibio o frío / Serve warm or cold.",
+      "section": "Preparación / Method",
+      "unsure": true
+     }
+    ],
+    "unsure": [
+     "title",
+     "description"
+    ]
+   }
+  }
+ },
+ {
+  "name": "captions/10-how-to-make-it.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Sheet pan fajitas",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "400g chicken breast, sliced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 bell peppers, sliced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 red onion, sliced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp fajita seasoning",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 tbsp oil",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Toss everything on a sheet pan.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Roast at 220C for 20 minutes.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Serve in warm tortillas.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/11-hype-intro.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Banana oat cookies",
+    "description": "You NEED to try this!! 😍😍",
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "2 ripe bananas",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 cup rolled oats",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1/4 cup chocolate chips",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp cinnamon",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mash the bananas and mix in the oats, chips and cinnamon.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Scoop onto a tray.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Bake at 180C for 12 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/12-checkmarks-and-fractions.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Easy banana bread",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 ripe bananas",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "100g melted butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "150g sugar",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 egg",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 ½ cups flour",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "½ tsp baking soda",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mash the bananas and stir in the butter.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Mix in the sugar and egg, then fold in the flour and soda.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Pour into a loaf tin and bake at 175C for 55 minutes.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/13-no-headings.txt",
+  "reading": {
+   "clarity": "rough",
+   "recipe": {
+    "title": "Quick tuna melt",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "3 ingredients and 5 minutes",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1 can tuna",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "2 tbsp mayo",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "2 slices bread",
+      "section": null,
+      "unsure": true
+     },
+     {
+      "line": "1 slice cheddar",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "steps": [
+     {
+      "text": "Mix the tuna and mayo, pile it on the bread, top with cheese and grill until bubbling and golden brown.",
+      "section": null,
+      "unsure": true
+     }
+    ],
+    "unsure": [
+     "title",
+     "description"
+    ]
+   }
+  }
+ },
+ {
+  "name": "captions/14-method-inline.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Garlic butter shrimp",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "500g shrimp, peeled",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 tbsp butter",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 cloves garlic, minced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp lemon juice",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Melt the butter, cook the garlic for 30 seconds, add the shrimp and cook 3 minutes per side. Finish with the lemon juice.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/15-step-labels.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Protein smoothie",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": null,
+    "ingredients": [
+     {
+      "line": "1 frozen banana",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 scoop vanilla protein powder",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 cup milk",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tbsp peanut butter",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Add everything to a blender.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Blend until smooth.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Pour into a glass and enjoy!",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/16-tip-at-the-end.txt",
+  "reading": {
+   "clarity": "clear",
+   "recipe": {
+    "title": "Cosy lentil soup",
+    "description": null,
+    "servings": null,
+    "prepMinutes": null,
+    "cookMinutes": null,
+    "totalMinutes": null,
+    "author": null,
+    "siteName": null,
+    "canonicalUrl": null,
+    "imageUrl": null,
+    "tags": [],
+    "notes": "it freezes well for up to 3 months ❄️",
+    "ingredients": [
+     {
+      "line": "1 cup red lentils",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 onion, diced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "2 carrots, diced",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "4 cups vegetable stock",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "line": "1 tsp cumin",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "steps": [
+     {
+      "text": "Soften the onion and carrots in a pot.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Add the lentils, stock and cumin.",
+      "section": null,
+      "unsure": false
+     },
+     {
+      "text": "Simmer for 25 minutes then blend half of it.",
+      "section": null,
+      "unsure": false
+     }
+    ],
+    "unsure": []
+   }
+  }
+ },
+ {
+  "name": "captions/17-story-only.txt",
+  "reading": null
+ },
+ {
+  "name": "captions/18-in-the-video.txt",
+  "reading": null
+ },
+ {
+  "name": "captions/19-link-in-bio.txt",
+  "reading": null
+ },
+ {
+  "name": "captions/20-giveaway.txt",
+  "reading": null
+ }
+]

@@ -1,0 +1,267 @@
+# The Xcode project is generated from this file: run `make project` after changing it,
+# and commit the result. Source folders are synced, so adding a Swift file needs no regeneration.
+name: Cauldron
+options:
+  bundleIdPrefix: computer.srcery
+  deploymentTarget:
+    iOS: "27.0"
+    macOS: "27.0"
+  defaultSourceDirectoryType: syncedFolder
+  developmentLanguage: en
+packages:
+  CauldronKit:
+    path: CauldronKit
+# Every build setting is spelled out here: don't rely on XcodeGen's presets, which
+# some installs (Nix) ship without.
+settings:
+  base:
+    SDKROOT: auto
+    SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    IPHONEOS_DEPLOYMENT_TARGET: "27.0"
+    MACOSX_DEPLOYMENT_TARGET: "27.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "1"
+    PRODUCT_NAME: $(TARGET_NAME)
+    GENERATE_INFOPLIST_FILE: YES
+    CODE_SIGN_STYLE: Automatic
+    # Chris's team. Signing, iCloud, the App Group and HealthKit all hang off it (#162).
+    DEVELOPMENT_TEAM: 5U2B7W5F39
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+    "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: -Onone
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG"
+      GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) DEBUG=1"
+      GCC_OPTIMIZATION_LEVEL: "0"
+      DEBUG_INFORMATION_FORMAT: dwarf
+      ONLY_ACTIVE_ARCH: YES
+      ENABLE_TESTABILITY: YES
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      ENABLE_NS_ASSERTIONS: NO
+      VALIDATE_PRODUCT: YES
+targets:
+  Cauldron:
+    type: application
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - Cauldron
+      # Types the app and its extensions both compile.
+      - Shared
+      # The share sheet's inbox, model and views, which the app compiles too so it can read
+      # the inbox and test them (#198).
+      - ShareSheet
+      # A synced folder alone gets no Resources phase from XcodeGen. Naming one resource
+      # makes it emit the phase, and Xcode then bundles the folder's assets and fonts.
+      - path: Cauldron/Fonts/OFL.txt
+        buildPhase: resources
+    dependencies:
+      - package: CauldronKit
+      - target: CauldronImports
+      - target: CauldronWidgets
+      - target: CauldronShare
+    # The URL scheme the macros widget's tap opens the app with. The rest of the Info.plist is
+    # still generated from the INFOPLIST_KEY_ settings below; Xcode merges the two. The file sits
+    # outside the synced folder, which would bundle it as a resource as well.
+    info:
+      path: Config/Cauldron-Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # iCloud sync is told about changes from other devices by a silent push. Xcode has no
+        # generated-key setting for this one, so it lives here; the Mac ignores it.
+        UIBackgroundModes: [remote-notification]
+        # The keychain group the AI key lives in, shared with the share extension (#200), and
+        # the app's own group, where a key saved before then is moved from. Signing fills in
+        # the team prefix, so neither name is written out in Swift.
+        CauldronKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron.shared
+        CauldronLegacyKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron
+        CFBundleURLTypes:
+          - CFBundleURLName: computer.srcery.cauldron
+            CFBundleURLSchemes: [cauldron]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "Cauldron uses the camera to photograph a dish or a written recipe."
+        # Copied from Copy.settings.health.shareUsage and updateUsage; a test keeps them equal.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry."
+        # XcodeGen writes these empty on a multiplatform target unless they are set here.
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        PRODUCT_NAME: Cauldron
+        INFOPLIST_KEY_CFBundleDisplayName: Cauldron
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.food-and-drink
+        # It only uses HTTPS and Apple's own encryption, so TestFlight needs no export papers.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        ENABLE_PREVIEWS: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        # iCloud (CloudKit), the App Group, and HealthKit on iPhone. The Mac app is also
+        # sandboxed, so everything it writes stays in its own container; unsandboxed,
+        # SwiftData's default store is a file shared with other apps.
+        CODE_SIGN_ENTITLEMENTS: Cauldron/Cauldron-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Cauldron/Cauldron-macOS.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  # The import pipeline, the AI with its providers, and the AI key store (#199): what the app and
+  # the share extension both run. It holds no views and never opens the store. The app embeds
+  # it; the extension links it and finds it in the app's Frameworks folder.
+  CauldronImports:
+    type: framework
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources: [CauldronImports]
+    dependencies:
+      - package: CauldronKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.imports
+        PRODUCT_NAME: CauldronImports
+        # XcodeGen writes these empty on a multiplatform target unless they are set here.
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        # Found through each binary's runpath, wherever it is embedded. Without this the install
+        # name is /Library/Frameworks, which no device has.
+        DYLIB_INSTALL_NAME_BASE: "@rpath"
+        DYLIB_COMPATIBILITY_VERSION: "1"
+        DYLIB_CURRENT_VERSION: "1"
+        # The share extension links it, so it may only use what extensions may.
+        APPLICATION_EXTENSION_API_ONLY: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks"
+  # The widget extension: brew timers' Live Activity (iPhone and iPad) and the day's macros
+  # widget (#183, iPhone, iPad and the Mac desktop).
+  CauldronWidgets:
+    type: app-extension
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - CauldronWidgets
+      - Shared
+      # The brand colours the macros widget draws with. As in the app, a synced folder alone
+      # gets no Resources phase, so the catalogue is named as a resource.
+      - path: Shared/Brand.xcassets
+        buildPhase: resources
+    dependencies:
+      - package: CauldronKit
+    # Outside the synced folders: the Resources phase the brand catalogue needs would bundle an
+    # Info.plist found in one as a resource as well.
+    info:
+      path: Config/CauldronWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: Cauldron
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.widgets
+        CODE_SIGN_ENTITLEMENTS: CauldronWidgets/CauldronWidgets.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": CauldronWidgets/CauldronWidgets-macOS.entitlements
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+  # The share extension (#173): takes a link or text from the share sheet, leaves it in the
+  # App Group's inbox and says so. The app runs the import the next time it comes forward.
+  CauldronShare:
+    type: app-extension
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - CauldronShare
+      - Shared
+      - ShareSheet
+      # The brand colours the confirmation draws with, named as a resource as the widget's are.
+      - path: Shared/Brand.xcassets
+        buildPhase: resources
+    dependencies:
+      - package: CauldronKit
+      # Linked, not embedded: an extension finds it in the app's Frameworks folder.
+      - target: CauldronImports
+        embed: false
+    # Outside the synced folders, for the same reason as the widget's.
+    info:
+      path: Config/CauldronShare-Info.plist
+      properties:
+        CFBundleDisplayName: Cauldron
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # The keychain group the app keeps the AI key in. The extension only reads it.
+        CauldronKeychainGroup: $(AppIdentifierPrefix)computer.srcery.cauldron.shared
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.share
+        CODE_SIGN_ENTITLEMENTS: CauldronShare/CauldronShare.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": CauldronShare/CauldronShare-macOS.entitlements
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+  CauldronTests:
+    type: bundle.unit-test
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources: [CauldronTests]
+    dependencies:
+      - target: Cauldron
+      - target: CauldronImports
+        embed: false
+      - package: CauldronKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.tests
+        # XcodeGen writes these empty on a multiplatform target unless they are set here.
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Cauldron.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cauldron
+schemes:
+  Cauldron:
+    build:
+      targets:
+        Cauldron: all
+        CauldronTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [CauldronTests]
+    archive:
+      config: Release

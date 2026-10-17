@@ -1,0 +1,942 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		164542DA1602284A8228A088 /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 61020BBE4F4B7F3290FC628C /* CauldronKit */; };
+		2B73EC8C88FC84B8A1FB237A /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = AA5B1D4AFCC1B249C22520A7 /* OFL.txt */; };
+		3A30F78A24A185F05C4EBAED /* CauldronShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A7C7A6B3E3A68D3D6AFDCD3A /* CauldronShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3BEACD04EC0FB0ADC59A2B75 /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7B095F85BF8DE216FFC6A7E6 /* CauldronKit */; };
+		4E9F1DAE1A6FF5D50514AA86 /* CauldronWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F7D342209BC9C55DA50B923 /* CauldronWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		523C6FFDE6A4AEC99E2E292E /* Brand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 586D5EF8D6F672933F5AFA93 /* Brand.xcassets */; };
+		548C561A566A064B61FDFDAB /* CauldronImports.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */; };
+		67D88703EBBA8970F67FA8C2 /* Brand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 586D5EF8D6F672933F5AFA93 /* Brand.xcassets */; };
+		AFE398BD4C2A9E1C466E779F /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = D3050ECE5728D5E39F75D96B /* CauldronKit */; };
+		B88367F72D9D4CB94E79C868 /* CauldronImports.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C7D21DA8AC090127F2D059FB /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F9BA2013686AF7CF58B9288 /* CauldronKit */; };
+		D4BDD25D5BFBC881DC55F149 /* CauldronKit in Frameworks */ = {isa = PBXBuildFile; productRef = 33CC16B2F30A6467E02FDC8B /* CauldronKit */; };
+		EFD9830FDF38435743BFB7EE /* CauldronImports.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */; };
+		F019C83BB26CB1B3B8DC2F82 /* CauldronImports.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		213D02096CAAF9CF1AF7C062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 488E9AEAD3A91D3C418550E6;
+			remoteInfo = CauldronShare;
+		};
+		25493C2490DEC8509EF790BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F1FA40D83517F30988DE4FD6;
+			remoteInfo = CauldronImports;
+		};
+		A2BA55EEB6A2FB7C3B700E6D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F1FA40D83517F30988DE4FD6;
+			remoteInfo = CauldronImports;
+		};
+		C6434DF137ABEA0DF1F9DF24 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 085745F335BF04C3F466B799;
+			remoteInfo = Cauldron;
+		};
+		E84F04FADA9AE064805D9A2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F1FA40D83517F30988DE4FD6;
+			remoteInfo = CauldronImports;
+		};
+		E95F4BC6B58ECBDAC4D5508B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E187BF4C54D850F7168DEB23 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F27D2181C6CB2F6BCE03B04;
+			remoteInfo = CauldronWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7799873FA1C33D771C3A92F9 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				B88367F72D9D4CB94E79C868 /* CauldronImports.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BE5B94AAA764EECBD83230EC /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4E9F1DAE1A6FF5D50514AA86 /* CauldronWidgets.appex in Embed Foundation Extensions */,
+				3A30F78A24A185F05C4EBAED /* CauldronShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CauldronImports.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C867AD163DEFFF027318D9C /* CauldronTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CauldronTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F991AE14529F0FF243617B5 /* Cauldron.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Cauldron.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F7D342209BC9C55DA50B923 /* CauldronWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = CauldronWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		586D5EF8D6F672933F5AFA93 /* Brand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Brand.xcassets; sourceTree = "<group>"; };
+		A7C7A6B3E3A68D3D6AFDCD3A /* CauldronShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = CauldronShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA5B1D4AFCC1B249C22520A7 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
+		ABE388FC6227175A3BF548F7 /* CauldronKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CauldronKit; path = CauldronKit; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		302A41EEEF3008F8313D0454 /* CauldronTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = CauldronTests;
+			sourceTree = "<group>";
+		};
+		42B06C750BCE9B7F3059D1D9 /* CauldronShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = CauldronShare;
+			sourceTree = "<group>";
+		};
+		57DBE4B24C1F91D533590753 /* ShareSheet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = ShareSheet;
+			sourceTree = "<group>";
+		};
+		667BABEF98556BB64AE8CA91 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		772BB1DCA60483B50D6459FF /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		8CD63C8E6376E3532A8CC374 /* CauldronImports */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = CauldronImports;
+			sourceTree = "<group>";
+		};
+		B955E7B52B381F82754A1563 /* CauldronWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = CauldronWidgets;
+			sourceTree = "<group>";
+		};
+		CECD1D2A1D6F0C2A397593F7 /* ShareSheet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = ShareSheet;
+			sourceTree = "<group>";
+		};
+		FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Cauldron;
+			sourceTree = "<group>";
+		};
+		"TEMP_0F8DF9C3-330B-4E2A-8397-F39B699F2F1C" /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0D5E24AC87F20311C7616C7D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F019C83BB26CB1B3B8DC2F82 /* CauldronImports.framework in Frameworks */,
+				3BEACD04EC0FB0ADC59A2B75 /* CauldronKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		488050B4BD87E76D237DD90A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7D21DA8AC090127F2D059FB /* CauldronKit in Frameworks */,
+				548C561A566A064B61FDFDAB /* CauldronImports.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6EFD300A8A523AEEA46449D7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				164542DA1602284A8228A088 /* CauldronKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1415A47A918694F5658928B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AFE398BD4C2A9E1C466E779F /* CauldronKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E694602715D51D26E85A92DB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4BDD25D5BFBC881DC55F149 /* CauldronKit in Frameworks */,
+				EFD9830FDF38435743BFB7EE /* CauldronImports.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4825101513FB21FD6BC1EC0B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2F991AE14529F0FF243617B5 /* Cauldron.app */,
+				28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */,
+				A7C7A6B3E3A68D3D6AFDCD3A /* CauldronShare.appex */,
+				2C867AD163DEFFF027318D9C /* CauldronTests.xctest */,
+				4F7D342209BC9C55DA50B923 /* CauldronWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CB6F8DF74E722531A4147D2E /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				586D5EF8D6F672933F5AFA93 /* Brand.xcassets */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D94BA9855C4BC9ABBEBE8DE9 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				AA5B1D4AFCC1B249C22520A7 /* OFL.txt */,
+			);
+			name = Fonts;
+			path = Cauldron/Fonts;
+			sourceTree = "<group>";
+		};
+		DBE63DD144F2F41305297219 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				ABE388FC6227175A3BF548F7 /* CauldronKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		F78DD355D4C84DD034742232 = {
+			isa = PBXGroup;
+			children = (
+				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
+				8CD63C8E6376E3532A8CC374 /* CauldronImports */,
+				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
+				302A41EEEF3008F8313D0454 /* CauldronTests */,
+				B955E7B52B381F82754A1563 /* CauldronWidgets */,
+				772BB1DCA60483B50D6459FF /* Shared */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
+				CECD1D2A1D6F0C2A397593F7 /* ShareSheet */,
+				57DBE4B24C1F91D533590753 /* ShareSheet */,
+				D94BA9855C4BC9ABBEBE8DE9 /* Fonts */,
+				DBE63DD144F2F41305297219 /* Packages */,
+				CB6F8DF74E722531A4147D2E /* Shared */,
+				4825101513FB21FD6BC1EC0B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		085745F335BF04C3F466B799 /* Cauldron */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8D4D98BAECB6595CC34C73D1 /* Build configuration list for PBXNativeTarget "Cauldron" */;
+			buildPhases = (
+				918A7E913F1391316309FEF0 /* Sources */,
+				90A7866C3FB2725C9B848311 /* Resources */,
+				488050B4BD87E76D237DD90A /* Frameworks */,
+				BE5B94AAA764EECBD83230EC /* Embed Foundation Extensions */,
+				7799873FA1C33D771C3A92F9 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC504571ED77C28330153B9F /* PBXTargetDependency */,
+				DA34CD5022F7FAC7F566F732 /* PBXTargetDependency */,
+				FCDD95B73AD8BA51AE9ADEAB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
+				57DBE4B24C1F91D533590753 /* ShareSheet */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
+			);
+			name = Cauldron;
+			packageProductDependencies = (
+				6F9BA2013686AF7CF58B9288 /* CauldronKit */,
+			);
+			productName = Cauldron;
+			productReference = 2F991AE14529F0FF243617B5 /* Cauldron.app */;
+			productType = "com.apple.product-type.application";
+		};
+		24BCE90082B4A95C2D5735B3 /* CauldronTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2E8B65E35D1CE0283E23022 /* Build configuration list for PBXNativeTarget "CauldronTests" */;
+			buildPhases = (
+				5DCEDE1927D115E58A2CD7EC /* Sources */,
+				0D5E24AC87F20311C7616C7D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5D3BAB8397BD9432DEE4835C /* PBXTargetDependency */,
+				ECAB37B52DCF9DF36A431131 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				302A41EEEF3008F8313D0454 /* CauldronTests */,
+			);
+			name = CauldronTests;
+			packageProductDependencies = (
+				7B095F85BF8DE216FFC6A7E6 /* CauldronKit */,
+			);
+			productName = CauldronTests;
+			productReference = 2C867AD163DEFFF027318D9C /* CauldronTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		488E9AEAD3A91D3C418550E6 /* CauldronShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 785CE096126AB372D6742BA1 /* Build configuration list for PBXNativeTarget "CauldronShare" */;
+			buildPhases = (
+				74D9EA316911EF07E8FB4387 /* Sources */,
+				10EE684769AC46BAEBF37611 /* Resources */,
+				E694602715D51D26E85A92DB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6AD530F5146C07BBE2795783 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
+				CECD1D2A1D6F0C2A397593F7 /* ShareSheet */,
+				772BB1DCA60483B50D6459FF /* Shared */,
+			);
+			name = CauldronShare;
+			packageProductDependencies = (
+				33CC16B2F30A6467E02FDC8B /* CauldronKit */,
+			);
+			productName = CauldronShare;
+			productReference = A7C7A6B3E3A68D3D6AFDCD3A /* CauldronShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		6F27D2181C6CB2F6BCE03B04 /* CauldronWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F042AA1117EA9F860A48521 /* Build configuration list for PBXNativeTarget "CauldronWidgets" */;
+			buildPhases = (
+				03DC2488CD90B2B002BA5284 /* Sources */,
+				086CA641E695FD6CD517BDAA /* Resources */,
+				A1415A47A918694F5658928B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B955E7B52B381F82754A1563 /* CauldronWidgets */,
+				"TEMP_0F8DF9C3-330B-4E2A-8397-F39B699F2F1C" /* Shared */,
+			);
+			name = CauldronWidgets;
+			packageProductDependencies = (
+				D3050ECE5728D5E39F75D96B /* CauldronKit */,
+			);
+			productName = CauldronWidgets;
+			productReference = 4F7D342209BC9C55DA50B923 /* CauldronWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F1FA40D83517F30988DE4FD6 /* CauldronImports */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9AEE0C2AEB9A894CC9038801 /* Build configuration list for PBXNativeTarget "CauldronImports" */;
+			buildPhases = (
+				DA7C271EA9EC37CF6D358106 /* Sources */,
+				6EFD300A8A523AEEA46449D7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8CD63C8E6376E3532A8CC374 /* CauldronImports */,
+			);
+			name = CauldronImports;
+			packageProductDependencies = (
+				61020BBE4F4B7F3290FC628C /* CauldronKit */,
+			);
+			productName = CauldronImports;
+			productReference = 28EE24C916A604FDFBC2C0F1 /* CauldronImports.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E187BF4C54D850F7168DEB23 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					085745F335BF04C3F466B799 = {
+						DevelopmentTeam = 5U2B7W5F39;
+						ProvisioningStyle = Automatic;
+					};
+					24BCE90082B4A95C2D5735B3 = {
+						DevelopmentTeam = 5U2B7W5F39;
+						ProvisioningStyle = Automatic;
+					};
+					488E9AEAD3A91D3C418550E6 = {
+						DevelopmentTeam = 5U2B7W5F39;
+						ProvisioningStyle = Automatic;
+					};
+					6F27D2181C6CB2F6BCE03B04 = {
+						DevelopmentTeam = 5U2B7W5F39;
+						ProvisioningStyle = Automatic;
+					};
+					F1FA40D83517F30988DE4FD6 = {
+						DevelopmentTeam = 5U2B7W5F39;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = E6DE5877AAFC665C41D4EB56 /* Build configuration list for PBXProject "Cauldron" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = F78DD355D4C84DD034742232;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0AD9E76CA765038B9E7C0209 /* XCLocalSwiftPackageReference "CauldronKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				085745F335BF04C3F466B799 /* Cauldron */,
+				F1FA40D83517F30988DE4FD6 /* CauldronImports */,
+				488E9AEAD3A91D3C418550E6 /* CauldronShare */,
+				24BCE90082B4A95C2D5735B3 /* CauldronTests */,
+				6F27D2181C6CB2F6BCE03B04 /* CauldronWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		086CA641E695FD6CD517BDAA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				523C6FFDE6A4AEC99E2E292E /* Brand.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10EE684769AC46BAEBF37611 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				67D88703EBBA8970F67FA8C2 /* Brand.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		90A7866C3FB2725C9B848311 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B73EC8C88FC84B8A1FB237A /* OFL.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		03DC2488CD90B2B002BA5284 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DCEDE1927D115E58A2CD7EC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		74D9EA316911EF07E8FB4387 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		918A7E913F1391316309FEF0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA7C271EA9EC37CF6D358106 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5D3BAB8397BD9432DEE4835C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 085745F335BF04C3F466B799 /* Cauldron */;
+			targetProxy = C6434DF137ABEA0DF1F9DF24 /* PBXContainerItemProxy */;
+		};
+		6AD530F5146C07BBE2795783 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F1FA40D83517F30988DE4FD6 /* CauldronImports */;
+			targetProxy = A2BA55EEB6A2FB7C3B700E6D /* PBXContainerItemProxy */;
+		};
+		CC504571ED77C28330153B9F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F1FA40D83517F30988DE4FD6 /* CauldronImports */;
+			targetProxy = 25493C2490DEC8509EF790BC /* PBXContainerItemProxy */;
+		};
+		DA34CD5022F7FAC7F566F732 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F27D2181C6CB2F6BCE03B04 /* CauldronWidgets */;
+			targetProxy = E95F4BC6B58ECBDAC4D5508B /* PBXContainerItemProxy */;
+		};
+		ECAB37B52DCF9DF36A431131 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F1FA40D83517F30988DE4FD6 /* CauldronImports */;
+			targetProxy = E84F04FADA9AE064805D9A2F /* PBXContainerItemProxy */;
+		};
+		FCDD95B73AD8BA51AE9ADEAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 488E9AEAD3A91D3C418550E6 /* CauldronShare */;
+			targetProxy = 213D02096CAAF9CF1AF7C062 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0884EAEC749DEB8E435453FD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_HARDENED_RUNTIME = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.imports;
+				PRODUCT_NAME = CauldronImports;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		149E938ACABFF8CC59955AFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.tests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cauldron.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cauldron";
+			};
+			name = Debug;
+		};
+		375DA163551B03EE9CE41286 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CauldronWidgets/CauldronWidgets.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "CauldronWidgets/CauldronWidgets-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/CauldronWidgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.widgets;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		54BCE75B90ED9D50B57236AF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 5U2B7W5F39;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.3.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		553F11685CCDDC57054AC206 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CauldronWidgets/CauldronWidgets.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "CauldronWidgets/CauldronWidgets-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/CauldronWidgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.widgets;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8249C0DCA49AC18E69B5C5BF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Cauldron/Cauldron-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Cauldron/Cauldron-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "Config/Cauldron-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Cauldron;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cauldron uses the camera to photograph a dish or a written recipe.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron;
+				PRODUCT_NAME = Cauldron;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		85998CF5A22A0BFD3C87B93A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5U2B7W5F39;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited) DEBUG=1";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.3.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9FD0B325BA62164F4BAF2998 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Cauldron/Cauldron-iOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Cauldron/Cauldron-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "Config/Cauldron-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Cauldron;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cauldron uses the camera to photograph a dish or a written recipe.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Cauldron reads your body weight so weigh-ins from your scale appear in the diary. It never reads your activity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Cauldron saves the calories, protein, carbs and fat you log to Health's nutrition data, and keeps them up to date when you change or remove an entry.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron;
+				PRODUCT_NAME = Cauldron;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A38CB8012BFEF807F49E8F66 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.tests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Cauldron.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cauldron";
+			};
+			name = Release;
+		};
+		CC317F65F2CF30CDE4F46C76 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CauldronShare/CauldronShare.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "CauldronShare/CauldronShare-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/CauldronShare-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.share;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		DA8182BE0029EEBC06C26DED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = CauldronShare/CauldronShare.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "CauldronShare/CauldronShare-macOS.entitlements";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/CauldronShare-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.share;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EC25B6AD113CF65790A61BAC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_HARDENED_RUNTIME = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.srcery.cauldron.imports;
+				PRODUCT_NAME = CauldronImports;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4F042AA1117EA9F860A48521 /* Build configuration list for PBXNativeTarget "CauldronWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				375DA163551B03EE9CE41286 /* Debug */,
+				553F11685CCDDC57054AC206 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		785CE096126AB372D6742BA1 /* Build configuration list for PBXNativeTarget "CauldronShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA8182BE0029EEBC06C26DED /* Debug */,
+				CC317F65F2CF30CDE4F46C76 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8D4D98BAECB6595CC34C73D1 /* Build configuration list for PBXNativeTarget "Cauldron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9FD0B325BA62164F4BAF2998 /* Debug */,
+				8249C0DCA49AC18E69B5C5BF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9AEE0C2AEB9A894CC9038801 /* Build configuration list for PBXNativeTarget "CauldronImports" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0884EAEC749DEB8E435453FD /* Debug */,
+				EC25B6AD113CF65790A61BAC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C2E8B65E35D1CE0283E23022 /* Build configuration list for PBXNativeTarget "CauldronTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				149E938ACABFF8CC59955AFA /* Debug */,
+				A38CB8012BFEF807F49E8F66 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E6DE5877AAFC665C41D4EB56 /* Build configuration list for PBXProject "Cauldron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				85998CF5A22A0BFD3C87B93A /* Debug */,
+				54BCE75B90ED9D50B57236AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0AD9E76CA765038B9E7C0209 /* XCLocalSwiftPackageReference "CauldronKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = CauldronKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		33CC16B2F30A6467E02FDC8B /* CauldronKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CauldronKit;
+		};
+		61020BBE4F4B7F3290FC628C /* CauldronKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CauldronKit;
+		};
+		6F9BA2013686AF7CF58B9288 /* CauldronKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CauldronKit;
+		};
+		7B095F85BF8DE216FFC6A7E6 /* CauldronKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CauldronKit;
+		};
+		D3050ECE5728D5E39F75D96B /* CauldronKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CauldronKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E187BF4C54D850F7168DEB23 /* Project object */;
+}

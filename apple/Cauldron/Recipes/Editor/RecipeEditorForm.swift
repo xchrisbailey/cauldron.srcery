@@ -1,0 +1,312 @@
+import CauldronImports
+import CauldronKit
+import SwiftData
+import SwiftUI
+
+/// The editor's fields, over a draft binding.
+struct RecipeEditorForm: View {
+  @Binding var draft: RecipeDraft
+  let recipe: RecipeRecord?
+  /// The problems to show: every one once the cook has tried to save, before that only those of
+  /// fields they have been to and left.
+  let errors: RecipeDraft.Errors?
+  /// Whether to say at the top that some fields need a fix: once Save has been tried, not
+  /// before.
+  var showsSummary = true
+  let couldntSave: Bool
+  /// Whether an estimate is being asked for, and what the last ask came to if it needs saying.
+  var divining = false
+  var divineMessage: CopyString?
+  var onDivine: () -> Void = {}
+  /// Which field has the keyboard, so the editor knows when one is left.
+  var focus: FocusState<RecipeDraft.Field?>.Binding?
+  /// A new recipe's draft is kept: say so, and offer to start over.
+  var keptNote: CopyString?
+  var onStartOver: (() -> Void)?
+  /// For a draft from Distill: the recipe already saved from the same link, and opening it.
+  var duplicate: ImportReview.Duplicate?
+  var onOpenDuplicate: () -> Void = {}
+
+  @Environment(RecipeAIService.self) private var ai: RecipeAIService?
+
+  var body: some View {
+    List {
+      if keptNote != nil || onStartOver != nil {
+        Section {
+          HStack(alignment: .firstTextBaseline) {
+            if let keptNote {
+              Text(verbatim: keptNote.text)
+                .brandText(.control)
+                .foregroundStyle(Brand.Colors.subtext)
+            }
+            Spacer(minLength: 8)
+            if let onStartOver {
+              Button(action: onStartOver) {
+                Text(verbatim: Copy.editor.startOver.text)
+              }
+              .buttonStyle(.borderless)
+              .brandText(.control)
+              .tint(Brand.Colors.magic)
+            }
+          }
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
+      if showsSummary, let errors, !errors.isEmpty {
+        Section {
+          Text(verbatim: Copy.editor.fixErrors.text)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.heat)
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
+      if couldntSave {
+        Section {
+          Text(verbatim: Copy.editor.couldntSave.text)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.heat)
+        }
+        .listRowBackground(Brand.Colors.mantle)
+      }
+
+      if let imported = draft.imported {
+        ImportSourceSection(
+          draft: draft, imported: imported, duplicate: duplicate, onOpenDuplicate: onOpenDuplicate)
+      }
+
+      RecipePhotoSection(draft: $draft, recipe: recipe)
+
+      Section {
+        EditorField(
+          label: Copy.editor.title, text: $draft.title, error: errors?[.title], focus: focus,
+          field: .title, axis: .vertical,
+          optional: false, flagged: draft.review.contains(.title))
+        EditorField(
+          label: Copy.editor.description, text: $draft.summary, error: errors?[.summary],
+          focus: focus, field: .summary,
+          axis: .vertical, flagged: draft.review.contains(.description))
+      }
+      .listRowBackground(Brand.Colors.mantle)
+
+      Section {
+        EditorField(
+          label: Copy.editor.servings, text: $draft.servings, error: errors?[.servings],
+          focus: focus, field: .servings,
+          mono: true, numeric: true, flagged: draft.review.contains(.servings))
+        EditorField(
+          label: Copy.editor.prepMinutes, text: $draft.prepMinutes, error: errors?[.prepMinutes],
+          focus: focus, field: .prepMinutes,
+          mono: true, numeric: true, flagged: draft.review.contains(.prepMinutes))
+        EditorField(
+          label: Copy.editor.cookMinutes, text: $draft.cookMinutes, error: errors?[.cookMinutes],
+          focus: focus, field: .cookMinutes,
+          mono: true, numeric: true, flagged: draft.review.contains(.cookMinutes))
+        EditorField(
+          label: Copy.editor.totalMinutes, text: $draft.totalMinutes,
+          error: errors?[.totalMinutes], focus: focus, field: .totalMinutes, mono: true,
+          numeric: true,
+          flagged: draft.review.contains(.totalMinutes))
+      }
+      .listRowBackground(Brand.Colors.mantle)
+
+      Section {
+        divineRow
+        EditorField(
+          label: Copy.editor.macroFields.calories, text: $draft.calories,
+          error: errors?[.calories], focus: focus, field: .calories, mono: true, numeric: true,
+          flagged: draft.review.contains(.macros))
+        EditorField(
+          label: Copy.editor.macroFields.protein, text: $draft.protein, error: errors?[.protein],
+          focus: focus, field: .protein,
+          mono: true, numeric: true, flagged: draft.review.contains(.macros))
+        EditorField(
+          label: Copy.editor.macroFields.carbs, text: $draft.carbs, error: errors?[.carbs],
+          focus: focus, field: .carbs,
+          mono: true, numeric: true, flagged: draft.review.contains(.macros))
+        EditorField(
+          label: Copy.editor.macroFields.fat, text: $draft.fat, error: errors?[.fat], focus: focus,
+          field: .fat, mono: true,
+          numeric: true, flagged: draft.review.contains(.macros))
+      } header: {
+        Text(verbatim: Copy.editor.macros.text)
+      } footer: {
+        macrosFooter
+      }
+      .listRowBackground(Brand.Colors.mantle)
+
+      RecipeTagsSection(
+        draft: $draft, error: errors?[.tags], flagged: draft.review.contains(.tags))
+
+      Section {
+        EditorField(
+          label: Copy.editor.sourceUrl, text: $draft.sourceURL, error: errors?[.sourceURL],
+          focus: focus, field: .sourceURL,
+          url: true, flagged: draft.review.contains(.sourceUrl))
+      }
+      .listRowBackground(Brand.Colors.mantle)
+
+      RecipeIngredientsSection(draft: $draft, recipe: recipe, errors: errors)
+      RecipeStepsSection(draft: $draft, recipe: recipe, errors: errors)
+
+      Section {
+        EditorField(
+          label: Copy.editor.notes, text: $draft.notes, error: errors?[.notes], focus: focus,
+          field: .notes, axis: .vertical,
+          flagged: draft.review.contains(.notes))
+      }
+      .listRowBackground(Brand.Colors.mantle)
+    }
+    // A List, not a Form: on a Mac a Form lays a field out as a value to the right of a label.
+    #if os(iOS)
+      .listStyle(.insetGrouped)
+    #else
+      .listStyle(.inset)
+    #endif
+    #if os(iOS)
+      // Reorder handles and delete controls on the lists' rows, without an Edit button to find.
+      .environment(\.editMode, .constant(.active))
+    #endif
+    .scrollContentBackground(.hidden)
+    .background(Brand.Colors.base)
+    .foregroundStyle(Brand.Colors.ink)
+  }
+}
+
+extension RecipeEditorForm {
+  /// "Divine from ingredients", and how the AI stands when it needs attention. Hidden where
+  /// there is no AI service.
+  @ViewBuilder
+  fileprivate var divineRow: some View {
+    if let ai {
+      VStack(alignment: .leading, spacing: 8) {
+        Button(action: onDivine) {
+          HStack(spacing: 8) {
+            if divining { ProgressView().controlSize(.small) }
+            Text(verbatim: (divining ? Copy.editor.divining : Copy.editor.divineMacros).text)
+          }
+        }
+        .buttonStyle(RecipeActionButtonStyle())
+        .disabled(divining)
+        .frame(maxWidth: 320)
+        if ai.status.needsAttention {
+          AIStatusLine(status: ai.status)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+      }
+    }
+  }
+
+  /// Under the macro fields: a problem with the last ask, or that the numbers are an estimate
+  /// to check, or that one is waiting for Save, or the usual hint.
+  @ViewBuilder
+  fileprivate var macrosFooter: some View {
+    let typed = draft.typedMacros
+    if let divineMessage {
+      Text(verbatim: divineMessage.text).foregroundStyle(Brand.Colors.heat)
+    } else if draft.estimateOnSave && typed == .none {
+      Text(verbatim: Copy.recipeEditor.divineQueued.text)
+    } else if typed != .none && typed == draft.estimatedMacros {
+      Text(verbatim: Copy.editor.divined.text)
+    } else {
+      Text(verbatim: Copy.editor.macrosHint.text)
+    }
+  }
+}
+
+/// A labelled text field with its problem, if any, under it. Quantities are set in Geist Mono.
+struct EditorField: View {
+  let label: CopyString
+  @Binding var text: String
+  var error: CopyString?
+  /// Where the editor learns the field was left, with the field it stands for.
+  var focus: FocusState<RecipeDraft.Field?>.Binding?
+  var field: RecipeDraft.Field?
+  var axis: Axis = .horizontal
+  var mono = false
+  var numeric = false
+  var url = false
+  /// Shows "Optional" in an empty field, for everything but the title.
+  var optional = true
+  /// An importer wasn't sure of this field: it is shown in the Tips colour until it is changed.
+  var flagged = false
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 6) {
+        Text(verbatim: label.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+        if flagged { FlagNote() }
+      }
+      tracked(entry)
+        .textFieldStyle(.plain)
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .brandText(mono ? .quantity : .body)
+        #if os(iOS)
+          .keyboardType(numeric ? .numberPad : url ? .URL : .default)
+          .textInputAutocapitalization(url ? .never : nil)
+        #endif
+        .autocorrectionDisabled(url || numeric)
+        .accessibilityLabel(Text(verbatim: label.text))
+      if let error {
+        Text(verbatim: error.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.heat)
+      }
+    }
+    .flagged(flagged)
+  }
+
+  private var prompt: Text? {
+    optional ? Text(verbatim: Copy.editor.optional.text) : nil
+  }
+
+  /// The entry, reporting to the editor which field has the keyboard when it is told which.
+  @ViewBuilder
+  private func tracked(_ entry: some View) -> some View {
+    if let focus, let field {
+      entry.focused(focus, equals: field)
+    } else {
+      entry
+    }
+  }
+
+  @ViewBuilder
+  private var entry: some View {
+    if axis == .vertical {
+      TextField("", text: $text, prompt: prompt, axis: .vertical).lineLimit(1...8)
+    } else {
+      TextField("", text: $text, prompt: prompt)
+    }
+  }
+}
+
+/// "Check this", beside what an importer wasn't sure of.
+struct FlagNote: View {
+  var detail: CopyString?
+
+  var body: some View {
+    Text(
+      verbatim: ([Copy.editor.needsALook.text] + (detail.map { [$0.text] } ?? [])).joined(
+        separator: ": ")
+    )
+    .brandText(.control)
+    .foregroundStyle(Brand.Colors.tips)
+  }
+}
+
+extension View {
+  /// The Tips colour around a field an importer wasn't sure of (`flagged` in the web editor).
+  func flagged(_ on: Bool) -> some View {
+    padding(on ? 8 : 0)
+      .background(
+        Brand.Colors.tips.opacity(on ? 0.1 : 0), in: RoundedRectangle(cornerRadius: 12)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 12).stroke(
+          Brand.Colors.tips.opacity(on ? 0.45 : 0), lineWidth: 1)
+      )
+  }
+}

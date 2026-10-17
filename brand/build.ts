@@ -62,37 +62,15 @@ const lockup = (p: Palette) =>
   <rect x="330" y="55" width="22" height="5" rx="1" fill="${p.peach}"/>`,
   );
 
-// Follows the system theme like srcery.computer's favicon.
-const favicon = () => {
-  const cls = (p: Palette) =>
-    `.o{stroke:${p.fg}}.b{fill:${p.bg}}.l{fill:${p.mauve}}.c{fill:${p.peach}}.y{fill:${p.yellow}}.p{stroke:${p.pink}}.v{fill:${p.lavender}}.bd{fill:${p.bg}}`;
-  return svg(
-    "-1 -1 66 66",
-    `
-  <style>${cls(palettes.mocha)}@media (prefers-color-scheme: light){${cls(palettes.latte)}}</style>
-  <defs><clipPath id="pot"><path d="M14.5 28.5H49.5V33A17.5 17.5 0 0 1 14.5 33Z"/></clipPath></defs>
-  <path class="c" d="M32 51Q39.5 57 37.8 60.6Q36.3 63.6 32 63.6Q27.7 63.6 26.2 60.6Q24.5 57 32 51Z"/>
-  <path class="o" d="M19.5 49L16.5 58M44.5 49L47.5 58" stroke-width="3" stroke-linecap="round" fill="none"/>
-  <path class="b o" d="M13 27H51V33A19 19 0 0 1 13 33Z" stroke-width="3" stroke-linejoin="round"/>
-  <path class="l" clip-path="url(#pot)" d="M8 36Q14 31.5 20 36T32 36T44 36T56 36V60H8Z"/>
-  <circle class="bd" fill-opacity=".55" cx="25" cy="43" r="2.6"/><circle class="bd" fill-opacity=".55" cx="36" cy="47" r="1.8"/>
-  <rect class="b o" x="9" y="21" width="46" height="7" rx="3.5" stroke-width="3"/>
-  <circle class="l" cx="27" cy="15" r="2.6"/>
-  <circle class="p" cx="38" cy="11" r="3" stroke-width="2" fill="none"/>
-  <circle class="v" cx="45" cy="3.5" r="2.2"/>
-  <path class="y" d="M12 3Q12 8.5 17.5 8.5Q12 8.5 12 14Q12 8.5 6.5 8.5Q12 8.5 12 3Z"/>`,
-  );
-};
-
 /**
  * The app icon: a base-colored square with a faint mauve glow from the top and
  * the mark centered. `maskable` keeps the mark inside the 80% safe zone and
  * leaves the corners square for the platform to mask; otherwise the icon is a
  * squircle like Grimoire's.
  */
-const appIcon = (p: Palette, maskable: boolean) => {
+const appIcon = (p: Palette, maskable: boolean, markScale = maskable ? 280 / 512 : 340 / 512) => {
   const size = 512;
-  const markSize = maskable ? 280 : 340;
+  const markSize = size * markScale;
   const offset = (size - markSize) / 2;
   const scale = markSize / 66;
   const shape = maskable
@@ -114,38 +92,80 @@ const appIcon = (p: Palette, maskable: boolean) => {
   );
 };
 
+/** A palette in greys by luminance, for the iOS tinted icon (the system colours it). */
+const grayscale = (p: Palette): Palette => {
+  const gray = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+      .toString(16)
+      .padStart(2, "0");
+    return `#${y}${y}${y}`;
+  };
+  return Object.fromEntries(Object.entries(p).map(([k, v]) => [k, gray(v)])) as Palette;
+};
+
+// The native app's icons. iOS gets full-bleed 1024px squares (the system rounds them) in
+// light, dark and tinted; macOS gets the squircle on a transparent canvas, as 16 to 512 @1x/@2x.
+const appleIconSvg = (p: Palette, kind: "ios" | "mac") => {
+  const size = 1024;
+  if (kind === "ios") return appIcon(p, true, 0.62);
+  // The macOS icon grid keeps the squircle inside an 824px square on the 1024px canvas.
+  const inset = (size - 824) / 2;
+  const inner = appIcon(p, false).replace(/^<svg[^>]*>|<\/svg>\s*$/g, "");
+  return svg(
+    `0 0 ${size} ${size}`,
+    `<g transform="translate(${inset} ${inset}) scale(${824 / 512})">${inner}</g>`,
+  );
+};
+
+const macSizes = [16, 32, 128, 256, 512] as const;
+
+const writeAppleIcons = (dir: string) => {
+  mkdirSync(dir, { recursive: true });
+  const write = (name: string, svgText: string, px: number) =>
+    writeFileSync(join(dir, name), png(svgText, px));
+  write("ios-light.png", appleIconSvg(palettes.latte, "ios"), 1024);
+  write("ios-dark.png", appleIconSvg(palettes.mocha, "ios"), 1024);
+  write("ios-tinted.png", appleIconSvg(grayscale(palettes.mocha), "ios"), 1024);
+  const mac = appleIconSvg(palettes.latte, "mac");
+  const images: object[] = [
+    { filename: "ios-light.png", idiom: "universal", platform: "ios", size: "1024x1024" },
+    {
+      appearances: [{ appearance: "luminosity", value: "dark" }],
+      filename: "ios-dark.png",
+      idiom: "universal",
+      platform: "ios",
+      size: "1024x1024",
+    },
+    {
+      appearances: [{ appearance: "luminosity", value: "tinted" }],
+      filename: "ios-tinted.png",
+      idiom: "universal",
+      platform: "ios",
+      size: "1024x1024",
+    },
+  ];
+  for (const base of macSizes) {
+    for (const scale of [1, 2]) {
+      const filename = `mac-${base}@${scale}x.png`;
+      write(filename, mac, base * scale);
+      images.push({ filename, idiom: "mac", scale: `${scale}x`, size: `${base}x${base}` });
+    }
+  }
+  writeFileSync(
+    join(dir, "Contents.json"),
+    JSON.stringify({ images, info: { author: "xcode", version: 1 } }, null, 2) + "\n",
+  );
+};
+
 const png = (svgText: string, width: number) =>
   new Resvg(svgText, { fitTo: { mode: "width", value: width }, font: { loadSystemFonts: false } })
     .render()
     .asPng();
 
-// ICO with PNG entries (supported by every current browser and OS).
-const ico = (images: ReadonlyArray<{ size: number; data: Buffer }>) => {
-  const header = Buffer.alloc(6 + 16 * images.length);
-  header.writeUInt16LE(0, 0);
-  header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(images.length, 4);
-  let offset = header.length;
-  images.forEach(({ size, data }, i) => {
-    const e = 6 + 16 * i;
-    header.writeUInt8(size >= 256 ? 0 : size, e);
-    header.writeUInt8(size >= 256 ? 0 : size, e + 1);
-    header.writeUInt8(0, e + 2);
-    header.writeUInt8(0, e + 3);
-    header.writeUInt16LE(1, e + 4);
-    header.writeUInt16LE(32, e + 6);
-    header.writeUInt32LE(data.length, e + 8);
-    header.writeUInt32LE(offset, e + 12);
-    offset += data.length;
-  });
-  return Buffer.concat([header, ...images.map((i) => i.data)]);
-};
-
 const out = process.argv[2] ?? new URL("..", import.meta.url).pathname;
 const brandDir = join(out, "brand");
-const publicDir = join(out, "apps/web/public");
 mkdirSync(brandDir, { recursive: true });
-mkdirSync(publicDir, { recursive: true });
 
 writeFileSync(join(brandDir, "mark-dark.svg"), mark(palettes.mocha));
 writeFileSync(join(brandDir, "mark-light.svg"), mark(palettes.latte));
@@ -155,14 +175,6 @@ writeFileSync(join(brandDir, "app-icon-dark.svg"), appIcon(palettes.mocha, false
 writeFileSync(join(brandDir, "app-icon-light.svg"), appIcon(palettes.latte, false));
 writeFileSync(join(brandDir, "app-icon-maskable.svg"), appIcon(palettes.mocha, true));
 
-writeFileSync(join(publicDir, "favicon.svg"), favicon());
-// The .ico is for browsers without SVG favicons; they don't read media queries, so it uses Mocha.
-writeFileSync(
-  join(publicDir, "favicon.ico"),
-  ico([16, 32, 48].map((size) => ({ size, data: png(mark(palettes.mocha), size) }))),
-);
-writeFileSync(join(publicDir, "apple-touch-icon.png"), png(appIcon(palettes.mocha, true), 180));
-writeFileSync(join(publicDir, "icon-192.png"), png(appIcon(palettes.mocha, false), 192));
-writeFileSync(join(publicDir, "icon-512.png"), png(appIcon(palettes.mocha, false), 512));
-writeFileSync(join(publicDir, "icon-maskable-512.png"), png(appIcon(palettes.mocha, true), 512));
-console.log(`Wrote brand assets to ${brandDir} and ${publicDir}`);
+const appleIconDir = join(out, "apple/Cauldron/Assets.xcassets/AppIcon.appiconset");
+writeAppleIcons(appleIconDir);
+console.log(`Wrote brand assets to ${brandDir} and ${appleIconDir}`);

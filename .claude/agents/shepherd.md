@@ -12,8 +12,8 @@ You are the shepherd on a Cauldron agent team. You do the mechanical upkeep arou
 For a verify task, work in the PR's worktree under `.claude/worktrees/`:
 
 1. Confirm `git status` is clean and `git rev-parse HEAD` matches `gh pr view <pr> --json headRefOid`. If either is off, stop and report it.
-2. Run `bun install`, then `bun run ready`. Then read CI for the same commit with `gh pr checks <pr>`.
-3. Mark the task completed and message the lead with the PR URL, the commit you checked, the final summary lines of `bun run ready`, and the state of each CI check. For a failure, quote the failing lines, and send the same to the PR's coder.
+2. Run `make ready` in `apple/`. There is no CI to read.
+3. Mark the task completed and message the lead with the PR URL, the commit you checked, and the final summary lines of each step of `make ready`. For a failure, quote the failing lines, and send the same to the PR's coder.
 
 ## Cleaning up after a merge
 

@@ -47,3 +47,24 @@ Grilling session with Chris, started 2026-10-09. Background and costs: [ios-swit
     - `RecipeAI` stays a protocol with a Gemini provider now. A PCC provider can be added later behind the same interface without touching callers.
     - The decision 10 rules still apply with Gemini as the primary: offline or no key means recipe parsing falls back to the on-device model (marked rough), and macro estimates are queued.
     - Decision 6 (iOS/macOS 27 minimum) stays, since SwiftData and on-device Foundation Models want it and PCC may come back.
+
+## Round 6 (2026-10-14)
+
+28. **Any AI provider the cook has a key for.** Gemini, OpenAI or Claude, chosen in Settings, each with its own Keychain key; the cheapest capable model is the default for each (Gemini Flash-Lite, GPT Luna, Claude Haiku). Decision 27's rules carry over to whichever is chosen.
+29. **The week starts on any day**, chosen in Settings and synced (the web offered Monday or Sunday, kept per browser). Stirring a recipe into the week can spread it over several days, one serving a day by default for meal prep.
+
+## Round 7: parity (2026-10-15)
+
+The #186 audit read the web app against the native one, area by area. Chris's calls:
+
+30. **Fixed to match the web:** copy a diary day or meal; duplicate a recipe; filter the library by tag and rename a tag, with "Clear filters"; mark brewed from the recipe page; log a recipe from Brew's last step; tick off ingredients on the recipe page; print a recipe; fix and reset a misread ingredient line in the editor; add or change a step timer; keep an unfinished new recipe and offer to restore it; field errors shown on leaving the field; ⌘K quick-open on the Mac; an import's macros estimated into the draft for review (queued only when the AI can't be reached); the web's limits on queued estimate input; Brew using the page's unit choice, which is remembered; a dropped recipe going through the spread step and landing where it was dropped; search covering descriptions and plurals, with the web's sort tie-break; Brew without steps offering Edit; free-text meal titles counted as the web counts them.
+31. **Units are metric by default** (cm, kg) on every screen, as on the web, until the cook chooses otherwise.
+32. **Dropped:** the library's grid/list toggle. The native list of cards stays.
+33. **Gone with the server (decisions 1, 2, 11 and 27):**
+    - Instagram captions come from the post page's preview tags only; the web read them through Meta's oEmbed with a token, which needs a server.
+    - Imports run on the device, inside the import sheet: no job queue that survives a relaunch, no 100-a-day import budget (the provider's own rate limit applies), and the import text isn't kept for seven days.
+    - Accounts, sign-in, households, hosting, rate limiting and the photo upload pipeline (decisions 1, 2, 4 and 11).
+
+## Round 8: retire the web app (2026-10-16)
+
+34. **Parity is called.** After v0.3.0, Chris said the native app covers everything, so #186's week of native-only use is waived. The TypeScript web app and API are removed from the repo, and the last version is at the `web-final` tag on main. `brand/build.ts` stays, as a small Bun package of its own, because it draws the Apple app icons.
