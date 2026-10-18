@@ -200,7 +200,14 @@ extension Distill {
     _ url: String, _ fetcher: some PageFetcher, _ extractor: (any RecipeExtracting)?,
     _ options: DistillOptions
   ) async throws(DistillError) -> ImportedRecipe {
-    let page = try await fetchPage(url, fetcher, options)
+    var page = try await fetchPage(url, fetcher, options)
+    if AppleNews.isStub(page.url) {
+      // An Apple News stub: the recipe is on the publisher's page it points to.
+      guard let publisher = AppleNews.publisherLink(html: page.html, base: page.url) else {
+        throw .failed(.noRecipe)
+      }
+      page = try await fetchPage(publisher, fetcher, options)
+    }
     var read = try await fromHTML(page.html, url: page.url, extractor: extractor)
     read.sourceUrl = read.recipe.canonicalUrl ?? page.url
     return read
