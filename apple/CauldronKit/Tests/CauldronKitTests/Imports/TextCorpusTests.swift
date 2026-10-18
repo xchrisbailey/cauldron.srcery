@@ -93,8 +93,28 @@ struct CallToActionTests {
 struct CaptionCorpusTests {
   static let names = (try? Fixtures.names(in: "captions", ext: "txt")) ?? []
 
-  @Test func hasTwentyCaptions() {
-    #expect(Self.names.count == 20)
+  @Test func hasTwentyThreeCaptions() {
+    #expect(Self.names.count == 23)
+  }
+
+  /// With only decoration above the ingredients there is no title to take: the caption goes to
+  /// the model for one, or the cook fills it in.
+  @Test func leavesTheTitleToTheModelWhenOnlyDecorationIsAboveTheRecipe() {
+    let reading = TextRecipe.read(
+      """
+      ⇩ Full Recipe 🍳 ⇩
+      #recipe #dinner
+
+      Ingredients:
+      - 2 eggs
+      - 1 tbsp butter
+
+      Method:
+      1. Melt the butter.
+      2. Scramble the eggs in it.
+      """)
+    #expect(reading?.recipe.title == nil)
+    #expect(reading?.clarity == .rough)
   }
 
   @Test(arguments: names)
