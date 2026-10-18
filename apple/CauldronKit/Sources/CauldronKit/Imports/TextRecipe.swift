@@ -305,7 +305,35 @@ enum TextRecipe {
     "^(?:recipe|by\(JS.s)|from\(JS.s)|https?:)", ignoreCase: true)
   private static let recipePrefix = JSRegex("^recipe\(JS.s)*[:：\\-]\(JS.s)*", ignoreCase: true)
 
-  /// A title is a short first line that isn't metadata or a heading.
+  // Symbols around a caption's title line ("⇩ Full Recipe 🍳 ⇩", "★ Pasta ★"), beyond the
+  // emoji `bare` already strips. Same start-of-run guard as `trailingDecoration`.
+  private static let titleSymbols = "\(JS.space)\\p{So}\\p{Sm}\\p{Sk}\(pictographic)\\x{20E3}"
+  private static let leadingSymbols = JSRegex("^[\(titleSymbols)]+")
+  private static let trailingSymbols = JSRegex(
+    "(?<![\(titleSymbols)])[\(titleSymbols)]+\\z")
+  private static let notWordCharacters = JSRegex("[^\\p{L}\\p{N}]+")
+
+  // Words a caption's hooks and banners are made of: "✨ RECIPE ✨", "Full recipe below",
+  // "Save this for later", "Link in bio". A line of nothing else names no dish.
+  private static let hookWords: Set<String> = [
+    "recipe", "recipes", "full", "the", "a", "my", "our", "your", "new", "easy", "quick",
+    "written", "printable", "below", "here", "down", "in", "on", "of", "for", "is", "it", "this",
+    "save", "later", "link", "bio", "caption", "comments", "comment", "description", "post",
+    "reel", "video", "alert", "time", "day", "you", "need", "to", "try", "must", "make", "now",
+    "and", "ingredients", "method", "instructions", "see",
+  ]
+
+  /// A caption's decoration rather than a dish: a line of only emoji, symbols or hashtags, or
+  /// one made only of hook words.
+  private static func isDecoration(_ text: String) -> Bool {
+    let words = notWordCharacters.split(text.lowercased()).filter { !$0.isEmpty }
+    let named = words.filter { word in
+      !hookWords.contains(word) && word.unicodeScalars.contains { $0.properties.isAlphabetic }
+    }
+    return named.isEmpty
+  }
+
+  /// A title is a short first line that isn't metadata, a heading or decoration.
   private static func pickTitle(_ intro: [String], _ meta: inout Meta) -> (
     title: String?, description: String?
   ) {
@@ -318,9 +346,10 @@ enum TextRecipe {
     var rest: [String] = []
     for line in lines {
       if readMeta(line, &meta) { continue }
-      let text = bare(line)
+      let text = trailingSymbols.replacing(
+        in: leadingSymbols.replacing(in: bare(line), with: ""), with: "")
       if title == nil, !text.isEmpty, text.jsLength <= 120, !endsInPunctuation.test(text),
-        !notATitle.test(text)
+        !notATitle.test(text), !isDecoration(text)
       {
         title = recipePrefix.replacingFirst(in: text, with: "")
         continue
