@@ -281,11 +281,22 @@ final class ShareSheetModel {
         return
       }
     } else {
-      do { try ShareInbox.add(item, in: inboxFolder) } catch {
-        outcome = .failed(Notice(message: Copy.importNative.couldntSend, canSend: false))
+      do {
+        if let folder = retainedStore.folder {
+          try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        if retainedStore.read(item.id) == nil {
+          try retainedStore.write(RetainedSharedDraft(item: item))
+        }
+        retainedDraftID = item.id
+      } catch {
+        let notice = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
+        retainedFailure = notice
+        outcome = .failed(notice)
         return
       }
     }
+    retainedFailure = nil
     importer.discard()
     outcome = .sent
     closeSoon()

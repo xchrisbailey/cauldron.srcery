@@ -100,7 +100,7 @@ final class SharedImportQueue {
         try? retainedStore.write(item)
         retainedPending.removeAll { $0 == item.id }
       } else if !deferred.contains(item.id), opening != item.id,
-        !retainedPending.contains(item.id), item.recipeDraft != nil
+        !retainedPending.contains(item.id)
       {
         retainedPending.append(item.id)
       }
@@ -110,7 +110,7 @@ final class SharedImportQueue {
   /// Explicit requests jump ahead without changing the order of unrelated waiting drafts.
   func request(_ id: UUID, in context: ModelContext? = nil) {
     guard enabled, opening != id, let item = retainedStore.read(id),
-      item.status == .editing, item.recipeDraft != nil
+      item.status == .editing
     else { return }
     if let context {
       let savedID = id
