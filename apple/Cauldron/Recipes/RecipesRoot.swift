@@ -26,6 +26,8 @@ struct RecipesRoot: View {
   @State private var conjuring = false
   /// Distill, while its sheet is open.
   @State private var distilling: ImportModel?
+  @State private var sharedSession: SharedDraftSession?
+  @State private var presentedSharedID: UUID?
   @Environment(\.modelContext) private var context
   @Environment(\.pageFetcher) private var fetcher
   @Environment(\.recipeTextReader) private var reader
@@ -71,6 +73,21 @@ struct RecipesRoot: View {
       TagRenameSheet(
         name: tagOptions.first { $0.key == tagFilter }?.name ?? tagFilter ?? "",
         onRename: renameTag)
+    }
+    .sheet(
+      item: $sharedSession,
+      onDismiss: {
+        if let id = presentedSharedID { sharing?.closedSession(id) }
+        presentedSharedID = nil
+      }
+    ) { session in
+      RecipeEditorSheet(
+        recipe: nil, importing: sharedReview(session), shared: session,
+        onSaved: { open($0) },
+        onOpenDuplicate: { id in
+          sharedSession = nil
+          if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
+        })
     }
     .sheet(item: $distilling, onDismiss: { sharing?.importOpen = false }) { model in
       ImportSheet(
@@ -391,11 +408,27 @@ extension RecipesRoot {
 
   /// Opens Distill running the next thing that was shared, if it may open now.
   private func startShared() {
-    guard distilling == nil, let route = sharing?.next() else { return }
+    guard distilling == nil, sharedSession == nil, !conjuring else { return }
+    if let session = sharing?.nextSession() {
+      presentedSharedID = session.id
+      sharedSession = session
+      return
+    }
+    guard let route = sharing?.next() else { return }
     let model = makeImportModel()
     model.start(sharing: route)
     sharing?.importOpen = true
     distilling = model
+  }
+
+  private func sharedReview(_ session: SharedDraftSession) -> ImportReview {
+    let draft = session.draft
+    let saved = (try? context.fetch(FetchDescriptor<RecipeRecord>())) ?? []
+    let duplicate = DuplicateLinks.find(in: saved, links: [draft.sourceURL]).map {
+      ImportReview.Duplicate(id: $0.id, title: $0.title)
+    }
+    return ImportReview(
+      draft: draft, duplicate: duplicate, coverLink: session.retained.parsed?.coverLink)
   }
 
   private func makeImportModel() -> ImportModel {

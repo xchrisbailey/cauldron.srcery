@@ -33,7 +33,11 @@ final class ShareSheetModel {
 
     /// What the hand-off to the app is called: it nudges toward fixing when lines need it.
     var editLabel: CopyString {
-      linesToCheck > 0 ? Copy.importNative.fixInCauldron : Copy.importNative.editInCauldron
+      #if os(iOS)
+        Copy.sharedDrafts.continueInCauldron
+      #else
+        Copy.importNative.editInCauldron
+      #endif
     }
     /// A small picture of the recipe's cover, when the page had one that could be fetched.
     var thumbnail: ProcessedPhoto?
@@ -90,6 +94,19 @@ final class ShareSheetModel {
   private let finishedFolder: URL?
   private let inboxFolder: URL?
   private let id: UUID
+  let retainedStore: RetainedSharedDraftStore
+  private(set) var retainedDraftID: UUID?
+  private var editedDraft: RecipeDraft?
+  private var lastReview: Review?
+  var currentDraft: RecipeDraft? {
+    get {
+      if let editedDraft { return editedDraft }
+      if case .ready(let review) = importer.phase { return review.draft }
+      return lastReview?.draft
+    }
+    set { editedDraft = newValue }
+  }
+  private(set) var retainedFailure: Notice?
   private let now: @Sendable () -> Date
   private let closeDelay: Duration
   private let keyMissing: @MainActor () -> Bool
@@ -114,6 +131,7 @@ final class ShareSheetModel {
     id: UUID = UUID(), now: @escaping @Sendable () -> Date = { .now },
     closeDelay: Duration = .milliseconds(1400),
     keyMissing: @escaping @MainActor () -> Bool = { false },
+    retainedFolder: URL? = nil,
     close: @escaping @MainActor (Closing) -> Void
   ) {
     self.item = item
@@ -121,6 +139,8 @@ final class ShareSheetModel {
     self.finishedFolder = finishedFolder
     self.inboxFolder = inboxFolder
     self.id = id
+    retainedStore = RetainedSharedDraftStore(
+      folder: retainedFolder ?? inboxFolder?.appending(path: "RetainedSharedDrafts"))
     self.now = now
     self.closeDelay = closeDelay
     self.keyMissing = keyMissing
@@ -141,7 +161,8 @@ final class ShareSheetModel {
       cover: .sheetThumbnail)
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
-      inboxFolder: ShareInbox.folder(), keyMissing: { !ai.hasKey }, close: close)
+      inboxFolder: ShareInbox.folder(), keyMissing: { !ai.hasKey },
+      retainedFolder: RetainedSharedDraftStore.live().folder, close: close)
   }
 
   /// How long the sheet waits for the macro estimate before leaving it for the app. The app's
@@ -181,7 +202,8 @@ final class ShareSheetModel {
     case .ready(let review):
       return .ready(
         Self.summary(
-          of: review.draft, thumbnail: review.thumbnail, coverLink: review.coverLink,
+          of: currentDraft ?? review.draft, thumbnail: review.thumbnail,
+          coverLink: review.coverLink,
           duplicate: review.duplicate != nil))
     case .failed(let notice):
       return .failed(failure(notice))
@@ -226,6 +248,7 @@ final class ShareSheetModel {
   /// the file is written; if it can't be written, the old path is offered instead.
   func save() {
     guard outcome == nil, case .ready(let review) = phase, review.canSave else { return }
+    lastReview = review
     let recipe = FinishedRecipe(
       draft: review.draft, id: id, sharedAt: now(), coverLink: review.coverLink)
     do {
@@ -242,11 +265,26 @@ final class ShareSheetModel {
   /// moment. Edit in Cauldron is this, and so is the way out of every failure.
   func sendToCauldron() {
     guard outcome != .saved, outcome != .sent else { return }
-    do {
-      try ShareInbox.add(item, in: inboxFolder)
-    } catch {
-      outcome = .failed(Notice(message: Copy.importNative.couldntSend, canSend: false))
-      return
+    let review: Review?
+    if case .ready(let ready) = phase { review = ready } else { review = lastReview }
+    if let review {
+      do {
+        if let folder = retainedStore.folder {
+          try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let retained = RetainedSharedDraft(
+          item: item, draft: currentDraft ?? review.draft, coverLink: review.coverLink)
+        if retainedStore.read(item.id) == nil { try retainedStore.write(retained) }
+        retainedDraftID = item.id
+      } catch {
+        retainedFailure = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
+        return
+      }
+    } else {
+      do { try ShareInbox.add(item, in: inboxFolder) } catch {
+        outcome = .failed(Notice(message: Copy.importNative.couldntSend, canSend: false))
+        return
+      }
     }
     importer.discard()
     outcome = .sent
