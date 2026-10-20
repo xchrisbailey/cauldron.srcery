@@ -14,9 +14,9 @@ import SwiftUI
 
 /// The share sheet's Cauldron entry. It reads the first link and any text it was given, runs the
 /// import and shows the recipe it found. Save leaves the finished recipe in the App Group's
-/// inbox for the app to put in the recipe box; Edit in Cauldron, and every failure, leave the
-/// link or text for the app to open as a draft, as before. A share extension can't open its app
-/// or the app's store, so the app takes either the next time it comes forward.
+/// inbox for the app to put in the recipe box. Continuation retains unfinished work without
+/// opening the store. On Mac it requests the containing app through NSWorkspace before
+/// completing; on iPhone it asks the cook to open Cauldron manually.
 ///
 /// The sheet closes only after what it is leaving is written. How the item is chosen is
 /// `SharedItemReader`; what the sheet does is `ShareSheetModel`, and how it looks is

@@ -32,10 +32,20 @@ struct ShareSheetView: View {
             title: Copy.importNative.savedToRecipes.text,
             detail: Copy.importNative.savedDetail.text))
       case .sent:
-        ShareConfirmation(
-          outcome: .sent(
-            title: Copy.importNative.sentToCauldron.text,
-            detail: Copy.sharedDrafts.openToFinish.text))
+        VStack(spacing: 0) {
+          ShareConfirmation(
+            outcome: .sent(
+              title: Copy.sharedOpening.kept.text,
+              detail: model.continuationDetail.text))
+          #if os(macOS)
+            if model.isOpening { ProgressView().padding(.bottom, 24) }
+          #endif
+          if model.openingResult == .failed {
+            Button(Copy.editor.done.text) { model.finishManualContinuation() }
+              .buttonStyle(ShareButtonStyle(kind: .prominent))
+              .padding(.bottom, 24)
+          }
+        }
       case .failed(let notice): failed(notice)
       }
     }
@@ -43,6 +53,22 @@ struct ShareSheetView: View {
     .background(Brand.Colors.base.ignoresSafeArea())
     .tint(Brand.Colors.magic)
     .task { model.start() }
+  }
+
+  private var continuationLabel: CopyString {
+    #if os(iOS)
+      Copy.sharedDrafts.continueInCauldron
+    #else
+      Copy.importNative.editInCauldron
+    #endif
+  }
+
+  private var continuationGuidance: CopyString {
+    #if os(iOS)
+      Copy.sharedDrafts.openToFinish
+    #else
+      Copy.sharedOpening.macContinuation
+    #endif
   }
 
   private var reading: some View {
@@ -71,9 +97,9 @@ struct ShareSheetView: View {
         .fixedSize(horizontal: false, vertical: true)
       VStack(spacing: 8) {
         if notice.canSend {
-          Button(Copy.importNative.sendInstead.text) { model.sendToCauldron() }
+          Button(continuationLabel.text) { model.sendToCauldron() }
             .buttonStyle(ShareButtonStyle(kind: .prominent))
-          Text(verbatim: Copy.importNative.opensAsDraft.text)
+          Text(verbatim: continuationGuidance.text)
             .font(ShareFonts.font(size: bodySize - 2, weight: 400))
             .foregroundStyle(Brand.Colors.subtext)
             .multilineTextAlignment(.center)
