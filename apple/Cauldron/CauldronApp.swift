@@ -100,6 +100,7 @@ struct CauldronApp: App {
       ) { $request in
         if let request {
           RecipeWindow(request: request)
+            .environment(sharedImports)
             .environment(sync)
             .environment(ai)
             .cauldronAppearance()

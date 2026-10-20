@@ -26,7 +26,9 @@ struct ImportSheet: View {
       }
     }
     .safeAreaInset(edge: .bottom, spacing: 0) {
-      if waiting > 0 { SharedWaitingBadge(count: waiting) }
+      if waiting > 0 {
+        if case .ready = model.phase {} else { SharedWaitingBadge(count: waiting) }
+      }
     }
     // Closed any way at all, such as by a swipe: stop what is running.
     .onDisappear { model.discard() }

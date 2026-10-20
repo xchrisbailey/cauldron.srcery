@@ -19,7 +19,13 @@ struct ShareSheetView: View {
     Group {
       switch model.phase {
       case .reading: reading
-      case .ready(let review): ReadySummary(review: review, model: model, unfolded: unfolded)
+      case .ready(let review):
+        VStack(spacing: 0) {
+          if let failure = model.retainedFailure {
+            Text(verbatim: failure.message.text).foregroundStyle(Brand.Colors.heat).padding()
+          }
+          ReadySummary(review: review, model: model, unfolded: unfolded)
+        }
       case .saved:
         ShareConfirmation(
           outcome: .sent(
@@ -29,7 +35,7 @@ struct ShareSheetView: View {
         ShareConfirmation(
           outcome: .sent(
             title: Copy.importNative.sentToCauldron.text,
-            detail: Copy.importNative.opensAsDraft.text))
+            detail: Copy.sharedDrafts.openToFinish.text))
       case .failed(let notice): failed(notice)
       }
     }
