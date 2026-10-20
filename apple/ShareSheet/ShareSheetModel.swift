@@ -106,6 +106,40 @@ final class ShareSheetModel {
     }
     set { editedDraft = newValue }
   }
+  static let editableFields: [RecipeDraft.Field] = [.title, .servings, .prepMinutes, .cookMinutes]
+  private var visited: Set<RecipeDraft.Field> = []
+  private(set) var saveAttempted = false
+
+  /// Missing titles prompt immediately; other problems appear after leaving a field or Save.
+  func error(for field: RecipeDraft.Field) -> CopyString? {
+    guard let draft = currentDraft else { return nil }
+    let missingTitle = field == .title && draft.trimmed(draft.title).isEmpty
+    guard saveAttempted || visited.contains(field) || missingTitle else { return nil }
+    return draft.validate()[field]
+  }
+
+  func blurred(_ field: RecipeDraft.Field) {
+    visited.insert(field)
+  }
+
+  var firstInvalidField: RecipeDraft.Field? {
+    guard let draft = currentDraft else { return nil }
+    let errors = draft.validate()
+    return Self.editableFields.first { errors[$0] != nil }
+  }
+
+  var hasReadOnlyErrors: Bool {
+    guard let draft = currentDraft else { return false }
+    let fields: Set<RecipeDraft.Field> = [
+      .summary, .totalMinutes, .calories, .protein, .carbs, .fat, .sourceURL, .notes, .tags,
+      .ingredientList, .stepList,
+    ]
+    let rows =
+      draft.ingredients.map { RecipeDraft.Field.ingredient($0.id) }
+      + draft.steps.map { RecipeDraft.Field.step($0.id) }
+    return !draft.validate().showing(fields.union(rows)).isEmpty
+  }
+
   private(set) var retainedFailure: Notice?
   private let now: @Sendable () -> Date
   private let closeDelay: Duration
@@ -253,7 +287,9 @@ final class ShareSheetModel {
   /// Leaves the recipe for the app, then closes after a moment. The sheet closes only after
   /// the file is written; if it can't be written, the old path is offered instead.
   func save() {
-    guard !didClose, outcome == nil, case .ready(let review) = phase, review.canSave else { return }
+    guard !didClose, outcome == nil, case .ready(let review) = phase else { return }
+    saveAttempted = true
+    guard review.canSave else { return }
     lastReview = review
     let recipe = FinishedRecipe(
       draft: review.draft, id: id, sharedAt: now(), coverLink: review.coverLink)
@@ -287,8 +323,18 @@ final class ShareSheetModel {
         return
       }
     } else {
-      do { try ShareInbox.add(item, in: inboxFolder) } catch {
-        outcome = .failed(Notice(message: Copy.importNative.couldntSend, canSend: false))
+      do {
+        if let folder = retainedStore.folder {
+          try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        if retainedStore.read(item.id) == nil {
+          try retainedStore.write(RetainedSharedDraft(item: item))
+        }
+        retainedDraftID = item.id
+      } catch {
+        let notice = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
+        retainedFailure = notice
+        outcome = .failed(notice)
         return
       }
     }

@@ -121,6 +121,27 @@ public final class ImportModel: Identifiable {
   public var text = ""
   public private(set) var linkError: CopyString?
   public private(set) var phase = Phase.editing
+  /// A retained import must be durable before the editor becomes available.
+  @ObservationIgnored public var beforeReview: (@MainActor (ImportReview) -> CopyString?)?
+  @ObservationIgnored private var unkeptReview: ImportReview?
+
+  public func reportRecoveryFailure(_ message: CopyString) {
+    phase = .failed(
+      ImportFailureNotice(
+        code: .couldntRead, message: message, canPaste: false, canRetry: false))
+  }
+
+  private func offer(_ review: ImportReview) {
+    if let message = beforeReview?(review) {
+      unkeptReview = review
+      phase = .failed(
+        ImportFailureNotice(
+          code: .unavailable, message: message, canPaste: false, canRetry: true))
+    } else {
+      unkeptReview = nil
+      phase = .ready(review)
+    }
+  }
   /// The cook stopped the last run; the form says so.
   public private(set) var stopped = false
   /// The link whose page couldn't be read, while its text is being pasted instead.
@@ -269,12 +290,17 @@ public final class ImportModel: Identifiable {
 
   /// Runs the last request again.
   public func retry() {
-    guard case .failed(let notice) = phase, notice.canRetry, let lastRequest else { return }
-    run(lastRequest)
+    guard case .failed(let notice) = phase, notice.canRetry else { return }
+    if let review = unkeptReview {
+      offer(review)
+    } else if let lastRequest {
+      run(lastRequest)
+    }
   }
 
   /// Back to a clean form. Pasted text that couldn't be read is kept so it can be fixed.
   public func another() {
+    unkeptReview = nil
     let keepsText: Bool
     if case .text? = lastRequest, case .failed = phase {
       keepsText = true
@@ -298,6 +324,7 @@ public final class ImportModel: Identifiable {
     task?.cancel()
     task = nil
     pages = []
+    unkeptReview = nil
   }
 
   // MARK: The pages
@@ -438,7 +465,7 @@ public final class ImportModel: Identifiable {
     case .pages: links = [nil]
     }
     reading = nil
-    phase = .ready(
+    offer(
       ImportReview(
         draft: draft, duplicate: findDuplicate(links), coverLink: coverLink,
         thumbnail: thumbnail))
