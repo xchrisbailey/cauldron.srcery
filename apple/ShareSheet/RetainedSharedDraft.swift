@@ -15,6 +15,8 @@ struct RetainedSharedDraft: Codable, Equatable, Identifiable {
   var review: Set<DraftField> = []
   var flagged: [Bool] = []
   var stepFlags: [Bool]?
+  /// Original unreadable/unsupported bytes survive salvage, promotion, and explicit discard.
+  var recoveryEvidence: Data?
   var ingredientsLocked = false
   var stepsLocked = false
 
@@ -79,11 +81,28 @@ struct RetainedSharedDraftStore {
 
   func read(_ id: UUID) -> RetainedSharedDraft? {
     guard let folder,
-      let data = try? Data(contentsOf: folder.appending(path: "\(id.uuidString).json")),
-      let draft = try? JSONDecoder().decode(RetainedSharedDraft.self, from: data),
-      draft.id == id, draft.version == 1
+      let data = try? Data(contentsOf: folder.appending(path: "\(id.uuidString).json"))
     else { return nil }
-    return draft
+    if let draft = try? JSONDecoder().decode(RetainedSharedDraft.self, from: data),
+      draft.id == id, draft.item.id == id, draft.version == 1
+    {
+      return draft
+    }
+    // Decode the source independently: a damaged parsed payload must not hide a good link.
+    let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    let source = object?["item"] as? [String: Any]
+    var item = SharedItem(id: id, url: source?["url"] as? String, text: source?["text"] as? String)
+    if let date = source?["sharedAt"] as? Double {
+      item.sharedAt = Date(timeIntervalSinceReferenceDate: date)
+    }
+    var recovered = RetainedSharedDraft(item: item)
+    if let status = object?["status"] as? String,
+      let terminal = RetainedSharedDraft.Status(rawValue: status)
+    {
+      recovered.status = terminal
+    }
+    recovered.recoveryEvidence = data
+    return recovered
   }
 
   func all() -> [RetainedSharedDraft] {
@@ -91,7 +110,9 @@ struct RetainedSharedDraftStore {
       let files = try? FileManager.default.contentsOfDirectory(
         at: folder, includingPropertiesForKeys: nil)
     else { return [] }
-    return files.compactMap { UUID(uuidString: $0.deletingPathExtension().lastPathComponent) }
-      .compactMap(read).sorted { $0.item.sharedAt < $1.item.sharedAt }
+    return files.filter { $0.pathExtension == "json" }.compactMap {
+      UUID(uuidString: $0.deletingPathExtension().lastPathComponent)
+    }
+    .compactMap(read).sorted { $0.item.sharedAt < $1.item.sharedAt }
   }
 }

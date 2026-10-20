@@ -277,7 +277,7 @@ struct ShareSheetModelTests {
     #expect(!notice.message.text.isEmpty)
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == ["https://down.example/a"])
+    #expect(sheet.retainedStore.all().map(\.item.url) == ["https://down.example/a"])
   }
 
   @Test func withNoKeyAndNoModelAPageThatNeedsOneOffersToSendItInstead() async throws {
@@ -299,10 +299,10 @@ struct ShareSheetModelTests {
     }
     #expect(notice.canSend)
     sheet.sendToCauldron()
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.soupLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.soupLink])
   }
 
-  @Test func whenNothingCanBeLeftForTheAppTheSheetSaysSoAndOffersNoMoreSending() async throws {
+  @Test func whenNothingCanBeLeftForTheAppTheSheetOffersRetry() async throws {
     defer { tidy() }
     let sheet = ShareSheetModel(
       item: tacos,
@@ -311,7 +311,7 @@ struct ShareSheetModelTests {
         options: ImportFixtures.quick),
       finishedFolder: nil, inboxFolder: nil, closeDelay: .milliseconds(1), close: { _ in })
     sheet.sendToCauldron()
-    #expect(sheet.phase == .failed(.init(message: Copy.importNative.couldntSend, canSend: false)))
+    #expect(sheet.phase == .failed(.init(message: Copy.sharedDrafts.couldntKeep, canSend: true)))
   }
 
   @Test func cancelClosesWithNothingLeftBehind() async throws {
@@ -433,7 +433,7 @@ struct ShareSheetModelTests {
         == .failed(.init(message: Copy.importNative.noAIKey, canSend: true, kind: .noKey)))
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.soupLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.soupLink])
   }
 
   @Test func anUnreadablePageIsNotBlamedOnAMissingKey() async throws {
@@ -527,7 +527,7 @@ struct ShareSheetModelTests {
     #expect(fetcher.requests.isEmpty)
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [link])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [link])
   }
 
   @Test func aReadThatEndsCancelledWithoutTheCookCancellingEndsInTheFailedNotice() async throws {
@@ -547,7 +547,7 @@ struct ShareSheetModelTests {
     #expect(notice.kind == .unreadable)
     #expect(closings.all.isEmpty)
     sheet.sendToCauldron()
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.tacosLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.tacosLink])
   }
 
   @Test func aRecipeFromThePageNeedsNoKey() async throws {

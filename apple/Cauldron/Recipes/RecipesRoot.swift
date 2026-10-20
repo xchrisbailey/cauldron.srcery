@@ -27,6 +27,7 @@ struct RecipesRoot: View {
   /// Distill, while its sheet is open.
   @State private var distilling: ImportModel?
   @State private var sharedSession: SharedDraftSession?
+  @State private var sharedImportModel: ImportModel?
   @State private var presentedSharedID: UUID?
   @Environment(\.modelContext) private var context
   @Environment(\.pageFetcher) private var fetcher
@@ -79,15 +80,26 @@ struct RecipesRoot: View {
       onDismiss: {
         if let id = presentedSharedID { sharing?.closedSession(id) }
         presentedSharedID = nil
+        sharedImportModel = nil
       }
     ) { session in
-      RecipeEditorSheet(
-        recipe: nil, importing: sharedReview(session), shared: session,
-        onSaved: { open($0) },
-        onOpenDuplicate: { id in
-          sharedSession = nil
-          if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
-        })
+      if let model = sharedImportModel {
+        ImportSheet(
+          model: model, shared: session, waiting: sharing?.waiting ?? 0,
+          onSaved: { open($0) },
+          onOpenDuplicate: { id in
+            sharedSession = nil
+            if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
+          })
+      } else {
+        RecipeEditorSheet(
+          recipe: nil, importing: sharedReview(session), shared: session,
+          onSaved: { open($0) },
+          onOpenDuplicate: { id in
+            sharedSession = nil
+            if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
+          })
+      }
     }
     .sheet(item: $distilling, onDismiss: { sharing?.importOpen = false }) { model in
       ImportSheet(
@@ -411,6 +423,13 @@ extension RecipesRoot {
     guard distilling == nil, sharedSession == nil, !conjuring else { return }
     if let session = sharing?.nextSession() {
       presentedSharedID = session.id
+      if !session.isParsed {
+        let model = makeImportModel()
+        session.retry(using: model)
+        sharedImportModel = model
+      } else {
+        sharedImportModel = nil
+      }
       sharedSession = session
       return
     }
