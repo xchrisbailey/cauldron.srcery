@@ -193,12 +193,13 @@ struct SharedImportTests {
     #expect(queue.readyToOpen)
 
     #expect(queue.next() == .text("first"))
-    queue.importOpen = true
+    let presentation = UUID()
+    queue.importOpened(presentation)
     #expect(queue.waiting == 1)
     #expect(!queue.readyToOpen)
     #expect(queue.next() == nil)
 
-    queue.importOpen = false
+    queue.importClosed(presentation)
     #expect(queue.readyToOpen)
     #expect(queue.next() == .text("second"))
     #expect(queue.waiting == 0 && !queue.readyToOpen)
@@ -208,12 +209,13 @@ struct SharedImportTests {
     let folder = try inbox()
     defer { try? FileManager.default.removeItem(at: folder) }
     let queue = SharedImportQueue(folder: folder, enabled: true)
-    queue.importOpen = true
+    let presentation = UUID()
+    queue.importOpened(presentation)
     try ShareInbox.add(SharedItem(text: "later"), in: folder)
     queue.pickUp()
     #expect(queue.waiting == 1 && !queue.readyToOpen && queue.next() == nil)
 
-    queue.importOpen = false
+    queue.importClosed(presentation)
     let editor = UUID()
     queue.editorOpened(editor)
     #expect(!queue.readyToOpen && queue.next() == nil)

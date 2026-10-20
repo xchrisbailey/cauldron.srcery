@@ -264,9 +264,6 @@ struct RecipeEditorSheet: View {
         saved = try shared.save(draft, in: context); finished = true
       } else {
         saved = try RecipeSaver.save(draft, into: recipe, context: context)
-        // No await intervenes: a cover cannot attach between the recipe save and its marker.
-        // Invalid or failed saves leave the existing cover request alone.
-        if recipe != nil, draft.photo != .keep { try sharing?.photoChanged(saved.id) }
       }
       // Saved, so the draft is not needed, and the editor's last write must not bring it back.
       if keepsDraft {

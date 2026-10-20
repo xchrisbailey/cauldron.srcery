@@ -316,6 +316,31 @@ struct RecipeSaverTests {
     #expect(try count(PhotoRecord.self) == 0)
   }
 
+  @Test func keepingAndReplacingAPhotoPreserveTheSavedCoverChoice() throws {
+    var draft = filled()
+    draft.photo = .remove
+    let recipe = try RecipeSaver.save(
+      draft, into: nil, context: context, index: SavedLinksIndex(folder: nil))
+    #expect(recipe.coverDeclined)
+    try RecipeSaver.save(
+      RecipeDraft(recipe), into: recipe, context: context, index: SavedLinksIndex(folder: nil))
+    #expect(recipe.coverDeclined)
+    var replacement = RecipeDraft(recipe)
+    replacement.photo = .replace(photo(2))
+    try RecipeSaver.save(
+      replacement, into: recipe, context: context, index: SavedLinksIndex(folder: nil))
+    #expect(!recipe.coverDeclined)
+    var invalid = RecipeDraft(recipe)
+    invalid.title = ""
+    invalid.photo = .remove
+    #expect(throws: RecipeSaver.Failure.self) {
+      try RecipeSaver.save(
+        invalid, into: recipe, context: context, index: SavedLinksIndex(folder: nil))
+    }
+    #expect(!recipe.coverDeclined)
+    #expect(recipe.photo?.imageData == Data([2]))
+  }
+
   @Test func keepingThePhotoLeavesItAlone() throws {
     var draft = filled()
     draft.photo = .replace(photo())

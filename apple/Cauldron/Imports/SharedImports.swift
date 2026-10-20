@@ -20,12 +20,11 @@ final class SharedImportQueue {
   @ObservationIgnored private var covers: [FinishedRecipeReceiver.Cover] = []
   /// The recipes whose covers are being fetched now, so a second pick-up doesn't fetch them again.
   @ObservationIgnored private var fetching: Set<UUID> = []
-  /// A photo edit whose durable cover cancellation has not succeeded yet.
-  @ObservationIgnored private var changedPhotos: Set<UUID> = []
-  /// An import sheet is open (shared or typed).
-  var importOpen = false
+  /// Each ordinary import presentation keeps its own place across all windows.
+  private var imports: Set<UUID> = []
   @ObservationIgnored private let folder: URL?
   @ObservationIgnored private let finishedFolder: URL?
+  @ObservationIgnored private let now: @Sendable () -> Date
   @ObservationIgnored private let enabled: Bool
   /// The editors open now, each by its own token so one that is closed twice counts once.
   private var editors: Set<UUID> = []
@@ -39,10 +38,14 @@ final class SharedImportQueue {
   ///   - finishedFolder: the folder of finished recipes, the same way.
   ///   - enabled: false under test and in previews, where nothing is picked up so the real
   ///     inbox is never touched.
-  init(folder: URL? = nil, finishedFolder: URL? = nil, retainedFolder: URL? = nil, enabled: Bool) {
+  init(
+    folder: URL? = nil, finishedFolder: URL? = nil, retainedFolder: URL? = nil, enabled: Bool,
+    now: @escaping @Sendable () -> Date = { .now }
+  ) {
     self.folder = folder
     self.finishedFolder = finishedFolder
     self.enabled = enabled
+    self.now = now
     retainedStore = RetainedSharedDraftStore(
       folder: retainedFolder
         ?? (folder == nil
@@ -54,7 +57,7 @@ final class SharedImportQueue {
   var waiting: Int { pending.count + retainedPending.count }
 
   /// Something is waiting and nothing is in its way.
-  var readyToOpen: Bool { waiting > 0 && !importOpen && editors.isEmpty }
+  var readyToOpen: Bool { waiting > 0 && imports.isEmpty && opening == nil && editors.isEmpty }
 
   /// Takes what is in the inbox. Called at launch and whenever the app comes forward.
   ///
@@ -137,7 +140,6 @@ final class SharedImportQueue {
       let id = retainedPending.removeFirst()
       if let session = try? SharedDraftSession(id: id, store: retainedStore) {
         opening = id
-        importOpen = true
         return session
       }
     }
@@ -145,9 +147,9 @@ final class SharedImportQueue {
   }
 
   func closedSession(_ id: UUID) {
+    guard opening == id else { return }
     deferred.insert(id)
-    if opening == id { opening = nil }
-    importOpen = false
+    opening = nil
   }
 
   /// Fetches the cover photos of the recipes `pickUp` added, and removes their files. It takes
@@ -158,16 +160,14 @@ final class SharedImportQueue {
     let ids = Set(waiting.map(\.recipeID))
     fetching.formUnion(ids)
     defer { fetching.subtract(ids) }
-    await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher)
+    await FinishedRecipeReceiver.attach(waiting, into: context, using: fetcher, now: now)
     await fetchRetainedCovers(into: context, using: fetcher)
   }
 
   private func fetchRetainedCovers(into context: ModelContext, using fetcher: any PageFetcher) async
   {
     for item in retainedStore.all()
-    where item.status == .saved && !fetching.contains(item.id)
-      && !changedPhotos.contains(item.id)
-    {
+    where item.status == .saved && !fetching.contains(item.id) {
       guard let link = item.parsed?.coverLink else { continue }
       let id = item.id
       guard
@@ -175,7 +175,9 @@ final class SharedImportQueue {
           FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == id })
         ).first
       else { continue }
-      if saved.isBanished || saved.photo != nil || item.photoRemoved || item.photo != nil {
+      if saved.isBanished || saved.coverDeclined || saved.photo != nil
+        || item.photoRemoved || item.photo != nil
+      {
         finishRetainedCover(id)
         continue
       }
@@ -184,14 +186,14 @@ final class SharedImportQueue {
       fetching.remove(id)
       guard !Task.isCancelled else { return }
       // A photo changed or removed while the fetch ran must not be replaced by its result.
-      guard !changedPhotos.contains(id), let current = retainedStore.read(id),
+      guard let current = retainedStore.read(id),
         current.status == .saved,
         current.parsed?.coverLink == link,
         !current.photoRemoved, current.photo == nil
       else { continue }
-      if let photo, !saved.isBanished, saved.photo == nil {
+      if let photo, !saved.isBanished, !saved.coverDeclined, saved.photo == nil {
         RecipeSaver.savePhoto(.replace(photo), into: saved, context: context)
-        saved.updatedAt = .now
+        saved.updatedAt = now()
         do { try context.save() } catch { context.rollback(); continue }
       }
       finishRetainedCover(id)
@@ -202,17 +204,6 @@ final class SharedImportQueue {
     guard var item = retainedStore.read(id), item.status == .saved else { return }
     item.parsed?.coverLink = nil
     try? retainedStore.write(item)
-  }
-
-  /// A successful explicit photo edit takes precedence over a pending imported cover.
-  func photoChanged(_ id: UUID) throws {
-    guard var item = retainedStore.read(id), item.status != .discarded,
-      item.parsed?.coverLink != nil
-    else { changedPhotos.remove(id); return }
-    changedPhotos.insert(id)
-    item.parsed?.coverLink = nil
-    try retainedStore.write(item)
-    changedPhotos.remove(id)
   }
 
   /// What follows a pick-up that added `added` recipes: the estimates they wait for run at once
@@ -252,6 +243,10 @@ final class SharedImportQueue {
     guard readyToOpen, !pending.isEmpty else { return nil }
     return pending.removeFirst()
   }
+
+  func importOpened(_ token: UUID) { imports.insert(token) }
+
+  func importClosed(_ token: UUID) { imports.remove(token) }
 
   func editorOpened(_ token: UUID) { editors.insert(token) }
 

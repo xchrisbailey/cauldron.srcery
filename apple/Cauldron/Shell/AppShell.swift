@@ -1,4 +1,5 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
 /// The app's frame: a tab bar on iPhone, and a sidebar next to the section on a Mac or an iPad.

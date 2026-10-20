@@ -53,7 +53,7 @@ enum FinishedRecipeReceiver {
       if let existing = find(id, in: context) {
         // Saved on an earlier pick-up. The photo it was still waiting for, if the file says so
         // and the recipe has none, is fetched now; a recipe banished since stays that way.
-        let wantsCover = !existing.isBanished && existing.photo == nil
+        let wantsCover = !existing.isBanished && !existing.coverDeclined && existing.photo == nil
         settle(
           entry, coverLink: wantsCover ? entry.recipe.coverLink : nil, into: &received,
           fileManager: fileManager)
@@ -76,7 +76,6 @@ enum FinishedRecipeReceiver {
         // The store refused. Whatever was inserted is dropped and the payload stays for the
         // next time the app comes forward.
         log.error("A finished recipe couldn't be saved: \(error.localizedDescription)")
-        context.rollback()
       }
     }
     return received
@@ -101,16 +100,20 @@ enum FinishedRecipeReceiver {
   /// the file is removed.
   static func attach(
     _ covers: [Cover], into context: ModelContext, using fetcher: any PageFetcher,
-    fileManager: FileManager = .default
+    fileManager: FileManager = .default, now: @Sendable () -> Date = { .now }
   ) async {
     for cover in covers {
+      guard let recipe = find(cover.recipeID, in: context), !recipe.isBanished,
+        !recipe.coverDeclined, recipe.photo == nil
+      else {
+        FinishedInbox.remove(cover.entry, fileManager: fileManager)
+        continue
+      }
       let photo = await CoverPhoto.fetch(cover.link, using: fetcher)
       if Task.isCancelled { return }
-      if let photo, let recipe = find(cover.recipeID, in: context), !recipe.isBanished,
-        recipe.photo == nil
-      {
+      if let photo, !recipe.isBanished, !recipe.coverDeclined, recipe.photo == nil {
         RecipeSaver.savePhoto(.replace(photo), into: recipe, context: context)
-        recipe.updatedAt = .now
+        recipe.updatedAt = now()
         do {
           try context.save()
         } catch {

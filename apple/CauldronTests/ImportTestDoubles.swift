@@ -50,6 +50,17 @@ final class ScriptedFetcher: PageFetcher {
   }
 }
 
+/// Returns an image only after the cook has made an edit while its request was in flight.
+struct EditingCoverFetcher: PageFetcher {
+  let editing: @MainActor @Sendable () -> Void
+  let bytes: Data
+
+  func fetch(_ request: FetchRequest) async throws(FetchError) -> FetchedPage {
+    await editing()
+    return FetchedPage(bytes: bytes, contentType: "image/png", url: request.url)
+  }
+}
+
 extension ScriptedFetcher.Reply {
   static func html(_ body: String, head: String = "", url: String? = nil) -> Self {
     .page(

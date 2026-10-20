@@ -198,19 +198,7 @@ private struct ReadySummary: View {
   /// Read-only problems use the same messages as the full editor, with the affected section.
   private var readOnlyProblems: [CopyString] {
     guard model.saveAttempted else { return [] }
-    let errors = review.draft.validate()
-    let fields: [(RecipeDraft.Field, CopyString)] =
-      [
-        (.summary, Copy.editor.description), (.totalMinutes, Copy.editor.totalMinutes),
-        (.calories, Copy.editor.macros), (.protein, Copy.editor.macros),
-        (.carbs, Copy.editor.macros), (.fat, Copy.editor.macros),
-        (.sourceURL, Copy.editor.sourceUrl), (.notes, Copy.editor.notes), (.tags, Copy.editor.tags),
-        (.ingredientList, Copy.editor.ingredients), (.stepList, Copy.editor.steps),
-      ] + review.draft.ingredients.map { (.ingredient($0.id), Copy.editor.ingredients) }
-      + review.draft.steps.map { (.step($0.id), Copy.editor.steps) }
-    return fields.compactMap { field, label in
-      errors[field].map { Copy.shareSheetFields.problem(label, $0) }
-    }
+    return model.readOnlyProblems
   }
 
   private var header: some View {

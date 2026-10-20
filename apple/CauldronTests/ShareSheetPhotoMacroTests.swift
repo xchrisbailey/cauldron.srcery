@@ -102,6 +102,30 @@ struct ShareSheetPhotoMacroTests {
     #expect(review.draft.photo == .keep)
   }
 
+  @Test func removingAPhotoBeforeItsQueuedCoverStartsSurvivesRestart() async throws {
+    defer { tidy() }
+    let payload = try payload(cover: coverLink)
+    let queue = SharedImportQueue(folder: drafts, finishedFolder: finished, enabled: true)
+    #expect(queue.pickUp(in: context) == 1)
+    let saved = try #require(try context.fetch(FetchDescriptor<RecipeRecord>()).first)
+    var draft = payload.recipeDraft
+    draft.photo = .remove
+    try RecipeSaver.save(draft, into: saved, context: context, index: SavedLinksIndex(folder: nil))
+    // The queue already holds a cover request, so its attachment path must check before fetching.
+    let fetcher = coverFetcher()
+    await queue.fetchCovers(into: context, using: fetcher)
+    #expect(fetcher.requests.isEmpty)
+    #expect(try recipes().first?.photo == nil)
+    // A fresh receiver must also respect the choice if the original payload is delivered again.
+    try FinishedInbox.add(payload, in: finished)
+    let restarted = SharedImportQueue(folder: drafts, finishedFolder: finished, enabled: true)
+    let restartedContext = ModelContext(container)
+    #expect(restarted.pickUp(in: restartedContext) == 0)
+    await restarted.fetchCovers(into: restartedContext, using: fetcher)
+    #expect(fetcher.requests.isEmpty)
+    #expect(try recipes().first?.photo == nil)
+  }
+
   @Test func aCoverThatCantBeHadLeavesNoThumbnailAndStillSaves() async throws {
     defer { tidy() }
     let fetcher = tacosFetcher(cover: .fail(.status(404)))

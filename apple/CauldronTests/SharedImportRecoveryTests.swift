@@ -160,17 +160,31 @@ struct SharedImportRecoveryTests {
     #expect(store.read(item.id)?.recipeDraft?.title == "Smoky black bean tacos")
   }
 
-  @Test(arguments: [false, true])
-  func unsupportedAndDamagedParsedDraftsRecoverTheirSourceAndKeepEvidence(unsupported: Bool)
+  @Test(arguments: ["envelope", "parsed", "draft", "damaged"])
+  func unsupportedAndDamagedParsedDraftsRecoverTheirSourceAndKeepEvidence(payload: String)
     async throws
   {
     let folder = try scratch()
     defer { try? FileManager.default.removeItem(at: folder) }
     let item = SharedItem(url: ImportFixtures.tacosLink, text: "Original text")
     var object = try #require(
-      JSONSerialization.jsonObject(with: JSONEncoder().encode(RetainedSharedDraft(item: item)))
+      JSONSerialization.jsonObject(
+        with: JSONEncoder().encode(RetainedSharedDraft(item: item, draft: RecipeDraft())))
         as? [String: Any])
-    if unsupported { object["version"] = 900 } else { object["parsed"] = "damaged recipe data" }
+    switch payload {
+    case "envelope": object["version"] = 900
+    case "parsed":
+      var parsed = try #require(object["parsed"] as? [String: Any])
+      parsed["version"] = 900
+      object["parsed"] = parsed
+    case "draft":
+      var parsed = try #require(object["parsed"] as? [String: Any])
+      var draft = try #require(parsed["draft"] as? [String: Any])
+      draft["version"] = 900
+      parsed["draft"] = draft
+      object["parsed"] = parsed
+    default: object["parsed"] = "damaged recipe data"
+    }
     let evidence = try JSONSerialization.data(withJSONObject: object)
     let file = folder.appending(path: "\(item.id.uuidString).json")
     try evidence.write(to: file)
@@ -178,6 +192,7 @@ struct SharedImportRecoveryTests {
       folder: folder.appending(path: "legacy"), retainedFolder: folder, enabled: true)
     queue.request(item.id)
     let session = try #require(queue.nextSession())
+    #expect(!session.isParsed)
     #expect(session.retained.item == item)
     #expect(session.retained.recoveryEvidence == evidence)
     #expect(try Data(contentsOf: file) == evidence)
@@ -189,6 +204,36 @@ struct SharedImportRecoveryTests {
     let resumed = try SharedDraftSession(id: item.id, store: session.store)
     #expect(resumed.draft.title == "Smoky black bean tacos")
     #expect(resumed.retained.recoveryEvidence == evidence)
+  }
+
+  @Test(arguments: [RetainedSharedDraft.Status.saved, .discarded])
+  func unsupportedNestedPayloadsKeepTerminalKnowledge(status: RetainedSharedDraft.Status) throws {
+    let folder = try scratch()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let store = RetainedSharedDraftStore(folder: folder)
+    for nestedDraft in [false, true] {
+      let item = SharedItem(url: ImportFixtures.tacosLink, text: "Original text")
+      var retained = RetainedSharedDraft(item: item, draft: RecipeDraft())
+      retained.status = status
+      if nestedDraft {
+        retained.parsed?.draft.version = KeptDraft.currentVersion + 1
+      } else {
+        retained.parsed?.version = FinishedRecipe.currentVersion + 1
+      }
+      let evidence = try JSONEncoder().encode(retained)
+      let file = folder.appending(path: "\(item.id.uuidString).json")
+      try evidence.write(to: file)
+      let queue = SharedImportQueue(
+        folder: folder.appending(path: "legacy"), retainedFolder: folder, enabled: true)
+      queue.request(item.id)
+      queue.pickUp()
+      #expect(queue.nextSession() == nil)
+      let recovered = try #require(store.read(item.id))
+      #expect(recovered.status == status)
+      #expect(recovered.item == item)
+      #expect(recovered.recoveryEvidence == evidence)
+      #expect(try Data(contentsOf: file) == evidence)
+    }
   }
 
   @Test func unreadableEvidenceOpensAnExplanationAndIsNeverConsumed() throws {
