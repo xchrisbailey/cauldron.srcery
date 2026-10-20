@@ -13,32 +13,36 @@ struct FlowLayout: Layout {
     in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
   ) {
     let arranged = arrange(in: bounds.width, subviews: subviews)
-    for (subview, origin) in zip(subviews, arranged.origins) {
+    for (subview, placement) in zip(subviews, arranged.placements) {
       subview.place(
-        at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), proposal: .unspecified)
+        at: CGPoint(x: bounds.minX + placement.origin.x, y: bounds.minY + placement.origin.y),
+        proposal: placement.proposal)
     }
   }
 
   private func arrange(in width: CGFloat, subviews: Subviews) -> (
-    origins: [CGPoint], size: CGSize
+    placements: [(origin: CGPoint, proposal: ProposedViewSize)], size: CGSize
   ) {
-    var origins: [CGPoint] = []
+    var placements: [(origin: CGPoint, proposal: ProposedViewSize)] = []
+    // A long item must wrap within a row. Use the same proposal when placing it so its
+    // drawn height agrees with the height reserved here for the next row.
+    let proposal = ProposedViewSize(width: width.isFinite ? max(0, width) : nil, height: nil)
     var x: CGFloat = 0
     var y: CGFloat = 0
     var rowHeight: CGFloat = 0
     var widest: CGFloat = 0
     for subview in subviews {
-      let size = subview.sizeThatFits(.unspecified)
+      let size = subview.sizeThatFits(proposal)
       if x > 0 && x + size.width > width {
         x = 0
         y += rowHeight + spacing
         rowHeight = 0
       }
-      origins.append(CGPoint(x: x, y: y))
+      placements.append((CGPoint(x: x, y: y), proposal))
       x += size.width + spacing
       rowHeight = max(rowHeight, size.height)
       widest = max(widest, x - spacing)
     }
-    return (origins, CGSize(width: widest, height: y + rowHeight))
+    return (placements, CGSize(width: widest, height: y + rowHeight))
   }
 }
