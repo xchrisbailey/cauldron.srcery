@@ -145,6 +145,10 @@ final class ShareSheetModel {
   private let closeDelay: Duration
   private let keyMissing: @MainActor () -> Bool
   private let close: @MainActor (Closing) -> Void
+  private let opener: any SharedDraftOpening
+  private(set) var isOpening = false
+  private(set) var openingResult: SharedDraftOpeningResult?
+  private var didClose = false
   /// Where the sheet ended, once it has: the import's own phase stands until then.
   private var outcome: Phase?
   private var started = false
@@ -165,7 +169,7 @@ final class ShareSheetModel {
     id: UUID = UUID(), now: @escaping @Sendable () -> Date = { .now },
     closeDelay: Duration = .milliseconds(1400),
     keyMissing: @escaping @MainActor () -> Bool = { false },
-    retainedFolder: URL? = nil,
+    retainedFolder: URL? = nil, opener: any SharedDraftOpening = ManualSharedDraftOpening(),
     close: @escaping @MainActor (Closing) -> Void
   ) {
     self.item = item
@@ -179,6 +183,7 @@ final class ShareSheetModel {
     self.closeDelay = closeDelay
     self.keyMissing = keyMissing
     self.close = close
+    self.opener = opener
   }
 
   /// The sheet as the extension runs it: the cook's chosen AI from the App Group's settings, the
@@ -196,7 +201,8 @@ final class ShareSheetModel {
     return ShareSheetModel(
       item: item, importer: importer, finishedFolder: FinishedInbox.folder(),
       inboxFolder: ShareInbox.folder(), keyMissing: { !ai.hasKey },
-      retainedFolder: RetainedSharedDraftStore.live().folder, close: close)
+      retainedFolder: RetainedSharedDraftStore.live().folder,
+      opener: ContainingAppDraftOpening(), close: close)
   }
 
   /// How long the sheet waits for the macro estimate before leaving it for the app. The app's
@@ -281,7 +287,7 @@ final class ShareSheetModel {
   /// Leaves the recipe for the app, then closes after a moment. The sheet closes only after
   /// the file is written; if it can't be written, the old path is offered instead.
   func save() {
-    guard outcome == nil, case .ready(let review) = phase else { return }
+    guard !didClose, outcome == nil, case .ready(let review) = phase else { return }
     saveAttempted = true
     guard review.canSave else { return }
     lastReview = review
@@ -300,7 +306,7 @@ final class ShareSheetModel {
   /// Leaves the link or text for the app to open as a draft (today's path), then closes after a
   /// moment. Edit in Cauldron is this, and so is the way out of every failure.
   func sendToCauldron() {
-    guard outcome != .saved, outcome != .sent else { return }
+    guard !didClose, outcome != .saved, outcome != .sent else { return }
     let review: Review?
     if case .ready(let ready) = phase { review = ready } else { review = lastReview }
     if let review {
@@ -332,25 +338,74 @@ final class ShareSheetModel {
         return
       }
     }
+    finishContinuationAfterKeeping()
+  }
+
+  /// Runs only after a successful durable handoff, while the extension is still alive.
+  private func finishContinuationAfterKeeping() {
     retainedFailure = nil
     importer.discard()
     outcome = .sent
-    closeSoon()
+    isOpening = retainedDraftID != nil
+    closing = Task {
+      guard !Task.isCancelled else { return }
+      if let id = retainedDraftID {
+        let result = await opener.open(id)
+        guard !Task.isCancelled else { return }
+        openingResult = result
+        isOpening = false
+        // Leave failure guidance visible until the cook has read it and chooses Done.
+        guard result != .failed else { return }
+      } else {
+        openingResult = .unsupported
+      }
+      await confirmAndClose()
+    }
+  }
+
+  var continuationDetail: CopyString {
+    if isOpening {
+      #if os(macOS)
+        return Copy.sharedOpening.opening
+      #else
+        return Copy.sharedDrafts.openToFinish
+      #endif
+    }
+    switch openingResult {
+    case .opened: return Copy.sharedOpening.opened
+    case .failed: return Copy.sharedOpening.couldntOpen
+    case .unsupported, nil: return Copy.sharedDrafts.openToFinish
+    }
+  }
+
+  /// The kept draft remains recoverable after an unsuccessful opening attempt.
+  func finishManualContinuation() {
+    guard outcome == .sent, openingResult == .failed, !isOpening else { return }
+    finishClosing(.done)
   }
 
   /// The cook backed out. Nothing is kept.
   func cancel() {
     closing?.cancel()
+    isOpening = false
     importer.discard()
-    close(.cancelled)
+    finishClosing(.cancelled)
   }
 
   private func closeSoon() {
-    closing = Task { [close, closeDelay] in
-      try? await Task.sleep(for: closeDelay)
-      guard !Task.isCancelled else { return }
-      close(.done)
-    }
+    closing = Task { await confirmAndClose() }
+  }
+
+  private func confirmAndClose() async {
+    try? await Task.sleep(for: closeDelay)
+    guard !Task.isCancelled else { return }
+    finishClosing(.done)
+  }
+
+  private func finishClosing(_ result: Closing) {
+    guard !didClose else { return }
+    didClose = true
+    close(result)
   }
 
   /// Waits for the sheet to close itself; for tests.

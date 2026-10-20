@@ -40,6 +40,9 @@ struct AppShell: View {
       if let link = AppLink(url: url) { open(link) }
     }
     #if os(macOS)
+      // Prefer this main window for routes. The main WindowGroup also accepts external
+      // events, so SwiftUI can create a window when all main windows have been closed.
+      .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
       .focusedSceneValue(\.navigationCommands, NavigationCommands { destination = $0 })
     #endif
   }
