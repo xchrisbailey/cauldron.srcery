@@ -24,8 +24,13 @@ struct RecipesRoot: View {
   @State private var banishing: RecipeRecord?
   /// Whether the editor is open on a new recipe.
   @State private var conjuring = false
-  /// Distill, while its sheet is open.
-  @State private var distilling: ImportModel?
+  private struct ImportPresentation: Identifiable {
+    let id = UUID()
+    let model: ImportModel
+  }
+
+  /// Distill, with a token owned by this particular presentation.
+  @State private var distilling: ImportPresentation?
   @State private var sharedSession: SharedDraftSession?
   @State private var sharedImportModel: ImportModel?
   @State private var presentedSharedID: UUID?
@@ -101,13 +106,19 @@ struct RecipesRoot: View {
           })
       }
     }
-    .sheet(item: $distilling, onDismiss: { sharing?.importOpen = false }) { model in
+    .sheet(item: $distilling) { presentation in
       ImportSheet(
-        model: model, waiting: sharing?.waiting ?? 0, onSaved: { open($0) },
+        model: presentation.model, waiting: sharing?.waiting ?? 0, onSaved: { open($0) },
         onOpenDuplicate: { id in
           distilling = nil
           if let existing = recipes.first(where: { $0.id == id }) { open(existing) }
-        })
+        }
+      )
+      .onAppear { sharing?.importOpened(presentation.id) }
+      .onDisappear { sharing?.importClosed(presentation.id) }
+    }
+    .onDisappear {
+      if let presentation = distilling { sharing?.importClosed(presentation.id) }
     }
     #if os(macOS)
       .focusedSceneValue(
@@ -413,9 +424,8 @@ extension RecipesRoot {
 
   /// Opens Distill on a clean form.
   private func startDistilling() {
-    guard distilling == nil else { return }
-    sharing?.importOpen = true
-    distilling = makeImportModel()
+    guard distilling == nil, sharedSession == nil else { return }
+    presentImport(makeImportModel())
   }
 
   /// Opens Distill running the next thing that was shared, if it may open now.
@@ -436,8 +446,13 @@ extension RecipesRoot {
     guard let route = sharing?.next() else { return }
     let model = makeImportModel()
     model.start(sharing: route)
-    sharing?.importOpen = true
-    distilling = model
+    presentImport(model)
+  }
+
+  private func presentImport(_ model: ImportModel) {
+    let presentation = ImportPresentation(model: model)
+    sharing?.importOpened(presentation.id)
+    distilling = presentation
   }
 
   private func sharedReview(_ session: SharedDraftSession) -> ImportReview {

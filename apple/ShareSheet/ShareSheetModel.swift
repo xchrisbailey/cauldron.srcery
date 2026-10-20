@@ -128,17 +128,25 @@ final class ShareSheetModel {
     return Self.editableFields.first { errors[$0] != nil }
   }
 
-  var hasReadOnlyErrors: Bool {
-    guard let draft = currentDraft else { return false }
-    let fields: Set<RecipeDraft.Field> = [
-      .summary, .totalMinutes, .calories, .protein, .carbs, .fat, .sourceURL, .notes, .tags,
-      .ingredientList, .stepList,
-    ]
-    let rows =
-      draft.ingredients.map { RecipeDraft.Field.ingredient($0.id) }
-      + draft.steps.map { RecipeDraft.Field.step($0.id) }
-    return !draft.validate().showing(fields.union(rows)).isEmpty
+  /// Read-only validation and its labels have one source for guidance and displayed problems.
+  var readOnlyProblems: [CopyString] {
+    guard let draft = currentDraft else { return [] }
+    let errors = draft.validate()
+    let fields: [(RecipeDraft.Field, CopyString)] =
+      [
+        (.summary, Copy.editor.description), (.totalMinutes, Copy.editor.totalMinutes),
+        (.calories, Copy.editor.macros), (.protein, Copy.editor.macros),
+        (.carbs, Copy.editor.macros), (.fat, Copy.editor.macros),
+        (.sourceURL, Copy.editor.sourceUrl), (.notes, Copy.editor.notes), (.tags, Copy.editor.tags),
+        (.ingredientList, Copy.editor.ingredients), (.stepList, Copy.editor.steps),
+      ] + draft.ingredients.map { (.ingredient($0.id), Copy.editor.ingredients) }
+      + draft.steps.map { (.step($0.id), Copy.editor.steps) }
+    return fields.compactMap { field, label in
+      errors[field].map { Copy.shareSheetFields.problem(label, $0) }
+    }
   }
+
+  var hasReadOnlyErrors: Bool { !readOnlyProblems.isEmpty }
 
   private(set) var retainedFailure: Notice?
   private let now: @Sendable () -> Date
@@ -309,34 +317,19 @@ final class ShareSheetModel {
     guard !didClose, outcome != .saved, outcome != .sent else { return }
     let review: Review?
     if case .ready(let ready) = phase { review = ready } else { review = lastReview }
-    if let review {
-      do {
-        if let folder = retainedStore.folder {
-          try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        }
-        let retained = RetainedSharedDraft(
-          item: item, draft: currentDraft ?? review.draft, coverLink: review.coverLink)
-        if retainedStore.read(item.id) == nil { try retainedStore.write(retained) }
-        retainedDraftID = item.id
-      } catch {
-        retainedFailure = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
-        return
+    let retained = RetainedSharedDraft(
+      item: item, draft: review.map { currentDraft ?? $0.draft }, coverLink: review?.coverLink)
+    do {
+      if let folder = retainedStore.folder {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
       }
-    } else {
-      do {
-        if let folder = retainedStore.folder {
-          try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        }
-        if retainedStore.read(item.id) == nil {
-          try retainedStore.write(RetainedSharedDraft(item: item))
-        }
-        retainedDraftID = item.id
-      } catch {
-        let notice = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
-        retainedFailure = notice
-        outcome = .failed(notice)
-        return
-      }
+      if retainedStore.read(item.id) == nil { try retainedStore.write(retained) }
+      retainedDraftID = item.id
+    } catch {
+      let notice = Notice(message: Copy.sharedDrafts.couldntKeep, canSend: true)
+      retainedFailure = notice
+      if review == nil { outcome = .failed(notice) }
+      return
     }
     finishContinuationAfterKeeping()
   }

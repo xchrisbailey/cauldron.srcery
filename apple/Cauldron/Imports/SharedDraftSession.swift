@@ -72,14 +72,9 @@ final class SharedDraftSession: Identifiable {
     }
     guard retained.status == .editing else { throw Failure.unavailable }
     try checkpoint(draft)
-    do {
-      let recipe = try RecipeSaver.save(draft, into: nil, context: context, id: id, index: index)
-      finish()
-      return recipe
-    } catch {
-      context.rollback()
-      throw error
-    }
+    let recipe = try RecipeSaver.save(draft, into: nil, context: context, id: id, index: index)
+    finish()
+    return recipe
   }
 
   private func finish() {

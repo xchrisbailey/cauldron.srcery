@@ -53,7 +53,12 @@ enum RecipeSaver {
 
     recipe.refreshSearchText()
     recipe.updatedAt = now
-    try context.save()
+    do {
+      try context.save()
+    } catch {
+      context.rollback()
+      throw error
+    }
     index.rewrite(from: context)
     return recipe
   }
@@ -138,9 +143,11 @@ enum RecipeSaver {
     case .keep:
       break
     case .remove:
+      recipe.coverDeclined = true
       if let photo = recipe.photo { context.delete(photo) }
       recipe.photo = nil
     case .replace(let processed):
+      recipe.coverDeclined = false
       let photo = recipe.photo ?? PhotoRecord(imageData: nil, width: 0, height: 0)
       photo.imageData = processed.data
       photo.width = processed.width

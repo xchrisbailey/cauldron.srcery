@@ -84,7 +84,10 @@ struct RetainedSharedDraftStore {
       let data = try? Data(contentsOf: folder.appending(path: "\(id.uuidString).json"))
     else { return nil }
     if let draft = try? JSONDecoder().decode(RetainedSharedDraft.self, from: data),
-      draft.id == id, draft.item.id == id, draft.version == 1
+      draft.id == id, draft.item.id == id, draft.version == 1,
+      draft.parsed.map({
+        $0.version == FinishedRecipe.currentVersion && $0.draft.version == KeptDraft.currentVersion
+      }) ?? true
     {
       return draft
     }

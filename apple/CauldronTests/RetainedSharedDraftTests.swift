@@ -89,6 +89,38 @@ struct RetainedSharedDraftTests {
     #expect(store.read(second.id)?.recipeDraft?.title == "Second")
   }
 
+  @Test func aSharedDraftWaitsUntilBothWindowsCloseTheirOrdinaryImports() throws {
+    let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let store = RetainedSharedDraftStore(folder: folder)
+    var draft = RecipeDraft()
+    draft.title = "Soup"
+    let item = RetainedSharedDraft(item: SharedItem(text: "Soup"), draft: draft)
+    try store.write(item)
+    let queue = SharedImportQueue(
+      folder: folder.appending(path: "legacy"), retainedFolder: folder, enabled: true)
+    let first = UUID()
+    let second = UUID()
+    queue.importOpened(first)
+    queue.importOpened(second)
+    queue.request(item.id)
+    queue.importClosed(first)
+    queue.importClosed(first)
+    queue.importClosed(UUID())
+    #expect(!queue.readyToOpen)
+    #expect(queue.nextSession() == nil)
+    queue.importClosed(second)
+    let session = try #require(queue.nextSession())
+    #expect(session.id == item.id)
+    queue.closedSession(item.id)
+    // A delayed close for an earlier shared presentation cannot release a new ordinary import.
+    queue.importOpened(UUID())
+    queue.request(item.id)
+    queue.closedSession(item.id)
+    #expect(queue.nextSession() == nil)
+  }
+
   @Test func discardedAndAlreadySavedDraftsDoNotResurrectAfterDelayedRoutes() throws {
     let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -228,9 +260,10 @@ struct RetainedSharedDraftTests {
     let container = try CauldronStore.container(.inMemory)
     let context = ModelContext(container)
     let saved = try session.save(draft, in: context, index: SavedLinksIndex(folder: nil))
+    let attachedAt = Date(timeIntervalSince1970: 1234)
     let queue = SharedImportQueue(
       folder: folder.appending(path: "legacy"), finishedFolder: folder.appending(path: "finished"),
-      retainedFolder: folder, enabled: true)
+      retainedFolder: folder, enabled: true, now: { attachedAt })
     let fetcher = ScriptedFetcher([link: .hold])
     let cancelled = Task { await queue.fetchCovers(into: context, using: fetcher) }
     while fetcher.startedCount == 0 { await Task.yield() }
@@ -242,11 +275,54 @@ struct RetainedSharedDraftTests {
     await queue.fetchCovers(into: context, using: fetcher)
     #expect(saved.photo?.width == 100)
     #expect(saved.photo?.height == 50)
+    #expect(saved.updatedAt == attachedAt)
     #expect(fetcher.requests.count == 2)
     #expect(fetcher.requests.last?.url == link)
     await queue.fetchCovers(into: context, using: fetcher)
     #expect(fetcher.requests.count == 2)
     #expect(store.read(item.id)?.status == .saved)
+  }
+
+  @Test(arguments: [false, true])
+  func removingAPhotoWhileItsCoverIsFetchingWins(finishedPayload: Bool) async throws {
+    let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let container = try CauldronStore.container(.inMemory)
+    let context = ModelContext(container)
+    var draft = RecipeDraft()
+    draft.title = "Soup"
+    draft.ingredients = [.line("2 carrots")]
+    draft.setStepText(draft.steps[0].id, "Boil.")
+    let link = "https://cook.example/soup.png"
+    let item = RetainedSharedDraft(item: SharedItem(text: "Soup"), draft: draft, coverLink: link)
+    let store = RetainedSharedDraftStore(folder: folder)
+    let queue = SharedImportQueue(
+      folder: folder.appending(path: "legacy"), finishedFolder: folder,
+      retainedFolder: finishedPayload ? folder.appending(path: "retained") : folder, enabled: true)
+    let saved: RecipeRecord
+    if finishedPayload {
+      try FinishedInbox.add(FinishedRecipe(draft: draft, id: item.id, coverLink: link), in: folder)
+      #expect(queue.pickUp(in: context) == 1)
+      saved = try #require(context.fetch(FetchDescriptor<RecipeRecord>()).first)
+    } else {
+      try store.write(item)
+      saved = try SharedDraftSession(id: item.id, store: store).save(
+        draft, in: context, index: SavedLinksIndex(folder: nil))
+    }
+    let fetcher = EditingCoverFetcher(
+      editing: {
+        var edited = RecipeDraft(saved)
+        edited.photo = .remove
+        do {
+          try RecipeSaver.save(
+            edited, into: saved, context: context, index: SavedLinksIndex(folder: nil))
+        } catch { Issue.record(error) }
+      }, bytes: ImportFixtures.imageData(100, 50))
+    await queue.fetchCovers(into: context, using: fetcher)
+    #expect(saved.photo == nil)
+    let restarted = ModelContext(container)
+    #expect(try restarted.fetch(FetchDescriptor<RecipeRecord>()).first?.photo == nil)
   }
 
   @Test(arguments: [false, true])
@@ -266,9 +342,6 @@ struct RetainedSharedDraftTests {
     let context = ModelContext(container)
     let saved = try SharedDraftSession(id: item.id, store: store).save(
       draft, in: context, index: SavedLinksIndex(folder: nil))
-    let queue = SharedImportQueue(
-      folder: folder.appending(path: "legacy"), finishedFolder: folder.appending(path: "finished"),
-      retainedFolder: folder, enabled: true)
     // An invalid ordinary-editor save does not cancel the still-pending imported cover.
     var invalid = draft
     invalid.title = ""
@@ -276,35 +349,29 @@ struct RetainedSharedDraftTests {
     do {
       try RecipeSaver.save(
         invalid, into: saved, context: context, index: SavedLinksIndex(folder: nil))
-      try queue.photoChanged(saved.id)
       Issue.record("An invalid draft must not save")
     } catch RecipeSaver.Failure.invalid {}
     #expect(store.read(item.id)?.parsed?.coverLink == link)
-    // Only a successful recipe save is followed by durable cancellation, before UI success.
+    // Commit the photo choice while retained metadata cannot be updated, then restart before
+    // repairing metadata. The recipe save must contain the durable choice itself.
+    try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path())
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: folder.path())
+    }
     draft.photo =
       replace ? .replace(ProcessedPhoto(data: Data([4, 5, 6]), width: 2, height: 3)) : .remove
     try RecipeSaver.save(draft, into: saved, context: context, index: SavedLinksIndex(folder: nil))
-    if !replace {
-      try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path())
-      defer {
-        try? FileManager.default.setAttributes(
-          [.posixPermissions: 0o755], ofItemAtPath: folder.path())
-      }
-      #expect(throws: (any Error).self) { try queue.photoChanged(saved.id) }
-      let delayed = ScriptedFetcher([link: .image(ImportFixtures.imageData(100, 50))])
-      await queue.fetchCovers(into: context, using: delayed)
-      #expect(delayed.requests.isEmpty)
-      #expect(saved.photo == nil)
-      try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path())
-    }
-    try queue.photoChanged(saved.id)
+    let restartedContext = ModelContext(container)
+    let restarted = try #require(
+      restartedContext.fetch(FetchDescriptor<RecipeRecord>()).first)
     let recovered = SharedImportQueue(
       folder: folder.appending(path: "legacy"), finishedFolder: folder.appending(path: "finished"),
       retainedFolder: folder, enabled: true)
     let fetcher = ScriptedFetcher([link: .image(ImportFixtures.imageData(100, 50))])
-    await recovered.fetchCovers(into: context, using: fetcher)
+    await recovered.fetchCovers(into: restartedContext, using: fetcher)
     #expect(fetcher.requests.isEmpty)
-    #expect(saved.photo?.width == (replace ? 2 : nil))
+    #expect(restarted.photo?.width == (replace ? 2 : nil))
     #expect(store.read(item.id)?.status == .saved)
   }
 
