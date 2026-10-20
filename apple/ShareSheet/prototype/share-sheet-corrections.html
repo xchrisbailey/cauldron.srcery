@@ -1,0 +1,146 @@
+<!-- Throwaway prototype: compare four always-visible fields, tap-to-edit summary, and a disclosure form. No app data is written. -->
+<style>
+#cauldron-share-designs { --cs-base:light-dark(#eff1f5,#1e1e2e); --cs-panel:light-dark(#e6e9ef,#313244); --cs-text:light-dark(#4c4f69,#cdd6f4); --cs-muted:light-dark(#5c5f77,#bac2de); --cs-line:light-dark(#bcc0cc,#585b70); --cs-magic:light-dark(#7287fd,#b4befe); --cs-onmagic:light-dark(#11111b,#11111b); --cs-error:light-dark(#b51b46,#f38ba8); color:var(--cs-text);font-family:Geist,-apple-system,BlinkMacSystemFont,sans-serif; }
+#cauldron-share-designs .cs-tools {display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px;}
+#cauldron-share-designs .cs-tools label {display:flex;gap:8px;align-items:center;}
+#cauldron-share-designs .cs-tools select {font:inherit;color:var(--cs-text);background:var(--cs-base);border:1px solid var(--cs-line);border-radius:8px;padding:7px;}
+#cauldron-share-designs .cs-stage {min-height:650px;display:flex;align-items:flex-start;justify-content:center;padding:16px 0;}
+#cauldron-share-designs .cs-product {box-sizing:border-box;width:min(380px,100%);height:600px;display:flex;flex-direction:column;background:var(--cs-base);border:1px solid var(--cs-line);border-radius:20px;overflow:hidden;}
+#cauldron-share-designs[data-platform="Mac"] .cs-product {height:520px;border-radius:12px;}
+#cauldron-share-designs .cs-chrome {display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--cs-line);font-weight:500;}
+#cauldron-share-designs button {font:inherit;cursor:inherit;}
+#cauldron-share-designs .cs-quiet {background:transparent;color:var(--cs-text);border:0;padding:7px 0;text-align:left;}
+#cauldron-share-designs .cs-scroll {padding:18px;overflow:auto;flex:1;min-height:0;}
+#cauldron-share-designs .cs-footer {padding:12px 18px 16px;border-top:1px solid var(--cs-line);display:grid;gap:7px;}
+#cauldron-share-designs .cs-save {border:0;border-radius:10px;background:var(--cs-magic);color:var(--cs-onmagic);padding:12px;font-weight:500;width:100%;}
+#cauldron-share-designs .cs-continue {border:0;background:transparent;color:var(--cs-text);padding:8px;text-align:center;}
+#cauldron-share-designs .cs-minor {color:var(--cs-muted);font-size:13px;line-height:1.45;}
+#cauldron-share-designs .cs-source {margin:0 0 16px;color:var(--cs-muted);font-size:13px;}
+#cauldron-share-designs .cs-field {display:grid;gap:5px;min-width:0;margin-bottom:12px;}
+#cauldron-share-designs .cs-field label {font-size:13px;font-weight:500;}
+#cauldron-share-designs .cs-input {box-sizing:border-box;width:100%;min-width:0;font:inherit;font-size:16px;padding:10px;border:1px solid var(--cs-line);border-radius:8px;background:var(--cs-panel);color:var(--cs-text);}
+#cauldron-share-designs .cs-input[aria-invalid="true"] {border-color:var(--cs-error);}
+#cauldron-share-designs .cs-number {font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+#cauldron-share-designs .cs-times {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+#cauldron-share-designs .cs-error {color:var(--cs-error);font-size:13px;min-height:0;}
+#cauldron-share-designs .cs-error:empty {display:none;}
+#cauldron-share-designs .cs-title {font-size:22px;line-height:1.25;font-weight:500;margin:0 0 5px;overflow-wrap:anywhere;}
+#cauldron-share-designs .cs-tap {display:flex;justify-content:space-between;gap:14px;width:100%;border:0;border-bottom:1px solid var(--cs-line);background:transparent;color:var(--cs-text);padding:13px 0;text-align:left;}
+#cauldron-share-designs .cs-tap span:last-child {color:var(--cs-muted);text-align:right;}
+#cauldron-share-designs details {border-top:1px solid var(--cs-line);padding:12px 0;}
+#cauldron-share-designs summary {font-weight:500;cursor:inherit;}
+#cauldron-share-designs details p {color:var(--cs-muted);font-size:14px;line-height:1.5;margin-bottom:0;}
+#cauldron-share-designs .cs-expand {margin-top:14px;}
+#cauldron-share-designs .cs-expand[open] summary {margin-bottom:14px;}
+#cauldron-share-designs .cs-recap {display:flex;gap:12px;flex-wrap:wrap;margin:16px 0;font-family:"Geist Mono",ui-monospace,monospace;font-size:13px;}
+#cauldron-share-designs .cs-result {margin-top:12px;font-size:14px;line-height:1.5;}
+#cauldron-share-designs .cs-result:empty {display:none;}
+#cauldron-share-designs .cs-state {margin:8px auto 0;max-width:380px;font-size:13px;color:var(--cs-muted);}
+#cauldron-share-designs [hidden] {display:none!important;}
+@media (pointer:coarse) {#cauldron-share-designs button,#cauldron-share-designs summary {min-height:44px;} }
+</style>
+<div id="cauldron-share-designs" data-platform="iPhone">
+  <div class="cs-tools">
+    <label>Platform <select aria-label="Platform"><option>iPhone</option><option>Mac</option></select></label>
+    <label>Recipe <select aria-label="Recipe example"><option value="missing">Missing title</option><option value="complete">Complete details</option></select></label>
+  </div>
+  <div class="viz-carousel viz-dotted-background" aria-label="Share-sheet editing designs">
+    <section data-variant="Visible fields" aria-label="Visible fields design"><div class="cs-stage"><div class="cs-product" data-design="visible" aria-label="Cauldron share sheet"></div></div></section>
+    <section data-variant="Tap to correct" aria-label="Tap to correct design" hidden><div class="cs-stage"><div class="cs-product" data-design="tap" aria-label="Cauldron share sheet"></div></div></section>
+    <section data-variant="Details drawer" aria-label="Details drawer design" hidden><div class="cs-stage"><div class="cs-product" data-design="drawer" aria-label="Cauldron share sheet"></div></div></section>
+  </div>
+  <div class="cs-state" aria-live="polite"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('cauldron-share-designs');
+  const fieldNames = ['title','servings','prep','cook'];
+  const labels = {title:'Recipe title',servings:'Servings',prep:'Prep time (min)',cook:'Cook time (min)'};
+  let state = {platform:'iPhone',title:'',servings:'4',prep:'15',cook:'25'};
+  let touched = new Set(['title']);
+  let lastAction = '';
+  const saved = window.openai?.widgetState?.privateContent;
+  if (saved && typeof saved === 'object') for (const key of ['platform',...fieldNames]) if(typeof saved[key] === 'string') state[key] = saved[key];
+  const saveState = () => {
+    const result = window.openai?.setWidgetState?.({modelContent:{platform:state.platform,fields:Object.fromEntries(fieldNames.map(k=>[k,state[k]])),lastAction},privateContent:state});
+    if(result?.catch) result.catch(()=>{});
+  };
+  function error(key) {
+    const value=state[key].trim();
+    if(key==='title') return !value ? 'Add a title to save.' : value.length>200 ? 'Use 200 characters or fewer.' : '';
+    if(!value) return '';
+    const n=Number(value), min=key==='servings'?1:0, max=key==='servings'?1000:20160;
+    return !Number.isFinite(n)||!Number.isInteger(n)||n<min||n>max ? `Use a whole number from ${min} to ${max}.` : '';
+  }
+  function field(key,design) {
+    const id=`cs-${design}-${key}`;
+    return `<div class="cs-field" data-field="${key}"><label for="${id}">${labels[key]}</label><input class="cs-input ${key==='title'?'':'cs-number'}" id="${id}" data-key="${key}" type="text" ${key==='title'?'autocomplete="off"':'inputmode="numeric"'} placeholder="${key==='title'?'Add recipe title':'Not specified'}" aria-describedby="${id}-error"><span class="cs-error" id="${id}-error" data-error="${key}"></span></div>`;
+  }
+  const form = design => field('title',design)+field('servings',design)+`<div class="cs-times">${field('prep',design)}${field('cook',design)}</div>`;
+  const folded = `<details><summary>8 ingredients</summary><p>Chickpeas, lemon, tahini, garlic, olive oil, cumin, salt, parsley.</p></details><details><summary>4 steps</summary><p>Drain the chickpeas. Blend with tahini, lemon and garlic. Add olive oil and season. Finish with parsley.</p></details>`;
+  for (const product of root.querySelectorAll('.cs-product')) {
+    const design=product.dataset.design;
+    let content='';
+    if(design==='visible') content=`<p class="cs-source">Recipe from your shared link</p>${form(design)}${folded}`;
+    if(design==='tap') content=`<p class="cs-source">Recipe from your shared link</p>${fieldNames.map(key=>`<button class="cs-tap" data-edit="${key}" type="button"><span>${labels[key]}</span><span data-value="${key}"></span></button><div data-edit-slot="${key}" hidden>${field(key,design)}</div>`).join('')}<p class="cs-minor">Tap a detail to correct it.</p>${folded}`;
+    if(design==='drawer') content=`<h2 class="cs-title" data-title></h2><p class="cs-source">Recipe from your shared link</p><div class="cs-recap" data-recap></div><details class="cs-expand" open><summary>Recipe details <span class="cs-minor">· Edit</span></summary>${form(design)}</details>${folded}`;
+    product.innerHTML=`<header class="cs-chrome"><span>Cauldron</span><button type="button" class="cs-quiet" data-action="cancel">Cancel</button></header><div class="cs-scroll">${content}<div class="cs-result" role="status"></div></div><footer class="cs-footer"><button type="button" class="cs-save" data-action="save">Save recipe</button><button type="button" class="cs-continue" data-action="continue"></button></footer>`;
+    product.addEventListener('input', event=>{
+      const key=event.target.dataset.key;if(!key)return;
+      state[key]=event.target.value;lastAction='Editing';
+      render();saveState();
+    });
+    product.addEventListener('focusout', event=>{const key=event.target.dataset.key;if(key){touched.add(key);render();}});
+    product.addEventListener('keydown',event=>{
+      if(event.key!=='Enter'||!event.target.dataset.key)return;
+      event.preventDefault();
+      const key=event.target.dataset.key; touched.add(key);
+      if(design==='tap') {product.querySelector(`[data-edit-slot="${key}"]`).hidden=true;product.querySelector(`[data-edit="${key}"]`).focus();}
+      else {const next=fieldNames[fieldNames.indexOf(key)+1];if(next)product.querySelector(`[data-key="${next}"]`).focus();else product.querySelector('[data-action="save"]').focus();}
+      render();
+    });
+    product.addEventListener('click',event=>{
+      const edit=event.target.closest('[data-edit]');
+      if(edit){const key=edit.dataset.edit,slot=product.querySelector(`[data-edit-slot="${key}"]`);slot.hidden=!slot.hidden;if(!slot.hidden)slot.querySelector('input').focus();return;}
+      const action=event.target.closest('[data-action]')?.dataset.action;
+      if(!action)return;
+      const result=product.querySelector('.cs-result');
+      if(action==='save'){
+        touched=new Set(fieldNames);render();
+        const invalid=fieldNames.find(key=>error(key));
+        if(invalid){
+          const slot=product.querySelector(`[data-edit-slot="${invalid}"]`);if(slot)slot.hidden=false;
+          const drawer=product.querySelector('.cs-expand');if(drawer)drawer.open=true;
+          product.querySelector(`[data-key="${invalid}"]`).focus();
+          result.textContent='Check the marked detail before saving.';lastAction='Save needs correction';
+        }else{result.textContent='Recipe saved with your corrections. (Preview only.)';lastAction='Saved';}
+      }
+      if(action==='continue') {result.textContent=state.platform==='iPhone'?'Draft kept with your corrections. Open Cauldron to finish editing. (Preview only.)':'Draft kept with your corrections. Cauldron would open this draft. (Preview only.)';lastAction='Continued';}
+      if(action==='cancel'){result.textContent='Share cancelled. Nothing handed off. (Preview only.)';lastAction='Cancelled';}
+      render();saveState();
+    });
+  }
+  function render() {
+    root.dataset.platform=state.platform;
+    root.querySelector('[aria-label="Platform"]').value=state.platform;
+    root.querySelectorAll('[data-key]').forEach(input=>{
+      const key=input.dataset.key;
+      if(input!==document.activeElement)input.value=state[key];
+      input.setAttribute('aria-invalid',String(touched.has(key)&&Boolean(error(key))));
+    });
+    root.querySelectorAll('[data-error]').forEach(el=>{el.textContent=touched.has(el.dataset.error)?error(el.dataset.error):'';});
+    root.querySelectorAll('[data-value]').forEach(el=>{const key=el.dataset.value;el.textContent=state[key].trim()||(key==='title'?'Add title':'Add');});
+    root.querySelectorAll('[data-title]').forEach(el=>{el.textContent=state.title.trim()||'Untitled recipe';});
+    root.querySelectorAll('[data-recap]').forEach(el=>{el.textContent=[state.servings.trim()?`${state.servings} servings`:'Servings not specified',state.prep.trim()?`${state.prep} min prep`:'Prep not specified',state.cook.trim()?`${state.cook} min cook`:'Cook not specified'].join(' · ');});
+    root.querySelectorAll('[data-action="continue"]').forEach(el=>{el.textContent=state.platform==='iPhone'?'Continue in Cauldron':'Edit in Cauldron';});
+    root.querySelector('.cs-state').textContent=`${fieldNames.some(key=>error(key))?'Needs correction to save':'Ready to save'} · ${lastAction||'Not handed off'}`;
+  }
+  root.querySelector('[aria-label="Platform"]').addEventListener('change',event=>{state.platform=event.target.value;render();saveState();});
+  root.querySelector('[aria-label="Recipe example"]').addEventListener('change',event=>{
+    state={platform:state.platform,title:event.target.value==='complete'?'Lemony chickpea dip':'',servings:'4',prep:'15',cook:'25'};touched=new Set(['title']);lastAction='';
+    root.querySelectorAll('.cs-result').forEach(el=>{el.textContent='';});render();saveState();
+  });
+  window.addEventListener('openai:set_globals',event=>{const next=event.detail?.globals?.widgetState?.privateContent;if(next&&typeof next==='object'){for(const key of ['platform',...fieldNames])if(typeof next[key]==='string')state[key]=next[key];render();}});
+  render();
+})();
+</script>
