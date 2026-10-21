@@ -419,7 +419,8 @@ struct IngredientLineView: View {
       unit.foregroundColor = Brand.Colors.overlay1
       result += unit
     }
-    if !result.characters.isEmpty { result += AttributedString(" ") }
+    // An en space separates the measurement from the ingredient without a fixed column.
+    if !result.characters.isEmpty { result += AttributedString("\u{2002}") }
     result += AttributedString(line.text)
     if line.optional {
       var optional = AttributedString(" (\(Copy.recipeView.optional.text))")
