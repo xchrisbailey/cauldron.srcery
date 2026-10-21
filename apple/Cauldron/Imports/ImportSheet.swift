@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 /// closes the lot and nothing has been stored.
 struct ImportSheet: View {
   let model: ImportModel
+  var shared: SharedDraftSession? = nil
   /// How many more shared items wait for this one to finish, shown at the foot of the sheet.
   var waiting = 0
   /// Called with the saved recipe, just before the sheet closes.
@@ -20,13 +21,16 @@ struct ImportSheet: View {
     Group {
       if case .ready(let review) = model.phase {
         RecipeEditorSheet(
-          recipe: nil, importing: review, onSaved: onSaved, onOpenDuplicate: onOpenDuplicate)
+          recipe: nil, importing: review, shared: shared, onSaved: onSaved,
+          onOpenDuplicate: onOpenDuplicate)
       } else {
-        ImportStartSheet(model: model)
+        ImportStartSheet(model: model, shared: shared)
       }
     }
     .safeAreaInset(edge: .bottom, spacing: 0) {
-      if waiting > 0 { SharedWaitingBadge(count: waiting) }
+      if waiting > 0 {
+        if case .ready = model.phase {} else { SharedWaitingBadge(count: waiting) }
+      }
     }
     // Closed any way at all, such as by a swipe: stop what is running.
     .onDisappear { model.discard() }
@@ -54,6 +58,9 @@ struct SharedWaitingBadge: View {
 /// The form, the wait and the failure: everything before there is a draft.
 struct ImportStartSheet: View {
   @Bindable var model: ImportModel
+  var shared: SharedDraftSession? = nil
+  @State private var confirmingDiscard = false
+  @State private var discardFailed = false
   @Environment(\.dismiss) private var dismiss
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @FocusState private var focus: Field?
@@ -83,7 +90,41 @@ struct ImportStartSheet: View {
               Text(verbatim: Copy.recipeView.cancel.text)
             }
           }
+          if shared != nil {
+            ToolbarItem(placement: .destructiveAction) {
+              Button(role: .destructive) {
+                confirmingDiscard = true
+              } label: {
+                Text(verbatim: Copy.sharedDrafts.discard.text)
+              }
+            }
+          }
         }
+    }
+    .confirmationDialog(
+      Copy.sharedDrafts.discardConfirm.text, isPresented: $confirmingDiscard,
+      titleVisibility: .visible
+    ) {
+      Button(role: .destructive) {
+        do {
+          try shared?.discard()
+          model.discard()
+          dismiss()
+        } catch { discardFailed = true }
+      } label: {
+        Text(verbatim: Copy.sharedDrafts.discard.text)
+      }
+    }
+    .safeAreaInset(edge: .top) {
+      if discardFailed {
+        Text(verbatim: Copy.sharedRetry.couldntDiscard.text)
+          .brandText(.control).foregroundStyle(Brand.Colors.heat).padding()
+      } else if let shared, shared.retained.recoveryEvidence != nil,
+        SharedImportRoute(shared.retained.item) != nil
+      {
+        Text(verbatim: Copy.sharedRetry.recovered.text)
+          .brandText(.control).foregroundStyle(Brand.Colors.subtext).padding()
+      }
     }
     .onChange(of: picked) { _, items in
       guard !items.isEmpty else { return }

@@ -41,6 +41,7 @@ extension AppLink {
   var destination: AppDestination {
     switch self {
     case .todayDiary: .tracker
+    case .sharedDraft: .recipes
     }
   }
 }

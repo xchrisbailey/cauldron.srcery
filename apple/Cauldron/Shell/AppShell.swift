@@ -1,4 +1,5 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
 /// The app's frame: a tab bar on iPhone, and a sidebar next to the section on a Mac or an iPad.
@@ -8,6 +9,7 @@ struct AppShell: View {
   /// Counts the links that asked for today's diary. The tracker is rebuilt on each, so it comes
   /// back to the diary on today whatever it was showing.
   @State private var trackerVisits = 0
+  @Environment(\.modelContext) private var context
   @Environment(SyncStatusModel.self) private var sync
   @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
   #if os(iOS)
@@ -22,7 +24,14 @@ struct AppShell: View {
         sidebar
       }
     }
-    .safeAreaInset(edge: .top, spacing: 0) { SyncBanner(status: sync.status) }
+    .safeAreaInset(edge: .top, spacing: 0) {
+      VStack {
+        SyncBanner(status: sync.status)
+        if let sharing, sharing.waiting > 0, !sharing.readyToOpen {
+          SharedWaitingBadge(count: sharing.waiting)
+        }
+      }
+    }
     .background(Brand.Colors.base.ignoresSafeArea())
     // Something shared to Cauldron opens its import in Recipes.
     .onChange(of: sharing?.readyToOpen ?? false, initial: true) { _, ready in
@@ -32,14 +41,21 @@ struct AppShell: View {
       if let link = AppLink(url: url) { open(link) }
     }
     #if os(macOS)
+      // Prefer this main window for routes. The main WindowGroup also accepts external
+      // events, so SwiftUI can create a window when all main windows have been closed.
+      .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
       .focusedSceneValue(\.navigationCommands, NavigationCommands { destination = $0 })
     #endif
   }
 
   /// Goes where a `cauldron://` link points.
   private func open(_ link: AppLink) {
-    destination = link.destination
-    trackerVisits += 1
+    switch link {
+    case .sharedDraft(let id): sharing?.request(id, in: context)
+    case .todayDiary:
+      destination = link.destination
+      trackerVisits += 1
+    }
   }
 
   private var usesTabBar: Bool {

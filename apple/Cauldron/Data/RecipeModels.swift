@@ -44,6 +44,9 @@ final class RecipeRecord {
   var createdAt: Date = Date.now
   var updatedAt: Date = Date.now
 
+  /// An explicit photo removal also declines a deferred imported cover.
+  var coverDeclined: Bool = false
+
   @Relationship(deleteRule: .cascade, inverse: \PhotoRecord.recipe)
   var photo: PhotoRecord?
   @Relationship(inverse: \TagRecord.recipes)

@@ -10,12 +10,14 @@ struct RecipeEditorSheet: View {
   /// For a draft from Distill: what was read, and the recipe already saved from the same link.
   /// Nothing is stored until the cook saves it, and leaving asks first.
   let importing: ImportReview?
+  let shared: SharedDraftSession?
   /// Called with the saved recipe, just before the sheet closes.
   var onSaved: (RecipeRecord) -> Void = { _ in }
   /// Opens the recipe already saved from the same link, instead of saving a second copy.
   var onOpenDuplicate: (UUID) -> Void = { _ in }
 
   @Environment(\.modelContext) private var context
+  @Environment(\.pageFetcher) private var fetcher
   @Environment(\.dismiss) private var dismiss
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
@@ -45,15 +47,16 @@ struct RecipeEditorSheet: View {
   @State private var divineMessage: CopyString?
 
   init(
-    recipe: RecipeRecord?, importing: ImportReview? = nil,
+    recipe: RecipeRecord?, importing: ImportReview? = nil, shared: SharedDraftSession? = nil,
     onSaved: @escaping (RecipeRecord) -> Void = { _ in },
     onOpenDuplicate: @escaping (UUID) -> Void = { _ in }
   ) {
     self.recipe = recipe
     self.importing = importing
+    self.shared = shared
     self.onSaved = onSaved
     self.onOpenDuplicate = onOpenDuplicate
-    let start = importing?.draft ?? recipe.map(RecipeDraft.init) ?? RecipeDraft()
+    let start = shared?.draft ?? importing?.draft ?? recipe.map(RecipeDraft.init) ?? RecipeDraft()
     // An import was never saved, so leaving it always asks first.
     initial = importing == nil ? start : RecipeDraft()
     _draft = State(initialValue: start)
@@ -61,11 +64,13 @@ struct RecipeEditorSheet: View {
 
   /// Only a new recipe typed from scratch is kept as a draft: an edit is saved or left, and an
   /// import is the sheet's own until it is saved.
-  private var keepsDraft: Bool { recipe == nil && importing == nil }
+  private var keepsDraft: Bool { recipe == nil && importing == nil && shared == nil }
 
   /// Leaving would lose something: an edit or an import not yet saved, or a new recipe that
   /// couldn't be kept.
-  private var isDirty: Bool { keepsDraft ? keptStatus == .failed : draft != initial }
+  private var isDirty: Bool {
+    shared != nil ? keptStatus == .failed : keepsDraft ? keptStatus == .failed : draft != initial
+  }
 
   private var keep: DraftKeep { DraftKeep(keeper: draftKeeper ?? DraftKeepers.shared) }
 
@@ -81,7 +86,9 @@ struct RecipeEditorSheet: View {
         draft: $draft, recipe: recipe, errors: shownErrors, showsSummary: triedToSave,
         couldntSave: couldntSave, divining: divining, divineMessage: divineMessage,
         onDivine: divine, focus: $focus,
-        keptNote: keepsDraft && keptStatus == .kept ? Copy.editor.draftKept : nil,
+        keptNote: shared != nil
+          ? (keptStatus == .failed ? Copy.sharedDrafts.couldntKeep : Copy.sharedDrafts.kept)
+          : keepsDraft && keptStatus == .kept ? Copy.editor.draftKept : nil,
         onStartOver: keepsDraft && (keptStatus == .kept || !draft.hasNothingToKeep)
           ? { confirmingStartOver = true } : nil,
         duplicate: importing?.duplicate,
@@ -101,10 +108,19 @@ struct RecipeEditorSheet: View {
         ToolbarItem(placement: .cancellationAction) {
           Button {
             // A kept draft is on this device already; one that couldn't be kept asks first.
-            if keepsDraft { keepDraft() }
+            if keepsDraft || shared != nil { keepDraft() }
             if isDirty { confirmingLeave = true } else { dismiss() }
           } label: {
             Text(verbatim: Copy.recipeView.cancel.text)
+          }
+        }
+        ToolbarItem(placement: .automatic) {
+          if shared != nil {
+            Button(role: .destructive) {
+              confirmingStartOver = true
+            } label: {
+              Text(verbatim: Copy.sharedDrafts.discard.text)
+            }
           }
         }
         ToolbarItem(placement: .confirmationAction) {
@@ -114,6 +130,9 @@ struct RecipeEditorSheet: View {
           .disabled(saveLatch.isSaving)
         }
       }
+    }
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      if let sharing, sharing.waiting > 0 { SharedWaitingBadge(count: sharing.waiting) }
     }
     .interactiveDismissDisabled(isDirty)
     .onAppear {
@@ -127,10 +146,14 @@ struct RecipeEditorSheet: View {
     // Kept a moment after the cook stops changing something, and as soon as the app leaves the
     // screen or the editor closes, so the last change isn't lost (`wait: 800` in the web editor).
     .task(id: draft) {
-      guard keepsDraft, restored, !finished else { return }
+      guard (keepsDraft && restored) || shared != nil, !finished else { return }
+      guard shared == nil else { return }
       try? await Task.sleep(for: .milliseconds(800))
       guard !Task.isCancelled else { return }
       keepDraft()
+    }
+    .onChange(of: draft) { _, _ in
+      if shared != nil { keepDraft() }
     }
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { keepDraft() }
@@ -155,20 +178,23 @@ struct RecipeEditorSheet: View {
       Text(verbatim: Copy.editor.leaveBody.text)
     }
     .confirmationDialog(
-      Text(verbatim: Copy.editor.startOver.text), isPresented: $confirmingStartOver,
+      Text(verbatim: shared != nil ? Copy.sharedDrafts.discard.text : Copy.editor.startOver.text),
+      isPresented: $confirmingStartOver,
       titleVisibility: .visible
     ) {
       Button(role: .destructive) {
         startOver()
       } label: {
-        Text(verbatim: Copy.editor.startOver.text)
+        Text(verbatim: shared != nil ? Copy.sharedDrafts.discard.text : Copy.editor.startOver.text)
       }
       Button(role: .cancel) {
       } label: {
         Text(verbatim: Copy.editor.stay.text)
       }
     } message: {
-      Text(verbatim: Copy.editor.startOverConfirm.text)
+      Text(
+        verbatim: shared != nil
+          ? Copy.sharedDrafts.discardConfirm.text : Copy.editor.startOverConfirm.text)
     }
     #if os(macOS)
       .frame(minWidth: 560, idealWidth: 640, minHeight: 640, idealHeight: 760)
@@ -187,12 +213,20 @@ struct RecipeEditorSheet: View {
 
   /// Writes the draft down now, or clears it when it is empty again.
   private func keepDraft() {
-    guard keepsDraft, restored, !finished else { return }
-    keptStatus = keep.keep(draft)
+    guard (keepsDraft && restored) || shared != nil, !finished else { return }
+    if let shared {
+      do { try shared.checkpoint(draft); keptStatus = .kept } catch { keptStatus = .failed }
+    } else {
+      keptStatus = keep.keep(draft)
+    }
   }
 
   /// Drops the kept draft and the form with it.
   private func startOver() {
+    if let shared {
+      do { try shared.discard(); finished = true; dismiss() } catch { keptStatus = .failed }
+      return
+    }
     keep.clear()
     keptStatus = .idle
     touched = []
@@ -225,7 +259,12 @@ struct RecipeEditorSheet: View {
     guard saveLatch.begin() else { return }
     couldntSave = false
     do {
-      let saved = try RecipeSaver.save(draft, into: recipe, context: context)
+      let saved: RecipeRecord
+      if let shared {
+        saved = try shared.save(draft, in: context); finished = true
+      } else {
+        saved = try RecipeSaver.save(draft, into: recipe, context: context)
+      }
       // Saved, so the draft is not needed, and the editor's last write must not bring it back.
       if keepsDraft {
         finished = true
@@ -236,6 +275,11 @@ struct RecipeEditorSheet: View {
       if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {
         let context = context
         Task { await AIQueueRunner.drain(in: context, using: ai.estimator) }
+      }
+      if shared != nil, let sharing {
+        let context = context
+        let fetcher = fetcher
+        Task { await sharing.fetchCovers(into: context, using: fetcher) }
       }
       onSaved(saved)
       dismiss()

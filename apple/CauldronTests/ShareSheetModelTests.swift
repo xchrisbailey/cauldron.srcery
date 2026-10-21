@@ -240,12 +240,12 @@ struct ShareSheetModelTests {
     #expect(closings.all.isEmpty)
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.tacosLink])
+    #expect(sheet.retainedStore.read(tacos.id)?.item.url == ImportFixtures.tacosLink)
   }
 
   // MARK: Edit in Cauldron, failures and Cancel
 
-  @Test func editInCauldronLeavesTheLinkForADraftAndNoRecipe() async throws {
+  @Test func editInCauldronRetainsTheParsedDraftAndNoRecipe() async throws {
     defer { tidy() }
     let closings = Closings()
     let sheet = sheet(tacos, fetcher: tacosFetcher, closings: closings)
@@ -258,7 +258,7 @@ struct ShareSheetModelTests {
     await sheet.closed()
     #expect(closings.all == [.done])
     #expect(closings.filesAtClose.first?.drafts == 1)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.tacosLink])
+    #expect(sheet.retainedStore.read(tacos.id)?.item.url == ImportFixtures.tacosLink)
   }
 
   @Test func aPageThatCantBeReadOffersToSendItInstead() async throws {
@@ -277,7 +277,7 @@ struct ShareSheetModelTests {
     #expect(!notice.message.text.isEmpty)
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == ["https://down.example/a"])
+    #expect(sheet.retainedStore.all().map(\.item.url) == ["https://down.example/a"])
   }
 
   @Test func withNoKeyAndNoModelAPageThatNeedsOneOffersToSendItInstead() async throws {
@@ -299,10 +299,10 @@ struct ShareSheetModelTests {
     }
     #expect(notice.canSend)
     sheet.sendToCauldron()
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.soupLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.soupLink])
   }
 
-  @Test func whenNothingCanBeLeftForTheAppTheSheetSaysSoAndOffersNoMoreSending() async throws {
+  @Test func whenNothingCanBeLeftForTheAppTheSheetOffersRetry() async throws {
     defer { tidy() }
     let sheet = ShareSheetModel(
       item: tacos,
@@ -311,7 +311,7 @@ struct ShareSheetModelTests {
         options: ImportFixtures.quick),
       finishedFolder: nil, inboxFolder: nil, closeDelay: .milliseconds(1), close: { _ in })
     sheet.sendToCauldron()
-    #expect(sheet.phase == .failed(.init(message: Copy.importNative.couldntSend, canSend: false)))
+    #expect(sheet.phase == .failed(.init(message: Copy.sharedDrafts.couldntKeep, canSend: true)))
   }
 
   @Test func cancelClosesWithNothingLeftBehind() async throws {
@@ -361,7 +361,11 @@ struct ShareSheetModelTests {
     // No total given: prep plus cook.
     #expect(review.minutes == 20)
     #expect(!review.rough)
-    #expect(review.editLabel == Copy.importNative.fixInCauldron)
+    #if os(iOS)
+      #expect(review.editLabel == Copy.sharedDrafts.continueInCauldron)
+    #else
+      #expect(review.editLabel == Copy.importNative.editInCauldron)
+    #endif
   }
 
   @Test func aCleanRecipeHasNoLinesToCheckAndOffersEdit() async throws {
@@ -372,7 +376,11 @@ struct ShareSheetModelTests {
 
     let review = try ready(sheet)
     #expect(review.linesToCheck == 0)
-    #expect(review.editLabel == Copy.importNative.editInCauldron)
+    #if os(iOS)
+      #expect(review.editLabel == Copy.sharedDrafts.continueInCauldron)
+    #else
+      #expect(review.editLabel == Copy.importNative.editInCauldron)
+    #endif
     // Prep 15 and cook 20 on the page.
     #expect(review.minutes == 35)
     #expect(review.servings == 4)
@@ -388,9 +396,10 @@ struct ShareSheetModelTests {
 
     #expect(sheet.phase == .sent)
     #expect(files(in: finished).isEmpty)
-    let kept = ShareInbox.takeAll(from: drafts)
-    #expect(kept.map(\.url) == [post])
-    #expect(kept.map(\.text) == ["Hot honey halloumi: fry it, drizzle it."])
+    let kept = try #require(sheet.retainedStore.read(item.id))
+    #expect(kept.item.url == post)
+    #expect(kept.item.text == "Hot honey halloumi: fry it, drizzle it.")
+    #expect(kept.recipeDraft?.title == "Hot honey halloumi")
   }
 
   @Test func theOnDeviceFallbackIsMarkedRoughAndStaysRoughWhenSaved() async throws {
@@ -424,7 +433,7 @@ struct ShareSheetModelTests {
         == .failed(.init(message: Copy.importNative.noAIKey, canSend: true, kind: .noKey)))
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.soupLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.soupLink])
   }
 
   @Test func anUnreadablePageIsNotBlamedOnAMissingKey() async throws {
@@ -518,7 +527,7 @@ struct ShareSheetModelTests {
     #expect(fetcher.requests.isEmpty)
     sheet.sendToCauldron()
     #expect(sheet.phase == .sent)
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [link])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [link])
   }
 
   @Test func aReadThatEndsCancelledWithoutTheCookCancellingEndsInTheFailedNotice() async throws {
@@ -538,7 +547,7 @@ struct ShareSheetModelTests {
     #expect(notice.kind == .unreadable)
     #expect(closings.all.isEmpty)
     sheet.sendToCauldron()
-    #expect(ShareInbox.takeAll(from: drafts).map(\.url) == [ImportFixtures.tacosLink])
+    #expect(sheet.retainedStore.all().map(\.item.url) == [ImportFixtures.tacosLink])
   }
 
   @Test func aRecipeFromThePageNeedsNoKey() async throws {
