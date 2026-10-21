@@ -386,37 +386,47 @@ struct RecipeDetailView: View {
   }
 }
 
-/// An ingredient line: the amount in Geist Mono with its unit, then the item.
+/// A flowing ingredient line, with the amount and unit kept together in Geist Mono.
 struct IngredientLineView: View {
   let line: IngredientRow.Line
   /// Ticked off: struck through and quieter.
   var done = false
-  @ScaledMetric private var amountWidth: CGFloat = 84
+  @ScaledMetric(relativeTo: .footnote) private var quantitySize: CGFloat = 13
 
   var body: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 10) {
-      Group {
-        if let amount = line.amount {
-          QuantityText(amount, unit: line.unit)
-        } else {
-          Color.clear.frame(height: 1)
-        }
-      }
-      .frame(width: amountWidth, alignment: .trailing)
-      HStack(spacing: 4) {
-        Text(verbatim: line.text)
-        if line.optional {
-          Text(verbatim: "(\(Copy.recipeView.optional.text))")
-            .foregroundStyle(Brand.Colors.subtext)
-        }
-      }
+    Text(attributed)
       .brandText(.body)
-      Spacer(minLength: 0)
+      .multilineTextAlignment(.leading)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .fixedSize(horizontal: false, vertical: true)
+      .strikethrough(done)
+      .foregroundStyle(done ? AnyShapeStyle(Brand.Colors.overlay1) : AnyShapeStyle(.foreground))
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(verbatim: spoken))
+  }
+
+  private var attributed: AttributedString {
+    var result = AttributedString()
+    if let amount = line.amount {
+      var value = AttributedString(amount)
+      value.font = .brand(.quantity, size: quantitySize)
+      result += value
     }
-    .strikethrough(done)
-    .foregroundStyle(done ? AnyShapeStyle(Brand.Colors.overlay1) : AnyShapeStyle(.foreground))
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text(verbatim: spoken))
+    if let unit = line.unit {
+      if !result.characters.isEmpty { result += AttributedString("\u{00a0}") }
+      var unit = AttributedString(unit)
+      unit.font = .brand(.unit, size: quantitySize)
+      unit.foregroundColor = Brand.Colors.overlay1
+      result += unit
+    }
+    if !result.characters.isEmpty { result += AttributedString(" ") }
+    result += AttributedString(line.text)
+    if line.optional {
+      var optional = AttributedString(" (\(Copy.recipeView.optional.text))")
+      optional.foregroundColor = done ? Brand.Colors.overlay1 : Brand.Colors.subtext
+      result += optional
+    }
+    return result
   }
 
   private var spoken: String {
