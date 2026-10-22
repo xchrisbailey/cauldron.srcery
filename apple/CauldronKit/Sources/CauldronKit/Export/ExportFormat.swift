@@ -25,6 +25,8 @@ public struct CauldronExport: Sendable, Hashable, Codable {
   public var tags: [ExportedTag]
   public var cooks: [ExportedCook]
   public var planEntries: [ExportedPlanEntry]
+  /// Planned quantities, including batches without assigned meals. Optional for older exports.
+  public var plannedBatches: [ExportedPlannedBatch]?
   public var gatherItems: [ExportedGatherItem]
   public var pantry: [ExportedPantryItem]
   public var diary: [ExportedDiaryEntry]
@@ -38,6 +40,7 @@ public struct CauldronExport: Sendable, Hashable, Codable {
     formatVersion: Int = currentVersion, exportedAt: Date, app: ExportedApp,
     recipes: [ExportedRecipe] = [], photos: [ExportedPhoto] = [], tags: [ExportedTag] = [],
     cooks: [ExportedCook] = [], planEntries: [ExportedPlanEntry] = [],
+    plannedBatches: [ExportedPlannedBatch]? = nil,
     gatherItems: [ExportedGatherItem] = [], pantry: [ExportedPantryItem] = [],
     diary: [ExportedDiaryEntry] = [], favourites: [ExportedFavourite] = [],
     weighIns: [ExportedWeighIn] = [], bodyProfile: ExportedBodyProfile? = nil,
@@ -51,6 +54,7 @@ public struct CauldronExport: Sendable, Hashable, Codable {
     self.tags = tags
     self.cooks = cooks
     self.planEntries = planEntries
+    self.plannedBatches = plannedBatches
     self.gatherItems = gatherItems
     self.pantry = pantry
     self.diary = diary
@@ -392,12 +396,13 @@ public struct ExportedPlanEntry: Sendable, Hashable, Codable {
   public var servings: Int?
   public var position: Int
   public var recipeId: UUID?
+  public var batchId: UUID?
   public var createdAt: Date
   public var updatedAt: Date
 
   public init(
     id: UUID, day: LocalDate, slot: String, title: String, servings: Int? = nil, position: Int,
-    recipeId: UUID? = nil, createdAt: Date, updatedAt: Date
+    recipeId: UUID? = nil, batchId: UUID? = nil, createdAt: Date, updatedAt: Date
   ) {
     self.id = id
     self.day = day
@@ -405,6 +410,33 @@ public struct ExportedPlanEntry: Sendable, Hashable, Codable {
     self.title = title
     self.servings = servings
     self.position = position
+    self.recipeId = recipeId
+    self.batchId = batchId
+    self.createdAt = createdAt
+    self.updatedAt = updatedAt
+  }
+}
+
+/// A planned quantity of a recipe; `ingredientYield` is the saved scaling denominator.
+public struct ExportedPlannedBatch: Sendable, Hashable, Codable {
+  public var id: UUID
+  public var weekStart: LocalDate
+  public var title: String
+  public var totalServings: Int
+  public var ingredientYield: Int
+  public var recipeId: UUID?
+  public var createdAt: Date
+  public var updatedAt: Date
+
+  public init(
+    id: UUID, weekStart: LocalDate, title: String, totalServings: Int, ingredientYield: Int,
+    recipeId: UUID? = nil, createdAt: Date, updatedAt: Date
+  ) {
+    self.id = id
+    self.weekStart = weekStart
+    self.title = title
+    self.totalServings = totalServings
+    self.ingredientYield = ingredientYield
     self.recipeId = recipeId
     self.createdAt = createdAt
     self.updatedAt = updatedAt

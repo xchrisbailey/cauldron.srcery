@@ -144,6 +144,53 @@
       #expect(try store.fetchCount(FetchDescriptor<DiaryEntryRecord>()) == document.diary.count)
     }
 
+    @Test func exportKeepsUnassignedBatchYieldAndEntryLink() throws {
+      let fixture = try fixture()
+      let recipe = fixture.cooked
+      let batch = try WeekPlan.createBatch(
+        recipe: recipe, weekStart: today, totalServings: 4, ingredientYield: 6,
+        in: fixture.context)
+      let unassigned = try WeekPlan.createBatch(
+        recipe: recipe, weekStart: today, totalServings: 3, ingredientYield: 4,
+        in: fixture.context)
+      let entry = try WeekPlan.stir(
+        recipe, at: MealTarget(day: today, slot: .dinner), servings: 2, into: fixture.context)
+      entry.batch = batch
+      try fixture.context.save()
+      let folder = folder()
+      defer { try? FileManager.default.removeItem(at: folder) }
+
+      let document = try read(try export(fixture.container, into: folder))
+      let exportedBatch = try #require(document.plannedBatches?.first { $0.id == batch.id })
+      #expect(exportedBatch.totalServings == 4)
+      #expect(exportedBatch.ingredientYield == 6)
+      #expect(exportedBatch.recipeId == recipe.id)
+      #expect(document.plannedBatches?.contains { $0.id == unassigned.id } == true)
+      #expect(try #require(document.planEntries.first { $0.id == entry.id }).batchId == batch.id)
+      #expect(try CauldronExport.decode(document.encoded()) == document)
+    }
+
+    @Test func anUnwritableBatchDateIsCountedAndItsEntryKeepsTheStoredReference() throws {
+      let fixture = try fixture()
+      let batch = try WeekPlan.createBatch(
+        recipe: fixture.cooked, weekStart: today, totalServings: 4, ingredientYield: 6,
+        in: fixture.context)
+      batch.weekStartKey = "not-a-day"
+      let entry = try WeekPlan.stir(
+        fixture.cooked, at: MealTarget(day: today, slot: .dinner), servings: 2,
+        into: fixture.context)
+      entry.batch = batch
+      try fixture.context.save()
+      let folder = folder()
+      defer { try? FileManager.default.removeItem(at: folder) }
+
+      let result = try export(fixture.container, into: folder)
+      let document = try read(result)
+      #expect(result.skipped == 1)
+      #expect(!(document.plannedBatches ?? []).contains { $0.id == batch.id })
+      #expect(try #require(document.planEntries.first { $0.id == entry.id }).batchId == batch.id)
+    }
+
     @Test func recipesKeepEveryStructuredField() throws {
       let fixture = try fixture()
       let folder = folder()

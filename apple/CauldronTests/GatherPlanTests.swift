@@ -83,6 +83,53 @@ import Testing
 
     // MARK: Rebuilding
 
+    @Test func batchIngredientsUseSavedYieldAndOnlyAssignedServings() throws {
+      func amount(_ assignments: [Int]) throws -> Double? {
+        let context = try context()
+        let recipe = RecipeRecord(title: "Rice")
+        recipe.ingredients = [
+          Ingredient(
+            section: nil, quantity: Quantity(min: 400, max: nil), unit: .g, item: "rice",
+            note: nil, optional: false, alt: nil, original: "400 g rice", itemKey: "rice")
+        ]
+        context.insert(recipe)
+        let batch = try WeekPlan.createBatch(
+          recipe: recipe, weekStart: monday, totalServings: 4, ingredientYield: 4, in: context)
+        recipe.servings = 8
+        for (index, servings) in assignments.enumerated() {
+          let entry = try WeekPlan.stir(
+            recipe, at: MealTarget(day: monday.adding(days: index), slot: .dinner),
+            servings: servings, into: context)
+          entry.batch = batch
+        }
+        try context.save()
+        try GatherPlan.open(week: monday, in: context)
+        return try snapshot(context).items.first { $0.itemKey == "rice" }?.quantity?.min
+      }
+
+      #expect(try amount([4]) == 400)
+      #expect(try amount([1, 1, 1, 1]) == 400)
+      #expect(try amount([1, 1]) == 200)
+      #expect(try amount([]) == nil)
+    }
+
+    @Test func unbatchedEntriesKeepLegacyRecipeYieldScaling() throws {
+      let context = try context()
+      let recipe = RecipeRecord(title: "Rice")
+      recipe.servings = 4
+      recipe.ingredients = [
+        Ingredient(
+          section: nil, quantity: Quantity(min: 400, max: nil), unit: .g, item: "rice",
+          note: nil, optional: false, alt: nil, original: "400 g rice", itemKey: "rice")
+      ]
+      context.insert(recipe)
+      try WeekPlan.stir(
+        recipe, at: MealTarget(day: monday, slot: .dinner), servings: 2, into: context)
+      try context.save()
+      try GatherPlan.open(week: monday, in: context)
+      #expect(try item("rice", in: context).quantity?.min == 200)
+    }
+
     @Test func rebuildingAnUnchangedWeekChangesNothing() throws {
       let context = try seeded()
       let before = try context.fetchCount(FetchDescriptor<GatherItemRecord>())

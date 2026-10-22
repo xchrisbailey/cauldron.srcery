@@ -103,6 +103,8 @@ struct GatherSignature: Hashable {
     let recipe: UUID?
     let servings: Int?
     let recipeServings: Int?
+    let batchId: UUID?
+    let ingredientYield: Int?
     let banished: Bool
     /// The stored ingredients, so an edit to a recipe's lines is seen.
     let ingredients: Int
@@ -116,7 +118,8 @@ struct GatherSignature: Hashable {
     parts = WeekPlan.ordered(entries).map { entry in
       Part(
         entry: entry.id, recipe: entry.recipe?.id, servings: entry.servings,
-        recipeServings: entry.recipe?.servings, banished: entry.recipe?.isBanished ?? false,
+        recipeServings: entry.recipe?.servings, batchId: entry.batch?.id,
+        ingredientYield: entry.batch?.ingredientYield, banished: entry.recipe?.isBanished ?? false,
         ingredients: entry.recipe?.ingredientsData.hashValue ?? 0)
     }
   }

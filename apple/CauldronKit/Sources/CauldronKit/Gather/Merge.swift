@@ -208,14 +208,18 @@ public struct PlannedEntry: Sendable, Hashable {
   /// What the recipe makes, and what the entry asks for; either may be unset.
   public var recipeServings: Int?
   public var servings: Int?
+  /// The saved yield of its planned batch; nil keeps legacy recipe-serving scaling.
+  public var ingredientYield: Int?
   public var ingredients: [PlannedIngredient]
 
   public init(
-    recipeId: RecipeId, recipeServings: Int?, servings: Int?, ingredients: [PlannedIngredient]
+    recipeId: RecipeId, recipeServings: Int?, servings: Int?, ingredients: [PlannedIngredient],
+    ingredientYield: Int? = nil
   ) {
     self.recipeId = recipeId
     self.recipeServings = recipeServings
     self.servings = servings
+    self.ingredientYield = ingredientYield
     self.ingredients = ingredients
   }
 }
@@ -224,7 +228,12 @@ public struct PlannedEntry: Sendable, Hashable {
 public func gatherWeek(_ entries: [PlannedEntry]) -> [GatheredRow] {
   gatherLines(
     entries.flatMap { entry in
-      let factor = servingFactor(recipeServings: entry.recipeServings, wanted: entry.servings)
+      let factor: Double
+      if let yield = entry.ingredientYield, yield > 0 {
+        factor = Double(entry.servings ?? 0) / Double(yield)
+      } else {
+        factor = servingFactor(recipeServings: entry.recipeServings, wanted: entry.servings)
+      }
       return entry.ingredients.map { ingredient in
         GatherLine(
           recipeId: entry.recipeId, item: ingredient.item, itemKey: ingredient.itemKey,
