@@ -138,6 +138,20 @@ struct WeekPresentationTests {
     #expect(Copy.week.spread.allAssigned.text == "All servings assigned")
   }
 
+  @Test func batchSummaryReportsRemainingAndConflictWithoutNegativeCounts() {
+    let partial = BatchAllocationSummary(
+      title: "Soup", total: 5, assigned: 2, hasInvalidEntries: false)
+    #expect(partial.remaining == 3)
+    #expect(partial.status == "3 servings unassigned")
+    let complete = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 2, hasInvalidEntries: false)
+    #expect(complete.status == "All servings assigned")
+    let conflicted = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 4, hasInvalidEntries: true)
+    #expect(conflicted.remaining == 0)
+    #expect(conflicted.isConflict)
+  }
+
   // MARK: Changing an entry
 
   private func meal(
