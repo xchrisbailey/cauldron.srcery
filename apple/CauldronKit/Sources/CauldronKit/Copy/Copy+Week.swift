@@ -54,6 +54,14 @@ extension Copy {
     public let allocationConflict = plain(
       "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day."
     )
+    public let editBatch = plain("Edit planned batch")
+    public let unassign = plain("Unassign")
+    public let addAssignment = plain("Assign servings")
+    public let removeBatch = plain("Remove batch")
+    public let removeBatchConfirm = plain("Remove this batch and all its planned meals?")
+    public let batchRemoved = plain("Batch removed.")
+    public let batchSaved = plain("Batch updated.")
+    public let invalidAssignment = plain("Invalid assignment")
     public let moveUp = plain("Move up")
     public let moveDown = plain("Move down")
     public let meal = plain("Meal")
@@ -144,12 +152,21 @@ extension Copy {
         "Pick the days this batch feeds. Each day gets one serving unless you change it.")
       public let oneADay = plain("One a day")
       public let pickADay = plain("Pick at least one day.")
+      public let total = plain("Batch total")
+      public let allAssigned = plain("All servings assigned")
+      public let saveUnassigned = voice("Save batch")
 
       public init() {}
 
       public func planned(_ n: Int, _ of: Int?) -> CopyString {
         guard let of else { return plain("\(n) \(n == 1 ? "serving" : "servings") planned") }
         return plain("\(n) of \(of) servings planned")
+      }
+      public func remaining(_ n: Int) -> CopyString {
+        plain(n == 1 ? "1 serving unassigned" : "\(n) servings unassigned")
+      }
+      public func allocationStatus(remaining: Int) -> CopyString {
+        remaining == 0 ? allAssigned : self.remaining(remaining)
       }
       public func allOn(_ day: String) -> CopyString { plain("All on \(day)") }
       public func fewer(_ day: String) -> CopyString { plain("Fewer servings on \(day)") }

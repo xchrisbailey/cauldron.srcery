@@ -10,6 +10,7 @@ struct StirRecipeSheet: View {
   /// The scale the cook chose on the recipe's page.
   let scale: Scale
   let today: LocalDate
+  let startsOn: WeekStartDay
   /// Done: the sheet closes, and this is what to tell the cook.
   let onStirred: (String) -> Void
 
@@ -19,19 +20,26 @@ struct StirRecipeSheet: View {
   @State private var problem: String?
 
   init(
-    recipe: RecipeRecord, scale: Scale, today: LocalDate, onStirred: @escaping (String) -> Void
+    recipe: RecipeRecord, scale: Scale, today: LocalDate,
+    startsOn: WeekStartDay = .standard, onStirred: @escaping (String) -> Void
   ) {
     self.recipe = recipe
     self.scale = scale
     self.today = today
+    self.startsOn = startsOn
     self.onStirred = onStirred
-    _plan = State(initialValue: Self.startingPlan(recipe: recipe, scale: scale, today: today))
+    _plan = State(
+      initialValue: Self.startingPlan(
+        recipe: recipe, scale: scale, today: today, startsOn: startsOn))
   }
 
   /// Where the sheet opens: today, in the default meal, with the scaled servings spread.
-  static func startingPlan(recipe: RecipeRecord, scale: Scale, today: LocalDate) -> SpreadPlan {
+  static func startingPlan(
+    recipe: RecipeRecord, scale: Scale, today: LocalDate, startsOn: WeekStartDay = .standard
+  ) -> SpreadPlan {
     .batch(
-      anchor: today, slot: WeekPlan.defaultSlot,
+      anchor: today, days: today.startOfWeek(startingOn: startsOn).weekDays(),
+      slot: WeekPlan.defaultSlot,
       servings: WeekPlan.batchServings(for: scale, recipeServings: recipe.servings))
   }
 

@@ -81,8 +81,8 @@ struct WeekPresentationTests {
     #expect(plan.entries.map(\.date) == [monday, monday.adding(days: 5)])
     plan.toggle(monday)
     plan.toggle(monday.adding(days: 5))
-    #expect(!plan.canStir)
-    #expect(plan.summary == "Pick at least one day.")
+    #expect(plan.canStir)
+    #expect(plan.summary == "0 of 4 servings planned")
   }
 
   @Test func steppingAddsServingsAndTheLastOneOffDropsTheDay() {
@@ -130,6 +130,26 @@ struct WeekPresentationTests {
     #expect(plan.planned == 3 && plan.isOver)
     #expect(plan.summary == "3 of 2 servings planned")
     #expect(!spread(servings: nil).isOver)
+  }
+
+  @Test func allocationCopyNamesRemainingAndCompletedServings() {
+    #expect(Copy.week.spread.remaining(3).text == "3 servings unassigned")
+    #expect(Copy.week.spread.remaining(1).text == "1 serving unassigned")
+    #expect(Copy.week.spread.allAssigned.text == "All servings assigned")
+  }
+
+  @Test func batchSummaryReportsRemainingAndConflictWithoutNegativeCounts() {
+    let partial = BatchAllocationSummary(
+      title: "Soup", total: 5, assigned: 2, hasInvalidEntries: false)
+    #expect(partial.remaining == 3)
+    #expect(partial.status == "3 servings unassigned")
+    let complete = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 2, hasInvalidEntries: false)
+    #expect(complete.status == "All servings assigned")
+    let conflicted = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 4, hasInvalidEntries: true)
+    #expect(conflicted.remaining == 0)
+    #expect(conflicted.isConflict)
   }
 
   // MARK: Changing an entry
