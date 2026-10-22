@@ -132,6 +132,8 @@ extension Copy {
       public let none = plain("Add calories and macros to your recipes to see totals here.")
       public let clearDay = plain("Back to the week")
       public let plannedAgainstTarget = plain("Planned against weekly target")
+      public let dailyPlannedAgainstTarget = plain("Selected day planned against daily target")
+      public let eatenClarification = plain("Planned, not eaten")
       public let grams = plain("g")
       public let lessThanTenth = plain("<0.1")
       public let incomplete = plain(

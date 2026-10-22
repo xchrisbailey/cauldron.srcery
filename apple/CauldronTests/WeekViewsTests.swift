@@ -61,6 +61,20 @@ import Testing
       }
     }
 
+    @Test func simultaneousDailyAndWeeklyComparisonsRenderAtBothWidthsAndAppearances() {
+      let start = LocalDate("2026-10-05")!
+      let targets = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      let snapshot = WeekSnapshot(start: start, records: [], targets: targets)
+      let summary = WeekTallyView(snapshot: snapshot, day: start, onClearDay: {}, onOpenTargets: {})
+      for scheme in [ColorScheme.light, .dark] {
+        for (width, height) in [(1100.0, 800.0), (390.0, 800.0)] {
+          #expect(
+            renders(summary.environment(\.colorScheme, scheme), width: width, height: height),
+            "daily and weekly comparison \(scheme) \(width)")
+        }
+      }
+    }
+
     @Test func theStirSheetsRenderInBothAppearances() throws {
       let container = try seeded()
       let context = ModelContext(container)

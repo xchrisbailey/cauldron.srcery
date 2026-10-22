@@ -23,6 +23,7 @@ struct WeekTallyView: View {
       if let comparison = snapshot.weeklyComparison {
         VStack(alignment: .leading, spacing: 4) {
           Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
+          Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
           ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
             Text(verbatim: WeekFigures.comparisonRow(comparison, key: key))
               .brandText(.quantity)
@@ -38,6 +39,20 @@ struct WeekTallyView: View {
           Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
           Button(Copy.week.tally.setTargets.text, action: onOpenTargets).brandText(.control)
         }
+      }
+      if let day, let comparison = snapshot.dailyComparison(for: day) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text).brandText(.control)
+          Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
+          ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
+            Text(verbatim: WeekFigures.comparisonRow(comparison, key: key)).brandText(.quantity)
+          }
+          if comparison.isIncomplete {
+            Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
+              .foregroundStyle(Brand.Colors.heat)
+          }
+        }
+        .accessibilityElement(children: .combine)
       }
     }
     .padding(.horizontal, 16)

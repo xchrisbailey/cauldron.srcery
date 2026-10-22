@@ -6,10 +6,16 @@ public struct WeekMacroComparison: Sendable, Hashable {
   public let freeText: Int
 
   public init(tally: MacroTally, dailyTarget: MacroTargets) {
+    self.init(tally: tally, dailyTarget: dailyTarget, days: 7)
+  }
+
+  /// Compares a period's planned tally with the same number of days of saved daily targets.
+  public init(tally: MacroTally, dailyTarget: MacroTargets, days: Int) {
     planned = tally.totals
     target = MacroTotals(
-      calories: Double(dailyTarget.calories * 7), protein: Double(dailyTarget.protein * 7),
-      carbs: Double(dailyTarget.carbs * 7), fat: Double(dailyTarget.fat * 7))
+      calories: Double(dailyTarget.calories) * Double(days),
+      protein: Double(dailyTarget.protein) * Double(days),
+      carbs: Double(dailyTarget.carbs) * Double(days), fat: Double(dailyTarget.fat) * Double(days))
     missing = tally.missing
     freeText = tally.freeText
   }

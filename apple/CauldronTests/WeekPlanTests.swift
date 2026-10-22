@@ -819,6 +819,36 @@ struct WeekPlanTests {
     #expect(WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday)) != nil)
   }
 
+  @Test func selectedDayComparesAgainstOneDayTargetsWithIndependentCompleteness() throws {
+    let context = try context()
+    let targets = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+    context.insert(targets)
+    let counted = recipe(
+      "Counted", servings: 1, macros: Macros(calories: 1_600, protein: 99.5, carbs: 200, fat: 70),
+      in: context)
+    let partial = recipe("Partial", servings: 1, macros: Macros(calories: 100), in: context)
+    try WeekPlan.stir(counted, at: dinner(monday), servings: 1, into: context)
+    try WeekPlan.stir(partial, at: dinner(monday.adding(days: 1)), servings: 1, into: context)
+    try WeekPlan.stirText("Takeaway", at: dinner(monday.adding(days: 2)), into: context)
+    let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+    let snapshot = WeekSnapshot(start: monday, records: records, targets: targets)
+    let comparison = try #require(snapshot.dailyComparison(for: monday))
+    #expect(comparison.planned.calories == 1_600)
+    #expect(comparison.target.calories == 2_000)
+    #expect(comparison.remaining(for: .calories) == 400)
+    #expect(comparison.planned.protein == 99.5)
+    #expect(
+      WeekFigures.comparisonRow(comparison, key: .protein, locale: en)
+        == "Protein: 99.5 g planned, 100 g target, 0.5 g remaining")
+    #expect(!comparison.isIncomplete)
+    #expect(snapshot.weeklyComparison?.isIncomplete == true)
+    let empty = try #require(snapshot.dailyComparison(for: monday.adding(days: 3)))
+    #expect(empty.planned.calories == 0 && empty.target.calories == 2_000)
+    #expect(empty.remaining(for: .calories) == 2_000)
+    #expect(snapshot.dailyComparison(for: monday.adding(days: 1))?.isIncomplete == true)
+    #expect(WeekSnapshot(start: monday, records: []).dailyComparison(for: monday) == nil)
+  }
+
   @Test func plannedBatchCapacityDoesNotChangeTallyButAssignmentsDo() throws {
     let context = try context()
     let recipe = recipe(

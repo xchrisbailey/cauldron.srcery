@@ -708,6 +708,10 @@ enum CopyReference {
     .init(path: "week.tally.clearDay", tone: .plain, text: "Back to the week"),
     .init(
       path: "week.tally.plannedAgainstTarget", tone: .plain, text: "Planned against weekly target"),
+    .init(
+      path: "week.tally.dailyPlannedAgainstTarget", tone: .plain,
+      text: "Selected day planned against daily target"),
+    .init(path: "week.tally.eatenClarification", tone: .plain, text: "Planned, not eaten"),
     .init(path: "week.tally.grams", tone: .plain, text: "g"),
     .init(path: "week.tally.lessThanTenth", tone: .plain, text: "<0.1"),
     .init(

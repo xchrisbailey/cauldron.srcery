@@ -12,6 +12,7 @@ struct WeekSnapshot {
   let weekTally: MacroTally
   let dayTallies: [LocalDate: MacroTally]
   let weeklyComparison: WeekMacroComparison?
+  let dailyTarget: MacroTargets?
   /// Days with calories planned, for the daily average.
   let daysPlanned: Int
 
@@ -28,6 +29,7 @@ struct WeekSnapshot {
     self.dayTallies = dayTallies
     let weekTally = tallyMacros(meals)
     self.weekTally = weekTally
+    dailyTarget = targets?.macroTargets
     daysPlanned = dayTallies.values.filter { $0.totals.calories > 0 }.count
     weeklyComparison = targets.map {
       WeekMacroComparison(tally: weekTally, dailyTarget: $0.macroTargets)
@@ -42,6 +44,12 @@ struct WeekSnapshot {
 
   func tally(of day: LocalDate) -> MacroTally {
     dayTallies[day] ?? tallyMacros([])
+  }
+
+  func dailyComparison(for day: LocalDate) -> WeekMacroComparison? {
+    guard let dailyTarget else { return nil }
+    return WeekMacroComparison(
+      tally: tally(of: day), dailyTarget: dailyTarget, days: 1)
   }
 }
 
