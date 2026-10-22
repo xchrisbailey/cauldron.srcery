@@ -11,4 +11,4 @@ permissions:
     effect: deny
 ---
 
-Read `AGENTS.md` and `.claude/agents/scout.md`, then follow that role's lookup and reporting instructions. Ignore the source file's Claude frontmatter. Use shell only for read-only inspection. Return findings to the parent; Sol owns their interpretation.
+Read and follow `docs/agents/roles/scout.md` before looking up facts. That provider-neutral contract owns the lookup and reporting workflow. Return facts to the parent; Sol owns their interpretation.
