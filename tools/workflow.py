@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 from workflow_support import (
-    WorkflowError, git, read_json, repository, run_records, snapshot, successful_for,
+    WorkflowError, git, read_json, repository, run_records, snapshot, state_directory, successful_for,
 )
 
 
@@ -55,15 +55,46 @@ def worker_check(result_path: Path, brief_path: Path) -> dict:
         if not isinstance(path, str):
             raise WorkflowError("Check evidence must be a runner-record path")
         record = read_json(Path(path))
+        evidence_path = Path(path).resolve()
+        run_root = (state_directory() / "runs").resolve()
+        if not evidence_path.is_relative_to(run_root) or evidence_path.name != "result.json" or record.get("id") != evidence_path.parent.name:
+            raise WorkflowError(f"Check evidence must reference an actual runner record: {path}")
         count = record.get("testCount", 0)
         full = record.get("counts", {})
         positive = type(count) is int and count > 0
         full_positive = isinstance(full, dict) and all(
             type(full.get(platform)) is int and full[platform] > 0 for platform in ("package", "macos", "ios")
         )
-        if record.get("kind") != "checks" or not successful_for(record, result["head"]) or not (positive or full_positive):
+        valid_scope = (record.get("scope") == "focused" and positive) or (
+            record.get("scope") == "full" and full_positive and record.get("lint") is True
+            and record.get("tooling") is True
+        )
+        if (record.get("kind") != "checks" or not successful_for(record, result["head"])
+                or record.get("before", {}).get("tree") != git("rev-parse", f"{result['head']}^{{tree}}")
+                or not valid_scope):
             raise WorkflowError(f"Check evidence is failed, stale, dirty, or zero-test: {path}")
     return result
+
+
+def template(brief_path: Path, base: str, output: Path) -> None:
+    brief = read_json(brief_path)
+    if brief.get("version") != 1 or not brief.get("ticket") or not brief.get("criteria"):
+        raise WorkflowError("Brief needs version, ticket and acceptance-criterion IDs")
+    if output.exists():
+        raise WorkflowError(f"Existing worker result preserved: {output}")
+    result = {
+        "version": 1, "status": "partial", "ticket": brief["ticket"],
+        "head": git("rev-parse", "HEAD"), "base": git("rev-parse", f"{base}^{{commit}}"),
+        "criteria": [{"id": identifier, "status": "open", "evidence": []} for identifier in brief["criteria"]],
+        "checks": [], "remaining": list(brief["criteria"]), "manual": [],
+    }
+    output.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation preserves an existing handoff if two sessions choose the same path.
+    import json
+    with output.open("x") as stream:
+        json.dump(result, stream, indent=2)
+        stream.write("\n")
+    print(output)
 
 
 def worktree_for(branch: str) -> Path:
@@ -120,6 +151,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status")
+    scaffold = commands.add_parser("template")
+    scaffold.add_argument("--brief", required=True, type=Path)
+    scaffold.add_argument("--base", required=True)
+    scaffold.add_argument("--output", required=True, type=Path)
     worker = commands.add_parser("worker-check")
     merge = commands.add_parser("integrate")
     merge.add_argument("branch")
@@ -130,6 +165,8 @@ def main() -> int:
     try:
         if args.command == "status":
             status()
+        elif args.command == "template":
+            template(args.brief, args.base, args.output)
         elif args.command == "worker-check":
             result = worker_check(args.result, args.brief)
             print(f"Complete worker result accepted for review: {result['ticket']} @ {result['head']}")

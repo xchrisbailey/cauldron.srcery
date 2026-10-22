@@ -29,6 +29,8 @@ Keep briefs and worker-result JSON in the common Git state directory or another 
 
 The worker returns full commit/base SHAs, complete/partial/blocked status, every criterion and evidence, runner-record paths, remaining work, and manual checks. The full interface is in `tooling-contract.md`. A complete status cannot omit criteria, carry remaining work, or rely on failed/zero-test/stale/dirty checks. Human review still judges whether a test or change actually meets the criterion; JSON is not proof of product correctness.
 
+Create an initially partial handoff with `tools/workflow.py template --brief /path/brief.json --base BASE --output /path/worker.json`; it refuses to overwrite an existing result. Fill it from actual work and checks, rather than treating the template as completion.
+
 ```sh
 python3 -B tools/workflow.py worker-check --result /path/worker.json --brief /path/brief.json
 python3 -B tools/workflow.py integrate feat/example --result /path/worker.json --brief /path/brief.json
