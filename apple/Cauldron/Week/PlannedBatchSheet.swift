@@ -25,6 +25,11 @@ struct PlannedBatchSheet: View {
 
   private var week: [LocalDate] { batch.weekStart?.weekDays() ?? [] }
   private var allocation: WeekPlan.Allocation { WeekPlan.allocation(batch) }
+  private var draftSummary: BatchAllocationSummary {
+    BatchAllocationSummary(
+      title: batch.title, total: total, assigned: allocation.assigned,
+      hasInvalidEntries: allocation.hasInvalidEntries)
+  }
 
   var body: some View {
     NavigationStack {
@@ -32,25 +37,19 @@ struct PlannedBatchSheet: View {
         Section {
           Picker(selection: $total) {
             ForEach(1...WeekLimits.servings, id: \.self) { value in
-              Text(verbatim: String(value)).tag(value)
+              Text(verbatim: String(value)).brandText(.quantity).tag(value)
             }
           } label: {
             Text(verbatim: Copy.week.spread.total.text)
           }
-          Text(
-            verbatim: allocation.isOverAssigned || allocation.hasInvalidEntries
-              ? Copy.week.allocationConflict.text
-              : Copy.week.spread.allocationStatus(
-                remaining: max(0, total - allocation.assigned)
-              ).text
-          )
-          .brandText(.quantity)
-          .foregroundStyle(
-            allocation.isOverAssigned || allocation.hasInvalidEntries
-              ? Brand.Colors.heat : Brand.Colors.subtext)
+          Text(verbatim: draftSummary.status)
+            .brandText(.quantity)
+            .foregroundStyle(
+              allocation.isOverAssigned || allocation.hasInvalidEntries
+                ? Brand.Colors.heat : Brand.Colors.subtext)
         }
         Section {
-          ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.id) { entry in
+          ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.persistentModelID) { entry in
             assignmentRow(entry)
           }
         } header: {
@@ -59,7 +58,8 @@ struct PlannedBatchSheet: View {
         Section {
           Picker(selection: $day) {
             ForEach(week, id: \.self) { value in
-              Text(verbatim: WeekDates.label(value, long: true)).tag(LocalDate?.some(value))
+              Text(verbatim: WeekDates.label(value, long: true))
+                .brandText(.quantity).tag(LocalDate?.some(value))
             }
           } label: {
             Text(verbatim: Copy.week.day.text)
@@ -75,7 +75,7 @@ struct PlannedBatchSheet: View {
             ForEach(
               1...max(1, min(WeekLimits.servings, max(1, total - allocation.assigned))), id: \.self
             ) { value in
-              Text(verbatim: String(value)).tag(value)
+              Text(verbatim: String(value)).brandText(.quantity).tag(value)
             }
           } label: {
             Text(verbatim: Copy.week.servings.text)
@@ -83,7 +83,7 @@ struct PlannedBatchSheet: View {
           Button(action: assign) {
             Text(verbatim: Copy.week.addAssignment.text)
           }
-          .disabled(week.isEmpty || allocation.unassigned <= 0)
+          .disabled(week.isEmpty || draftSummary.assignable < servings)
         } header: {
           Text(verbatim: Copy.week.addAssignment.text)
         }
@@ -141,7 +141,9 @@ struct PlannedBatchSheet: View {
       VStack(alignment: .leading) {
         Text(
           verbatim: entry.day.map { WeekDates.label($0, long: true) }
-            ?? Copy.week.invalidAssignment.text)
+            ?? Copy.week.invalidAssignment.text
+        )
+        .brandText(.quantity)
         Text(verbatim: Copy.week.slots[entry.slot].text).brandText(.control)
       }
       Spacer()
@@ -156,6 +158,14 @@ struct PlannedBatchSheet: View {
         Text(verbatim: Copy.week.unassign.text)
       }
       .buttonStyle(.borderless)
+      .accessibilityLabel(
+        Text(
+          verbatim: Copy.week.unassignEntry(
+            day: entry.day.map { WeekDates.label($0, long: true) }
+              ?? Copy.week.invalidAssignment.text,
+            slot: Copy.week.slots[entry.slot].text,
+            title: batch.title
+          ).text))
     }
   }
 
@@ -179,7 +189,13 @@ struct PlannedBatchSheet: View {
 
   private func unassign(_ entry: PlanEntryRecord) {
     do {
-      try WeekPlan.commit(in: context) { _ = try WeekPlan.remove(entry, in: context) }
+      try WeekPlan.commit(in: context) {
+        if entry.day == nil {
+          try WeekPlan.removeInvalid(entry, in: context)
+        } else {
+          _ = try WeekPlan.remove(entry, in: context)
+        }
+      }
     } catch {
       problem = WeekPlan.message(for: error).text
     }
@@ -189,8 +205,10 @@ struct PlannedBatchSheet: View {
     guard let day else { return }
     do {
       try WeekPlan.commit(in: context) {
+        if batch.totalServings != total { try WeekPlan.editTotal(batch, to: total) }
         _ = try WeekPlan.assign(servings, on: day, slot: slot, to: batch, in: context)
       }
+      total = batch.totalServings
       problem = nil
     } catch {
       problem = WeekPlan.message(for: error).text

@@ -8,6 +8,7 @@ struct BatchAllocationSummary {
   let hasInvalidEntries: Bool
 
   var remaining: Int { max(0, total - assigned) }
+  var assignable: Int { isConflict ? 0 : remaining }
   var isConflict: Bool { hasInvalidEntries || assigned > total }
   var status: String {
     isConflict
