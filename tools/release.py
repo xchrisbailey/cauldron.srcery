@@ -200,8 +200,9 @@ def attest(phase: str, version: str, note: str) -> dict:
             raise support.WorkflowError("Deployment attestation requires matching initialization attestation")
         prior = support.read_json(initialized)
         if (prior.get("phase") != "initialized" or prior.get("head") != snapshot["head"]
-                or prior.get("fingerprint") != fingerprint or not prior.get("note")
-                or not prior.get("author")):
+                or prior.get("release") != version or prior.get("fingerprint") != fingerprint
+                or not prior.get("note") or not prior.get("author")
+                or not isinstance(prior.get("createdAt"), (int, float)) or not prior.get("id")):
             raise support.WorkflowError("Deployment attestation requires valid matching initialization evidence")
     author = run(["git", "config", "user.name"], cwd=root).stdout.strip()
     if not author:
@@ -274,8 +275,9 @@ def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
                 raise support.WorkflowError(f"Missing or stale {phase} schema attestation")
             record = support.read_json(path)
             if (record.get("phase") != phase or record.get("head") != snapshot["head"]
-                    or record.get("fingerprint") != fingerprint or not record.get("note")
-                    or not record.get("author")):
+                    or record.get("release") != version or record.get("fingerprint") != fingerprint
+                    or not record.get("note") or not record.get("author")
+                    or not isinstance(record.get("createdAt"), (int, float)) or not record.get("id")):
                 raise support.WorkflowError(f"Missing or stale {phase} schema attestation")
             schema["attestations"].append(record["id"])
         schema["status"] = "initialized and deployed attestations recorded"
