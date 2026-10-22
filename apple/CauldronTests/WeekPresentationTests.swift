@@ -152,6 +152,18 @@ struct WeekPresentationTests {
     #expect(conflicted.isConflict)
   }
 
+  @Test func batchDraftDoesNotCallReducedCapacityCompleteAndUsesRaisedCapacity() {
+    let conflict = BatchAllocationSummary(
+      title: "Soup", total: 1, assigned: 2, hasInvalidEntries: false)
+    #expect(conflict.isConflict)
+    #expect(conflict.status == Copy.week.allocationConflict.text)
+    #expect(conflict.remaining == 0)
+    let increased = BatchAllocationSummary(
+      title: "Soup", total: 5, assigned: 2, hasInvalidEntries: false)
+    #expect(increased.assignable == 3)
+    #expect(increased.status == "3 servings unassigned")
+  }
+
   // MARK: Changing an entry
 
   private func meal(
