@@ -87,20 +87,19 @@ enum ExportMapping {
       }
     }
 
-    document.plannedBatches = try context.fetch(FetchDescriptor<PlannedBatchRecord>())
-      .sorted {
+    document.plannedBatches = keeping(
+      try context.fetch(FetchDescriptor<PlannedBatchRecord>()).sorted {
         ($0.weekStartKey, $0.createdAt, $0.id.uuidString) < (
           $1.weekStartKey, $1.createdAt, $1.id.uuidString
         )
       }
-      .compactMap { batch in
-        batch.weekStart.map {
-          ExportedPlannedBatch(
-            id: batch.id, weekStart: $0, title: batch.title, totalServings: batch.totalServings,
-            ingredientYield: batch.ingredientYield, recipeId: batch.recipe?.id,
-            createdAt: ms(batch.createdAt), updatedAt: ms(batch.updatedAt))
-        }
-      }
+    ) { batch in
+      guard let weekStart = batch.weekStart else { return nil }
+      return ExportedPlannedBatch(
+        id: batch.id, weekStart: weekStart, title: batch.title,
+        totalServings: batch.totalServings, ingredientYield: batch.ingredientYield,
+        recipeId: batch.recipe?.id, createdAt: ms(batch.createdAt), updatedAt: ms(batch.updatedAt))
+    }
 
     let gather = try context.fetch(FetchDescriptor<GatherItemRecord>())
       .sorted {
