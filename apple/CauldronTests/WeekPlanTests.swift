@@ -684,8 +684,10 @@ struct WeekPlanTests {
       let snapshot = WeekSnapshot(start: monday, records: records)
       #expect(
         WeekFigures.note(week: snapshot.weekTally, day: nil)
-          == "1 meal has no calories or macros, so it isn't fully counted.")
-      #expect(WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday)) == nil)
+          == "1 planned meal isn't fully counted.")
+      #expect(
+        WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday))
+          == "1 planned meal isn't fully counted.")
     }
 
     @Test func anEmptyWeekAsksForRecipesWithMacros() {

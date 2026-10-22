@@ -131,14 +131,20 @@ extension Copy {
       public let macros = Macros()
       public let none = plain("Add calories and macros to your recipes to see totals here.")
       public let clearDay = plain("Back to the week")
+      public let plannedAgainstTarget = plain("Planned against weekly target")
+      public let remaining = plain("remaining")
+      public let over = plain("over")
+      public let incomplete = plain(
+        "Incomplete comparison: some planned meals are not fully counted.")
+      public let noTargets = plain("Set targets to compare this plan with your weekly goals.")
+      public let setTargets = plain("Set targets")
 
       public init() {}
 
       public func gaps(_ n: Int) -> CopyString {
         plain(
           n == 1
-            ? "1 meal has no calories or macros, so it isn't fully counted."
-            : "\(n) meals have no calories or macros, so they aren't fully counted.")
+            ? "1 planned meal isn't fully counted." : "\(n) planned meals aren't fully counted.")
       }
       public func showDay(_ day: String) -> CopyString { plain("Show \(day)") }
 

@@ -7,6 +7,7 @@ struct WeekTallyView: View {
   /// The day whose tally shows beside the week's.
   let day: LocalDate?
   let onClearDay: () -> Void
+  let onOpenTargets: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -19,6 +20,32 @@ struct WeekTallyView: View {
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
       }
+      if let comparison = snapshot.weeklyComparison {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
+          ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
+            let unit = key == .calories ? Copy.week.tally.macros.calories.text : "g"
+            let planned = WeekFigures.whole(comparison.planned[key])
+            let target = WeekFigures.whole(comparison.target[key])
+            let remaining = comparison.remaining(for: key)
+            Text(
+              verbatim:
+                "\(metricName(key)): \(planned) / \(target) \(unit), \(remaining < 0 ? Copy.week.tally.over.text : Copy.week.tally.remaining.text) \(WeekFigures.whole(abs(remaining))) \(unit)"
+            )
+            .brandText(.quantity)
+          }
+          if comparison.isIncomplete {
+            Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
+              .foregroundStyle(Brand.Colors.heat)
+          }
+        }
+        .accessibilityElement(children: .combine)
+      } else {
+        VStack(alignment: .leading, spacing: 6) {
+          Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
+          Button(Copy.week.tally.setTargets.text, action: onOpenTargets).brandText(.control)
+        }
+      }
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
@@ -27,6 +54,15 @@ struct WeekTallyView: View {
     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface0, lineWidth: 1))
     .accessibilityElement(children: .contain)
     .accessibilityLabel(Text(verbatim: Copy.week.tally.label.text))
+  }
+
+  private func metricName(_ key: MacroKey) -> String {
+    switch key {
+    case .calories: Copy.week.tally.macros.calories.text
+    case .protein: Copy.week.tally.macros.protein.text
+    case .carbs: Copy.week.tally.macros.carbs.text
+    case .fat: Copy.week.tally.macros.fat.text
+    }
   }
 
   @ViewBuilder

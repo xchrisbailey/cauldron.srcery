@@ -11,10 +11,11 @@ struct WeekSnapshot {
   let meals: [PlanEntry]
   let weekTally: MacroTally
   let dayTallies: [LocalDate: MacroTally]
+  let weeklyComparison: WeekMacroComparison?
   /// Days with calories planned, for the daily average.
   let daysPlanned: Int
 
-  init(start: LocalDate, records: [PlanEntryRecord]) {
+  init(start: LocalDate, records: [PlanEntryRecord], targets: TargetsRecord? = nil) {
     let days = start.weekDays()
     let inWeek = Set(days)
     let meals = WeekPlan.ordered(records).compactMap(WeekPlan.meal).filter {
@@ -25,8 +26,12 @@ struct WeekSnapshot {
     self.days = days
     self.meals = meals
     self.dayTallies = dayTallies
-    weekTally = tallyMacros(meals)
+    let weekTally = tallyMacros(meals)
+    self.weekTally = weekTally
     daysPlanned = dayTallies.values.filter { $0.totals.calories > 0 }.count
+    weeklyComparison = targets.map {
+      WeekMacroComparison(tally: weekTally, dailyTarget: $0.macroTargets)
+    }
   }
 
   var isEmpty: Bool { meals.isEmpty }
@@ -105,9 +110,9 @@ enum WeekFigures {
   /// The line under the tally: how to fill it when it is empty, or how many meals are only
   /// partly counted.
   static func note(week: MacroTally, day: MacroTally?) -> String? {
-    guard hasMacros(week) else { return Copy.week.tally.none.text }
-    let missing = day?.missing ?? week.missing
-    return missing > 0 ? Copy.week.tally.gaps(missing).text : nil
+    let missing = week.missing + week.freeText
+    if missing > 0 { return Copy.week.tally.gaps(missing).text }
+    return hasMacros(week) ? nil : Copy.week.tally.none.text
   }
 }
 

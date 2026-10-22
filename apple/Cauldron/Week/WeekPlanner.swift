@@ -42,12 +42,14 @@ struct WeekPlanner: View {
   @Environment(\.modelContext) private var context
   @Query private var records: [PlanEntryRecord]
   @Query private var batches: [PlannedBatchRecord]
+  @Query private var targetRecords: [TargetsRecord]
   /// The day whose tally shows beside the week's, and on a narrow window the day shown.
   @State private var chosenDay: LocalDate?
   @State private var sheet: WeekSheet?
   @State private var clearing = false
   @State private var notice: WeekNotice?
   @State private var noticeCount = 0
+  @State private var changingTargets = false
 
   init(
     start: LocalDate, today: LocalDate, startsOn: WeekStartDay, isCurrent: Bool,
@@ -71,7 +73,9 @@ struct WeekPlanner: View {
   /// The width the seven columns need; narrower than this shows one day at a time.
   private static let gridWidth: CGFloat = 900
 
-  private var snapshot: WeekSnapshot { WeekSnapshot(start: start, records: records) }
+  private var snapshot: WeekSnapshot {
+    WeekSnapshot(start: start, records: records, targets: Deduplication.keeper(of: targetRecords))
+  }
 
   /// A chosen day that isn't in this week (the cook moved to another) counts as none.
   private var shownDay: LocalDate? {
@@ -109,6 +113,19 @@ struct WeekPlanner: View {
       case .batch(let id):
         PlannedBatchSheet(batch: id) { self.sheet = nil }
       }
+    }
+    .sheet(isPresented: $changingTargets) {
+      NavigationStack {
+        TargetsView(context: context, onSaved: { changingTargets = false })
+          .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+              Button(Copy.ui.close.text) { changingTargets = false }
+            }
+          }
+      }
+      #if os(macOS)
+        .frame(minWidth: 480, minHeight: 640)
+      #endif
     }
     .confirmationDialog(
       Text(verbatim: Copy.week.clearWeek.text), isPresented: $clearing, titleVisibility: .visible
@@ -191,7 +208,9 @@ struct WeekPlanner: View {
   }
 
   private func tally(_ snapshot: WeekSnapshot) -> some View {
-    WeekTallyView(snapshot: snapshot, day: shownDay) { chosenDay = nil }
+    WeekTallyView(
+      snapshot: snapshot, day: shownDay, onClearDay: { chosenDay = nil },
+      onOpenTargets: { changingTargets = true })
   }
 
   private func gridPage(_ snapshot: WeekSnapshot) -> some View {
