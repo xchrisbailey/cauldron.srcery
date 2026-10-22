@@ -69,6 +69,27 @@ class HookTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.git("config", "core.hooksPath"), "custom-hooks")
 
+    def test_installed_hook_rejects_bad_commit_without_touching_files(self):
+        installed = self.command("install")
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        path = self.root / "data.json"
+        path.write_text("{broken")
+        self.git("add", path.name)
+        committed = subprocess.run(["git", "commit", "-m", "bad staged JSON"], cwd=self.root,
+                                   capture_output=True, text=True)
+        self.assertNotEqual(committed.returncode, 0)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.base)
+        self.assertEqual(path.read_text(), "{broken")
+
+    def test_malformed_staged_entitlements_are_rejected(self):
+        path = self.root / "Bad.entitlements"
+        path.write_text("<plist><dict>")
+        self.git("add", path.name)
+        result = self.command("pre-commit")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Bad.entitlements", result.stderr)
+        self.assertEqual(path.read_text(), "<plist><dict>")
+
     def test_tag_push_requires_preflight_and_never_pushes(self):
         self.git("tag", "-a", "v0.0.1", "-m", "release")
         tag = self.git("rev-parse", "v0.0.1")

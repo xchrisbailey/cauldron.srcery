@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -21,7 +22,6 @@ SELECTOR = re.compile(
     r"CauldronTests/[A-Za-z_][A-Za-z0-9_.]*(?:/[A-Za-z_][A-Za-z0-9_.]*(?:\([A-Za-z0-9_:,.-]*\))?)?\Z"
 )
 ASSERTION_MARKERS = ("XCTAssert", "Expectation failed", "#expect failed")
-BUILD_MARKERS = ("SwiftCompile", "CompileSwift", "BUILD FAILED")
 
 
 class CheckFailure(Exception):
@@ -43,20 +43,28 @@ def run_command(argv: list[str], *, cwd: Path, log: Path) -> tuple[int, str]:
         stream.flush()
         try:
             process = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            output_lines = []
+            if process.stdout is not None:
+                for line in process.stdout:
+                    stream.write(line)
+                    stream.flush()
+                    output_lines.append(line)
+            return process.wait(), "".join(output_lines)
         except OSError as error:
             raise CheckFailure("runner-failed", f"could not launch {argv[0]}: {error}") from error
-        output, _ = process.communicate()
-        stream.write(output)
-    return process.returncode, output
 
 
 def classify_failure(output: str, returncode: int) -> CheckFailure:
-    if any(marker.lower() in output.lower() for marker in BUILD_MARKERS) or re.search(
-        r"error: (?:emit-module|compile|no such module|cannot find|failed to build)", output, re.IGNORECASE
+    if re.search(
+        r"\bBUILD FAILED\b|error: (?:emit-module|compile|no such module|cannot find|failed to build|could not build|unable to build)",
+        output,
+        re.IGNORECASE,
     ):
         return CheckFailure("build-failed", f"build failed (exit {returncode})")
     if any(marker.lower() in output.lower() for marker in ASSERTION_MARKERS) or re.search(
-        r"test(?: case)? .* failed|^FAIL:|^ERROR:|^FAILED ", output, re.IGNORECASE | re.MULTILINE
+        r"test(?: case)? .* failed|test run with .* failed|^FAIL:|^ERROR:|^FAILED ",
+        output,
+        re.IGNORECASE | re.MULTILINE,
     ):
         return CheckFailure("assertion-failed", f"test assertions failed (exit {returncode})")
     return CheckFailure("runner-failed", f"test runner failed (exit {returncode})")
@@ -76,7 +84,12 @@ def xcode_summary(bundle: Path) -> dict:
         raise CheckFailure("runner-failed", "xcresult summary could not be read")
     try:
         value = json.loads(result.stdout)
-        counts = {key: int(value[key]) for key in ("totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures")}
+        keys = ("totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures")
+        counts = {key: value[key] for key in keys}
+        if any(type(value) is not int or value < 0 for value in counts.values()):
+            raise ValueError("test counts must be nonnegative integers")
+        if counts["skippedTests"] > counts["totalTestCount"]:
+            raise ValueError("skippedTests exceeds totalTestCount")
         counts["result"] = value["result"]
         if not isinstance(counts["result"], str):
             raise TypeError("result is not a string")
@@ -95,14 +108,35 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         command.extend(["-only-testing:" + selector])
     command.extend(["-resultBundlePath", str(bundle), "test"])
     code, output = run_command(command, cwd=root / "apple", log=log)
+    counts = None
+    if bundle.exists():
+        try:
+            counts = xcode_summary(bundle)
+        except CheckFailure:
+            if not code:
+                raise
     if code:
+        if counts is not None:
+            executed = counts["totalTestCount"] - counts["skippedTests"]
+            if counts["failedTests"] > 0:
+                raise CheckFailure(
+                    "assertion-failed", f"{counts['failedTests']} test(s) failed", testCount=executed, xcresult=counts
+                )
+            if executed <= 0:
+                failure = classify_failure(output, code)
+                if failure.status == "build-failed":
+                    failure.details.update(testCount=0, xcresult=counts)
+                    raise failure
+                raise CheckFailure("zero-tests", "Xcode reported zero executed tests", testCount=0, xcresult=counts)
+            failure = classify_failure(output, code)
+            failure.details.update(testCount=executed, xcresult=counts)
+            raise failure
         raise classify_failure(output, code)
-    if not bundle.exists():
+    if counts is None:
         raise CheckFailure("runner-failed", "xcodebuild succeeded without creating a result bundle")
-    counts = xcode_summary(bundle)
-    executed = counts["totalTestCount"]
+    executed = counts["totalTestCount"] - counts["skippedTests"]
     if executed <= 0:
-        raise CheckFailure("zero-tests", "Xcode reported zero executed tests")
+        raise CheckFailure("zero-tests", "Xcode reported zero executed tests", testCount=0, xcresult=counts)
     if counts["failedTests"] > 0 or counts["result"].lower() not in {"passed", "success", "succeeded"}:
         raise CheckFailure(
             "assertion-failed", f"{counts['failedTests']} test(s) failed", testCount=executed, xcresult=counts
@@ -115,10 +149,21 @@ def package_run(root: Path, filter_value: str | None, log: Path) -> int:
     if filter_value is not None:
         command.extend(["--filter", filter_value])
     code, output = run_command(command, cwd=root / "apple", log=log)
+    swift_testing = re.findall(
+        r"(?:✔|✘)?\s*Test run with\s+(\d+)\s+tests?\s+in\s+\d+\s+suites?\s+(passed|failed)",
+        output,
+        re.IGNORECASE,
+    )
+    xctest = re.findall(r"Executed (\d+) tests?", output)
+    count = int(swift_testing[-1][0]) if swift_testing else int(xctest[-1]) if xctest else 0
+    swift_testing_failed = bool(swift_testing and swift_testing[-1][1].lower() == "failed")
     if code:
-        raise classify_failure(output, code)
-    matches = re.findall(r"Executed (\d+) tests?", output)
-    count = int(matches[-1]) if matches else 0
+        failure = classify_failure(output, code)
+        if count:
+            failure.details.update(testCount=count)
+        raise failure
+    if swift_testing_failed:
+        raise CheckFailure("assertion-failed", "Swift Testing reported failures", testCount=count)
     if count <= 0:
         raise CheckFailure("zero-tests", "Swift reported zero executed tests")
     return count
@@ -144,7 +189,12 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
         if code:
             raise classify_failure(output, code)
         counts["lint"] = True
-        counts["package"] = package_run(root, None, log)
+        try:
+            counts["package"] = package_run(root, None, log)
+        except CheckFailure as error:
+            if error.details.get("testCount"):
+                counts["package"] = error.details["testCount"]
+            raise
         for platform in ("macos", "ios"):
             try:
                 counts[platform] = xcode_run(root, platform, [], log, artifact_dir)
@@ -161,8 +211,12 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
 
 def with_ios_lock(state: Path):
     lock = state / "ios-runner.lock"
-    descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    os.write(descriptor, f"{os.getpid()}\n".encode())
+    descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(descriptor)
+        raise
     return lock, descriptor
 
 
@@ -198,13 +252,18 @@ def main(argv: list[str] | None = None) -> int:
     artifacts = path.parent
     lock = None
     fd = None
+    lint_passed = tooling_passed = None
     try:
         if args.command == "ready":
+            if record["before"]["dirty"]:
+                raise CheckFailure("runner-failed", "full checks require a clean starting revision")
             try:
                 lock, fd = with_ios_lock(support.state_directory(root))
-            except FileExistsError as error:
+            except BlockingIOError as error:
                 raise CheckFailure("runner-failed", "another iOS test runner holds the shared lock") from error
             counts = execute_ready(root, log, artifacts)
+            lint_passed = counts.pop("lint")
+            tooling_passed = counts.pop("tooling")
             test_count = None
         elif args.command == "package":
             test_count = package_run(root, args.filter, log)
@@ -216,17 +275,17 @@ def main(argv: list[str] | None = None) -> int:
             if args.platform == "ios":
                 try:
                     lock, fd = with_ios_lock(support.state_directory(root))
-                except FileExistsError as error:
+                except BlockingIOError as error:
                     raise CheckFailure("runner-failed", "another iOS test runner holds the shared lock") from error
             test_count = xcode_run(root, args.platform, selectors, log, artifacts)
             counts = {}
         after = support.snapshot(root)
         if after != record["before"]:
             raise CheckFailure("runner-failed", "checkout revision or working tree changed during checks")
-        if args.command == "ready" and record["before"]["dirty"]:
-            raise CheckFailure("runner-failed", f"full checks require a clean starting revision: {record['before']}")
         status = "passed"
         details = {"counts": counts}
+        if args.command == "ready":
+            details.update(lint=lint_passed, tooling=tooling_passed)
         if test_count is not None:
             details["testCount"] = test_count
     except CheckFailure as error:
@@ -244,8 +303,6 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if fd is not None:
             os.close(fd)
-        if lock is not None:
-            lock.unlink(missing_ok=True)
     details["artifacts"] = [str(item) for item in sorted(artifacts.glob("*.xcresult"))]
     final = support.finish_run(path, record, status, **details)
     summary = f"checks: {final['status']} ({final['scope']}/{final['platform']})"

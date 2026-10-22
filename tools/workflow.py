@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import os
 import re
@@ -12,6 +13,15 @@ import sys
 from workflow_support import (
     WorkflowError, git, read_json, repository, run_records, snapshot, state_directory, successful_for,
 )
+
+
+def criterion_ids(brief: dict) -> list[str]:
+    expected = brief.get("criteria")
+    if not isinstance(expected, list) or not expected or any(not isinstance(value, str) or not value for value in expected):
+        raise WorkflowError("Brief must list nonempty acceptance-criterion IDs")
+    if len(set(expected)) != len(expected):
+        raise WorkflowError("Brief has duplicate acceptance-criterion IDs")
+    return expected
 
 
 def worker_check(result_path: Path, brief_path: Path) -> dict:
@@ -29,11 +39,7 @@ def worker_check(result_path: Path, brief_path: Path) -> dict:
         if git("rev-parse", f"{result[key]}^{{commit}}") != result[key]:
             raise WorkflowError(f"Worker {key} is not the specified commit")
     subprocess.run(["git", "merge-base", "--is-ancestor", result["base"], result["head"]], check=True)
-    expected = brief.get("criteria")
-    if not isinstance(expected, list) or not expected or any(not isinstance(value, str) or not value for value in expected):
-        raise WorkflowError("Brief must list nonempty acceptance-criterion IDs")
-    if len(set(expected)) != len(expected):
-        raise WorkflowError("Brief has duplicate acceptance-criterion IDs")
+    expected = criterion_ids(brief)
     criteria = result.get("criteria")
     if not isinstance(criteria, list) or any(not isinstance(item, dict) for item in criteria):
         raise WorkflowError("Worker criteria must be objects with status and evidence")
@@ -78,19 +84,19 @@ def worker_check(result_path: Path, brief_path: Path) -> dict:
 
 def template(brief_path: Path, base: str, output: Path) -> None:
     brief = read_json(brief_path)
-    if brief.get("version") != 1 or not brief.get("ticket") or not brief.get("criteria"):
+    if brief.get("version") != 1 or not brief.get("ticket"):
         raise WorkflowError("Brief needs version, ticket and acceptance-criterion IDs")
+    identifiers = criterion_ids(brief)
     if output.exists():
         raise WorkflowError(f"Existing worker result preserved: {output}")
     result = {
         "version": 1, "status": "partial", "ticket": brief["ticket"],
         "head": git("rev-parse", "HEAD"), "base": git("rev-parse", f"{base}^{{commit}}"),
-        "criteria": [{"id": identifier, "status": "open", "evidence": []} for identifier in brief["criteria"]],
-        "checks": [], "remaining": list(brief["criteria"]), "manual": [],
+        "criteria": [{"id": identifier, "status": "open", "evidence": []} for identifier in identifiers],
+        "checks": [], "remaining": identifiers, "manual": [],
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     # Exclusive creation preserves an existing handoff if two sessions choose the same path.
-    import json
     with output.open("x") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
