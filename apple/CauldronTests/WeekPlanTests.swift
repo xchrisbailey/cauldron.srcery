@@ -157,6 +157,48 @@ struct WeekPlanTests {
     #expect(entry.servings == 2 && !WeekPlan.allocation(batch).hasInvalidEntries)
   }
 
+  @Test func duplicateEntryUUIDStillCountsOtherPersistedAssignmentForCapacity() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 4, in: context)
+    let edited = try WeekPlan.assign(2, on: monday, slot: .dinner, to: batch, in: context)
+    let other = try WeekPlan.assign(
+      2, on: monday.adding(days: 1), slot: .dinner, to: batch, in: context)
+    other.id = edited.id
+    #expect(throws: WeekPlanError.batchOverAssigned) {
+      try WeekPlan.apply(EntryChange(servings: .some(3)), to: edited, in: context)
+    }
+    #expect(edited.servings == 2 && other.servings == 2)
+  }
+
+  @Test func anUnreadableBatchDayCanBeRepairedByMovingItToAValidDay() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+    entry.dayKey = ""
+    #expect(WeekPlan.allocation(batch).hasInvalidEntries)
+    try WeekPlan.apply(EntryChange(day: monday.adding(days: 1)), to: entry, in: context)
+    #expect(entry.day == monday.adding(days: 1))
+    #expect(!WeekPlan.allocation(batch).hasInvalidEntries)
+  }
+
+  @Test func anUnreadableDayCanBeExplicitlyRemovedWithoutUndoingToAnInventedDate() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+    entry.dayKey = ""
+    try WeekPlan.removeInvalid(entry, in: context)
+    #expect(try context.fetchCount(FetchDescriptor<PlanEntryRecord>()) == 0)
+    #expect(WeekPlan.assignedServings(batch) == 0)
+    let valid = try WeekPlan.stirText("Valid", at: dinner(monday), into: context)
+    #expect(throws: WeekPlanError.noDays) { try WeekPlan.removeInvalid(valid, in: context) }
+  }
+
   @Test func undoRestoresBatchLinkAndRecipeEvenWhenBanished() throws {
     let context = try context()
     let soup = recipe("Soup", servings: 4, in: context)
@@ -182,6 +224,34 @@ struct WeekPlanTests {
     _ = try WeekPlan.assign(2, on: monday.adding(days: 1), slot: .dinner, to: batch, in: context)
     #expect(throws: WeekPlanError.batchOverAssigned) { try WeekPlan.restore(removed, in: context) }
     #expect(try context.fetchCount(FetchDescriptor<PlanEntryRecord>()) == 1)
+  }
+
+  @Test func undoRefusesWhenItsBatchWasDeletedMeanwhile() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+    let removed = try WeekPlan.remove(entry, in: context)
+    WeekPlan.removeBatch(batch, in: context)
+    #expect(throws: WeekPlanError.recipeMissing) { try WeekPlan.restore(removed, in: context) }
+    #expect(try context.fetchCount(FetchDescriptor<PlanEntryRecord>()) == 0)
+  }
+
+  @Test func undoAfterRecipePurgeDoesNotResurrectDeletedRecipeReference() throws {
+    let context = try context()
+    let soup = recipe("Soup", in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+    let removed = try WeekPlan.remove(entry, in: context)
+    context.delete(soup)
+    try context.save()
+    let restored = try WeekPlan.restore(removed, in: context)
+    #expect(restored.recipe == nil)
+    #expect(restored.batch === batch)
+    #expect(try context.fetchCount(FetchDescriptor<RecipeRecord>()) == 0)
+    #expect(WeekPlan.assignedServings(batch) == 1)
   }
 
   @Test func aFullMealRefusesTheWholeSpread() throws {
@@ -492,6 +562,44 @@ struct WeekPlanTests {
       #expect(copies.count == 1 && WeekPlan.assignedServings(copies[0]) == 0)
     }
 
+    @Test func copyDiscoversAssignmentLinkedBatchWhoseStoredRangeStartsOutsideSourceWeek() throws {
+      let context = try context()
+      let soup = recipe("Soup", servings: nil, in: context)
+      let sourceStart = monday.adding(days: -1)
+      let batch = PlannedBatchRecord(
+        weekStart: sourceStart, title: soup.title, totalServings: 4, ingredientYield: 4)
+      batch.recipe = soup
+      context.insert(batch)
+      let sourceEntry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+      let next = monday.adding(days: 7)
+
+      #expect(try WeekPlan.copyLastWeek(into: next, in: context) == 1)
+      let copiedBatch = try #require(
+        try WeekPlan.batches(
+          from: next.adding(days: -1), through: next.adding(days: 5), in: context
+        )
+        .first { $0.id != batch.id })
+      let copiedEntry = try #require(
+        try WeekPlan.fetch(from: next, through: next.adding(days: 6), in: context)
+          .first { $0.id != sourceEntry.id })
+      #expect(copiedEntry.batch === copiedBatch)
+      #expect(copiedBatch.weekStartKey == "2026-10-11")
+      #expect(copiedBatch.ingredientYield == 4)
+    }
+
+    @Test func copyRefusesMalformedLinkedBatchRangeInsteadOfDroppingItsGrouping() throws {
+      let context = try context()
+      let soup = recipe("Soup", in: context)
+      let batch = try WeekPlan.createBatch(
+        recipe: soup, weekStart: monday, totalServings: 2, in: context)
+      let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+      batch.weekStartKey = "not-a-date"
+      let next = monday.adding(days: 7)
+      #expect(throws: WeekPlanError.noDays) { try WeekPlan.copyLastWeek(into: next, in: context) }
+      #expect(try WeekPlan.fetch(from: next, through: next.adding(days: 6), in: context).isEmpty)
+      #expect(entry.batch === batch)
+    }
+
     @Test func clearingOnlyDeletesBatchesWhoseFullRangeWasCleared() throws {
       let context = try context()
       let soup = recipe("Soup", in: context)
@@ -505,6 +613,20 @@ struct WeekPlanTests {
       #expect(entry.batch === batch)
       #expect(try WeekPlan.clear(week: monday, in: context) == 1)
       #expect(try WeekPlan.batches(from: monday, through: monday, in: context).isEmpty)
+    }
+
+    @Test func clearingWeekNeverCascadesIntoLinkedAssignmentOutsideRange() throws {
+      let context = try context()
+      let soup = recipe("Soup", in: context)
+      let batch = try WeekPlan.createBatch(
+        recipe: soup, weekStart: monday, totalServings: 2, in: context)
+      let entry = try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+      entry.day = monday.adding(days: 7)
+      #expect(try WeekPlan.clear(week: monday, in: context) == 0)
+      #expect(entry.modelContext === context)
+      #expect(entry.day == monday.adding(days: 7))
+      #expect(try WeekPlan.batches(from: monday, through: monday, in: context).first === batch)
+      #expect(entry.batch === batch)
     }
 
     @Test func clearingTheWeekLeavesOtherWeeksAlone() throws {
