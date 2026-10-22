@@ -3,6 +3,9 @@ import CauldronKit
 import Network
 import SwiftData
 import SwiftUI
+#if DEBUG && os(macOS)
+  import Darwin
+#endif
 
 @main
 struct CauldronApp: App {
@@ -17,6 +20,22 @@ struct CauldronApp: App {
     enabled: CauldronStore.launchMode != .inMemory)
 
   init() {
+    #if DEBUG && os(macOS)
+      if CauldronStore.requestsSchemaInitialization(
+        arguments: CommandLine.arguments, environment: ProcessInfo.processInfo.environment)
+      {
+        do {
+          try CauldronStore.initializeDevelopmentSchema()
+          print(
+            "CloudKit Development schema initialized. Review and deploy it in CloudKit Console.")
+          exit(EXIT_SUCCESS)
+        } catch {
+          FileHandle.standardError.write(
+            Data("CloudKit schema initialization failed: \(error.localizedDescription)\n".utf8))
+          exit(EXIT_FAILURE)
+        }
+      }
+    #endif
     Brand.Fonts.register()
     do {
       container = try CauldronStore.container(CauldronStore.launchMode)
