@@ -8,6 +8,7 @@ private enum WeekSheet: Identifiable {
   /// A recipe dropped on a meal: the days step, at `position` in the meal (nil for the end).
   case dropped(UUID, MealTarget, Int?)
   case change(UUID)
+  case batch(PlannedBatchRecord)
 
   var id: String {
     switch self {
@@ -15,6 +16,7 @@ private enum WeekSheet: Identifiable {
     case .dropped(let id, let target, let position):
       "dropped-\(id.uuidString)-\(target.day)-\(target.slot.rawValue)-\(position ?? -1)"
     case .change(let id): "change-\(id.uuidString)"
+    case .batch(let batch): "batch-\(batch.id.uuidString)"
     }
   }
 }
@@ -39,6 +41,7 @@ struct WeekPlanner: View {
 
   @Environment(\.modelContext) private var context
   @Query private var records: [PlanEntryRecord]
+  @Query private var batches: [PlannedBatchRecord]
   /// The day whose tally shows beside the week's, and on a narrow window the day shown.
   @State private var chosenDay: LocalDate?
   @State private var sheet: WeekSheet?
@@ -60,6 +63,9 @@ struct WeekPlanner: View {
     self.onThisWeek = onThisWeek
     self.onStartsOn = onStartsOn
     _records = Query(filter: WeekPlan.predicate(from: start, through: start.adding(days: 6)))
+    let lower = start.description
+    let upper = start.adding(days: 6).description
+    _batches = Query(filter: #Predicate { $0.weekStartKey >= lower && $0.weekStartKey <= upper })
   }
 
   /// The width the seven columns need; narrower than this shows one day at a time.
@@ -100,6 +106,8 @@ struct WeekPlanner: View {
         droppedSheet(id, target, position, snapshot)
       case .change(let id):
         changeSheet(id, snapshot)
+      case .batch(let id):
+        PlannedBatchSheet(batch: id) { self.sheet = nil }
       }
     }
     .confirmationDialog(
@@ -158,7 +166,7 @@ struct WeekPlanner: View {
         } label: {
           Text(verbatim: Copy.week.clearWeek.text)
         }
-        .disabled(snapshot.isEmpty)
+        .disabled(snapshot.isEmpty && batches.isEmpty)
       } label: {
         Label {
           Text(verbatim: Copy.week.title.text)
@@ -191,11 +199,12 @@ struct WeekPlanner: View {
       VStack(alignment: .leading, spacing: 16) {
         header
         tally(snapshot)
-        if snapshot.isEmpty {
+        if snapshot.isEmpty && batches.isEmpty {
           Text(verbatim: Copy.week.empty.text)
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
         }
+        batchSummaries
         WeekCalendarGrid(
           snapshot: snapshot, today: today, chosenDay: $chosenDay, onAdd: { sheet = .stir($0) },
           onOpen: { sheet = .change($0) }, onRemove: remove, onDrop: drop,
@@ -220,11 +229,12 @@ struct WeekPlanner: View {
       VStack(alignment: .leading, spacing: 12) {
         header
         tally(snapshot)
-        if snapshot.isEmpty {
+        if snapshot.isEmpty && batches.isEmpty {
           Text(verbatim: Copy.week.empty.text)
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
         }
+        batchSummaries
       }
     } bottom: {
       WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
@@ -232,8 +242,25 @@ struct WeekPlanner: View {
   }
 
   @ViewBuilder
+  private var batchSummaries: some View {
+    if !batches.isEmpty {
+      VStack(alignment: .leading, spacing: 8) {
+        ForEach(batches.sorted { $0.createdAt < $1.createdAt }, id: \.id) { batch in
+          BatchSummary(batch: batch) { sheet = .batch(batch) }
+        }
+      }
+    }
+  }
+
+  @ViewBuilder
   private func changeSheet(_ id: UUID, _ snapshot: WeekSnapshot) -> some View {
-    if let meal = snapshot.meals.first(where: { $0.id == id }) {
+    if let meal = snapshot.meals.first(where: { $0.id == id }),
+      let record = records.first(where: { $0.id == id })
+    {
+      let batch = record.batch
+      let limits = batch.map {
+        PlannedEntryLimits(batch: $0, entry: record, records: $0.entries ?? [])
+      }
       EntrySheet(
         meal: meal,
         // This week and the weeks either side.
@@ -250,6 +277,11 @@ struct WeekPlanner: View {
         onRemove: {
           sheet = nil
           remove(id)
+        },
+        limits: limits,
+        onEditBatch: batch.map { batch in { sheet = .batch(batch) } },
+        onCommit: { edit in
+          try WeekPlan.commit(in: context) { try WeekPlan.apply(edit, to: record, in: context) }
         })
     }
   }

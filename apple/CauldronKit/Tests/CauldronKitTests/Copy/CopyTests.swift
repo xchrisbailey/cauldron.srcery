@@ -38,6 +38,10 @@ private let nativeOnlyPrefixes = [
 /// Sunday as week starts, and the native picker offers every day.
 private let nativeOnlyPaths: Set<String> = [
   "week.tuesday", "week.wednesday", "week.thursday", "week.friday", "week.saturday",
+  "week.allocationConflict", "week.editBatch", "week.unassign", "week.addAssignment",
+  "week.removeBatch", "week.removeBatchConfirm", "week.batchRemoved", "week.batchSaved",
+  "week.batchChanged", "week.invalidAssignment", "week.editAssignment",
+  "week.spread.total", "week.spread.allAssigned", "week.spread.saveUnassigned",
 ]
 
 private func isNativeOnly(_ path: String) -> Bool {
@@ -87,9 +91,44 @@ struct CopyTests {
   }
 
   @Test func settingsIsNativeOnlyAndPlain() {
-    let settings = catalogue.strings.filter { isNativeOnly($0.key) }
+    let settings = catalogue.strings.filter { $0.key.hasPrefix("settings.") }
     #expect(settings.count > 8)
     #expect(settings.values.allSatisfy { $0.tone == .plain })
+  }
+
+  @Test func nativeBatchCopyHasExplicitTextAndTone() {
+    let expected: [String: (String, Tone)] = [
+      "week.allocationConflict": (
+        "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day.",
+        .plain
+      ),
+      "week.editBatch": ("Edit planned batch", .plain),
+      "week.unassign": ("Unassign", .plain),
+      "week.addAssignment": ("Assign servings", .plain),
+      "week.removeBatch": ("Remove batch", .plain),
+      "week.removeBatchConfirm": ("Remove this batch and all its planned meals?", .plain),
+      "week.batchRemoved": ("Batch removed.", .plain),
+      "week.batchSaved": ("Batch updated.", .plain),
+      "week.batchChanged": (
+        "This batch changed elsewhere. Review its latest servings and try again.", .plain
+      ),
+      "week.invalidAssignment": ("Invalid assignment", .plain),
+      "week.editAssignment": ("Edit assignment", .plain),
+      "week.spread.total": ("Batch total", .plain),
+      "week.spread.allAssigned": ("All servings assigned", .plain),
+      "week.spread.saveUnassigned": ("Save batch", .voice),
+    ]
+    #expect(
+      Set(expected.keys)
+        == nativeOnlyPaths.subtracting([
+          "week.tuesday", "week.wednesday", "week.thursday", "week.friday", "week.saturday",
+        ]))
+    for (path, (text, tone)) in expected {
+      #expect(catalogue.strings[path]?.text == text, "\(path)")
+      #expect(catalogue.strings[path]?.tone == tone, "\(path)")
+    }
+    #expect(Copy.week.spread.remaining(1) == .plain("1 serving unassigned"))
+    #expect(Copy.week.spread.remaining(3) == .plain("3 servings unassigned"))
   }
 
   @Test func leavesOutTheAuthAndAccountStrings() {

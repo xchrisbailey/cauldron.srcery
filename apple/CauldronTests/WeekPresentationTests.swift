@@ -81,8 +81,8 @@ struct WeekPresentationTests {
     #expect(plan.entries.map(\.date) == [monday, monday.adding(days: 5)])
     plan.toggle(monday)
     plan.toggle(monday.adding(days: 5))
-    #expect(!plan.canStir)
-    #expect(plan.summary == "Pick at least one day.")
+    #expect(plan.canStir)
+    #expect(plan.summary == "0 of 4 servings planned")
   }
 
   @Test func steppingAddsServingsAndTheLastOneOffDropsTheDay() {
@@ -132,6 +132,51 @@ struct WeekPresentationTests {
     #expect(!spread(servings: nil).isOver)
   }
 
+  @Test func allocationCopyNamesRemainingAndCompletedServings() {
+    #expect(Copy.week.spread.remaining(3).text == "3 servings unassigned")
+    #expect(Copy.week.spread.remaining(1).text == "1 serving unassigned")
+    #expect(Copy.week.spread.allAssigned.text == "All servings assigned")
+  }
+
+  @Test func batchSummaryReportsRemainingAndConflictWithoutNegativeCounts() {
+    let partial = BatchAllocationSummary(
+      title: "Soup", total: 5, assigned: 2, hasInvalidEntries: false)
+    #expect(partial.remaining == 3)
+    #expect(partial.status == "3 servings unassigned")
+    let complete = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 2, hasInvalidEntries: false)
+    #expect(complete.status == "All servings assigned")
+    let conflicted = BatchAllocationSummary(
+      title: "Soup", total: 2, assigned: 4, hasInvalidEntries: true)
+    #expect(conflicted.remaining == 0)
+    #expect(conflicted.isConflict)
+  }
+
+  @Test func batchDraftDoesNotCallReducedCapacityCompleteAndUsesRaisedCapacity() {
+    let conflict = BatchAllocationSummary(
+      title: "Soup", total: 1, assigned: 2, hasInvalidEntries: false)
+    #expect(conflict.isConflict)
+    #expect(conflict.status == Copy.week.allocationConflict.text)
+    #expect(conflict.remaining == 0)
+    let increased = BatchAllocationSummary(
+      title: "Soup", total: 5, assigned: 2, hasInvalidEntries: false)
+    #expect(increased.assignable == 3)
+    #expect(increased.status == "3 servings unassigned")
+  }
+
+  @Test func untouchedBatchDraftUsesLiveCapacityAndExplicitIncreaseRejectsStaleTotals() throws {
+    var untouched = PlannedBatchEditDraft(openedTotal: 4)
+    #expect(try untouched.totalToCommit(currentTotal: 2) == nil)
+    #expect(untouched.availableServings(currentTotal: 2, assigned: 1) == 1)
+
+    var increased = PlannedBatchEditDraft(openedTotal: 4)
+    increased.setTotal(5)
+    #expect(try increased.totalToCommit(currentTotal: 4) == 5)
+    #expect(throws: PlannedBatchDraftError.staleTotal) {
+      try increased.totalToCommit(currentTotal: 2)
+    }
+  }
+
   // MARK: Changing an entry
 
   private func meal(
@@ -179,5 +224,18 @@ struct WeekPresentationTests {
     var draft = PlannedMealDraft(meal(title: "Leftovers"))
     draft.servings = 3
     #expect(draft.change == nil)
+  }
+
+  @Test func renameableBatchEntryCanEditServingsWithoutChangingLegacyFreeText() {
+    let entry = meal(servings: nil, title: "Soup")
+    var legacy = PlannedMealDraft(entry)
+    legacy.servings = 3
+    #expect(legacy.canRename && !legacy.canEditServings)
+    #expect(legacy.change == nil)
+
+    var batch = PlannedMealDraft(entry, allowsBatchServingEdits: true)
+    batch.servings = 3
+    #expect(batch.canRename && batch.canEditServings)
+    #expect(batch.change?.servings == .some(.some(3)))
   }
 }

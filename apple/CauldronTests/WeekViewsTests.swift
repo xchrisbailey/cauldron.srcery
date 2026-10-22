@@ -94,6 +94,66 @@ import Testing
       }
     }
 
+    @Test func plannedBatchSummariesAndEditorRenderAtBothWeekWidthsAndAppearances() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let start = LocalDate("2026-10-05")!
+      let recipe = RecipeRecord(title: "Soup")
+      context.insert(recipe)
+      let batch = try WeekPlan.createBatch(
+        recipe: recipe, weekStart: start, totalServings: 4, in: context)
+      try context.save()
+      let planner = WeekPlanner(
+        start: start, today: start, startsOn: .monday, isCurrent: true, onPrevious: {},
+        onNext: {}, onThisWeek: {}, onStartsOn: { _ in })
+      for scheme in [ColorScheme.light, .dark] {
+        for (width, height) in [(1100.0, 800.0), (390.0, 800.0)] {
+          #expect(
+            renders(
+              planner.modelContainer(container).environment(\.colorScheme, scheme),
+              width: width, height: height), "week batch summary \(scheme) \(width)")
+        }
+        #expect(
+          renders(
+            BatchSummary(batch: batch, onOpen: {}).environment(\.colorScheme, scheme),
+            width: 390, height: 140))
+        #expect(
+          renders(
+            PlannedBatchSheet(batch: batch, onRemoved: {}).modelContainer(container)
+              .environment(\.colorScheme, scheme), width: 440, height: 680),
+          "batch editor \(scheme)")
+      }
+    }
+
+    @Test func invalidBatchAssignmentHasRepairControlsAndRenameableBatchEntryHasServings() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let start = LocalDate("2026-10-05")!
+      let batch = PlannedBatchRecord(
+        weekStart: start, title: "Soup", totalServings: 4, ingredientYield: 4)
+      let entry = PlanEntryRecord(day: start, slot: .dinner, title: "Soup", servings: nil)
+      entry.batch = batch
+      entry.dayKey = "unreadable"
+      context.insert(batch)
+      context.insert(entry)
+      let repair = BatchAssignmentEditor(entry: entry, batch: batch)
+      let limits = PlannedEntryLimits(batch: batch, entry: entry, records: [entry])
+      let row = EntrySheet(
+        meal: PlanEntry(
+          id: entry.id, date: start, slot: .dinner, title: "Soup", recipe: nil, servings: nil,
+          position: 0, brewed: false),
+        days: start.weekDays(), slotSize: 1, onSave: { _ in }, onShift: { _ in },
+        onRemove: {}, limits: limits)
+      for scheme in [ColorScheme.light, .dark] {
+        #expect(
+          renders(
+            repair.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 420, height: 520))
+        #expect(
+          renders(row.environment(\.colorScheme, scheme), width: 420, height: 520))
+      }
+    }
+
     @Test func theNoticeBannerRendersWithAndWithoutUndo() {
       for undo in [true, false] {
         for scheme in [ColorScheme.light, .dark] {

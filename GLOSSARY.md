@@ -11,3 +11,11 @@ _Avoid_: Saved recipe, finished import
 **Saved recipe**:
 A recipe the cook has chosen to keep in the recipe box. Keeping an unfinished shared draft for later does not save it as a recipe.
 _Avoid_: Shared draft
+
+**Planned batch**:
+A quantity of one recipe intended for a particular week, whose servings can be assigned to days. Separate additions of the same recipe are separate planned batches; planning a batch does not mean it has been cooked.
+_Avoid_: Leftovers, cooking history
+
+**Unassigned servings**:
+The servings of a planned batch that have not yet been assigned to a day. They describe unfinished scheduling, not food left uneaten.
+_Avoid_: Leftover servings, uneaten servings

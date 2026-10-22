@@ -1,5 +1,6 @@
 import CauldronKit
 import SwiftUI
+import SwiftData
 
 /// "Stir into the week" on a recipe's page: opens the week's sheet to pick a day and a meal,
 /// planning the servings the cook scaled the recipe to. A banished recipe can't be added.
@@ -9,6 +10,7 @@ struct RecipeAddToWeekAction: View {
   let scale: Scale
   /// Where the page keeps whether the sheet is open, so the Recipe menu can open it too.
   var isChoosing: Binding<Bool>?
+  @Query private var preferences: [PreferencesRecord]
 
   @State private var ownChoosing = false
   @State private var confirmation: String?
@@ -25,7 +27,10 @@ struct RecipeAddToWeekAction: View {
     .buttonStyle(RecipeActionButtonStyle())
     .disabled(recipe.isBanished)
     .sheet(isPresented: choosing) {
-      StirRecipeSheet(recipe: recipe, scale: scale, today: WeekDates.today()) { text in
+      StirRecipeSheet(
+        recipe: recipe, scale: scale, today: WeekDates.today(),
+        startsOn: WeekStartPreference.current(preferences)
+      ) { text in
         choosing.wrappedValue = false
         confirmation = text
         confirmationCount += 1

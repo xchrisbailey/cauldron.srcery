@@ -11,24 +11,33 @@ struct EntrySheet: View {
   /// Meals in its slot, for moving it up or down.
   let slotSize: Int
   let onSave: (EntryChange) -> Void
+  let onCommit: ((EntryChange) throws -> Void)?
+  let limits: PlannedEntryLimits?
+  let onEditBatch: (() -> Void)?
   /// Moves it one place up (-1) or down (1) in its meal.
   let onShift: (Int) -> Void
   let onRemove: () -> Void
 
   @Environment(\.dismiss) private var dismiss
   @State private var draft: PlannedMealDraft
+  @State private var problem: String?
 
   init(
     meal: PlanEntry, days: [LocalDate], slotSize: Int, onSave: @escaping (EntryChange) -> Void,
-    onShift: @escaping (Int) -> Void, onRemove: @escaping () -> Void
+    onShift: @escaping (Int) -> Void, onRemove: @escaping () -> Void,
+    limits: PlannedEntryLimits? = nil, onEditBatch: (() -> Void)? = nil,
+    onCommit: ((EntryChange) throws -> Void)? = nil
   ) {
     self.meal = meal
     self.days = days
     self.slotSize = slotSize
     self.onSave = onSave
+    self.onCommit = onCommit
+    self.limits = limits
+    self.onEditBatch = onEditBatch
     self.onShift = onShift
     self.onRemove = onRemove
-    _draft = State(initialValue: PlannedMealDraft(meal))
+    _draft = State(initialValue: PlannedMealDraft(meal, allowsBatchServingEdits: limits != nil))
   }
 
   var body: some View {
@@ -37,22 +46,32 @@ struct EntrySheet: View {
         Section {
           if draft.canRename {
             TextField(text: $draft.title) { Text(verbatim: Copy.week.meal.text) }
-          } else {
+          }
+          if draft.canEditServings {
             Picker(selection: $draft.servings) {
-              Text(verbatim: Copy.week.sameServings(meal.recipe?.servings).text)
-                .tag(Int?.none)
-              ForEach(1...WeekLimits.servings, id: \.self) { n in
-                Text(verbatim: String(n)).tag(Int?.some(n))
+              if limits == nil {
+                Text(verbatim: Copy.week.sameServings(meal.recipe?.servings).text)
+                  .tag(Int?.none)
+              } else if draft.servings == nil {
+                Text(verbatim: Copy.week.invalidAssignment.text).tag(Int?.none)
+              }
+              ForEach(servingChoices, id: \.self) { n in
+                Text(verbatim: String(n)).brandText(.quantity).tag(Int?.some(n))
               }
             } label: {
               Text(verbatim: Copy.week.servings.text)
             }
           }
+          if let onEditBatch {
+            Button(action: onEditBatch) {
+              Text(verbatim: Copy.week.spread.total.text)
+            }
+          }
         }
         Section {
           Picker(selection: $draft.day) {
-            ForEach(days, id: \.self) { day in
-              Text(verbatim: WeekDates.label(day, long: true)).tag(day)
+            ForEach(availableDays, id: \.self) { day in
+              Text(verbatim: WeekDates.label(day, long: true)).brandText(.quantity).tag(day)
             }
           } label: {
             Text(verbatim: Copy.week.day.text)
@@ -64,6 +83,9 @@ struct EntrySheet: View {
           } label: {
             Text(verbatim: Copy.week.slot.text)
           }
+        }
+        if let problem {
+          Section { Text(verbatim: problem).foregroundStyle(Brand.Colors.subtext) }
         }
         if slotSize > 1 {
           Section {
@@ -104,17 +126,41 @@ struct EntrySheet: View {
         }
         ToolbarItem(placement: .confirmationAction) {
           Button {
-            if let change = draft.change { onSave(change) }
-            dismiss()
+            guard let change = draft.change else { dismiss(); return }
+            do {
+              if let onCommit { try onCommit(change) } else { onSave(change) }
+              dismiss()
+            } catch {
+              problem = WeekPlan.message(for: error).text
+            }
           } label: {
             Text(verbatim: Copy.week.save.text)
           }
-          .disabled(!draft.isValid)
+          .disabled(!isDraftValid)
         }
       }
     }
     #if os(macOS)
       .frame(minWidth: 400, minHeight: 440)
     #endif
+  }
+
+  private var availableDays: [LocalDate] {
+    guard let limits else { return days }
+    return limits.days.contains(draft.day) ? limits.days : [draft.day] + limits.days
+  }
+
+  private var servingChoices: [Int] {
+    guard let limits else { return Array(1...WeekLimits.servings) }
+    return Set(
+      (limits.maxServings > 0 ? Array(1...limits.maxServings) : [])
+        + [draft.servings].compactMap { $0 }
+    )
+    .sorted()
+  }
+
+  private var isDraftValid: Bool {
+    guard draft.isValid else { return false }
+    return limits?.allows(day: draft.day, servings: draft.servings) ?? true
   }
 }
