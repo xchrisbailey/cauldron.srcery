@@ -85,7 +85,7 @@ enum GatherPlan {
           ingredients: recipe.ingredients.map {
             PlannedIngredient(
               item: $0.item, itemKey: $0.itemKey, quantity: stored($0.quantity), unit: $0.unit)
-          }))
+          }, ingredientYield: record.batch?.ingredientYield))
     }
     return week
   }
