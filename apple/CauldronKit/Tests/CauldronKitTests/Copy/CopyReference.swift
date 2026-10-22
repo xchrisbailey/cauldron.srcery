@@ -709,6 +709,7 @@ enum CopyReference {
     .init(
       path: "week.tally.plannedAgainstTarget", tone: .plain, text: "Planned against weekly target"),
     .init(path: "week.tally.grams", tone: .plain, text: "g"),
+    .init(path: "week.tally.lessThanTenth", tone: .plain, text: "<0.1"),
     .init(
       path: "week.tally.incomplete", tone: .plain,
       text: "Incomplete comparison: some planned meals are not fully counted."),

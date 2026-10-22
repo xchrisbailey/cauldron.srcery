@@ -764,6 +764,46 @@ struct WeekPlanTests {
     #expect(emptyWithTargets.weeklyComparison?.remaining(for: .calories) == 700)
   }
 
+  @Test func weeklyComparisonPreservesFractionalProteinDifferencesInItsPresentedRow() throws {
+    func row(lastServingProtein: Double) throws -> (Double, String) {
+      let context = try context()
+      let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      context.insert(target)
+      let usual = recipe(
+        "Protein meal", servings: 1,
+        macros: Macros(calories: 100, protein: 100, carbs: 10, fat: 5), in: context)
+      let last = recipe(
+        "Last protein meal", servings: 1,
+        macros: Macros(calories: 100, protein: lastServingProtein, carbs: 10, fat: 5),
+        in: context)
+      let days = monday.weekDays()
+      try WeekPlan.stir(
+        usual, days: days.prefix(6).map { DayServings(date: $0, servings: 1) }, slot: .dinner,
+        into: context)
+      try WeekPlan.stir(last, at: dinner(days[6]), servings: 1, into: context)
+      let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+      let snapshot = WeekSnapshot(start: monday, records: records, targets: target)
+      let comparison = try #require(snapshot.weeklyComparison)
+      return (
+        comparison.planned.protein,
+        WeekFigures.comparisonRow(comparison, key: .protein, locale: en)
+      )
+    }
+
+    let below = try row(lastServingProtein: 99.5)
+    #expect(below.0 == 699.5)
+    #expect(below.1 == "Protein: 699.5 g planned, 700 g target, 0.5 g remaining")
+    let exact = try row(lastServingProtein: 100)
+    #expect(exact.0 == 700)
+    #expect(exact.1 == "Protein: 700 g planned, 700 g target, 0 g remaining")
+    let above = try row(lastServingProtein: 100.1)
+    #expect(above.0 == 700.1)
+    #expect(above.1 == "Protein: 700.1 g planned, 700 g target, 0.1 g over target")
+    let belowPrecision = try row(lastServingProtein: 100.04)
+    #expect(belowPrecision.0 == 700.04)
+    #expect(belowPrecision.1 == "Protein: 700 g planned, 700 g target, <0.1 g over target")
+  }
+
   @Test func weeklyComparisonKeepsFullDenominatorAndQualifiesPartialAndFreeTextMeals() throws {
     let context = try context()
     let targets = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)

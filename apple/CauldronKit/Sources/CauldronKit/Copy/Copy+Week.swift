@@ -133,6 +133,7 @@ extension Copy {
       public let clearDay = plain("Back to the week")
       public let plannedAgainstTarget = plain("Planned against weekly target")
       public let grams = plain("g")
+      public let lessThanTenth = plain("<0.1")
       public let incomplete = plain(
         "Incomplete comparison: some planned meals are not fully counted.")
       public let noTargets = plain("Set targets to compare this plan with your weekly goals.")

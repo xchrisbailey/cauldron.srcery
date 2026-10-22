@@ -84,6 +84,42 @@ enum WeekFigures {
     return Int((value + 0.5).rounded(.down)).formatted(.number.locale(locale))
   }
 
+  /// Comparison amounts retain a decimal so meaningful macro differences do not round to zero.
+  static func comparisonRow(
+    _ comparison: WeekMacroComparison, key: MacroKey, locale: Locale = .current
+  ) -> String {
+    let unit =
+      key == .calories
+      ? Copy.week.tally.macros.calories.text : Copy.week.tally.grams.text
+    let remaining = comparison.remaining(for: key)
+    let difference = abs(remaining)
+    let differenceText =
+      difference == 0
+      ? comparisonAmount(0, locale: locale)
+      : difference < 0.05
+        ? Copy.week.tally.lessThanTenth.text
+        : comparisonAmount(difference, locale: locale)
+    return Copy.week.tally.comparisonRow(
+      name: metricName(key), planned: comparisonAmount(comparison.planned[key], locale: locale),
+      target: comparisonAmount(comparison.target[key], locale: locale), unit: unit,
+      difference: differenceText, isOver: remaining < 0
+    ).text
+  }
+
+  private static func comparisonAmount(_ value: Double, locale: Locale) -> String {
+    guard value.isFinite else { return 0.formatted(.number.locale(locale)) }
+    return value.formatted(.number.precision(.fractionLength(0...1)).locale(locale))
+  }
+
+  private static func metricName(_ key: MacroKey) -> String {
+    switch key {
+    case .calories: Copy.tracker.macroNames.calories.text
+    case .protein: Copy.tracker.macroNames.protein.text
+    case .carbs: Copy.tracker.macroNames.carbs.text
+    case .fat: Copy.tracker.macroNames.fat.text
+    }
+  }
+
   /// Calories from each macro: 4 per gram of protein and carbs, 9 per gram of fat.
   static let kcalPerGram: [MacroKey: Double] = [.protein: 4, .carbs: 4, .fat: 9]
 
