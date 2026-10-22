@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 from workflow_support import (
-    WorkflowError, git, read_json, repository, run_records, snapshot, state_directory, successful_for,
+    WorkflowError, git, read_json, repository, run_records, snapshot, state_directory, successful_for, full_checks_for,
 )
 
 
@@ -66,17 +66,11 @@ def worker_check(result_path: Path, brief_path: Path) -> dict:
         if not evidence_path.is_relative_to(run_root) or evidence_path.name != "result.json" or record.get("id") != evidence_path.parent.name:
             raise WorkflowError(f"Check evidence must reference an actual runner record: {path}")
         count = record.get("testCount", 0)
-        full = record.get("counts", {})
         positive = type(count) is int and count > 0
-        full_positive = isinstance(full, dict) and all(
-            type(full.get(platform)) is int and full[platform] > 0 for platform in ("package", "macos", "ios")
-        )
-        valid_scope = (record.get("scope") == "focused" and positive) or (
-            record.get("scope") == "full" and full_positive and record.get("lint") is True
-            and record.get("tooling") is True
-        )
+        tree = git("rev-parse", f"{result['head']}^{{tree}}")
+        valid_scope = (record.get("scope") == "focused" and positive) or full_checks_for(record, result["head"], tree)
         if (record.get("kind") != "checks" or not successful_for(record, result["head"])
-                or record.get("before", {}).get("tree") != git("rev-parse", f"{result['head']}^{{tree}}")
+                or record.get("before", {}).get("tree") != tree
                 or not valid_scope):
             raise WorkflowError(f"Check evidence is failed, stale, dirty, or zero-test: {path}")
     return result
@@ -130,7 +124,7 @@ def integrate(branch: str, result_path: Path, brief_path: Path) -> None:
     if ancestor.returncode:
         raise WorkflowError("Worker must merge the latest integration tip and rerun focused checks first")
     # Fast-forwarding retains the exact checked revision; no untested merge commit is invented.
-    subprocess.run(["git", "merge", "--ff-only", result["head"]], cwd=root, check=True)
+    subprocess.run(["git", "merge", "--ff-only", "--no-overwrite-ignore", result["head"]], cwd=root, check=True)
     print(f"Integrated {result['ticket']} at {result['head']}; no push or ticket closure performed.")
 
 

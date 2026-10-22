@@ -16,7 +16,7 @@ from xml.parsers.expat import ExpatError
 
 from workflow_support import (
     WorkflowError, git, read_json, repository, run_records, snapshot,
-    state_directory, successful_for,
+    state_directory, full_checks_for,
 )
 
 TOOLS = Path(__file__).resolve().parent
@@ -107,13 +107,9 @@ def pre_commit() -> None:
 
 
 def full_checks_exist(head: str) -> bool:
+    tree = git("rev-parse", f"{head}^{{tree}}")
     return any(
-        successful_for(record, head, scope="full")
-        and record.get("kind") == "checks"
-        and record.get("lint") is True
-        and record.get("tooling") is True
-        and all(type(record.get("counts", {}).get(platform)) is int
-                and record["counts"][platform] > 0 for platform in ("package", "macos", "ios"))
+        full_checks_for(record, head, tree)
         for _, record in run_records()
     )
 
@@ -125,7 +121,9 @@ def changed_paths(local: str, remote: str) -> list[str]:
         base = git("merge-base", local, "origin/main")
         return git("diff", "--name-only", base, local).splitlines()
     except WorkflowError:
-        return git("diff-tree", "--root", "--no-commit-id", "--name-only", "-r", local).splitlines()
+        # With no safe remote comparison base, every introduced commit is relevant. Looking
+        # only at the tip lets a documentation commit hide preceding native/tooling changes.
+        return git("log", "--format=", "--name-only", local).splitlines()
 
 
 def pre_push(lines: list[str]) -> None:
@@ -135,11 +133,11 @@ def pre_push(lines: list[str]) -> None:
         fields = line.split()
         if len(fields) != 4:
             raise WorkflowError("Malformed Git pre-push ref update")
-        local_ref, local_object, _, remote_object = fields
+        _, local_object, remote_ref, remote_object = fields
         if set(local_object) == {"0"}:
             continue
         commit = git("rev-parse", f"{local_object}^{{commit}}")
-        updates.append((local_ref, commit, changed_paths(commit, remote_object)))
+        updates.append((remote_ref, commit, changed_paths(commit, remote_object)))
     if not updates:
         return
     current = snapshot(root)
@@ -173,7 +171,7 @@ def pre_push(lines: list[str]) -> None:
             raise WorkflowError("Check runner did not produce current-head full validation evidence")
     elif needs_tooling:
         subprocess.run(
-            [sys.executable, "-B", "-m", "unittest", "discover", "-s", str(TOOLS / "tests")],
+            [sys.executable, "-B", "-m", "unittest", "discover", "-s", "tools/tests"],
             cwd=root, env=child_environment(), check=True,
         )
     if snapshot(root) != current:
@@ -185,7 +183,7 @@ def install() -> None:
     root = repository()
     desired = TOOLS.parent / ".githooks"
     existing = subprocess.run(
-        ["git", "config", "--local", "--get", "core.hooksPath"], cwd=root,
+        ["git", "config", "--get", "core.hooksPath"], cwd=root,
         text=True, capture_output=True,
     ).stdout.strip()
     if existing:
@@ -194,6 +192,14 @@ def install() -> None:
             path = root / path
         if path.resolve() != desired.resolve():
             raise WorkflowError(f"Existing hooks preserved: {existing}. Integrate them explicitly before installing.")
+    else:
+        default = Path(git("rev-parse", "--git-path", "hooks", cwd=root))
+        if not default.is_absolute():
+            default = root / default
+        custom = sorted(path.name for path in default.glob("*")
+                        if path.is_file() and not path.name.endswith(".sample") and os.access(path, os.X_OK))
+        if custom:
+            raise WorkflowError(f"Existing default hooks preserved: {', '.join(custom)}. Integrate them explicitly before installing.")
     for name in ("pre-commit", "pre-push"):
         if not os.access(desired / name, os.X_OK):
             raise WorkflowError(f"Missing executable hook: {desired / name}")

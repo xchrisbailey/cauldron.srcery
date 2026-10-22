@@ -258,12 +258,7 @@ def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
         raise support.WorkflowError(f"Tag already exists: {version}")
     records = []
     for path, record in support.run_records(root):
-        counts = record.get("counts")
-        if (record.get("kind") == "checks" and isinstance(counts, dict)
-                and all(type(counts.get(key)) is int and counts[key] > 0
-                        for key in ("package", "macos", "ios"))
-                and support.successful_for(record, snapshot["head"], scope="full")
-                and record.get("lint") is True and record.get("tooling") is True):
+        if support.full_checks_for(record, snapshot["head"], snapshot["tree"]):
             records.append((path, record))
     if not records:
         raise support.WorkflowError("Missing current reproducible full check evidence")

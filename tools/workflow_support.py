@@ -119,3 +119,17 @@ def successful_for(record: dict, head: str, *, scope: str | None = None) -> bool
         and before.get("dirty") is False
         and (scope is None or record.get("scope") == scope)
     )
+
+
+def full_checks_for(record: dict, head: str, tree: str) -> bool:
+    counts = record.get("counts")
+    return (
+        record.get("kind") == "checks"
+        and successful_for(record, head, scope="full")
+        and record.get("before", {}).get("tree") == tree
+        and record.get("lint") is True
+        and record.get("tooling") is True
+        and isinstance(counts, dict)
+        and all(type(counts.get(platform)) is int and counts[platform] > 0
+                for platform in ("package", "macos", "ios"))
+    )

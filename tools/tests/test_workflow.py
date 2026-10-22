@@ -20,7 +20,8 @@ class WorkflowTests(unittest.TestCase):
         self.git("config", "user.email", "test@example.invalid")
         self.git("config", "user.name", "Test")
         (self.root / "README").write_text("base\n")
-        self.git("add", "README")
+        (self.root / ".gitignore").write_text("ignored.txt\n")
+        self.git("add", "README", ".gitignore")
         self.git("commit", "-m", "base")
         self.base = self.git("rev-parse", "HEAD")
         self.git("switch", "-c", "integration")
@@ -100,6 +101,24 @@ class WorkflowTests(unittest.TestCase):
         before = self.git("rev-parse", "HEAD")
         self.assertNotEqual(self.command("integrate", "worker").returncode, 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), before)
+
+    def test_ignored_user_file_collision_is_preserved(self):
+        ignored = self.root / "ignored.txt"
+        ignored.write_text("user scratch settings\n")
+        (self.worker / "ignored.txt").write_text("worker tracked settings\n")
+        self.git("add", "-f", "ignored.txt", cwd=self.worker)
+        self.git("commit", "-m", "track a previously ignored path", cwd=self.worker)
+        head = self.git("rev-parse", "HEAD", cwd=self.worker)
+        self.result["head"] = head
+        record = json.loads(self.check.read_text())
+        record["before"]["head"] = head
+        record["before"]["tree"] = self.git("rev-parse", "HEAD^{tree}", cwd=self.worker)
+        record["after"] = dict(record["before"])
+        self.check.write_text(json.dumps(record))
+        result = self.command("integrate", "worker")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(ignored.read_text(), "user scratch settings\n")
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.base)
 
     def test_template_starts_partial_and_preserves_existing_handoff(self):
         output = self.root / ".git/new-worker.json"
