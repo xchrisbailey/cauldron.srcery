@@ -108,6 +108,18 @@ class ChecksCLITests(unittest.TestCase):
         self.assertEqual(record["testCount"], 2)
         self.assertEqual(record["xcresult"]["failedTests"], 1)
 
+    def test_bootstrap_failure_with_empty_bundle_is_not_a_zero_test_success(self) -> None:
+        self.install("xcodebuild", "while [ $# -gt 0 ]; do if [ \"$1\" = -resultBundlePath ]; then shift; mkdir -p \"$1\"; fi; shift; done\necho 'SwiftCompile normal arm64 source.swift'\necho 'Early unexpected exit while bootstrapping tests'\nexit 65\n")
+        self.git("add", "fake-bin/xcodebuild")
+        self.git("commit", "-qm", "bootstrap failure fixture")
+        result = self.invoke(
+            "focused", "--platform", "macos", "--test", "CauldronTests/Suite",
+            SUMMARY='{"totalTestCount":0,"passedTests":0,"failedTests":0,"skippedTests":0,"expectedFailures":0,"result":"Failed"}',
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.records()[-1]["status"], "runner-failed")
+        self.assertEqual(self.records()[-1]["testCount"], 0)
+
     def test_xcode_all_skipped_and_malformed_counts_fail(self) -> None:
         skipped = self.invoke(
             "focused", "--platform", "macos", "--test", "CauldronTests/Suite",

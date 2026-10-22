@@ -124,10 +124,8 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
                 )
             if executed <= 0:
                 failure = classify_failure(output, code)
-                if failure.status == "build-failed":
-                    failure.details.update(testCount=0, xcresult=counts)
-                    raise failure
-                raise CheckFailure("zero-tests", "Xcode reported zero executed tests", testCount=0, xcresult=counts)
+                failure.details.update(testCount=0, xcresult=counts)
+                raise failure
             failure = classify_failure(output, code)
             failure.details.update(testCount=executed, xcresult=counts)
             raise failure
