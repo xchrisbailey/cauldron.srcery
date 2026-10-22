@@ -13,6 +13,7 @@
       var identifier: String?
       var entityNames: Set<String> = []
       var fail = false
+      var cleanupFails = false
 
       func initialize(model: NSManagedObjectModel, storeURL: URL, containerIdentifier: String)
         throws
@@ -22,6 +23,11 @@
         entityNames = Set(model.entities.compactMap(\.name))
         #expect(FileManager.default.fileExists(atPath: storeURL.deletingLastPathComponent().path))
         if fail { throw CocoaError(.fileWriteUnknown) }
+      }
+
+      func removeScratchDirectory(at url: URL) throws {
+        if cleanupFails { throw CocoaError(.fileWriteNoPermission) }
+        try FileManager.default.removeItem(at: url)
       }
     }
 
@@ -65,6 +71,25 @@
         #expect(initializer.identifier == CauldronStore.cloudContainerID)
         #expect(initializer.entityNames.contains("PlannedBatchRecord"))
         #expect(initializer.entityNames.count == CauldronStore.models.count)
+      }
+    }
+
+    @Test func cleanupFailureReportsTheScratchPathAndPreservesInitializationFailure() throws {
+      for fail in [false, true] {
+        let initializer = Initializer()
+        initializer.fail = fail
+        initializer.cleanupFails = true
+        do {
+          try CauldronStore.initializeDevelopmentSchema(
+            signedEnvironment: "Development", initializer: initializer)
+          Issue.record("Cleanup failure must not report success")
+        } catch CloudKitSchemaInitializationError.cleanupFailed(let original, _, let path) {
+          #expect((original != nil) == fail)
+          #expect(path == initializer.storeURL?.deletingLastPathComponent().path)
+        }
+        let scratch = try #require(initializer.storeURL).deletingLastPathComponent()
+        #expect(FileManager.default.fileExists(atPath: scratch.path))
+        try FileManager.default.removeItem(at: scratch)
       }
     }
   }

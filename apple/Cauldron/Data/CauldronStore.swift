@@ -122,14 +122,26 @@ enum CauldronStore {
       let scratch = scratchRoot.appending(
         path: "Cauldron-CloudKitSchema-\(UUID().uuidString)", directoryHint: .isDirectory)
       try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
-      // Only this invocation's newly created scratch directory is removed, after the persistent
-      // container has released its store. The app's App Group store is never opened here.
-      defer { try? FileManager.default.removeItem(at: scratch) }
-      try autoreleasepool {
-        try initializer.initialize(
-          model: model, storeURL: scratch.appending(path: "Schema.store"),
-          containerIdentifier: cloudContainerID)
+      var initializationError: (any Error)?
+      do {
+        try autoreleasepool {
+          try initializer.initialize(
+            model: model, storeURL: scratch.appending(path: "Schema.store"),
+            containerIdentifier: cloudContainerID)
+        }
+      } catch {
+        initializationError = error
       }
+      // Only this invocation's directory is removed, after the container has released its store.
+      // Keep both errors if cleanup fails, so a partial operation never prints success.
+      do {
+        try initializer.removeScratchDirectory(at: scratch)
+      } catch {
+        throw CloudKitSchemaInitializationError.cleanupFailed(
+          initialization: initializationError?.localizedDescription,
+          detail: error.localizedDescription, path: scratch.path)
+      }
+      if let initializationError { throw initializationError }
     }
   #endif
 }
@@ -138,6 +150,7 @@ enum CauldronStore {
   enum CloudKitSchemaInitializationError: LocalizedError {
     case developmentSigningRequired
     case modelUnavailable
+    case cleanupFailed(initialization: String?, detail: String, path: String)
 
     var errorDescription: String? {
       switch self {
@@ -145,6 +158,9 @@ enum CauldronStore {
         "Schema initialization requires a development-signed Debug app with the CloudKit Development entitlement."
       case .modelUnavailable:
         "Couldn't generate the Core Data model for Cauldron's schema."
+      case .cleanupFailed(let initialization, let detail, let path):
+        [initialization, "Scratch cleanup failed: \(detail). Inspect scratch path: \(path)."]
+          .compactMap { $0 }.joined(separator: " ")
       }
     }
   }
@@ -152,6 +168,13 @@ enum CauldronStore {
   @MainActor
   protocol CloudKitSchemaInitializing {
     func initialize(model: NSManagedObjectModel, storeURL: URL, containerIdentifier: String) throws
+    func removeScratchDirectory(at url: URL) throws
+  }
+
+  extension CloudKitSchemaInitializing {
+    func removeScratchDirectory(at url: URL) throws {
+      try FileManager.default.removeItem(at: url)
+    }
   }
 
   struct LiveCloudKitSchemaInitializer: CloudKitSchemaInitializing {
@@ -166,13 +189,28 @@ enum CauldronStore {
       container.persistentStoreDescriptions = [description]
       var loadingError: (any Error)?
       container.loadPersistentStores { _, error in loadingError = error }
-      defer {
-        for store in container.persistentStoreCoordinator.persistentStores {
-          try? container.persistentStoreCoordinator.remove(store)
+      var initializationError: (any Error)?
+      do {
+        if let loadingError { throw loadingError }
+        try container.initializeCloudKitSchema(options: [])
+      } catch {
+        initializationError = error
+      }
+      var unloadingErrors: [String] = []
+      for store in container.persistentStoreCoordinator.persistentStores {
+        do {
+          try container.persistentStoreCoordinator.remove(store)
+        } catch {
+          unloadingErrors.append(error.localizedDescription)
         }
       }
-      if let loadingError { throw loadingError }
-      try container.initializeCloudKitSchema(options: [])
+      if !unloadingErrors.isEmpty {
+        throw CloudKitSchemaInitializationError.cleanupFailed(
+          initialization: initializationError?.localizedDescription,
+          detail: unloadingErrors.joined(separator: "; "),
+          path: storeURL.deletingLastPathComponent().path)
+      }
+      if let initializationError { throw initializationError }
     }
   }
 #endif
