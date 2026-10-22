@@ -14,6 +14,18 @@ struct SpreadSections: View {
 
   var body: some View {
     Section {
+      Picker(
+        selection: Binding(
+          get: { plan.totalServings }, set: { plan.setTotal($0) }
+        )
+      ) {
+        ForEach(1...WeekLimits.servings, id: \.self) { count in
+          Text(verbatim: String(count)).tag(count)
+        }
+      } label: {
+        Text(verbatim: Copy.week.spread.total.text)
+      }
+      .brandText(.quantity)
       HStack {
         Button {
           plan.spreadOneADay()
@@ -37,12 +49,23 @@ struct SpreadSections: View {
       Text(verbatim: plan.summary)
         .brandText(.quantity)
         .foregroundStyle(plan.isOver ? Brand.Colors.heat : Brand.Colors.subtext)
+      Text(
+        verbatim: plan.isComplete
+          ? Copy.week.spread.allAssigned.text
+          : Copy.week.spread.remaining(plan.unassigned).text
+      )
+      .brandText(.quantity)
+      .foregroundStyle(Brand.Colors.subtext)
       if let problem {
         Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
       }
       Button(action: onStir) {
-        Text(verbatim: Copy.week.spread.stir(plan.picked.count).text)
-          .frame(maxWidth: .infinity)
+        Text(
+          verbatim: plan.picked.isEmpty
+            ? Copy.week.spread.saveUnassigned.text
+            : Copy.week.spread.stir(plan.picked.count).text
+        )
+        .frame(maxWidth: .infinity)
       }
       .buttonStyle(.brandProminent)
       .disabled(!plan.canStir)
