@@ -21,7 +21,7 @@ exportedAt      moment
 app             { name, version? }
 recipes         every recipe, banished ones too (deletedAt set)
 photos          one per image; file is the zip entry
-tags, cooks, planEntries, gatherItems (with sources), pantry,
+tags, cooks, planEntries, plannedBatches, gatherItems (with sources), pantry,
 diary, favourites, weighIns
 bodyProfile, targets, preferences      one each, left out when never set
 ```
@@ -29,6 +29,7 @@ bodyProfile, targets, preferences      one each, left out when never set
 Conventions:
 
 - **Ids** are UUID strings. A record points at another by id (`recipeId`, `tagIds`), and a pointer is left out when the target is gone or was never set.
+- **Planned batches** are exported in `plannedBatches`, including batches with no assigned meals. Each has its id, `weekStart`, `title`, `totalServings`, saved `ingredientYield`, optional `recipeId`, and timestamps. An assigned `planEntries` row points to its batch with optional `batchId`; if a damaged batch is omitted for an invalid `weekStart`, its stored `batchId` is retained, like other stored relationship IDs. The `ingredientYield` is the denominator captured for the batch's recipe ingredients; Gather scales each assigned contribution by `servings / ingredientYield`, even if the recipe's current yield later changes. It is not interchangeable with the batch's editable `totalServings`.
 - **Days** are `YYYY-MM-DD` in the cook's calendar, never a moment. **Moments** are ISO 8601 in UTC to the millisecond (`2026-10-11T09:30:00.000Z`); finer precision in the store is rounded.
 - **A nil field is left out**, and a list is always present, even empty. Read an absent field as unknown.
 - **Enums are plain strings** (`slot: "dinner"`, `unit: "fl_oz"`), so a value a later build adds doesn't make the file unreadable. The values are listed in the doc comments on the types.
@@ -56,6 +57,7 @@ CloudKit can't enforce uniqueness (see `data-model.md`), so the store can hold t
 The app never writes any of these, so each means a damaged store. The export leaves the item out, counts it in the result's `skipped`, and the section tells the cook, rather than failing the whole export or hiding it:
 
 - A row whose day is not a real day.
+- A planned batch whose `weekStart` is not a real day.
 - A number that is not finite (JSON has no NaN or infinity). A value that is optional in the format (a macro, a height, a quantity or its upper end) becomes unknown. A row that is its number (a weigh-in, a diary entry or favourite's servings) is left out, and so is a body profile whose rates are not finite.
 - An ingredient or step list that cannot be read in full. What reads is exported, and the recipe adds one to the count.
 

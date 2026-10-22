@@ -95,6 +95,7 @@ import Testing
         context.insert(recipe)
         let batch = try WeekPlan.createBatch(
           recipe: recipe, weekStart: monday, totalServings: 4, ingredientYield: 4, in: context)
+        recipe.servings = 8
         for (index, servings) in assignments.enumerated() {
           let entry = try WeekPlan.stir(
             recipe, at: MealTarget(day: monday.adding(days: index), slot: .dinner),
@@ -103,12 +104,13 @@ import Testing
         }
         try context.save()
         try GatherPlan.open(week: monday, in: context)
-        return try item("rice", in: context).quantity?.min
+        return try snapshot(context).items.first { $0.itemKey == "rice" }?.quantity?.min
       }
 
       #expect(try amount([4]) == 400)
       #expect(try amount([1, 1, 1, 1]) == 400)
       #expect(try amount([1, 1]) == 200)
+      #expect(try amount([]) == nil)
     }
 
     @Test func unbatchedEntriesKeepLegacyRecipeYieldScaling() throws {
