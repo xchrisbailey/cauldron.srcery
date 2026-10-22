@@ -7,10 +7,12 @@ import ast
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import subprocess
 import sys
 import tempfile
+from xml.parsers.expat import ExpatError
 
 from workflow_support import (
     WorkflowError, git, read_json, repository, run_records, snapshot,
@@ -24,6 +26,12 @@ STORE_PATTERN = re.compile(
 BUTTON_TARGETS = {"Cauldron", "CauldronImports", "CauldronShare", "CauldronWidgets", "ShareSheet"}
 
 
+def child_environment() -> dict[str, str]:
+    # Git exports repository-local variables to hooks. Tooling tests create foreign repositories;
+    # inherited GIT_DIR/INDEX_FILE must not redirect their commands into the developer's checkout.
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
 def native_policy(path: str, text: str, policy: str = "all") -> list[str]:
     parts = Path(path).parts
     if len(parts) < 3 or parts[0] != "apple" or not path.endswith(".swift"):
@@ -34,8 +42,7 @@ def native_policy(path: str, text: str, policy: str = "all") -> list[str]:
             policy in {"all", "store"}
             and parts[1] != "CauldronKit"
             and path != "apple/Cauldron/Data/CauldronStore.swift"
-            and STORE_PATTERN.search(line)
-            and ".modelContainer(container)" not in line
+            and STORE_PATTERN.search(line.replace(".modelContainer(container)", ""))
         ):
             errors.append(f"{path}:{number}: open stores through CauldronStore.container(_:) only")
         if policy in {"all", "buttons"} and parts[1] in BUTTON_TARGETS and "borderedProminent" in line:
@@ -64,10 +71,14 @@ def pre_commit() -> None:
     with tempfile.TemporaryDirectory(prefix="cauldron-staged-") as directory:
         temporary = Path(directory)
         for path in filter(None, paths):
-            if not path.endswith((".swift", ".json", ".py")):
+            if not path.endswith((".swift", ".json", ".py", ".plist", ".entitlements")):
                 continue
-            text = subprocess.check_output(["git", "show", f":{path}"], cwd=root).decode()
+            content = subprocess.check_output(["git", "show", f":{path}"], cwd=root)
             try:
+                if path.endswith((".plist", ".entitlements")):
+                    plistlib.loads(content)
+                    continue
+                text = content.decode()
                 if path.endswith(".json"):
                     json.loads(text)
                 elif path.endswith(".py"):
@@ -78,7 +89,7 @@ def pre_commit() -> None:
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(text)
                     swift.append(str(destination))
-            except (ValueError, SyntaxError) as error:
+            except (ValueError, SyntaxError, ExpatError, plistlib.InvalidFileException) as error:
                 errors.append(f"{path}: {error}")
         if swift:
             configuration = subprocess.check_output(["git", "show", ":apple/.swift-format"], cwd=root)
@@ -92,7 +103,7 @@ def pre_commit() -> None:
                 errors.append(result.stdout + result.stderr)
     if errors:
         raise WorkflowError("Staged checks failed; nothing was rewritten:\n" + "\n".join(errors))
-    print("Staged checks passed (Swift policies/format, JSON, Python syntax).")
+    print("Staged checks passed (Swift policies/format, JSON, property lists, Python syntax).")
 
 
 def full_checks_exist(head: str) -> bool:
@@ -156,13 +167,14 @@ def pre_push(lines: list[str]) -> None:
         needs_native |= native
         needs_tooling |= tooling
     if needs_native and not full_checks_exist(current["head"]):
-        subprocess.run([sys.executable, "-B", str(TOOLS / "checks.py"), "ready"], cwd=root, check=True)
+        subprocess.run([sys.executable, "-B", str(TOOLS / "checks.py"), "ready"], cwd=root,
+                       env=child_environment(), check=True)
         if not full_checks_exist(current["head"]):
             raise WorkflowError("Check runner did not produce current-head full validation evidence")
     elif needs_tooling:
         subprocess.run(
             [sys.executable, "-B", "-m", "unittest", "discover", "-s", str(TOOLS / "tests")],
-            cwd=root, check=True,
+            cwd=root, env=child_environment(), check=True,
         )
     if snapshot(root) != current:
         raise WorkflowError("Checkout changed during pre-push validation; validate the new revision")

@@ -42,7 +42,7 @@ Run integration from a clean, non-main integration checkout. The command validat
 
 Run `make -C apple setup-hooks` in the owning checkout. Installation is repository-local, refuses a different existing hooks path, and leaves hook files and user changes intact. The configured path is absolute to that checkout; keep it available, and reinstall after relocating it. Hooks use their owning tools but inspect the active worktree.
 
-- Pre-commit checks **staged** Swift formatting/store/button policies, JSON and Python syntax. It never formats, stages or stashes. Partially staged working copies do not substitute for staged content.
+- Pre-commit checks **staged** Swift formatting/store/button policies, JSON/property-list parsing and Python syntax. It never formats, stages or stashes. Partially staged working copies do not substitute for staged content.
 - Pre-push requires a clean checked-out revision for native/tooling/release changes. Native changes reuse valid current-head full evidence or run the final runner once. Tooling-only changes run tooling tests. Other revisions must be validated from their own clean checkout. A release tag additionally requires that exact commit/version's successful preflight.
 - As with any local Git hook, deliberate `--no-verify` bypasses it; these are local guardrails, not a remote security boundary. Native CI remains intentionally absent. A shared environment that needs enforcement against bypasses should add server-side checks rather than claim the local hook is unbypassable.
 
