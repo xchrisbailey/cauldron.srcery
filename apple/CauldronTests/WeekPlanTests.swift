@@ -849,6 +849,39 @@ struct WeekPlanTests {
     #expect(WeekSnapshot(start: monday, records: []).dailyComparison(for: monday) == nil)
   }
 
+  @Test func selectedDayTreatsSummedDecimalServingsAsExactWhenOnlyRoundoffDiffers() throws {
+    let context = try context()
+    let targets = TargetsRecord(calories: 2_000, protein: 333, carbs: 200, fat: 70)
+    context.insert(targets)
+    let meal = recipe(
+      "Decimal protein", servings: 1,
+      macros: Macros(calories: 100, protein: 33.3, carbs: 20, fat: 5), in: context)
+    for _ in 0..<10 {
+      try WeekPlan.stir(meal, at: dinner(monday), servings: 1, into: context)
+    }
+    let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+    let comparison = try #require(
+      WeekSnapshot(start: monday, records: records, targets: targets).dailyComparison(for: monday))
+    #expect(comparison.planned.protein == 333.00000000000006)
+    #expect(comparison.remaining(for: .protein) == 0)
+    #expect(
+      WeekFigures.comparisonRow(comparison, key: .protein, locale: en)
+        == "Protein: 333 g planned, 333 g target, 0 g remaining")
+    let slightlyOver = recipe(
+      "Slightly over", servings: 1,
+      macros: Macros(calories: 100, protein: 33.30000001, carbs: 20, fat: 5), in: context)
+    for _ in 0..<10 {
+      try WeekPlan.stir(
+        slightlyOver, at: dinner(monday.adding(days: 1)), servings: 1, into: context)
+    }
+    let updatedRecords = try WeekPlan.fetch(
+      from: monday, through: monday.adding(days: 6), in: context)
+    let slightlyOverComparison = try #require(
+      WeekSnapshot(start: monday, records: updatedRecords, targets: targets)
+        .dailyComparison(for: monday.adding(days: 1)))
+    #expect(slightlyOverComparison.remaining(for: .protein) < -0.00000005)
+  }
+
   @Test func plannedBatchCapacityDoesNotChangeTallyButAssignmentsDo() throws {
     let context = try context()
     let recipe = recipe(

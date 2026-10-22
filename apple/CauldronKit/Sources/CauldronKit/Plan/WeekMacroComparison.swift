@@ -4,6 +4,7 @@ public struct WeekMacroComparison: Sendable, Hashable {
   public let target: MacroTotals
   public let missing: Int
   public let freeText: Int
+  private let summedEntries: Int
 
   public init(tally: MacroTally, dailyTarget: MacroTargets) {
     self.init(tally: tally, dailyTarget: dailyTarget, days: 7)
@@ -18,10 +19,16 @@ public struct WeekMacroComparison: Sendable, Hashable {
       carbs: Double(dailyTarget.carbs) * Double(days), fat: Double(dailyTarget.fat) * Double(days))
     missing = tally.missing
     freeText = tally.freeText
+    summedEntries = tally.counted + tally.missing + tally.freeText
   }
 
-  /// Positive means still available, negative means over target; exactly met is zero.
-  public func remaining(for key: MacroKey) -> Double { target[key] - planned[key] }
+  /// Positive means still available, negative means over target; numerical summation noise is zero.
+  public func remaining(for key: MacroKey) -> Double {
+    let difference = target[key] - planned[key]
+    let scale = max(abs(target[key]), abs(planned[key]))
+    let roundoff = scale.ulp * Double(max(2, summedEntries))
+    return abs(difference) <= roundoff ? 0 : difference
+  }
 
   /// A target bar must never divide by zero or expose a non-finite fill.
   public func progress(for key: MacroKey) -> Double? {
