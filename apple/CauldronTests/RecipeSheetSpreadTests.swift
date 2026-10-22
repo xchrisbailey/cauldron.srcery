@@ -51,18 +51,18 @@ struct RecipeSheetSpreadTests {
   @Test func theSpreadCoversTheSevenDaysFromTheStartingDayNotTheCalendarWeek() throws {
     let context = try context()
     let plan = opening(recipe(servings: 5, in: context))
-    #expect(plan.days == today.weekDays())
-    // Wednesday to Sunday crosses into next week under a Monday start.
+    #expect(plan.days == today.startOfWeek().weekDays())
     #expect(plan.picked.last == today.adding(days: 4))
-    #expect(plan.days.last == today.adding(days: 6))
+    #expect(plan.days.first == LocalDate("2026-10-12")!)
+    #expect(plan.days.last == today.adding(days: 4))
   }
 
   @Test func aBatchBiggerThanTheWindowFillsTheSevenDays() throws {
     let context = try context()
     let plan = opening(recipe(servings: 12, in: context))
-    #expect(plan.picked.count == 7)
-    #expect(plan.planned == 7)
-    #expect(plan.summary == "7 of 12 servings planned")
+    #expect(plan.picked.count == 5)
+    #expect(plan.planned == 5)
+    #expect(plan.summary == "5 of 12 servings planned")
   }
 
   @Test func aOneServingRecipeStartsOnTheStartingDayOnly() throws {
@@ -82,13 +82,28 @@ struct RecipeSheetSpreadTests {
     let context = try context()
     let chili = recipe(servings: 5, in: context)
     #expect(opening(chili, scale: .servings(3)).picked.count == 3)
-    #expect(opening(chili, scale: .servings(6)).picked.count == 6)
-    #expect(opening(chili, scale: .servings(6)).summary == "6 of 6 servings planned")
+    #expect(opening(chili, scale: .servings(6)).picked.count == 5)
+    #expect(opening(chili, scale: .servings(6)).summary == "5 of 6 servings planned")
     #expect(opening(chili, scale: .servings(1)).picked == [today])
     // Twice a batch of five.
-    #expect(opening(chili, scale: .multiplier(2)).picked.count == 7)
-    #expect(opening(chili, scale: .multiplier(2)).summary == "7 of 10 servings planned")
+    #expect(opening(chili, scale: .multiplier(2)).picked.count == 5)
+    #expect(opening(chili, scale: .multiplier(2)).summary == "5 of 10 servings planned")
     #expect(opening(chili, scale: .multiplier(0.25)).picked == [today])
+  }
+
+  @Test func anEditedTotalDrivesSpreadShortcutsAndCompletion() throws {
+    let context = try context()
+    var plan = opening(recipe(servings: nil, in: context))
+    plan.setTotal(4)
+    plan.spreadOneADay()
+    #expect(plan.totalServings == 4 && plan.planned == 4 && plan.unassigned == 0)
+    #expect(plan.isComplete && plan.canStir && plan.picked.count == 4)
+    #expect(plan.summary == "4 of 4 servings planned")
+    plan.setTotal(2)
+    #expect(plan.totalServings == 4)
+    plan.toggle(plan.picked[0])
+    plan.putAllOnAnchor()
+    #expect(plan.planned == 4 && plan.isComplete)
   }
 
   @Test func theScaledTotalIsWorkedOutFromTheScale() {
@@ -113,8 +128,8 @@ struct RecipeSheetSpreadTests {
     var plan = opening(recipe(servings: 5, in: context))
     plan = plan.started(on: today.adding(days: 3))
     #expect(plan.anchor == today.adding(days: 3))
-    #expect(plan.days == today.adding(days: 3).weekDays())
-    #expect(plan.picked == (3..<8).map { today.adding(days: $0) })
+    #expect(plan.days == today.startOfWeek().weekDays())
+    #expect(plan.picked == [today.adding(days: 3), today.adding(days: 4)])
     #expect(plan.entries.allSatisfy { $0.servings == 1 })
   }
 
@@ -125,7 +140,7 @@ struct RecipeSheetSpreadTests {
     #expect(plan.isUntouched)
     plan = plan.started(on: today.adding(days: 1))
     #expect(plan.slot == .lunch)
-    #expect(plan.picked.count == 5 && plan.picked.first == today.adding(days: 1))
+    #expect(plan.picked.count == 4 && plan.picked.first == today.adding(days: 1))
   }
 
   @Test func aHandEditedSpreadKeepsItsShapeWhenTheStartingDayMoves() throws {
@@ -139,9 +154,9 @@ struct RecipeSheetSpreadTests {
 
     plan = plan.started(on: today.adding(days: 2))
     #expect(plan.anchor == today.adding(days: 2))
-    #expect(plan.days == today.adding(days: 2).weekDays())
+    #expect(plan.days == today.startOfWeek().weekDays())
     #expect(plan.entries.map(\.servings) == before.map(\.servings))
-    #expect(plan.entries.map(\.date) == before.map { $0.date.adding(days: 2) })
+    #expect(plan.entries.map(\.date) == before.map(\.date))
     // Four days picked: 1, 1, 1, 2.
     #expect(plan.entries.map(\.servings) == [1, 1, 1, 2])
     #expect(plan.picked.count == 4)
@@ -153,7 +168,7 @@ struct RecipeSheetSpreadTests {
     plan.putAllOnAnchor()
     #expect(!plan.isUntouched)
     plan = plan.started(on: today.adding(days: 1))
-    #expect(plan.entries == [DayServings(date: today.adding(days: 1), servings: 5)])
+    #expect(plan.entries == [DayServings(date: today, servings: 5)])
   }
 
   @Test func handEditingBackToTheDefaultIsUntouchedAgain() throws {
@@ -187,7 +202,7 @@ struct RecipeSheetSpreadTests {
     #expect(try everything(context).count == 1)
   }
 
-  @Test func aSpreadThatCrossesAWeekBoundaryLandsInBothWeeks() throws {
+  @Test func aSpreadStaysInsideItsImmutableCalendarWeek() throws {
     let context = try context()
     let chili = recipe(servings: 5, in: context)
     // Saturday 10 October: Saturday and Sunday, then Monday to Wednesday of the next week.
@@ -200,7 +215,28 @@ struct RecipeSheetSpreadTests {
     let nextWeek = try WeekPlan.fetch(
       from: LocalDate("2026-10-12")!, through: LocalDate("2026-10-18")!, in: context)
     #expect(thisWeek.map(\.dayKey) == ["2026-10-10", "2026-10-11"])
-    #expect(nextWeek.map(\.dayKey) == ["2026-10-12", "2026-10-13", "2026-10-14"])
+    #expect(nextWeek.isEmpty)
+    let batch = try #require(
+      try WeekPlan.batches(
+        from: LocalDate("2026-10-05")!, through: LocalDate("2026-10-11")!, in: context
+      ).first)
+    #expect(batch.weekStartKey == "2026-10-05")
+    #expect(batch.totalServings == 5 && WeekPlan.assignedServings(batch) == 2)
+    #expect(WeekPlan.unassignedServings(batch) == 3)
+    #expect(thisWeek.allSatisfy { $0.batch === batch })
+  }
+
+  @Test func anUnassignedBatchPersistsAndCanReceiveAssignmentsLater() throws {
+    let context = try context()
+    let chili = recipe(servings: nil, in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: chili, weekStart: today.weekDays()[0], totalServings: 3, in: context)
+    try context.save()
+    #expect(try context.fetchCount(FetchDescriptor<PlannedBatchRecord>()) == 1)
+    #expect(try context.fetchCount(FetchDescriptor<PlanEntryRecord>()) == 0)
+    let entry = try WeekPlan.assign(2, on: today, slot: .dinner, to: batch, in: context)
+    #expect(entry.batch === batch && entry.recipe === chili)
+    #expect(WeekPlan.unassignedServings(batch) == 1)
   }
 
   @Test func aFullMealRefusesAndNothingIsWritten() throws {
@@ -233,16 +269,18 @@ struct RecipeSheetSpreadTests {
     #expect(try everything(context).isEmpty)
   }
 
-  @Test func aSpreadWithNoDaysPickedIsRefused() throws {
+  @Test func aSpreadWithNoDayAssignmentsStillPersistsItsBatch() throws {
     let context = try context()
     let soup = recipe("Soup", servings: 1, in: context)
     var plan = opening(soup)
     plan.toggle(today)
-    #expect(!plan.canStir)
-    #expect(throws: WeekPlanError.noDays) {
-      try WeekPlan.stir(soup, spread: plan, into: context)
-    }
+    #expect(plan.canStir)
+    try WeekPlan.stir(soup, spread: plan, into: context)
     #expect(try everything(context).isEmpty)
+    #expect(
+      try WeekPlan.batches(
+        from: today.startOfWeek(), through: today.startOfWeek().adding(days: 6), in: context
+      ).count == 1)
   }
 
   @Test func whatTheCookSeesForARefusalIsPlain() {

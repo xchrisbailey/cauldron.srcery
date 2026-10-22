@@ -141,27 +141,44 @@ struct SpreadPlan: Equatable {
   /// day while the batch has servings to give, and just the starting day for a batch of one
   /// serving or of no known size.
   static func batch(anchor: LocalDate, slot: MealSlot, servings: Int?) -> SpreadPlan {
-    var plan = SpreadPlan(
-      days: anchor.weekDays(), anchor: anchor, slot: slot, recipeServings: servings)
-    if let servings, servings > 1 { plan.spreadOneADay() }
+    batch(anchor: anchor, days: anchor.startOfWeek().weekDays(), slot: slot, servings: servings)
+  }
+
+  static func batch(anchor: LocalDate, days: [LocalDate], slot: MealSlot, servings: Int?)
+    -> SpreadPlan
+  {
+    var plan = SpreadPlan(days: days, anchor: anchor, slot: slot, recipeServings: servings)
+    if plan.totalServings > 1 { plan.spreadOneADay() }
     return plan
   }
 
   /// Whether the days and servings are still the ones `batch` starts from, so nothing the cook
   /// did needs keeping.
   var isUntouched: Bool {
-    self == SpreadPlan.batch(anchor: anchor, slot: slot, servings: recipeServings)
+    self == SpreadPlan.batch(anchor: anchor, days: days, slot: slot, servings: recipeServings)
   }
 
   /// This spread after the cook picks another starting day. A spread the cook hasn't touched
   /// starts again from the new day; one they have is kept as it is, its days and servings
   /// moved by as many days as the start moved.
   func started(on day: LocalDate) -> SpreadPlan {
-    if isUntouched { return SpreadPlan.batch(anchor: day, slot: slot, servings: recipeServings) }
-    let shift = anchor.days(until: day)
+    if days.contains(day) { return started(on: day, days: days) }
+    let newWeek = day.startOfWeek().weekDays()
+    return started(on: day, days: newWeek)
+  }
+
+  func started(on day: LocalDate, days newDays: [LocalDate]) -> SpreadPlan {
+    if isUntouched {
+      return SpreadPlan.batch(anchor: day, days: newDays, slot: slot, servings: recipeServings)
+    }
+    let oldWeek = days.first
+    let newWeek = newDays.first
+    let shift =
+      oldWeek.flatMap { old in newWeek.map { old.days(until: $0) } } ?? anchor.days(until: day)
     var moved = SpreadPlan(
-      days: days.map { $0.adding(days: shift) }, anchor: day, slot: slot,
+      days: newDays, anchor: day, slot: slot,
       recipeServings: recipeServings)
+    moved.totalServings = totalServings
     moved.servings = Dictionary(
       uniqueKeysWithValues: servings.map { ($0.key.adding(days: shift), $0.value) })
     return moved
@@ -174,7 +191,7 @@ struct SpreadPlan: Equatable {
   var isComplete: Bool { planned == totalServings }
   /// More servings planned than the recipe makes.
   var isOver: Bool { planned > totalServings }
-  var canStir: Bool { !picked.isEmpty }
+  var canStir: Bool { !isOver && totalServings > 0 }
 
   /// The entries to add, in week order.
   var entries: [DayServings] {
@@ -201,19 +218,20 @@ struct SpreadPlan: Equatable {
   /// One serving a day from the anchor until the recipe's servings run out or the week ends.
   mutating func spreadOneADay() {
     servings = Dictionary(
-      uniqueKeysWithValues: oneADay(days: days, from: anchor, servings: recipeServings).map {
+      uniqueKeysWithValues: oneADay(days: days, from: anchor, servings: totalServings).map {
         ($0.date, $0.servings)
       })
   }
 
   /// All the recipe's servings on the anchor day.
   mutating func putAllOnAnchor() {
-    servings = [anchor: min(max(1, recipeServings ?? 1), WeekLimits.servings)]
+    servings = [anchor: min(totalServings, WeekLimits.servings)]
   }
 
   var summary: String {
-    canStir
-      ? Copy.week.spread.planned(planned, recipeServings).text : Copy.week.spread.pickADay.text
+    let total = recipeServings == nil && totalServings == 1 ? nil : totalServings
+    return canStir
+      ? Copy.week.spread.planned(planned, total).text : Copy.week.spread.pickADay.text
   }
 }
 
