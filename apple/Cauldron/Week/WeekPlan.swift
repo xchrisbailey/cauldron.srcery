@@ -74,7 +74,9 @@ struct RemovedMeal {
   let servings: Int?
   let position: Int
   let recipe: RecipeRecord?
+  let recipeID: UUID?
   let batch: PlannedBatchRecord?
+  let batchID: UUID?
 }
 
 enum WeekPlan {
@@ -392,6 +394,12 @@ enum WeekPlan {
   static func apply(
     _ change: EntryChange, to entry: PlanEntryRecord, in context: ModelContext
   ) throws {
+    if entry.day == nil, let day = change.day {
+      let target = MealTarget(day: day, slot: change.slot ?? entry.slot)
+      guard try fetchSlot(target, in: context).count < WeekLimits.perSlot else {
+        throw WeekPlanError.slotFull
+      }
+    }
     if let batch = entry.batch {
       let proposed: Int?
       if let changed = change.servings { proposed = changed } else { proposed = entry.servings }
@@ -402,7 +410,7 @@ enum WeekPlan {
       guard let proposedDay, start.weekDays().contains(proposedDay) else {
         throw WeekPlanError.batchOverAssigned
       }
-      let otherServings = (batch.entries ?? []).filter { $0.id != entry.id }
+      let otherServings = (batch.entries ?? []).filter { $0 !== entry }
         .compactMap(\.servings).reduce(0, +)
       guard otherServings + proposed <= batch.totalServings else {
         throw WeekPlanError.batchOverAssigned
@@ -422,22 +430,32 @@ enum WeekPlan {
       if entry.title != title { entry.title = title }
     }
     guard change.day != nil || change.slot != nil || change.position != nil else { return }
-    guard let day = entry.day else { return }
+    guard let day = entry.day else {
+      guard let day = change.day else { throw WeekPlanError.noDays }
+      let target = MealTarget(day: day, slot: change.slot ?? entry.slot)
+      let siblings = try fetchSlot(target, in: context).filter { $0 !== entry }
+      entry.day = target.day
+      entry.slot = target.slot
+      renumber(
+        siblings.toSpliced(
+          at: min(max(0, change.position ?? siblings.count), siblings.count), with: entry))
+      return
+    }
     let from = MealTarget(day: day, slot: entry.slot)
     let to = MealTarget(day: change.day ?? from.day, slot: change.slot ?? from.slot)
     let moved = from != to
-    let siblings = try fetchSlot(to, in: context).filter { $0.id != entry.id }
+    let siblings = try fetchSlot(to, in: context).filter { $0 !== entry }
     if moved && siblings.count >= WeekLimits.perSlot { throw WeekPlanError.slotFull }
     let current =
       moved
-      ? siblings.count : try fetchSlot(from, in: context).firstIndex { $0.id == entry.id } ?? 0
+      ? siblings.count : try fetchSlot(from, in: context).firstIndex { $0 === entry } ?? 0
     let position = min(max(0, change.position ?? current), siblings.count)
     if moved {
       entry.day = to.day
       entry.slot = to.slot
     }
     renumber(siblings.toSpliced(at: position, with: entry))
-    if moved { renumber(try fetchSlot(from, in: context).filter { $0.id != entry.id }) }
+    if moved { renumber(try fetchSlot(from, in: context).filter { $0 !== entry }) }
   }
 
   /// Text a cook wrote, or the name of a recipe that has since been banished: the entries
@@ -453,11 +471,20 @@ enum WeekPlan {
     let target = MealTarget(day: day, slot: entry.slot)
     let removed = RemovedMeal(
       target: target, title: entry.title, servings: entry.servings, position: entry.position,
-      recipe: entry.recipe, batch: entry.batch)
+      recipe: entry.recipe, recipeID: entry.recipe?.id, batch: entry.batch,
+      batchID: entry.batch?.id)
     entry.batch = nil
     context.delete(entry)
-    renumber(try fetchSlot(target, in: context).filter { $0.id != entry.id })
+    renumber(try fetchSlot(target, in: context).filter { $0 !== entry })
     return removed
+  }
+
+  /// Permanently removes an entry with an unreadable date. It cannot be undone because no safe
+  /// date or position can be reconstructed from the stored record.
+  static func removeInvalid(_ entry: PlanEntryRecord, in context: ModelContext) throws {
+    guard entry.day == nil else { throw WeekPlanError.noDays }
+    entry.batch = nil
+    context.delete(entry)
   }
 
   /// Puts a removed entry back where it was. A recipe banished in the meantime comes back
@@ -466,20 +493,35 @@ enum WeekPlan {
   static func restore(
     _ removed: RemovedMeal, in context: ModelContext
   ) throws -> PlanEntryRecord {
-    if let batch = removed.batch {
+    let batch: PlannedBatchRecord?
+    if let batchID = removed.batchID {
+      let matches = try context.fetch(
+        FetchDescriptor<PlannedBatchRecord>(predicate: #Predicate { $0.id == batchID }))
+      guard let existing = matches.first else { throw WeekPlanError.recipeMissing }
+      batch = existing
       guard let servings = removed.servings, (1...WeekLimits.servings).contains(servings),
-        let start = batch.weekStart, start.weekDays().contains(removed.target.day)
+        let start = existing.weekStart, start.weekDays().contains(removed.target.day)
       else { throw WeekPlanError.invalidServings }
-      guard assignedServings(batch) + servings <= batch.totalServings else {
+      guard assignedServings(existing) + servings <= existing.totalServings else {
         throw WeekPlanError.batchOverAssigned
       }
+    } else {
+      batch = nil
     }
-    let recipe =
-      removed.batch != nil ? removed.recipe : removed.recipe.flatMap { $0.isBanished ? nil : $0 }
+    let recipe: RecipeRecord?
+    if let batch {
+      recipe = batch.recipe
+    } else if let recipeID = removed.recipeID {
+      let matches = try context.fetch(
+        FetchDescriptor<RecipeRecord>(predicate: #Predicate { $0.id == recipeID }))
+      recipe = matches.first.flatMap { $0.isBanished ? nil : $0 }
+    } else {
+      recipe = nil
+    }
     let restored = try insert(
       title: removed.title, recipe: recipe, servings: removed.servings, at: removed.target,
       position: removed.position, in: context)
-    if let batch = removed.batch { try assign(restored, to: batch) }
+    restored.batch = batch
     return restored
   }
 
@@ -491,9 +533,16 @@ enum WeekPlan {
   static func copyLastWeek(into start: LocalDate, in context: ModelContext) throws -> Int {
     let source = try fetch(
       from: start.adding(days: -7), through: start.adding(days: -1), in: context)
-    let sourceBatches = try batches(
+    let batchesByRange = try batches(
       from: start.adding(days: -7), through: start.adding(days: -1), in: context)
-    var batchCopies: [UUID: PlannedBatchRecord] = [:]
+    var sourceBatches = batchesByRange
+    for batch in source.compactMap(\.batch) where !sourceBatches.contains(where: { $0 === batch }) {
+      sourceBatches.append(batch)
+    }
+    guard sourceBatches.allSatisfy({ $0.weekStart != nil }) else {
+      throw WeekPlanError.noDays
+    }
+    var batchCopies: [ObjectIdentifier: PlannedBatchRecord] = [:]
     for batch in sourceBatches {
       guard let weekStart = batch.weekStart else { continue }
       let copy = PlannedBatchRecord(
@@ -501,7 +550,7 @@ enum WeekPlan {
         totalServings: batch.totalServings, ingredientYield: batch.ingredientYield)
       copy.recipe = batch.recipe
       context.insert(copy)
-      batchCopies[batch.id] = copy
+      batchCopies[ObjectIdentifier(batch)] = copy
     }
     var next: [MealTarget: Int] = [:]
     var added = 0
@@ -516,7 +565,7 @@ enum WeekPlan {
         position: held)
       context.insert(copy)
       copy.recipe = entry.recipe
-      if let batch = entry.batch, let copiedBatch = batchCopies[batch.id] {
+      if let batch = entry.batch, let copiedBatch = batchCopies[ObjectIdentifier(batch)] {
         copy.batch = copiedBatch
       }
       added += 1
@@ -546,7 +595,11 @@ enum WeekPlan {
       guard let weekStart = batch.weekStart else { continue }
       let weekEnd = weekStart.adding(days: 6)
       if weekStart >= start && weekEnd <= end {
-        context.delete(batch)
+        let hasOutsideAssignments = (batch.entries ?? []).contains { entry in
+          guard let day = entry.day else { return true }
+          return day < start || day > end
+        }
+        if !hasOutsideAssignments { context.delete(batch) }
       } else if weekStart <= end && weekEnd >= start {
         for entry in batch.entries ?? [] where entry.dayKey >= lower && entry.dayKey <= upper {
           entry.batch = nil
