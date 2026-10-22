@@ -1,4 +1,5 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
 struct BatchAllocationSummary {
@@ -14,6 +15,58 @@ struct BatchAllocationSummary {
     isConflict
       ? Copy.week.allocationConflict.text
       : Copy.week.spread.allocationStatus(remaining: remaining).text
+  }
+}
+
+enum PlannedBatchDraftError: Error { case staleTotal }
+
+struct PlannedBatchEditDraft {
+  let openedTotal: Int
+  var total: Int
+  init(openedTotal: Int) { self.openedTotal = openedTotal; total = openedTotal }
+  mutating func setTotal(_ value: Int) { total = value }
+  var hasExplicitChange: Bool { total != openedTotal }
+  func totalToCommit(currentTotal: Int) throws -> Int? {
+    guard hasExplicitChange else { return nil }
+    guard currentTotal == openedTotal else { throw PlannedBatchDraftError.staleTotal }
+    return total
+  }
+  func availableServings(currentTotal: Int, assigned: Int) -> Int {
+    max(0, (hasExplicitChange ? total : currentTotal) - assigned)
+  }
+
+  mutating func save(to batch: PlannedBatchRecord, in context: ModelContext) throws {
+    guard let value = try totalToCommit(currentTotal: batch.totalServings) else { return }
+    let previousTotal = batch.totalServings
+    let previousUpdatedAt = batch.updatedAt
+    do {
+      try WeekPlan.commit(in: context) { try WeekPlan.editTotal(batch, to: value) }
+      self = PlannedBatchEditDraft(openedTotal: batch.totalServings)
+    } catch {
+      batch.totalServings = previousTotal
+      batch.updatedAt = previousUpdatedAt
+      throw error
+    }
+  }
+
+  mutating func assign(
+    _ servings: Int, on day: LocalDate, slot: MealSlot, to batch: PlannedBatchRecord,
+    in context: ModelContext
+  ) throws {
+    let previousTotal = batch.totalServings
+    let previousUpdatedAt = batch.updatedAt
+    do {
+      let newTotal = try totalToCommit(currentTotal: previousTotal)
+      try WeekPlan.commit(in: context) {
+        if let newTotal { try WeekPlan.editTotal(batch, to: newTotal) }
+        _ = try WeekPlan.assign(servings, on: day, slot: slot, to: batch, in: context)
+      }
+      self = PlannedBatchEditDraft(openedTotal: batch.totalServings)
+    } catch {
+      batch.totalServings = previousTotal
+      batch.updatedAt = previousUpdatedAt
+      throw error
+    }
   }
 }
 
@@ -37,7 +90,7 @@ struct BatchSummary: View {
           Text(verbatim: Copy.week.spread.planned(allocation.assigned, allocation.total).text)
             .brandText(.quantity)
           Text(verbatim: presentation.status)
-            .brandText(.control)
+            .brandText(.quantity)
             .foregroundStyle(conflict ? Brand.Colors.heat : Brand.Colors.subtext)
         }
         Spacer()

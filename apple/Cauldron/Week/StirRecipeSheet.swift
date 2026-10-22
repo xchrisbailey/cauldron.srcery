@@ -43,9 +43,17 @@ struct StirRecipeSheet: View {
       servings: WeekPlan.batchServings(for: scale, recipeServings: recipe.servings))
   }
 
+  static func reanchoredPlan(
+    _ plan: SpreadPlan, on day: LocalDate, startsOn: WeekStartDay
+  ) -> SpreadPlan {
+    plan.started(on: day, days: day.startOfWeek(startingOn: startsOn).weekDays())
+  }
+
   /// Picking another starting day moves the spread with it.
   private var startingDay: Binding<LocalDate> {
-    Binding(get: { plan.anchor }, set: { plan = plan.started(on: $0) })
+    Binding(
+      get: { plan.anchor },
+      set: { plan = Self.reanchoredPlan(plan, on: $0, startsOn: startsOn) })
   }
 
   var body: some View {

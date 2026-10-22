@@ -243,9 +243,11 @@ struct PlannedMealDraft: Equatable {
   var title: String
 
   private let original: PlanEntry
+  private let allowsBatchServingEdits: Bool
 
-  init(_ meal: PlanEntry) {
+  init(_ meal: PlanEntry, allowsBatchServingEdits: Bool = false) {
     original = meal
+    self.allowsBatchServingEdits = allowsBatchServingEdits
     day = meal.date
     slot = meal.slot
     servings = meal.servings
@@ -254,13 +256,14 @@ struct PlannedMealDraft: Equatable {
 
   /// A recipe that is live follows its own title; anything else can be renamed.
   var canRename: Bool { original.recipe == nil }
+  var canEditServings: Bool { !canRename || allowsBatchServingEdits }
 
   /// What changed, if anything.
   var change: EntryChange? {
     var change = EntryChange()
     if day != original.date { change.day = day }
     if slot != original.slot { change.slot = slot }
-    if !canRename, servings != original.servings { change.servings = .some(servings) }
+    if canEditServings, servings != original.servings { change.servings = .some(servings) }
     let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
     if canRename, !name.isEmpty, name != original.title { change.title = name }
     return change.isEmpty ? nil : change

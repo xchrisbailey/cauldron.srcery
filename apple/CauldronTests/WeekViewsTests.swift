@@ -125,6 +125,35 @@ import Testing
       }
     }
 
+    @Test func invalidBatchAssignmentHasRepairControlsAndRenameableBatchEntryHasServings() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let start = LocalDate("2026-10-05")!
+      let batch = PlannedBatchRecord(
+        weekStart: start, title: "Soup", totalServings: 4, ingredientYield: 4)
+      let entry = PlanEntryRecord(day: start, slot: .dinner, title: "Soup", servings: nil)
+      entry.batch = batch
+      entry.dayKey = "unreadable"
+      context.insert(batch)
+      context.insert(entry)
+      let repair = BatchAssignmentEditor(entry: entry, batch: batch)
+      let limits = PlannedEntryLimits(batch: batch, entry: entry, records: [entry])
+      let row = EntrySheet(
+        meal: PlanEntry(
+          id: entry.id, date: start, slot: .dinner, title: "Soup", recipe: nil, servings: nil,
+          position: 0, brewed: false),
+        days: start.weekDays(), slotSize: 1, onSave: { _ in }, onShift: { _ in },
+        onRemove: {}, limits: limits)
+      for scheme in [ColorScheme.light, .dark] {
+        #expect(
+          renders(
+            repair.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 420, height: 520))
+        #expect(
+          renders(row.environment(\.colorScheme, scheme), width: 420, height: 520))
+      }
+    }
+
     @Test func theNoticeBannerRendersWithAndWithoutUndo() {
       for undo in [true, false] {
         for scheme in [ColorScheme.light, .dark] {

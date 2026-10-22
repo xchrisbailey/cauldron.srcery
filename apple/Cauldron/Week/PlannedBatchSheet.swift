@@ -8,18 +8,19 @@ struct PlannedBatchSheet: View {
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.modelContext) private var context
-  @State private var total: Int
+  @State private var draft: PlannedBatchEditDraft
   @State private var day: LocalDate?
   @State private var slot = WeekPlan.defaultSlot
   @State private var servings = 1
   @State private var problem: String?
   @State private var confirmingRemoval = false
+  @State private var editingEntry: PlanEntryRecord?
 
   init(batch: PlannedBatchRecord, onRemoved: @escaping () -> Void) {
     self.batch = batch
     self.onRemoved = onRemoved
     let week = batch.weekStart?.weekDays() ?? []
-    _total = State(initialValue: batch.totalServings)
+    _draft = State(initialValue: PlannedBatchEditDraft(openedTotal: batch.totalServings))
     _day = State(initialValue: week.first)
   }
 
@@ -27,15 +28,19 @@ struct PlannedBatchSheet: View {
   private var allocation: WeekPlan.Allocation { WeekPlan.allocation(batch) }
   private var draftSummary: BatchAllocationSummary {
     BatchAllocationSummary(
-      title: batch.title, total: total, assigned: allocation.assigned,
+      title: batch.title, total: displayedTotal, assigned: allocation.assigned,
       hasInvalidEntries: allocation.hasInvalidEntries)
+  }
+  private var displayedTotal: Int { draft.hasExplicitChange ? draft.total : batch.totalServings }
+  private var totalSelection: Binding<Int> {
+    Binding(get: { displayedTotal }, set: { draft.setTotal($0) })
   }
 
   var body: some View {
     NavigationStack {
       Form {
         Section {
-          Picker(selection: $total) {
+          Picker(selection: totalSelection) {
             ForEach(1...WeekLimits.servings, id: \.self) { value in
               Text(verbatim: String(value)).brandText(.quantity).tag(value)
             }
@@ -45,8 +50,7 @@ struct PlannedBatchSheet: View {
           Text(verbatim: draftSummary.status)
             .brandText(.quantity)
             .foregroundStyle(
-              allocation.isOverAssigned || allocation.hasInvalidEntries
-                ? Brand.Colors.heat : Brand.Colors.subtext)
+              draftSummary.isConflict ? Brand.Colors.heat : Brand.Colors.subtext)
         }
         Section {
           ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.persistentModelID) { entry in
@@ -73,7 +77,15 @@ struct PlannedBatchSheet: View {
           }
           Picker(selection: $servings) {
             ForEach(
-              1...max(1, min(WeekLimits.servings, max(1, total - allocation.assigned))), id: \.self
+              1...max(
+                1,
+                min(
+                  WeekLimits.servings,
+                  max(
+                    1,
+                    draft.availableServings(
+                      currentTotal: batch.totalServings, assigned: allocation.assigned)))),
+              id: \.self
             ) { value in
               Text(verbatim: String(value)).brandText(.quantity).tag(value)
             }
@@ -115,7 +127,7 @@ struct PlannedBatchSheet: View {
         }
         ToolbarItem(placement: .confirmationAction) {
           Button(action: save) { Text(verbatim: Copy.week.save.text) }
-            .disabled(total < allocation.assigned)
+            .disabled(draft.total < allocation.assigned)
         }
       }
       .confirmationDialog(
@@ -129,6 +141,9 @@ struct PlannedBatchSheet: View {
         } label: {
           Text(verbatim: Copy.week.cancel.text)
         }
+      }
+      .sheet(item: $editingEntry) { entry in
+        BatchAssignmentEditor(entry: entry, batch: batch)
       }
     }
     #if os(macOS)
@@ -166,6 +181,12 @@ struct PlannedBatchSheet: View {
             slot: Copy.week.slots[entry.slot].text,
             title: batch.title
           ).text))
+      Button {
+        editingEntry = entry
+      } label: {
+        Text(verbatim: Copy.week.editAssignment.text)
+      }
+      .buttonStyle(.borderless)
     }
   }
 
@@ -180,10 +201,12 @@ struct PlannedBatchSheet: View {
 
   private func save() {
     do {
-      try WeekPlan.commit(in: context) { try WeekPlan.editTotal(batch, to: total) }
+      try draft.save(to: batch, in: context)
       dismiss()
     } catch {
-      problem = WeekPlan.message(for: error).text
+      problem =
+        error is PlannedBatchDraftError
+        ? Copy.week.batchChanged.text : WeekPlan.message(for: error).text
     }
   }
 
@@ -204,14 +227,12 @@ struct PlannedBatchSheet: View {
   private func assign() {
     guard let day else { return }
     do {
-      try WeekPlan.commit(in: context) {
-        if batch.totalServings != total { try WeekPlan.editTotal(batch, to: total) }
-        _ = try WeekPlan.assign(servings, on: day, slot: slot, to: batch, in: context)
-      }
-      total = batch.totalServings
+      try draft.assign(servings, on: day, slot: slot, to: batch, in: context)
       problem = nil
     } catch {
-      problem = WeekPlan.message(for: error).text
+      problem =
+        error is PlannedBatchDraftError
+        ? Copy.week.batchChanged.text : WeekPlan.message(for: error).text
     }
   }
 

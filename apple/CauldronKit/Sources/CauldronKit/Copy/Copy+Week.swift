@@ -61,7 +61,10 @@ extension Copy {
     public let removeBatchConfirm = plain("Remove this batch and all its planned meals?")
     public let batchRemoved = plain("Batch removed.")
     public let batchSaved = plain("Batch updated.")
+    public let batchChanged = plain(
+      "This batch changed elsewhere. Review its latest servings and try again.")
     public let invalidAssignment = plain("Invalid assignment")
+    public let editAssignment = plain("Edit assignment")
     public func unassignEntry(day: String, slot: String, title: String) -> CopyString {
       plain("Unassign \(title), \(slot.lowercased()) on \(day)")
     }
