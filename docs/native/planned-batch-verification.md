@@ -6,6 +6,8 @@ The implementation contract is in [Persist planned recipe batches and enforce se
 
 Use a backed-up test account and test data, not the only copy of a recipe box.
 
+Before distributing a TestFlight build, deploy the additive development CloudKit schema to production as required by `data-model.md`. Local in-memory tests cannot verify that deployment; record its completion separately from automated check results.
+
 1. Open an existing synced store after upgrading. Existing day assignments remain in place and have no inferred batch totals. Recipe, diary, Gather and cooking history remain readable.
 2. Add a six-serving planned batch and assign two servings each to two days. After relaunch and on a second device, its total is six and two servings remain unassigned.
 3. Remove both assignments. The batch remains discoverable with six servings unassigned after relaunch and sync.
