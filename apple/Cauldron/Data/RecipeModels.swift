@@ -55,6 +55,8 @@ final class RecipeRecord {
   var cooks: [CookRecord]? = []
   @Relationship(deleteRule: .nullify, inverse: \PlanEntryRecord.recipe)
   var planEntries: [PlanEntryRecord]? = []
+  @Relationship(deleteRule: .nullify, inverse: \PlannedBatchRecord.recipe)
+  var plannedBatches: [PlannedBatchRecord]? = []
   @Relationship(deleteRule: .cascade, inverse: \GatherSourceRecord.recipe)
   var gatherSources: [GatherSourceRecord]? = []
   @Relationship(deleteRule: .nullify, inverse: \DiaryEntryRecord.recipe)
@@ -199,6 +201,7 @@ final class PlanEntryRecord {
   var createdAt: Date = Date.now
   var updatedAt: Date = Date.now
   var recipe: RecipeRecord?
+  var batch: PlannedBatchRecord?
 
   init(day: LocalDate, slot: MealSlot, title: String, servings: Int? = nil, position: Int = 0) {
     self.dayKey = day.description
@@ -217,6 +220,30 @@ final class PlanEntryRecord {
     get { MealSlot(rawValue: slotRaw) ?? .dinner }
     set { slotRaw = newValue.rawValue }
   }
+}
+
+/// A planned quantity of a recipe in one immutable seven-day range.
+@Model
+final class PlannedBatchRecord {
+  var id: UUID = UUID()
+  var weekStartKey: String = ""
+  var title: String = ""
+  var totalServings: Int = 1
+  var ingredientYield: Int = 1
+  var createdAt: Date = Date.now
+  var updatedAt: Date = Date.now
+  var recipe: RecipeRecord?
+  @Relationship(deleteRule: .cascade, inverse: \PlanEntryRecord.batch)
+  var entries: [PlanEntryRecord]? = []
+
+  init(weekStart: LocalDate, title: String, totalServings: Int, ingredientYield: Int) {
+    weekStartKey = weekStart.description
+    self.title = title
+    self.totalServings = totalServings
+    self.ingredientYield = ingredientYield
+  }
+
+  var weekStart: LocalDate? { LocalDate(weekStartKey) }
 }
 
 /// A line on the Gather list for one week.
