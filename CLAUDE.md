@@ -19,13 +19,13 @@ A personal recipe box, weekly meal planner and macro tracker, by srcery. It is a
 - **AI**: Gemini, OpenAI or Claude, called straight from the device behind the `RecipeAI` service, with the user's own key from the Keychain (decision 27; see `docs/native/ai.md`). Recipe parsing falls back to Apple's on-device model when the chosen provider can't be reached and is then marked rough. Macro estimates are queued until it is back, and never guessed.
 - **Tests**: Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest.
 - **Lint and format**: Apple `swift-format`, configured in `apple/.swift-format`.
-- **CI/CD**: Xcode Cloud ships TestFlight builds on `v*` tags and does nothing else. Tests and lint run locally.
+- **CI/CD**: Xcode Cloud ships TestFlight builds on `v*` tags and does nothing else. There are no GitHub Actions checks: tests and lint run locally, and that local run is the verification.
 
 ## Commands
 
 Run these from `apple/`:
 
-- `make ready`: lint, then every test. Run it before reporting work done.
+- `make ready`: lint, then every test. Run it before opening a PR, marking one ready or reporting work done, and quote its final summary lines in the PR. Nothing else checks a PR.
 - `make format` rewrites sources; `make lint` fails on anything it would change and on lint rules.
 - `make test-kit`: `swift test` for `CauldronKit`. This is the only one that runs on Linux.
 - `make test-mac`, `make test-ios`: the app's tests on macOS and on the iOS simulator (`IOS_SIMULATOR` overrides the destination).
