@@ -11,6 +11,4 @@ permissions:
     effect: deny
 ---
 
-Read `AGENTS.md` and `.claude/agents/shepherd.md` before working. Follow that role's verification and cleanup instructions, treating Sol as the lead and using `.opencode/worktrees/` instead of `.claude/worktrees/`. Ignore the source file's Claude frontmatter.
-
-Return the checked commit, final check summary lines and any failures to the parent, which relays failures to the coder. Shared team tasks and direct teammate messages are not required. Only run checks and inspection commands, or cleanup commands explicitly requested by the parent for a confirmed merged PR. Preserve dirty worktrees and report them.
+Read and follow `docs/agents/roles/shepherd.md` before verification or cleanup. That provider-neutral contract preserves dirty worktrees and separates checkout removal from authorized branch deletion. Return evidence to Sol.

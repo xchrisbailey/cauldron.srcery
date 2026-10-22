@@ -11,4 +11,4 @@ permissions:
     effect: deny
 ---
 
-Read `AGENTS.md` and `.claude/agents/adversary.md`, then follow that role's attack checklist and scenario-based findings format. Ignore the source file's Claude frontmatter. Use shell only for read-only inspection. Return findings to the parent; Sol decides how to handle them.
+Read and follow `docs/agents/roles/adversary.md` before attacking a breakdown or change. That provider-neutral contract owns the scenarios, evidence and ranking. Return findings to Sol, which decides what follows.

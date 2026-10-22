@@ -1,6 +1,6 @@
 # Cauldron in OpenCode
 
-Read `CLAUDE.md` for the project layout, commands and conventions. Its Claude-specific model assignments and agent-team mechanics are replaced by the OpenCode roles and handoffs below; its engineering and review rules still apply.
+Read `CLAUDE.md` for project conventions. Shared role contracts live in `docs/agents/roles/`; OpenCode profiles select the models below.
 
 ## Roles
 
@@ -13,10 +13,10 @@ Read `CLAUDE.md` for the project layout, commands and conventions. Its Claude-sp
 | `shepherd` | Terra, low | Check runs and explicitly requested cleanup (Haiku equivalent) |
 | `adversary` | Astra, high | Concrete failure scenarios (Fable equivalent) |
 
-Definitions live in `.opencode/agents/`. They reuse the role instructions in `.claude/agents/` as the source of truth, with explicit OpenCode adaptations. Read the referenced role file before doing its work; treat its frontmatter as Claude configuration, not OpenCode settings.
+Definitions live in `.opencode/agents/`. Each points directly to its provider-neutral role contract; Claude profiles use the same contracts.
 
 ## Handoffs
 
-When delegating tickets, working on integration branches, stacking or merging PRs, or reviewing delegated work, read `docs/agents/orchestration.md`. In OpenCode, Sol takes every responsibility assigned there to Opus. Use OpenCode subagents rather than Claude teams: the parent dispatches work, receives reports, and relays findings to the same coder by continuing its session. Shared team tasks and teammate messaging are not required or assumed. Parallelize independent tickets only; keep dependent coding, review and verification in order.
+When delegating, integrating, stacking, reviewing or merging, read `docs/agents/orchestration.md` and `docs/agents/workflow.md`. Sol is the lead; use OpenCode subagent sessions and resume the same coder for fixes. Parallelize independent tickets, not dependent stages.
 
-Give each child a standalone brief with its ticket, scope, base, branch, worktree and required evidence. Use `.opencode/worktrees/<issue>-<slug>` instead of `.claude/worktrees/`. Preserve GitHub PRs and comments as the durable record. Only the orchestrator marks PRs ready, and merging still requires the user's authorization.
+Give each child a standalone brief and explicit acceptance-criterion IDs. New OpenCode worktrees use `.opencode/worktrees/<issue>-<slug>`. The lead owns final validation and readiness; merging/pushing requires user authorization. Before release tags, follow the preflight in `docs/native/data-model.md`.

@@ -2,14 +2,9 @@
 
 **Roles.**
 
-- **Opus 5.5** (`claude-opus-5-5`) is the main session, and the lead of an agent team. It plans, breaks work into tickets, delegates, reviews, and decides. It also keeps the cross-cutting work that `CLAUDE.md` reserves for it: architecture, the SwiftData schema, `project.yml` and targets, entitlements and signing. Orchestration and the review verdict are never delegated.
-- **Sonnet 5.5, high reasoning** (`claude-sonnet-5-5`, `high`) does all delegated coding and test writing, through the `coder` agent in `.claude/agents/coder.md`.
-- On an agent team, three more agents in `.claude/agents/` take work off the lead:
-  - `reviewer` (Sonnet 5.5, high) gives each draft PR a first-pass review;
-  - `shepherd` (Haiku) reruns the local checks on a PR branch and cleans up after merges;
-  - `scout` (Haiku) is a read-only lookup subagent for gathering what a brief needs. It works in either mode.
-- **Fable 5.1** (`claude-fable-5-1`) runs the `adversary` subagent, which tries to break a ticket breakdown or a risky PR. Opus calls it; it is never a teammate.
-- Opus fixes trivial review nits itself. Anything larger goes back to a coder.
+- Role behaviour has one source: `docs/agents/roles/`. Provider profiles choose models and permissions, not a different implementation/review workflow.
+- The **lead** plans, delegates, decides, reviews and retains architecture/schema/project/signing work. `coder` implements bounded briefs; `scout` finds facts; `reviewer` checks criteria and standards; `adversary` supplies failure scenarios; `shepherd` performs assigned verification/upkeep.
+- The lead fixes trivial review nits itself. Anything larger goes back to the same coder.
 - When a ticket records execution assignments, it uses these roles unless the user names others for that work.
 
 **Delegation.**
@@ -21,23 +16,17 @@
   - the files or area, and the existing services, schemas and copy it should reuse;
   - the `CLAUDE.md` rules that bear on it (the coder reads `CLAUDE.md`, but name the ones that matter);
   - what is out of bounds;
-  - what to report back: the branch, the PR, a summary, the `make ready` result, and anything left open.
-- Coders don't widen scope or make product or architecture decisions. They stop and report any open question to Opus.
+  - stable acceptance-criterion IDs and what focused checks to run;
+  - the worker-result JSON and runner-artifact paths to return (see `docs/agents/workflow.md`).
+- Coders stop and report open product/architecture questions to the lead. Partial/blocked results preserve work but do not advance the ticket graph. The lead owns the final full check on the integrated head.
 
-**Agent teams.**
+**Execution and transport.**
 
-- Delegate a single ticket to a `coder` subagent. Start an agent team when two or more tickets are ready at once, or the work is a stack. A team costs tokens for every teammate, so it has to buy parallel work.
-- The roster is up to three coders, one `reviewer`, and one `shepherd`. Spawn each from its agent type, which sets its model, and name each coder `coder-<issue>`.
-- A teammate starts in the main checkout with none of the lead's conversation. The brief still stands alone, and a coder's brief also names its branch, its worktree path `.claude/worktrees/<issue>-<slug>`, and its base.
-- The main checkout stays on `main` and clean. Only the lead works in it, and only the lead runs the app on the simulator.
-- Give each ticket three tasks, each subject starting with `#<issue>`, and each depending on the one before:
-  - `#<issue> code`, for its coder;
-  - `#<issue> review`, for the reviewer;
-  - `#<issue> verify`, for the shepherd.
-    A ticket's `code` task also depends on the `code` task of each ticket that blocks it.
-- The coder and reviewer settle first-pass findings between themselves. A question about the ticket, the epic, or product behaviour comes to the lead from either of them.
-- Teammates don't survive `/resume`, so GitHub holds everything that matters: coders push and open the draft PR early, and the reviewer posts findings as a PR comment. Brief a replacement teammate from the PR and its comments.
-- Shut a teammate down once its tasks are completed.
+- Parallelism has to buy independent work. Use standalone briefs and separate worktrees for up to three independent coders; keep coding, review and final verification ordered where they depend on each other.
+- The main checkout belongs to the lead. New worktrees use the provider's worktree folder; existing dirty checkouts are preserved. Only the lead owns simulator-wide operations; the test runner serializes iOS checks.
+- A Claude team task list or OpenCode child-session ID is transport, not acceptance. The worker-result contract and exact-head check records determine whether a result is complete. The lead relays findings and resumes the same coder.
+- GitHub comments hold durable review decisions when work is remote. Local run logs/status live under the common Git directory, scoped by checkout/revision; use `python3 tools/workflow.py status` rather than assuming a background job finished.
+- Prefer foreground bounded checks when nothing else can advance. Narrate phase changes, findings and blockers, not every mechanical merge or intermediate pending status.
 
 **Parallel work and PRs.**
 
@@ -45,7 +34,7 @@
 - Tickets whose blockers are all merged run in parallel, each in its own worktree, and each PR targets `main`. Parallel work is preferred. Two tickets that each edit `apple/project.yml` regenerate the Xcode project, so they can't both merge as generated; land one, then have the other rerun `make project` on the new base.
 - When a ticket depends on work that isn't merged yet, **stack** it:
   - The coder branches from the blocking ticket's branch and opens a draft PR against that branch.
-  - Opus owns the stack. Coders never restructure one.
+  - The lead owns the stack. Coders never restructure one.
   - Coder branches come from separate worktrees, so build the stack on GitHub with `gh stack link <bottom PR> <next PR> …`, bottom first. It needs no local tracking.
   - A stack is linear. When two tickets share a base, link one into the stack and leave the other as a sibling PR based on the same branch.
   - Merge a stack with `gh stack merge <stack number> --squash --yes`. It merges every layer into `main` atomically. `gh pr merge` refuses a PR that is part of a stack.
@@ -63,8 +52,8 @@
 - Name the branch `feat/<spec issue>-<slug>` and cut it from `origin/main`. Push it, and open one draft PR against `main` after the first ticket merges into it. The PR description lists `Closes #<issue>` for the spec and for each ticket as it lands.
 - Each ticket still gets its own worktree and its own branch, `<type>/<issue>-<slug>`, based on the integration branch tip. Tickets whose blockers are all in the integration branch run in parallel.
 - A coder's brief names the integration branch as its base and asks for the branch and the check results back, not a PR. The coder merges the integration branch tip into its branch and reruns the checks before reporting done.
-- Opus reviews each ticket branch against its "Done when" before it goes in, and the adversarial pass runs at the same points as for a PR. Findings go back to the same coder.
-- A merger subagent merges a reviewed ticket branch into the integration branch, resolves conflicts, reruns the checks on the result, and pushes. It doesn't change behaviour; a conflict it can't resolve mechanically comes back to Opus.
+- The lead reviews each ticket branch against its "Done when" before it goes in, and the adversarial pass runs at the same points as for a PR. Findings go back to the same coder.
+- The lead runs `tools/workflow.py integrate` for a clean, complete, tested worker result. It fast-forwards only after checking the latest integration tip is included and preserves the exact tested head; no merge-only model session is needed. A stale base, conflict, dirty checkout or partial result goes back to its owner, not into an automatic rebase/reset.
 - The main checkout still stays on `main` and clean. The integration branch lives in its own worktree.
 - Mark the PR ready when every ticket is in and the final review passes. Merging it into `main` still waits for the user.
 
@@ -72,18 +61,18 @@
 
 - Run the `adversary` subagent at two points:
   - on the ticket breakdown, before delegating work that spans two or more tickets;
-  - on a PR, before the Opus review, when it touches the SwiftData schema or anything that syncs, the ingredient parser or scaling, the macro and target maths, imports and fetches, HealthKit writes, or the export format.
+  - on a PR, before the lead's review, when it touches the SwiftData schema or anything that syncs, the ingredient parser or scaling, the macro and target maths, imports and fetches, HealthKit writes, or the export format.
 - Give it the tickets or the PR. Keep your own conclusions and the reviewer's pass out of the brief, so its read isn't anchored on them.
-- A finding counts when it comes with a scenario that reproduces it. Opus decides each one: fix the breakdown, send it to the coder, or set it aside with the reason in the PR.
+- A finding counts when it comes with a scenario that reproduces it. The lead decides each one: fix the breakdown, send it to the coder, or set it aside with the reason in the PR.
 
 **Review.**
 
-- Opus reviews every PR before it's marked ready, checking it against:
+- The lead reviews every PR before it's marked ready, checking it against:
   - the ticket's "Done when";
   - the epic (#157) and the tickets it depends on;
   - `CLAUDE.md`, especially its conventions.
-- Opus also confirms the checks pass on the current head: `make ready` in `apple/` as quoted by the coder, or on a team the shepherd's `verify` result. There is no CI. A report without the result doesn't count.
+- The lead confirms a successful full runner record on the current clean head: `make ready` in `apple/`, run by the lead or an explicitly assigned shepherd. Local hooks gate native pushes using that evidence; there is no native CI. A stale, zero-test, dirty or failed record does not count.
 - Some "Done when" lines need a device, a second iCloud device or TestFlight. Those are Chris's to check: list them in the PR, and don't report the ticket as verified.
-- On a team, the `reviewer` passes a PR before Opus reviews it. Its pass covers `CLAUDE.md`'s rules and the acceptance criteria; the plan fit and the verdict stay with Opus.
+- The reviewer's first pass covers standards and acceptance criteria; plan fit and the final verdict stay with the lead.
 - Review findings go back to the same coder, which keeps its context, until the review passes.
-- Opus reports the result to the user. Merge only when the user asks, or has already said to merge PRs that pass review.
+- The lead reports the result to the user. Merge/push only with authorization. Before a `v*` tag, follow signed-artifact/schema preflight in `docs/native/data-model.md`; a pushed tag alone is not proof that TestFlight started or distributed a build.
