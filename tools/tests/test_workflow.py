@@ -31,10 +31,11 @@ class WorkflowTests(unittest.TestCase):
         self.git("commit", "-m", "feature", cwd=self.worker)
         self.head = self.git("rev-parse", "HEAD", cwd=self.worker)
         self.tree = self.git("rev-parse", "HEAD^{tree}", cwd=self.worker)
-        self.check = self.root / ".git" / "check.json"
+        self.check = self.root / ".git/cauldron/runs/example/result.json"
+        self.check.parent.mkdir(parents=True)
         state = {"head": self.head, "tree": self.tree, "dirty": False, "worktree": str(self.worker)}
         self.check.write_text(json.dumps({
-            "version": 1, "kind": "checks", "scope": "focused", "status": "passed",
+            "version": 1, "id": "example", "kind": "checks", "scope": "focused", "status": "passed",
             "before": state, "after": state, "reproducible": True, "testCount": 3,
         }))
         self.brief = self.root / ".git" / "brief.json"
@@ -99,6 +100,20 @@ class WorkflowTests(unittest.TestCase):
         before = self.git("rev-parse", "HEAD")
         self.assertNotEqual(self.command("integrate", "worker").returncode, 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), before)
+
+    def test_template_starts_partial_and_preserves_existing_handoff(self):
+        output = self.root / ".git/new-worker.json"
+        command = [sys.executable, "-B", str(TOOLS / "workflow.py"), "template", "--brief",
+                   str(self.brief), "--base", self.base, "--output", str(output)]
+        first = subprocess.run(command, cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        value = json.loads(output.read_text())
+        self.assertEqual(value["status"], "partial")
+        self.assertEqual(value["remaining"], ["persist", "reject"])
+        original = output.read_text()
+        second = subprocess.run(command, cwd=self.root, capture_output=True, text=True)
+        self.assertNotEqual(second.returncode, 0)
+        self.assertEqual(output.read_text(), original)
 
 
 if __name__ == "__main__":
