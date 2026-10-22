@@ -130,20 +130,22 @@ struct PlannedBatchSheet: View {
             .disabled(draft.total < allocation.assigned)
         }
       }
-      .confirmationDialog(
-        Text(verbatim: Copy.week.removeBatchConfirm.text), isPresented: $confirmingRemoval,
-        titleVisibility: .visible
-      ) {
-        Button(role: .destructive, action: removeBatch) {
-          Text(verbatim: Copy.week.removeBatch.text)
-        }
-        Button(role: .cancel) {
-        } label: {
-          Text(verbatim: Copy.week.cancel.text)
-        }
-      }
       .sheet(item: $editingEntry) { entry in
         BatchAssignmentEditor(entry: entry, batch: batch)
+      }
+    }
+    // Keep presentation modifiers outside the stack: ImageRenderer teardown can enqueue an
+    // action after its update has ended when a dialog is attached to this NavigationStack.
+    .confirmationDialog(
+      Text(verbatim: Copy.week.removeBatchConfirm.text), isPresented: $confirmingRemoval,
+      titleVisibility: .visible
+    ) {
+      Button(role: .destructive, action: removeBatch) {
+        Text(verbatim: Copy.week.removeBatch.text)
+      }
+      Button(role: .cancel) {
+      } label: {
+        Text(verbatim: Copy.week.cancel.text)
       }
     }
     #if os(macOS)
