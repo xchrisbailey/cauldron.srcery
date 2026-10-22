@@ -21,6 +21,8 @@ CloudKit rejects a schema that breaks any of these, and only at runtime. `DataMo
 
 On Mac, build a **Debug app signed for Development** with the Cauldron team. In Xcode's scheme, add `-initializeCloudKitSchema` under **Run → Arguments Passed On Launch**, then run once. Remove the argument afterward to launch the normal app.
 
+The Mac entitlements explicitly select `Development` for Debug and `Production` for Release through `CAULDRON_CLOUDKIT_ENVIRONMENT` in `project.yml`. An Apple Development signing certificate alone does not add the CloudKit environment entitlement.
+
 This one-off path initializes every model in `CauldronStore.models`, prints success or a diagnostic, and exits before opening the recipe database. It uses a unique temporary Core Data store and attempts to unload it and remove that invocation's scratch directory on success or failure. Cleanup failures report an error and the scratch path instead of success, preserving any initialization error too. It refuses a missing or Production CloudKit environment entitlement. Tests stub the initializer; neither running tests nor merely building the app registers schema changes. The initializer is absent from Release and iOS builds.
 
 After success, open [CloudKit Console](https://icloud.developer.apple.com/), select `iCloud.computer.srcery.cauldron`, review **Development → Schema → Deploy Schema Changes**, and deploy to Production before pushing a TestFlight `v*` tag. Initialization changes the development schema only; it does not deploy to Production or confirm cross-device sync. Follow [Apple's schema initialization guidance](https://developer.apple.com/documentation/swiftdata/syncing-model-data-across-a-persons-devices).

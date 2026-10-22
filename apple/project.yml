@@ -41,6 +41,7 @@ settings:
     "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
   configs:
     Debug:
+      CAULDRON_CLOUDKIT_ENVIRONMENT: Development
       SWIFT_OPTIMIZATION_LEVEL: -Onone
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG"
       GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) DEBUG=1"
@@ -49,6 +50,7 @@ settings:
       ONLY_ACTIVE_ARCH: YES
       ENABLE_TESTABILITY: YES
     Release:
+      CAULDRON_CLOUDKIT_ENVIRONMENT: Production
       SWIFT_COMPILATION_MODE: wholemodule
       DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
       ENABLE_NS_ASSERTIONS: NO
