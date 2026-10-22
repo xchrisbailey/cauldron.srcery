@@ -122,6 +122,8 @@ struct SpreadPlan: Equatable {
   /// The servings the batch makes: the recipe's own, or what the cook scaled it to, if either
   /// is known.
   let recipeServings: Int?
+  /// The explicit batch total, even when the recipe's yield is unknown.
+  private(set) var totalServings: Int
   var slot: MealSlot
   /// Servings on each picked day.
   private(set) var servings: [LocalDate: Int]
@@ -131,6 +133,7 @@ struct SpreadPlan: Equatable {
     self.anchor = anchor
     self.slot = slot
     self.recipeServings = recipeServings
+    totalServings = recipeServings ?? 1
     servings = [anchor: 1]
   }
 
@@ -167,8 +170,10 @@ struct SpreadPlan: Equatable {
   /// The picked days in week order.
   var picked: [LocalDate] { days.filter { servings[$0] != nil } }
   var planned: Int { servings.values.reduce(0, +) }
+  var unassigned: Int { max(0, totalServings - planned) }
+  var isComplete: Bool { planned == totalServings }
   /// More servings planned than the recipe makes.
-  var isOver: Bool { recipeServings.map { planned > $0 } ?? false }
+  var isOver: Bool { planned > totalServings }
   var canStir: Bool { !picked.isEmpty }
 
   /// The entries to add, in week order.
@@ -186,6 +191,11 @@ struct SpreadPlan: Equatable {
   mutating func step(_ day: LocalDate, by amount: Int) {
     let next = (servings[day] ?? 0) + amount
     servings[day] = next <= 0 ? nil : min(next, WeekLimits.servings)
+  }
+
+  mutating func setTotal(_ total: Int) {
+    guard (1...WeekLimits.servings).contains(total), total >= planned else { return }
+    totalServings = total
   }
 
   /// One serving a day from the anchor until the recipe's servings run out or the week ends.

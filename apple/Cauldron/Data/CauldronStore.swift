@@ -7,7 +7,8 @@ enum CauldronStore {
 
   static let models: [any PersistentModel.Type] = [
     RecipeRecord.self, PhotoRecord.self, TagRecord.self, CookRecord.self,
-    PlanEntryRecord.self, GatherItemRecord.self, GatherSourceRecord.self, PantryItemRecord.self,
+    PlanEntryRecord.self, PlannedBatchRecord.self, GatherItemRecord.self, GatherSourceRecord.self,
+    PantryItemRecord.self,
     DiaryEntryRecord.self, FavouriteRecord.self, WeighInRecord.self, BodyProfileRecord.self,
     TargetsRecord.self, PreferencesRecord.self, AIJobRecord.self,
     HealthDismissalRecord.self,

@@ -26,11 +26,13 @@ enum WeekPlanError: Error, Equatable {
   case emptyTitle
   case invalidServings
   case noDays
+  case batchOverAssigned
 
   var message: CopyString {
     switch self {
     case .slotFull: Copy.week.slotFull
-    case .recipeBanished, .recipeMissing, .emptyTitle, .invalidServings, .noDays:
+    case .recipeBanished, .recipeMissing, .emptyTitle, .invalidServings, .noDays,
+      .batchOverAssigned:
       Copy.week.couldntSave
     }
   }
@@ -188,9 +190,74 @@ enum WeekPlan {
     into context: ModelContext
   ) throws -> String {
     try commit(in: context) {
-      try stir(recipe, days: plan.entries, slot: plan.slot, placed: placed, into: context)
+      guard !plan.isOver, plan.totalServings > 0 else { throw WeekPlanError.batchOverAssigned }
+      let start = plan.anchor.weekDays().first ?? plan.anchor
+      let batch = PlannedBatchRecord(
+        weekStart: start, title: recipe.title, totalServings: plan.totalServings,
+        ingredientYield: recipe.servings.flatMap { $0 > 0 ? $0 : nil } ?? plan.totalServings)
+      context.insert(batch)
+      batch.recipe = recipe
+      let entries = try stir(
+        recipe, days: plan.entries, slot: plan.slot, placed: placed, into: context)
+      for entry in entries { entry.batch = batch }
     }
     return Copy.week.spread.stirred(plan.picked.count).text
+  }
+
+  /// Persist a planned batch independently of its day assignments.
+  @discardableResult
+  static func createBatch(
+    recipe: RecipeRecord, weekStart: LocalDate, totalServings: Int,
+    ingredientYield: Int? = nil, in context: ModelContext
+  ) throws -> PlannedBatchRecord {
+    guard (1...WeekLimits.servings).contains(totalServings) else {
+      throw WeekPlanError.invalidServings
+    }
+    let batch = PlannedBatchRecord(
+      weekStart: weekStart, title: recipe.title, totalServings: totalServings,
+      ingredientYield: ingredientYield.flatMap { $0 > 0 ? $0 : nil } ?? totalServings)
+    batch.recipe = recipe
+    context.insert(batch)
+    return batch
+  }
+
+  static func batches(from: LocalDate, through: LocalDate, in context: ModelContext) throws
+    -> [PlannedBatchRecord]
+  {
+    let lower = from.description
+    let upper = through.description
+    return try context.fetch(
+      FetchDescriptor(
+        predicate: #Predicate { $0.weekStartKey >= lower && $0.weekStartKey <= upper }))
+  }
+
+  static func assignedServings(_ batch: PlannedBatchRecord) -> Int {
+    (batch.entries ?? []).compactMap(\.servings).reduce(0, +)
+  }
+
+  static func unassignedServings(_ batch: PlannedBatchRecord) -> Int {
+    max(0, batch.totalServings - assignedServings(batch))
+  }
+
+  static func editTotal(_ batch: PlannedBatchRecord, to total: Int) throws {
+    guard (1...WeekLimits.servings).contains(total) else { throw WeekPlanError.invalidServings }
+    guard total >= assignedServings(batch) else { throw WeekPlanError.batchOverAssigned }
+    batch.totalServings = total
+    batch.updatedAt = .now
+  }
+
+  static func assign(_ entry: PlanEntryRecord, to batch: PlannedBatchRecord) throws {
+    guard let servings = entry.servings, (1...WeekLimits.servings).contains(servings) else {
+      throw WeekPlanError.invalidServings
+    }
+    guard let day = entry.day, let start = batch.weekStart,
+      start.weekDays().contains(day), assignedServings(batch) + servings <= batch.totalServings
+    else { throw WeekPlanError.batchOverAssigned }
+    entry.batch = batch
+  }
+
+  static func removeBatch(_ batch: PlannedBatchRecord, in context: ModelContext) {
+    context.delete(batch)
   }
 
   /// Stirs a recipe into one meal. Nil `servings` follows the recipe's own.
