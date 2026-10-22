@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 
 import workflow_support as support
 
@@ -59,14 +60,21 @@ def git_tags(root: Path) -> list[tuple[tuple[int, int, int], str]]:
 
 def source_map(root: Path, revision: str = "HEAD") -> dict[str, bytes]:
     listing = support.git("ls-tree", "-r", "--name-only", revision, cwd=root).splitlines()
-    sources = {}
-    for name in listing:
-        if not name.endswith(".swift"):
-            continue
-        content = support.git("show", f"{revision}:{name}", cwd=root)
-        if "@Model" in content or "CauldronStore" in name or "ModelRegistry" in name:
-            sources[name] = content.encode()
-    return sources
+    swift = {name for name in listing if name.endswith(".swift")}
+    registry = {name for name in swift if "CauldronStore" in name or "ModelRegistry" in name}
+    result = subprocess.run(
+        ["git", "grep", "-l", "-I", "-e", "@Model", revision, "--", "*.swift"],
+        cwd=root, text=True, capture_output=True, check=False,
+    )
+    if result.returncode not in (0, 1):
+        raise support.WorkflowError(result.stderr.strip() or "git grep failed while scanning model sources")
+    model_paths = ({line[len(revision) + 1:] if line.startswith(f"{revision}:") else line
+                    for line in result.stdout.splitlines()} if result.returncode == 0 else set())
+    selected = model_paths | registry
+    if not selected <= swift:
+        raise support.WorkflowError("git grep selected a Swift source outside the revision tree")
+    return {name: support.git("show", f"{revision}:{name}", cwd=root).encode()
+            for name in sorted(selected)}
 
 
 def model_fingerprint(root: Path) -> str:
@@ -158,29 +166,48 @@ def build(configuration: str) -> dict:
     if before["dirty"]:
         raise support.WorkflowError("Build requires a clean checkout")
     state = support.state_directory(root)
-    derived = state / "builds" / configuration
-    run(["xcodebuild", "-project", "apple/Cauldron.xcodeproj", "-scheme", "Cauldron",
-         "-configuration", configuration, "-destination", "platform=macOS",
-         "-derivedDataPath", str(derived), "build"], cwd=root)
-    after = support.snapshot(root)
-    if before != after:
-        raise support.WorkflowError("Checkout changed during build; refusing to record provenance")
+    build_id = uuid.uuid4().hex
+    derived = state / "builds" / build_id / "DerivedData"
     app = derived / "Build/Products" / configuration / "Cauldron.app"
-    env = "Development" if configuration == "Debug" else "Production"
-    evidence = inspect_app(app, env, root)
-    record = {
-        "version": 1, "configuration": configuration, "head": before["head"],
-        "tree": before["tree"], "artifact": evidence,
-        "createdAt": time.time(),
-    }
-    record["signatureDigest"] = hashlib.sha256(
-        (evidence["digest"] + json.dumps(signed_entitlements(app.resolve(), root), sort_keys=True)).encode()
-    ).hexdigest()
-    record["id"] = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
-    path = state / "builds" / f"{configuration.lower()}-{record['id']}.json"
-    support.write_json(path, record)
-    record["record"] = str(path)
-    return record
+    command = ["xcodebuild", "-project", "apple/Cauldron.xcodeproj", "-scheme", "Cauldron",
+               "-configuration", configuration, "-destination", "platform=macOS",
+               "-derivedDataPath", str(derived), "build"]
+    run_path, run_record = support.new_run("release-build", command, "macos", "artifact")
+    log_path = Path(run_record["log"])
+    try:
+        with log_path.open("w") as log:
+            process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT, text=True)
+            returncode = process.wait()
+        if returncode:
+            raise support.WorkflowError(f"xcodebuild failed with exit code {returncode}; log: {log_path}")
+        after = support.snapshot(root)
+        if before != after:
+            raise support.WorkflowError(f"Checkout changed during build; refusing provenance; log: {log_path}")
+        env = "Development" if configuration == "Debug" else "Production"
+        evidence = inspect_app(app, env, root)
+        record = {
+            "version": 1, "id": build_id, "configuration": configuration,
+            "head": before["head"], "tree": before["tree"], "artifact": evidence,
+            "createdAt": time.time(), "runRecord": str(run_path),
+        }
+        record["signatureDigest"] = hashlib.sha256(
+            (evidence["digest"] + json.dumps(signed_entitlements(app.resolve(), root), sort_keys=True)).encode()
+        ).hexdigest()
+        support.finish_run(run_path, run_record, "passed", configuration=configuration,
+                           artifact=evidence, buildRecord=build_id)
+        manifest = state / "builds" / f"{configuration.lower()}-{build_id}.json"
+        support.write_json(manifest, record)
+        record["record"] = str(manifest)
+        return record
+    except (OSError, support.WorkflowError) as error:
+        details = {"error": str(error), "log": str(log_path)}
+        if "returncode" in locals():
+            details["returncode"] = returncode
+        try:
+            support.finish_run(run_path, run_record, "build-failed", **details)
+        except support.WorkflowError:
+            pass
+        raise
 
 
 def attest(phase: str, version: str, note: str) -> dict:
@@ -251,17 +278,25 @@ def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
         matches = []
         for path in builds:
             record = support.read_json(path)
-            unsigned = dict(record)
-            recorded_id = unsigned.pop("id", None)
-            expected_id = hashlib.sha256(json.dumps(unsigned, sort_keys=True).encode()).hexdigest()
+            recorded_id = path.stem.removeprefix(f"{configuration.lower()}-")
             signature_digest = hashlib.sha256(
                 (evidence["digest"] + json.dumps(signed_entitlements(Path(evidence["path"]), root), sort_keys=True)).encode()
             ).hexdigest()
+            run_path = Path(record.get("runRecord", ""))
+            run_record = support.read_json(run_path) if run_path.is_file() else {}
             if (record.get("version") == 1 and record.get("configuration") == configuration
                     and record.get("head") == snapshot["head"] and record.get("tree") == snapshot["tree"]
+                    and record.get("id") == recorded_id
+                    and record.get("artifact", {}).get("path") == evidence["path"]
                     and record.get("artifact", {}).get("digest") == evidence["digest"]
-                    and record.get("signatureDigest") == signature_digest and recorded_id == expected_id):
-                matches.append(record)
+                    and record.get("signatureDigest") == signature_digest):
+                if (run_record.get("kind") == "release-build"
+                        and run_record.get("configuration") == configuration
+                        and run_record.get("buildRecord") == record.get("id")
+                        and support.successful_for(run_record, snapshot["head"], scope="artifact")
+                        and run_record.get("artifact", {}).get("path") == evidence["path"]
+                        and run_record.get("artifact", {}).get("digest") == evidence["digest"]):
+                    matches.append(record)
         if not matches:
             raise support.WorkflowError(f"Missing exact-revision {configuration} build provenance for artifact")
         artifacts.append({**evidence, "buildRecord": matches[-1]["id"], "revision": snapshot["head"]})

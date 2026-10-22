@@ -38,10 +38,10 @@ class ReleaseCLITests(unittest.TestCase):
         self.bin.mkdir()
         self._fake_tools()
         self.env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}"}
-        self.run_cli("build", "--configuration", "Debug")
-        self.run_cli("build", "--configuration", "Release")
-        self.debug = self.state / "builds/Debug/Build/Products/Debug/Cauldron.app"
-        self.release = self.state / "builds/Release/Build/Products/Release/Cauldron.app"
+        self.debug_record = self.build_cli("Debug")
+        self.release_record = self.build_cli("Release")
+        self.debug = Path(self.debug_record["artifact"]["path"])
+        self.release = Path(self.release_record["artifact"]["path"])
 
     def tearDown(self):
         self.temp.cleanup()
@@ -68,6 +68,7 @@ cat "$4/entitlements.plist"
         codesign.chmod(0o755)
         xcodebuild = self.bin / "xcodebuild"
         xcodebuild.write_text('''#!/bin/sh
+if [ "${FAKE_XCODEBUILD_FAIL:-}" = "1" ]; then echo "injected build failure"; exit 7; fi
 derived=""
 configuration=""
 while [ "$#" -gt 0 ]; do
@@ -98,6 +99,12 @@ PY
     def run_cli(self, *args, check=True):
         return subprocess.run(["python3", "-B", "tools/release.py", *map(str, args)], cwd=self.root,
                               env=self.env, text=True, capture_output=True, check=check)
+
+    def build_cli(self, configuration, *, check=True, fail=False):
+        env = {**self.env, **({"FAKE_XCODEBUILD_FAIL": "1"} if fail else {})}
+        result = subprocess.run(["python3", "-B", "tools/release.py", "build", "--configuration", configuration],
+                                cwd=self.root, env=env, text=True, capture_output=True, check=check)
+        return result if not check else json.loads(result.stdout)
 
     def add_full_check_record(self, *, counts=None, head=None):
         head = head or self.git("rev-parse", "HEAD").stdout.strip()
@@ -131,6 +138,15 @@ PY
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("entitlement", result.stderr)
 
+    def test_rejects_missing_cloudkit_environment_entitlement(self):
+        data = plistlib.loads((self.debug / "entitlements.plist").read_bytes())
+        del data["com.apple.developer.icloud-container-environment"]
+        (self.debug / "entitlements.plist").write_bytes(plistlib.dumps(data))
+        self.add_full_check_record()
+        result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("icloud-container-environment", result.stderr)
+
     def test_rejects_artifact_tampering_after_build(self):
         self.add_full_check_record()
         resources = self.debug / "Contents/Resources"
@@ -160,8 +176,10 @@ PY
     def test_model_change_requires_current_human_init_then_deployment(self):
         self.model.write_text("@Model final class Recipe { var title: String = \"\" }\n")
         self.commit()
-        self.run_cli("build", "--configuration", "Debug")
-        self.run_cli("build", "--configuration", "Release")
+        self.debug_record = self.build_cli("Debug")
+        self.release_record = self.build_cli("Release")
+        self.debug = Path(self.debug_record["artifact"]["path"])
+        self.release = Path(self.release_record["artifact"]["path"])
         self.add_full_check_record()
         self.assertIn("Missing or stale initialized", self.run_cli("preflight", "v1.2.3", *self.apps(), check=False).stderr)
         self.assertIn("requires matching initialization", self.run_cli(
@@ -181,6 +199,33 @@ PY
         path.write_text(json.dumps(record))
         result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
         self.assertIn("build provenance", result.stderr)
+
+    def test_build_failure_is_ledgered_with_log_and_consecutive_builds_are_isolated(self):
+        manifest_count = len(list((self.state / "builds").glob("*.json")))
+        failure = self.build_cli("Debug", check=False, fail=True)
+        self.assertNotEqual(failure.returncode, 0)
+        ledgers = [record for _, record in self.run_records()
+                   if record.get("kind") == "release-build" and record.get("status") == "build-failed"]
+        failed = ledgers[-1]
+        self.assertEqual(failed["status"], "build-failed")
+        self.assertTrue(Path(failed["log"]).is_file())
+        self.assertEqual(len(list((self.state / "builds").glob("*.json"))), manifest_count)
+        first = self.debug_record
+        second = self.build_cli("Debug")
+        self.assertNotEqual(first["artifact"]["path"], second["artifact"]["path"])
+        self.assertNotEqual(first["runRecord"], second["runRecord"])
+        # A manifest cannot borrow one build's path while retaining another build's ledger.
+        manifest = Path(second["record"])
+        data = json.loads(manifest.read_text())
+        data["artifact"]["path"] = first["artifact"]["path"]
+        manifest.write_text(json.dumps(data))
+        Path(first["record"]).unlink()
+        self.add_full_check_record()
+        result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+        self.assertIn("build provenance", result.stderr)
+
+    def run_records(self):
+        return [(path, json.loads(path.read_text())) for path in (self.state / "runs").glob("*/result.json")]
 
 
 if __name__ == "__main__":
