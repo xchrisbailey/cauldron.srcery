@@ -17,6 +17,8 @@ CloudKit rejects a schema that breaks any of these, and only at runtime. `DataMo
 - Deploy the development schema to production in the CloudKit console **before the first TestFlight build**, and again before any build that adds to it. A build whose schema isn't in production silently fails to sync.
 - A renamed property is a new field to CloudKit. Add the new one, copy the values across, and leave the old one in place.
 
+Before a release tag, use the executable [release preflight](../agents/workflow.md#release-preparation). It requires exact-revision full validation and signed Debug/Release artifact provenance. Schema initialization and production deployment are recorded as separate explicit human attestations when the model/registry changed since the prior release; tests and build success do not imply either operation happened.
+
 ### Initialize the development schema
 
 On Mac, build a **Debug app signed for Development** with the Cauldron team. In Xcode's scheme, add `-initializeCloudKitSchema` under **Run → Arguments Passed On Launch**, then run once. Remove the argument afterward to launch the normal app.

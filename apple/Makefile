@@ -4,6 +4,7 @@ SWIFT_SOURCES := Cauldron CauldronImports CauldronShare CauldronWidgets Shared S
 XCODEBUILD := xcodebuild -project Cauldron.xcodeproj -scheme Cauldron -skipPackagePluginValidation
 IOS_SIMULATOR ?= platform=iOS Simulator,name=iPhone 17,OS=27.0
 PLATFORM ?= macos
+CONFIGURATION ?= Debug
 
 .PHONY: ready format lint lint-store lint-buttons test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
 
