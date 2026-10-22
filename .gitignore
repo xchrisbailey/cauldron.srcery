@@ -17,6 +17,7 @@ node_modules
 # AI agent worktrees
 .claude/worktrees/
 .opencode/worktrees/
+__pycache__/
 
 # Swift and Xcode
 .build/
