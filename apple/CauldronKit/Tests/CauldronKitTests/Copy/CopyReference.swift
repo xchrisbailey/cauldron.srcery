@@ -708,8 +708,7 @@ enum CopyReference {
     .init(path: "week.tally.clearDay", tone: .plain, text: "Back to the week"),
     .init(
       path: "week.tally.plannedAgainstTarget", tone: .plain, text: "Planned against weekly target"),
-    .init(path: "week.tally.remaining", tone: .plain, text: "remaining"),
-    .init(path: "week.tally.over", tone: .plain, text: "over"),
+    .init(path: "week.tally.grams", tone: .plain, text: "g"),
     .init(
       path: "week.tally.incomplete", tone: .plain,
       text: "Incomplete comparison: some planned meals are not fully counted."),
@@ -1053,6 +1052,31 @@ enum CopyReference {
     .init(
       call: "Copy.week.tally.gaps(3)", actual: Copy.week.tally.gaps(3), tone: .plain,
       text: "3 planned meals aren't fully counted."),
+    .init(
+      call: "Copy.week.tally.comparisonRow(calories, below)",
+      actual: Copy.week.tally.comparisonRow(
+        name: Copy.tracker.macroNames.calories.text, planned: "8,000", target: "14,000",
+        unit: Copy.week.tally.macros.calories.text, difference: "6,000", isOver: false),
+      tone: .plain,
+      text: "Calories: 8,000 kcal planned, 14,000 kcal target, 6,000 kcal remaining"),
+    .init(
+      call: "Copy.week.tally.comparisonRow(protein, exact)",
+      actual: Copy.week.tally.comparisonRow(
+        name: Copy.tracker.macroNames.protein.text, planned: "700", target: "700",
+        unit: Copy.week.tally.grams.text, difference: "0", isOver: false),
+      tone: .plain, text: "Protein: 700 g planned, 700 g target, 0 g remaining"),
+    .init(
+      call: "Copy.week.tally.comparisonRow(carbs, over)",
+      actual: Copy.week.tally.comparisonRow(
+        name: Copy.tracker.macroNames.carbs.text, planned: "1,500", target: "1,400",
+        unit: Copy.week.tally.grams.text, difference: "100", isOver: true),
+      tone: .plain, text: "Carbs: 1,500 g planned, 1,400 g target, 100 g over target"),
+    .init(
+      call: "Copy.week.tally.comparisonRow(fat, under)",
+      actual: Copy.week.tally.comparisonRow(
+        name: Copy.tracker.macroNames.fat.text, planned: "400", target: "490",
+        unit: Copy.week.tally.grams.text, difference: "90", isOver: false),
+      tone: .plain, text: "Fat: 400 g planned, 490 g target, 90 g remaining"),
     .init(
       call: "Copy.week.tally.showDay(\"Monday\")", actual: Copy.week.tally.showDay("Monday"),
       tone: .plain, text: "Show Monday"),

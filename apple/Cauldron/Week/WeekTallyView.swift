@@ -24,13 +24,17 @@ struct WeekTallyView: View {
         VStack(alignment: .leading, spacing: 4) {
           Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
           ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-            let unit = key == .calories ? Copy.week.tally.macros.calories.text : "g"
+            let unit =
+              key == .calories
+              ? Copy.week.tally.macros.calories.text : Copy.week.tally.grams.text
             let planned = WeekFigures.whole(comparison.planned[key])
             let target = WeekFigures.whole(comparison.target[key])
             let remaining = comparison.remaining(for: key)
             Text(
-              verbatim:
-                "\(metricName(key)): \(planned) / \(target) \(unit), \(remaining < 0 ? Copy.week.tally.over.text : Copy.week.tally.remaining.text) \(WeekFigures.whole(abs(remaining))) \(unit)"
+              verbatim: Copy.week.tally.comparisonRow(
+                name: metricName(key), planned: planned, target: target, unit: unit,
+                difference: WeekFigures.whole(abs(remaining)), isOver: remaining < 0
+              ).text
             )
             .brandText(.quantity)
           }
@@ -58,10 +62,10 @@ struct WeekTallyView: View {
 
   private func metricName(_ key: MacroKey) -> String {
     switch key {
-    case .calories: Copy.week.tally.macros.calories.text
-    case .protein: Copy.week.tally.macros.protein.text
-    case .carbs: Copy.week.tally.macros.carbs.text
-    case .fat: Copy.week.tally.macros.fat.text
+    case .calories: Copy.tracker.macroNames.calories.text
+    case .protein: Copy.tracker.macroNames.protein.text
+    case .carbs: Copy.tracker.macroNames.carbs.text
+    case .fat: Copy.tracker.macroNames.fat.text
     }
   }
 

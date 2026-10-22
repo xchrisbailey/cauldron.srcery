@@ -132,8 +132,7 @@ extension Copy {
       public let none = plain("Add calories and macros to your recipes to see totals here.")
       public let clearDay = plain("Back to the week")
       public let plannedAgainstTarget = plain("Planned against weekly target")
-      public let remaining = plain("remaining")
-      public let over = plain("over")
+      public let grams = plain("g")
       public let incomplete = plain(
         "Incomplete comparison: some planned meals are not fully counted.")
       public let noTargets = plain("Set targets to compare this plan with your weekly goals.")
@@ -145,6 +144,14 @@ extension Copy {
         plain(
           n == 1
             ? "1 planned meal isn't fully counted." : "\(n) planned meals aren't fully counted.")
+      }
+      public func comparisonRow(
+        name: String, planned: String, target: String, unit: String, difference: String,
+        isOver: Bool
+      ) -> CopyString {
+        plain(
+          "\(name): \(planned) \(unit) planned, \(target) \(unit) target, "
+            + "\(difference) \(unit) \(isOver ? "over target" : "remaining")")
       }
       public func showDay(_ day: String) -> CopyString { plain("Show \(day)") }
 
