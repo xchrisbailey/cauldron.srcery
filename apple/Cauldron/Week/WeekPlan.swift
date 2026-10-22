@@ -31,8 +31,8 @@ enum WeekPlanError: Error, Equatable {
   var message: CopyString {
     switch self {
     case .slotFull: Copy.week.slotFull
-    case .recipeBanished, .recipeMissing, .emptyTitle, .invalidServings, .noDays,
-      .batchOverAssigned:
+    case .batchOverAssigned: Copy.week.allocationConflict
+    case .recipeBanished, .recipeMissing, .emptyTitle, .invalidServings, .noDays:
       Copy.week.couldntSave
     }
   }

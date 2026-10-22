@@ -140,6 +140,9 @@ struct WeekPlanTests {
     }
     #expect(entry.day == monday)
     #expect(WeekPlan.allocation(batch).unassigned == 1)
+    #expect(
+      WeekPlan.message(for: WeekPlanError.batchOverAssigned).text
+        == Copy.week.allocationConflict.text)
   }
 
   @Test func invalidSyncedBatchEntryIsSurfacedAndCanBeRepairedWithConcreteServings() throws {

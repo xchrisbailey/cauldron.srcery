@@ -51,6 +51,9 @@ extension Copy {
     public let couldntLoad = plain("Couldn't load the week.")
     public let retry = plain("Try again")
     public let slotFull = plain("That meal is full. Remove something first.")
+    public let allocationConflict = plain(
+      "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day."
+    )
     public let moveUp = plain("Move up")
     public let moveDown = plain("Move down")
     public let meal = plain("Meal")
