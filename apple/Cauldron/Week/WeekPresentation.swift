@@ -230,8 +230,7 @@ struct SpreadPlan: Equatable {
 
   var summary: String {
     let total = recipeServings == nil && totalServings == 1 ? nil : totalServings
-    return canStir
-      ? Copy.week.spread.planned(planned, total).text : Copy.week.spread.pickADay.text
+    return Copy.week.spread.planned(planned, total).text
   }
 }
 
