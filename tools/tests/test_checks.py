@@ -35,7 +35,7 @@ class ChecksCLITests(unittest.TestCase):
         )
         self.install(
             "python3",
-            "printf 'Ran 1 test\\n'\nexit \"${TOOLING_EXIT:-0}\"\n",
+            "printf 'Ran %s tests\\n' \"${TOOLING_COUNT:-1}\"\nif [ \"${TOOLING_EXIT:-0}\" != 0 ]; then echo 'FAIL: sample'; fi\nexit \"${TOOLING_EXIT:-0}\"\n",
         )
         (self.root / "tools/tests/fixtures/checks").mkdir(parents=True)
         (self.root / "tools/tests/fixtures/checks/summary.json").write_text(
@@ -97,6 +97,24 @@ class ChecksCLITests(unittest.TestCase):
         package = self.invoke("package", SWIFT_EXIT="1")
         self.assertEqual(package.returncode, 1)
 
+    def test_tooling_records_positive_count_and_rejects_zero(self) -> None:
+        passed = self.invoke("tooling", TOOLING_COUNT="3")
+        self.assertEqual(passed.returncode, 0, passed.stderr + passed.stdout)
+        passing_record = self.records()[-1]
+        self.assertEqual(passing_record["kind"], "checks")
+        self.assertEqual(passing_record["scope"], "focused")
+        self.assertEqual(passing_record["platform"], "tooling")
+        self.assertEqual(passing_record["testCount"], 3)
+        self.assertTrue(passing_record["reproducible"])
+
+        failed = self.invoke("tooling", TOOLING_EXIT="1")
+        self.assertEqual(failed.returncode, 1)
+        self.assertEqual(self.records()[-1]["status"], "assertion-failed")
+
+        zero = self.invoke("tooling", TOOLING_COUNT="0")
+        self.assertEqual(zero.returncode, 1)
+        self.assertEqual(self.records()[-1]["status"], "zero-tests")
+
     def test_stale_revision_and_ios_lock_conflict_fail_closed(self) -> None:
         stale = self.invoke("focused", "--platform", "macos", "--test", "CauldronTests/Suite", STALE="1")
         self.assertEqual(stale.returncode, 1, stale.stdout + stale.stderr)
@@ -114,7 +132,9 @@ class ChecksCLITests(unittest.TestCase):
         record = self.records()[0]
         self.assertEqual(record["status"], "passed")
         self.assertEqual(record["scope"], "full")
-        self.assertEqual(record["counts"], {"ios": 2, "lint": True, "macos": 2, "package": 2, "tooling": True})
+        self.assertEqual(record["counts"], {
+            "ios": 2, "lint": True, "macos": 2, "package": 2, "tooling": True, "toolingTestCount": 1,
+        })
         self.assertTrue(record["reproducible"])
 
 

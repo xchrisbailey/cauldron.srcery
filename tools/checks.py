@@ -56,7 +56,7 @@ def classify_failure(output: str, returncode: int) -> CheckFailure:
     ):
         return CheckFailure("build-failed", f"build failed (exit {returncode})")
     if any(marker.lower() in output.lower() for marker in ASSERTION_MARKERS) or re.search(
-        r"test(?: case)? .* failed", output, re.IGNORECASE
+        r"test(?: case)? .* failed|^FAIL:|^ERROR:|^FAILED ", output, re.IGNORECASE | re.MULTILINE
     ):
         return CheckFailure("assertion-failed", f"test assertions failed (exit {returncode})")
     return CheckFailure("runner-failed", f"test runner failed (exit {returncode})")
@@ -124,8 +124,21 @@ def package_run(root: Path, filter_value: str | None, log: Path) -> int:
     return count
 
 
+def tooling_run(root: Path, log: Path) -> int:
+    code, output = run_command(
+        ["python3", "-B", "-m", "unittest", "discover", "-s", "tools/tests"], cwd=root, log=log
+    )
+    if code:
+        raise classify_failure(output, code)
+    matches = re.findall(r"Ran (\d+) tests?", output)
+    count = int(matches[-1]) if matches else 0
+    if count <= 0:
+        raise CheckFailure("zero-tests", "Python unittest reported zero executed tests")
+    return count
+
+
 def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
-    counts: dict[str, int] = {}
+    counts: dict[str, int | bool] = {}
     try:
         code, output = run_command(["make", "lint"], cwd=root / "apple", log=log)
         if code:
@@ -139,11 +152,7 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
                 if error.details.get("testCount"):
                     counts[platform] = error.details["testCount"]
                 raise
-        code, output = run_command(
-            ["python3", "-B", "-m", "unittest", "discover", "-s", "tools/tests"], cwd=root, log=log
-        )
-        if code:
-            raise classify_failure(output, code)
+        counts["toolingTestCount"] = tooling_run(root, log)
         counts["tooling"] = True
     except CheckFailure as error:
         raise CheckFailure(error.status, str(error), counts=counts, **error.details) from error
@@ -165,6 +174,7 @@ def parser() -> argparse.ArgumentParser:
     focused.add_argument("--test", required=True, action="append")
     package = commands.add_parser("package")
     package.add_argument("--filter")
+    commands.add_parser("tooling")
     commands.add_parser("ready")
     return result
 
@@ -173,7 +183,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     root = support.repository()
     scope = "full" if args.command == "ready" else "focused"
-    platform = "all" if args.command == "ready" else args.platform if args.command == "focused" else "package"
+    platform = (
+        "all" if args.command == "ready" else
+        args.platform if args.command == "focused" else
+        "tooling" if args.command == "tooling" else "package"
+    )
     try:
         selectors = [validate_selector(value) for value in args.test] if args.command == "focused" else []
     except support.WorkflowError as error:
@@ -195,6 +209,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "package":
             test_count = package_run(root, args.filter, log)
             counts = {"package": test_count}
+        elif args.command == "tooling":
+            test_count = tooling_run(root, log)
+            counts = {}
         else:
             if args.platform == "ios":
                 try:
