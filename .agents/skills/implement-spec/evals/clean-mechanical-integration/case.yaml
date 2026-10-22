@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: clean-mechanical-integration
+expected_outcome: |
+  Use the checked integration command for a fast-forward of the tested head, without a merge-only model session. The lead or assigned verifier owns one final full validation on the clean integrated revision.

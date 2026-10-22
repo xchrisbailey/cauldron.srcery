@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: zero-test-success
+expected_outcome: |
+  Reject zero executed tests as a passing check and reject the compilation error as behavioural red evidence. Request a valid selector/nonzero runner artifact and a real assertion regression for changed behaviour.

@@ -54,13 +54,6 @@ Follow the "Depends on" line at the top of each ticket. Phase 0 (#159 to #162) i
 
 ## Delegation
 
-The main session runs on **Opus at medium effort** (`.claude/settings.json`). It plans, orchestrates, reviews, and does the larger or cross-cutting work itself: architecture, the SwiftData schema and anything that changes it, `project.yml` and targets, entitlements and signing. Everything else goes to the agents in `.claude/agents/`:
+Provider profiles in `.claude/agents/` and `.opencode/agents/` share the contracts in `docs/agents/roles/`. The main session is the lead: it owns architecture, schema, project settings/signing, and final review. Delegate bounded implementation and fact lookup through the named roles.
 
-- `coder` (Sonnet 5.5, high): one ticket or a bounded piece of one, code and tests, in its own worktree.
-- `scout` (Haiku): read-only lookups for writing a brief.
-- `adversary` (Fable): tries to break a ticket breakdown or a risky change.
-- On an agent team, `reviewer` (Sonnet 5.5, high) gives each draft PR a first pass and `shepherd` (Haiku) reruns checks and cleans up after merges.
-
-A session spawned as one of these follows its own file instead. Opus reviews every change before it is merged or marked ready. When delegating a ticket, starting an agent team, working on an integration branch, stacking or merging PRs, or reviewing a coder's work, read `docs/agents/orchestration.md`.
-
-Subagents without a named type default to Sonnet 5.5 (`CLAUDE_CODE_SUBAGENT_MODEL`). Subagents start cold, so every brief stands alone.
+When delegating, integrating, stacking, reviewing or merging, read `docs/agents/orchestration.md`. For check evidence, worker-result contracts and checked integration, read `docs/agents/workflow.md`. The lead owns one final complete validation; workers use focused checks unless explicitly assigned verification. Before release tags or CloudKit schema preparation, read `docs/native/data-model.md`.
