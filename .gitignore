@@ -23,3 +23,7 @@ node_modules
 DerivedData/
 xcuserdata/
 *.xcresult
+
+# Landing page build and local design checks
+_site/
+.taste-skill/

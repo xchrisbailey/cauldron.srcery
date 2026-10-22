@@ -1,28 +1,62 @@
 # Cauldron
 
-A personal recipe box, weekly meal planner and macro tracker, by srcery. It is a native iOS 27 / macOS 27 app with no server, synced through iCloud; the plan is in [#157](https://github.com/xchrisbailey/cauldron.srcery/issues/157) and [`docs/native`](docs/native). Conventions for contributors (human or agent) are in [`CLAUDE.md`](CLAUDE.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/lockup-dark.svg">
+  <img src="brand/lockup-light.svg" alt="Cauldron, by srcery" width="360">
+</picture>
 
-## The native app
+Your recipes, the week's meals, and what you eat. Cauldron is a native app for iPhone and Mac, with a personal recipe box, meal planning, a shopping list, and macro tracking.
 
-You need Xcode 27. Open `apple/Cauldron.xcodeproj` and run the `Cauldron` scheme on an iPhone simulator or on My Mac. From `apple/`:
+**Cauldron is in alpha.** It works, but expect bugs and changes. Builds are distributed through TestFlight, not the App Store. Tester applications aren't open yet.
 
-```bash
-make ready      # lint, then every test (CauldronKit, Mac, iOS simulator)
-make format     # rewrite sources with swift-format
-make test-kit   # CauldronKit only; this also runs on Linux
-make project    # regenerate the Xcode project after editing project.yml (needs XcodeGen)
+[Landing page](https://xchrisbailey.github.io/cauldron.srcery/) · [Report a bug](https://github.com/xchrisbailey/cauldron.srcery/issues)
+
+## What it does
+
+- Keep recipes with structured ingredients, serving sizes, photos, and cooking steps.
+- Import recipes from a link, pasted text, or a photographed page. Send links and text from other apps through the share sheet.
+- Plan meals for the week and gather ingredients into a shopping list.
+- Cook with scaled quantities and timers, then log meals and track macros.
+- Keep your collection on your devices, with sync through your private iCloud database. There is no Cauldron account or app server.
+
+AI recipe extraction and nutrition estimates use your own Gemini, OpenAI, or Claude API key. Requests go directly from your device to the selected provider; provider charges may apply. Estimates are marked as estimates and should be checked. See [how AI works](docs/native/ai.md) for data handling and fallback behaviour.
+
+## Run the app
+
+You'll need Xcode 27 and an iOS 27 simulator or macOS 27. Open [`apple/Cauldron.xcodeproj`](apple/Cauldron.xcodeproj), select the `Cauldron` scheme, and run it on an iPhone simulator or My Mac. Running on your own device requires signing and the relevant iCloud capabilities.
+
+From `apple/`:
+
+```sh
+make ready      # lint and all tests: domain package, Mac, iOS simulator
+make format     # format Swift sources
+make build      # build for Mac and iOS simulator
+make test-kit   # domain tests only; also works on Linux
+make project    # regenerate the project after editing project.yml; needs XcodeGen
 ```
 
-`apple/CauldronKit` is a plain Swift package with the domain logic. It builds and tests on Linux with `swift test`.
+[`CauldronKit`](apple/CauldronKit) contains the platform-independent Swift domain logic. Run `swift test --package-path apple/CauldronKit` without Xcode, including on Linux.
 
-## Brand assets
+## Landing page
 
-`brand/build.ts` draws the marks in `brand/` and the app icons in `apple/Cauldron/Assets.xcassets/AppIcon.appiconset` from one definition. It needs [Bun](https://bun.sh):
+[`site/`](site) is a static HTML/CSS/JavaScript page. It uses the existing brand marks and bundled Geist font, with no framework, dependencies, analytics, or third-party requests.
 
-```bash
-cd brand && bun install && bun run build
+```sh
+node site/build.mjs
+python3 -m http.server 8080 --directory _site
 ```
 
-## The old web app
+Open <http://localhost:8080>. The testing form is an explicitly disabled preview. It does not collect, submit, or store applications. Connect a real endpoint and add the appropriate privacy notice before enabling it.
 
-Cauldron started as a TypeScript web app and API. It was retired once the native app reached parity ([#186](https://github.com/xchrisbailey/cauldron.srcery/issues/186)), and the last version is at the [`web-final`](https://github.com/xchrisbailey/cauldron.srcery/tree/web-final) tag.
+The [Pages workflow](.github/workflows/pages.yml) builds and deploys the site when landing-page or brand assets change on `main`. In the repository's **Settings → Pages → Build and deployment**, choose **GitHub Actions** as the source. No custom domain is configured.
+
+## Brand and development notes
+
+The marks live in [`brand/`](brand); the app and website use Geist and Catppuccin Latte/Mocha. To regenerate the marks and app icons, run `bun install && bun run build` from `brand/`.
+
+- [Contributor conventions](CLAUDE.md)
+- [Native architecture and decisions](docs/native/decisions.md)
+- [Recipe imports](docs/native/imports.md)
+- [Export format](docs/native/export-format.md)
+
+Cauldron began as a web app. That version is retired and preserved at [`web-final`](https://github.com/xchrisbailey/cauldron.srcery/tree/web-final); the Swift app is the current product.
