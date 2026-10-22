@@ -706,6 +706,17 @@ enum CopyReference {
       path: "week.tally.none", tone: .plain,
       text: "Add calories and macros to your recipes to see totals here."),
     .init(path: "week.tally.clearDay", tone: .plain, text: "Back to the week"),
+    .init(
+      path: "week.tally.plannedAgainstTarget", tone: .plain, text: "Planned against weekly target"),
+    .init(path: "week.tally.remaining", tone: .plain, text: "remaining"),
+    .init(path: "week.tally.over", tone: .plain, text: "over"),
+    .init(
+      path: "week.tally.incomplete", tone: .plain,
+      text: "Incomplete comparison: some planned meals are not fully counted."),
+    .init(
+      path: "week.tally.noTargets", tone: .plain,
+      text: "Set targets to compare this plan with your weekly goals."),
+    .init(path: "week.tally.setTargets", tone: .plain, text: "Set targets"),
     .init(path: "week.spread.days", tone: .plain, text: "Days"),
     .init(
       path: "week.spread.hint", tone: .plain,
@@ -1038,10 +1049,10 @@ enum CopyReference {
       text: "Removed Dal."),
     .init(
       call: "Copy.week.tally.gaps(1)", actual: Copy.week.tally.gaps(1), tone: .plain,
-      text: "1 meal has no calories or macros, so it isn't fully counted."),
+      text: "1 planned meal isn't fully counted."),
     .init(
       call: "Copy.week.tally.gaps(3)", actual: Copy.week.tally.gaps(3), tone: .plain,
-      text: "3 meals have no calories or macros, so they aren't fully counted."),
+      text: "3 planned meals aren't fully counted."),
     .init(
       call: "Copy.week.tally.showDay(\"Monday\")", actual: Copy.week.tally.showDay("Monday"),
       tone: .plain, text: "Show Monday"),

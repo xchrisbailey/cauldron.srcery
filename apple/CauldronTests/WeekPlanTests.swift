@@ -727,6 +727,77 @@ struct WeekPlanTests {
     #expect(MealCard(meal).detail == nil && !MealCard(meal).isRecipe)
   }
 
+  @Test func weeklySnapshotUsesSavedManualTargetsAndReflectsEdits() throws {
+    let context = try context()
+    let targets = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+    targets.caloriesOverridden = true
+    targets.proteinOverridden = true
+    context.insert(targets)
+    #expect(targets.caloriesOverridden && targets.proteinOverridden)
+    let recipe = recipe(
+      "Soup", servings: 1, macros: Macros(calories: 500, protein: 25, carbs: 40, fat: 10),
+      in: context)
+    try WeekPlan.stir(recipe, at: dinner(monday), servings: 1, into: context)
+
+    let first = WeekSnapshot(
+      start: monday,
+      records: try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context),
+      targets: targets)
+    #expect(first.weekTally.totals.calories == 500)
+    #expect(first.weeklyComparison?.target.calories == 14_000)
+    #expect(first.weeklyComparison?.target.protein == 700)
+    #expect(first.weeklyComparison?.target.carbs == 1_400)
+    #expect(first.weeklyComparison?.target.fat == 490)
+    #expect(first.weeklyComparison?.remaining(for: .calories) == 13_500)
+    #expect(first.tally(of: monday).totals.calories == 500)
+    targets.calories = 100
+    let changed = WeekSnapshot(
+      start: monday,
+      records: try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context),
+      targets: targets)
+    #expect(changed.weeklyComparison?.target.calories == 700)
+    #expect(changed.weeklyComparison?.remaining(for: .calories) == 200)
+    #expect(WeekSnapshot(start: monday, records: []).weeklyComparison == nil)
+    let emptyWithTargets = WeekSnapshot(start: monday, records: [], targets: targets)
+    #expect(emptyWithTargets.weekTally.totals.calories == 0)
+    #expect(emptyWithTargets.weeklyComparison?.target.calories == 700)
+    #expect(emptyWithTargets.weeklyComparison?.remaining(for: .calories) == 700)
+  }
+
+  @Test func weeklyComparisonKeepsFullDenominatorAndQualifiesPartialAndFreeTextMeals() throws {
+    let context = try context()
+    let targets = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+    context.insert(targets)
+    let soup = recipe("Partial soup", servings: 1, macros: Macros(calories: 500), in: context)
+    try WeekPlan.stir(soup, at: dinner(monday.adding(days: 3)), servings: 1, into: context)
+    try WeekPlan.stirText("Takeaway", at: dinner(monday.adding(days: 4)), into: context)
+    let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+    let snapshot = WeekSnapshot(start: monday, records: records, targets: targets)
+    #expect(snapshot.weeklyComparison?.target.calories == 14_000)
+    #expect(snapshot.weeklyComparison?.isIncomplete == true)
+    #expect(snapshot.weekTally.missing == 1 && snapshot.weekTally.freeText == 1)
+    #expect(WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday)) != nil)
+  }
+
+  @Test func plannedBatchCapacityDoesNotChangeTallyButAssignmentsDo() throws {
+    let context = try context()
+    let recipe = recipe(
+      "Batch", servings: 4, macros: Macros(calories: 500, protein: 20, carbs: 50, fat: 10),
+      in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: recipe, weekStart: monday, totalServings: 4, in: context)
+    try WeekPlan.assign(1, on: monday, slot: .dinner, to: batch, in: context)
+    func calories() throws -> Double {
+      let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+      return WeekSnapshot(start: monday, records: records).weekTally.totals.calories
+    }
+    #expect(try calories() == 500)
+    try WeekPlan.editTotal(batch, to: 6)
+    #expect(try calories() == 500)
+    try WeekPlan.assign(1, on: monday.adding(days: 1), slot: .dinner, to: batch, in: context)
+    #expect(try calories() == 1_000)
+  }
+
   @Test func anEntryIsBrewedWhenItsRecipeWasCookedThatDay() throws {
     let context = try context()
     let soup = recipe("Soup", in: context)

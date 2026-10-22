@@ -24,4 +24,17 @@ struct WeekMacroComparisonTests {
     #expect(comparison.remaining(for: .calories) == 0)
     #expect(comparison.isIncomplete)
   }
+
+  @Test func comparisonDistinguishesBelowExactAndOverTheFullWeekGoal() {
+    let goal = MacroTargets(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+    func calories(_ planned: Double) -> Double {
+      let tally = MacroTally(
+        totals: MacroTotals(calories: planned, protein: 0, carbs: 0, fat: 0),
+        counted: 1, missing: 0, freeText: 0)
+      return WeekMacroComparison(tally: tally, dailyTarget: goal).remaining(for: .calories)
+    }
+    #expect(calories(13_000) == 1_000)
+    #expect(calories(14_000) == 0)
+    #expect(calories(15_000) == -1_000)
+  }
 }

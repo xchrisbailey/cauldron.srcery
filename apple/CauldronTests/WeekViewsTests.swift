@@ -32,6 +32,35 @@ import Testing
       }
     }
 
+    @Test func weeklyTargetSummaryAndSetupRenderAtBothWidthsAndAppearances() throws {
+      let start = LocalDate("2026-10-05")!
+      for hasTargets in [false, true] {
+        let container = try CauldronStore.container(.inMemory)
+        let context = ModelContext(container)
+        if hasTargets {
+          context.insert(TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70))
+          try context.save()
+        }
+        let planner = WeekPlanner(
+          start: start, today: start, startsOn: .monday, isCurrent: true, onPrevious: {},
+          onNext: {}, onThisWeek: {}, onStartsOn: { _ in })
+        for scheme in [ColorScheme.light, .dark] {
+          for (width, height) in [(1100.0, 800.0), (390.0, 800.0)] {
+            #expect(
+              renders(
+                planner.modelContainer(container).environment(\.colorScheme, scheme),
+                width: width, height: height),
+              "targets \(hasTargets), \(scheme), \(width)")
+          }
+          #expect(
+            renders(
+              TargetsView(context: context).modelContainer(container)
+                .environment(\.colorScheme, scheme), width: 390, height: 760),
+            "target setup \(scheme)")
+        }
+      }
+    }
+
     @Test func theStirSheetsRenderInBothAppearances() throws {
       let container = try seeded()
       let context = ModelContext(container)
