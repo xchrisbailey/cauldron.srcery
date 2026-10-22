@@ -80,13 +80,7 @@ struct RemovedMeal {
 }
 
 enum WeekPlan {
-  struct Allocation: Equatable {
-    let assigned: Int
-    let total: Int
-    let unassigned: Int
-    let isOverAssigned: Bool
-    let hasInvalidEntries: Bool
-  }
+  typealias Allocation = PlannedBatchAllocation
   // MARK: Reading
 
   /// Day, then meal, then position: the order the week shows. Entries on the same spot sort
@@ -249,26 +243,19 @@ enum WeekPlan {
   }
 
   static func assignedServings(_ batch: PlannedBatchRecord) -> Int {
-    (batch.entries ?? []).compactMap(\.servings).reduce(0, +)
+    allocation(batch).assigned
   }
 
   static func unassignedServings(_ batch: PlannedBatchRecord) -> Int {
-    max(0, batch.totalServings - assignedServings(batch))
+    allocation(batch).unassigned
   }
 
   static func allocation(_ batch: PlannedBatchRecord) -> Allocation {
-    let entries = batch.entries ?? []
-    let assigned = entries.compactMap(\.servings).reduce(0, +)
-    let invalid = entries.contains { entry in
-      guard let servings = entry.servings, let day = entry.day, let start = batch.weekStart else {
-        return true
-      }
-      return !(1...WeekLimits.servings).contains(servings) || !start.weekDays().contains(day)
-    }
-    return Allocation(
-      assigned: assigned, total: batch.totalServings,
-      unassigned: max(0, batch.totalServings - assigned),
-      isOverAssigned: assigned > batch.totalServings, hasInvalidEntries: invalid)
+    Allocation(
+      assignments: (batch.entries ?? []).map {
+        PlannedBatchAssignment(day: $0.day, servings: $0.servings)
+      }, weekStart: batch.weekStart, total: batch.totalServings,
+      servingLimit: WeekLimits.servings)
   }
 
   static func editTotal(_ batch: PlannedBatchRecord, to total: Int) throws {
@@ -287,7 +274,9 @@ enum WeekPlan {
       throw WeekPlanError.invalidServings
     }
     guard let day = entry.day, let start = batch.weekStart,
-      start.weekDays().contains(day), assignedServings(batch) + servings <= batch.totalServings
+      PlannedBatchAllocation.accepts(
+        day: day, servings: servings, weekStart: start, servingLimit: WeekLimits.servings),
+      assignedServings(batch) + servings <= batch.totalServings
     else { throw WeekPlanError.batchOverAssigned }
     entry.batch = batch
   }
@@ -297,8 +286,10 @@ enum WeekPlan {
     _ servings: Int, on day: LocalDate, slot: MealSlot, to batch: PlannedBatchRecord,
     in context: ModelContext
   ) throws -> PlanEntryRecord {
-    guard (1...WeekLimits.servings).contains(servings), let start = batch.weekStart,
-      start.weekDays().contains(day), let recipe = batch.recipe
+    guard let start = batch.weekStart,
+      PlannedBatchAllocation.accepts(
+        day: day, servings: servings, weekStart: start, servingLimit: WeekLimits.servings),
+      let recipe = batch.recipe
     else { throw WeekPlanError.invalidServings }
     guard assignedServings(batch) + servings <= batch.totalServings else {
       throw WeekPlanError.batchOverAssigned

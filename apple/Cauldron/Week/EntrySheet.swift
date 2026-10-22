@@ -37,7 +37,7 @@ struct EntrySheet: View {
     self.onEditBatch = onEditBatch
     self.onShift = onShift
     self.onRemove = onRemove
-    _draft = State(initialValue: PlannedMealDraft(meal))
+    _draft = State(initialValue: PlannedMealDraft(meal, allowsBatchServingEdits: limits != nil))
   }
 
   var body: some View {
@@ -46,14 +46,17 @@ struct EntrySheet: View {
         Section {
           if draft.canRename {
             TextField(text: $draft.title) { Text(verbatim: Copy.week.meal.text) }
-          } else {
+          }
+          if draft.canEditServings {
             Picker(selection: $draft.servings) {
               if limits == nil {
                 Text(verbatim: Copy.week.sameServings(meal.recipe?.servings).text)
                   .tag(Int?.none)
+              } else if draft.servings == nil {
+                Text(verbatim: Copy.week.invalidAssignment.text).tag(Int?.none)
               }
               ForEach(servingChoices, id: \.self) { n in
-                Text(verbatim: String(n)).tag(Int?.some(n))
+                Text(verbatim: String(n)).brandText(.quantity).tag(Int?.some(n))
               }
             } label: {
               Text(verbatim: Copy.week.servings.text)
@@ -68,7 +71,7 @@ struct EntrySheet: View {
         Section {
           Picker(selection: $draft.day) {
             ForEach(availableDays, id: \.self) { day in
-              Text(verbatim: WeekDates.label(day, long: true)).tag(day)
+              Text(verbatim: WeekDates.label(day, long: true)).brandText(.quantity).tag(day)
             }
           } label: {
             Text(verbatim: Copy.week.day.text)

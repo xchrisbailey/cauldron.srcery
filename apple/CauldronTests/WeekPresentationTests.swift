@@ -164,6 +164,19 @@ struct WeekPresentationTests {
     #expect(increased.status == "3 servings unassigned")
   }
 
+  @Test func untouchedBatchDraftUsesLiveCapacityAndExplicitIncreaseRejectsStaleTotals() throws {
+    var untouched = PlannedBatchEditDraft(openedTotal: 4)
+    #expect(try untouched.totalToCommit(currentTotal: 2) == nil)
+    #expect(untouched.availableServings(currentTotal: 2, assigned: 1) == 1)
+
+    var increased = PlannedBatchEditDraft(openedTotal: 4)
+    increased.setTotal(5)
+    #expect(try increased.totalToCommit(currentTotal: 4) == 5)
+    #expect(throws: PlannedBatchDraftError.staleTotal) {
+      try increased.totalToCommit(currentTotal: 2)
+    }
+  }
+
   // MARK: Changing an entry
 
   private func meal(
@@ -211,5 +224,18 @@ struct WeekPresentationTests {
     var draft = PlannedMealDraft(meal(title: "Leftovers"))
     draft.servings = 3
     #expect(draft.change == nil)
+  }
+
+  @Test func renameableBatchEntryCanEditServingsWithoutChangingLegacyFreeText() {
+    let entry = meal(servings: nil, title: "Soup")
+    var legacy = PlannedMealDraft(entry)
+    legacy.servings = 3
+    #expect(legacy.canRename && !legacy.canEditServings)
+    #expect(legacy.change == nil)
+
+    var batch = PlannedMealDraft(entry, allowsBatchServingEdits: true)
+    batch.servings = 3
+    #expect(batch.canRename && batch.canEditServings)
+    #expect(batch.change?.servings == .some(.some(3)))
   }
 }

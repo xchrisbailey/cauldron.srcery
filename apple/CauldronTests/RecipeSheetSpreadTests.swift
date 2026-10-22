@@ -48,6 +48,33 @@ struct RecipeSheetSpreadTests {
     #expect(!plan.isOver)
   }
 
+  @Test func sundayWeekPreferenceReanchorsDefaultAndCustomSpreadsThroughSheetPath() throws {
+    let context = try context()
+    let saturday = LocalDate("2026-10-10")!
+    let sunday = LocalDate("2026-10-11")!
+    let record = recipe(servings: 4, in: context)
+    let starting = StirRecipeSheet.startingPlan(
+      recipe: record, scale: .servings(4), today: saturday, startsOn: .sunday)
+    let defaultMoved = StirRecipeSheet.reanchoredPlan(starting, on: sunday, startsOn: .sunday)
+    #expect(defaultMoved.days == sunday.startOfWeek(startingOn: .sunday).weekDays())
+    #expect(
+      defaultMoved.entries
+        == (0..<4).map { DayServings(date: sunday.adding(days: $0), servings: 1) })
+
+    var custom = starting
+    custom.toggle(saturday)
+    custom.toggle(LocalDate("2026-10-06")!)
+    custom.step(LocalDate("2026-10-06")!, by: 1)
+    custom.toggle(LocalDate("2026-10-09")!)
+    custom.step(LocalDate("2026-10-09")!, by: 1)
+    let customMoved = StirRecipeSheet.reanchoredPlan(custom, on: sunday, startsOn: .sunday)
+    #expect(
+      customMoved.entries == [
+        DayServings(date: LocalDate("2026-10-13")!, servings: 2),
+        DayServings(date: LocalDate("2026-10-16")!, servings: 2),
+      ])
+  }
+
   @Test func theSpreadCoversTheSevenDaysFromTheStartingDayNotTheCalendarWeek() throws {
     let context = try context()
     let plan = opening(recipe(servings: 5, in: context))
