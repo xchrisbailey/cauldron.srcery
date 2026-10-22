@@ -44,6 +44,7 @@ Run `make -C apple setup-hooks` in the owning checkout. Installation is reposito
 
 - Pre-commit checks **staged** Swift formatting/store/button policies, JSON/property-list parsing and Python syntax. It never formats, stages or stashes. Partially staged working copies do not substitute for staged content.
 - Pre-push requires a clean checked-out revision for native/tooling/release changes. Native changes reuse valid current-head full evidence or run the final runner once. Tooling-only changes run tooling tests. Other revisions must be validated from their own clean checkout. A release tag additionally requires that exact commit/version's successful preflight.
+- For a new destination ref, no destination comparison commit is advertised, so the gate conservatively checks introduced history instead of trusting another remote's main branch. Workers return local commits; native branch pushes wait for the lead's full-validation approval rather than triggering a full suite from every worker.
 - As with any local Git hook, deliberate `--no-verify` bypasses it; these are local guardrails, not a remote security boundary. Native CI remains intentionally absent. A shared environment that needs enforcement against bypasses should add server-side checks rather than claim the local hook is unbypassable.
 
 ## Release preparation

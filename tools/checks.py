@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import uuid
@@ -42,7 +43,11 @@ def run_command(argv: list[str], *, cwd: Path, log: Path) -> tuple[int, str]:
         stream.write("$ " + " ".join(argv) + "\n")
         stream.flush()
         try:
-            process = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            process = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       text=True, start_new_session=True)
+        except OSError as error:
+            raise CheckFailure("runner-failed", f"could not launch {argv[0]}: {error}") from error
+        try:
             output_lines = []
             if process.stdout is not None:
                 for line in process.stdout:
@@ -50,8 +55,25 @@ def run_command(argv: list[str], *, cwd: Path, log: Path) -> tuple[int, str]:
                     stream.flush()
                     output_lines.append(line)
             return process.wait(), "".join(output_lines)
-        except OSError as error:
-            raise CheckFailure("runner-failed", f"could not launch {argv[0]}: {error}") from error
+        except BaseException:
+            # Reap this invocation's child before the caller releases its simulator lock.
+            # Its isolated process group keeps cancellation away from unrelated developer jobs.
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            raise
+        finally:
+            if process.stdout is not None:
+                process.stdout.close()
 
 
 def classify_failure(output: str, returncode: int) -> CheckFailure:
@@ -251,6 +273,9 @@ def main(argv: list[str] | None = None) -> int:
     lock = None
     fd = None
     lint_passed = tooling_passed = None
+    def interrupt(_signum, _frame):
+        raise KeyboardInterrupt
+    previous_sigterm = signal.signal(signal.SIGTERM, interrupt)
     try:
         if args.command == "ready":
             if record["before"]["dirty"]:
@@ -301,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if fd is not None:
             os.close(fd)
+        signal.signal(signal.SIGTERM, previous_sigterm)
     details["artifacts"] = [str(item) for item in sorted(artifacts.glob("*.xcresult"))]
     final = support.finish_run(path, record, status, **details)
     summary = f"checks: {final['status']} ({final['scope']}/{final['platform']})"

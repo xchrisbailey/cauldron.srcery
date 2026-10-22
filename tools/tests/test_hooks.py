@@ -176,6 +176,18 @@ class HookTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), head)
 
+    def test_new_destination_ref_does_not_trust_unrelated_origin_main(self):
+        path = self.root / "apple/Cauldron/Feature.swift"
+        path.parent.mkdir(parents=True)
+        path.write_text("let feature = 1\n")
+        self.git("add", "apple")
+        self.git("commit", "-m", "native on origin")
+        head = self.git("rev-parse", "HEAD")
+        self.git("update-ref", "refs/remotes/origin/main", head)
+        result = self.command("pre-push", stdin=f"HEAD {head} refs/heads/new-on-another-remote {'0' * 40}\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.git("rev-parse", "HEAD"), head)
+
 
 if __name__ == "__main__":
     unittest.main()

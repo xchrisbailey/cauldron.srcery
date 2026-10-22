@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import fcntl
 import signal
+import select
 import shutil
 import subprocess
 import sys
@@ -119,6 +120,48 @@ class ChecksCLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertEqual(self.records()[-1]["status"], "runner-failed")
         self.assertEqual(self.records()[-1]["testCount"], 0)
+
+    def test_interrupt_reaps_owned_child_before_releasing_ios_lock(self) -> None:
+        ready = self.root / ".git/child-ready"
+        blocked = self.root / ".git/child-blocked"
+        os.mkfifo(ready)
+        os.mkfifo(blocked)
+        descriptor = os.open(ready, os.O_RDWR | os.O_NONBLOCK)
+        self.addCleanup(os.close, descriptor)
+        self.install("xcodebuild", "while [ $# -gt 0 ]; do if [ \"$1\" = -resultBundlePath ]; then shift; mkdir -p \"$1\"; fi; shift; done\nif [ \"${BLOCK_CHILD:-0}\" = 1 ]; then echo $$ > \"$READY_FIFO\"; read release < \"$BLOCK_FIFO\"; fi\nexit 0\n")
+        self.git("add", "fake-bin/xcodebuild")
+        self.git("commit", "-qm", "interrupt fixture")
+        environment = os.environ | {
+            "PATH": str(self.bin) + os.pathsep + os.environ["PATH"], "BLOCK_CHILD": "1",
+            "READY_FIFO": str(ready), "BLOCK_FIFO": str(blocked),
+        }
+        for interruption in (signal.SIGINT, signal.SIGTERM):
+            with self.subTest(signal=interruption):
+                child_pid = None
+                process = subprocess.Popen(
+                    [sys.executable, "-B", "tools/checks.py", "focused", "--platform", "ios", "--test", "CauldronTests/Suite"],
+                    cwd=self.root, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                )
+                try:
+                    readable, _, _ = select.select([descriptor], [], [], 10)
+                    self.assertTrue(readable, "fake child did not signal readiness")
+                    child_pid = int(os.read(descriptor, 128).decode().strip())
+                    process.send_signal(interruption)
+                    process.communicate(timeout=10)
+                    self.assertEqual(self.records()[-1]["status"], "interrupted")
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(child_pid, 0)
+                    retry = self.invoke("focused", "--platform", "ios", "--test", "CauldronTests/Suite")
+                    self.assertEqual(retry.returncode, 0, retry.stderr)
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                        process.communicate(timeout=10)
+                    if child_pid is not None:
+                        try:
+                            os.kill(child_pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
 
     def test_xcode_all_skipped_and_malformed_counts_fail(self) -> None:
         skipped = self.invoke(

@@ -17,6 +17,6 @@ Return **complete**, **partial** or **blocked** explicitly. Map every brief crit
 
 The lead owns the single final `make ready` on the integrated head. A worker runs it only when the brief explicitly assigns that verification job. This policy applies equally to Claude and OpenCode.
 
-For a per-ticket PR, push and open a draft early if authorized; for a single integration branch, return the branch without a per-ticket PR. Merge the latest integration tip and rerun focused checks before reporting. The lead relays findings and resumes this same coder for fixes. Use GitHub comments for durable findings; team task lists/messages are optional transport, not another workflow.
+For a per-ticket PR, return the branch until the lead supplies current-head full validation and authorizes its push; then open a draft if requested. For a single integration branch, return the local branch without a per-ticket PR or worker push. Merge the latest integration tip and rerun focused checks before reporting. The lead relays findings and resumes this same coder for fixes. Use GitHub comments for durable findings; team task lists/messages are optional transport, not another workflow.
 
 Report failures with the exact command, worktree, commit and artifact path. On Linux, report the CauldronKit-only checks rather than claiming the app was verified. Keep pending approvals pending; send the lead the exact safe command instead of retrying it.

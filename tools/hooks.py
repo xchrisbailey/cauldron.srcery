@@ -117,13 +117,9 @@ def full_checks_exist(head: str) -> bool:
 def changed_paths(local: str, remote: str) -> list[str]:
     if set(remote) != {"0"}:
         return git("diff", "--name-only", remote, local).splitlines()
-    try:
-        base = git("merge-base", local, "origin/main")
-        return git("diff", "--name-only", base, local).splitlines()
-    except WorkflowError:
-        # With no safe remote comparison base, every introduced commit is relevant. Looking
-        # only at the tip lets a documentation commit hide preceding native/tooling changes.
-        return git("log", "--format=", "--name-only", local).splitlines()
+    # A new destination ref has no advertised comparison commit. origin/main might belong to
+    # another remote, so conservatively inspect the introduced history rather than trusting it.
+    return git("log", "--format=", "--name-only", local).splitlines()
 
 
 def pre_push(lines: list[str]) -> None:
