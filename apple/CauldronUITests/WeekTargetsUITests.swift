@@ -147,7 +147,7 @@ final class WeekTargetsUITests: XCTestCase {
       XCTAssertTrue(week.waitForExistence(timeout: 10), app.debugDescription)
       activate(week)
     #else
-      let week = app.descendants(matching: .any)["calendar"]
+      let week = app.buttons["calendar"]
       XCTAssertTrue(week.waitForExistence(timeout: 10), app.debugDescription)
       activate(week)
     #endif
