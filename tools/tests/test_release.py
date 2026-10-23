@@ -294,6 +294,21 @@ PY
                                       "--note", "Console shows nothing to deploy", check=False)
                 self.assertNotEqual(result.returncode, 0)
 
+    def test_reinitialization_invalidates_older_production_confirmation(self):
+        self.prepare_schema_change()
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                     "--note", "Console shows nothing to deploy")
+        schemas = self.state / "schemas"
+        production_path = next(schemas.glob("production-current-*.json"))
+        production = json.loads(production_path.read_text())
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initialized again")
+        initialized = json.loads(next(schemas.glob("initialized-*.json")).read_text())
+        self.assertGreater(initialized["createdAt"], production["createdAt"])
+        result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("production-current", result.stderr)
+
     def test_production_current_rejects_stale_release_and_unknown_programmatic_phase(self):
         self.prepare_schema_change()
         invalid = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
