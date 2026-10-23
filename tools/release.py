@@ -12,6 +12,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import math
 import time
 import uuid
 
@@ -21,6 +22,7 @@ TEAM = "5U2B7W5F39"
 CONTAINER = "iCloud.computer.srcery.cauldron"
 BUNDLE_ID = "computer.srcery.cauldron"
 VERSION_RE = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SCHEMA_PHASES = {"initialized", "deployed", "production-current"}
 
 
 def run(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
@@ -211,6 +213,8 @@ def build(configuration: str) -> dict:
 
 
 def attest(phase: str, version: str, note: str) -> dict:
+    if phase not in SCHEMA_PHASES:
+        raise support.WorkflowError(f"Unknown schema attestation phase: {phase}")
     root = support.repository()
     version_label(version)
     note = note.strip()
@@ -221,16 +225,18 @@ def attest(phase: str, version: str, note: str) -> dict:
         raise support.WorkflowError("Schema attestation requires a clean checkout")
     changed, _, fingerprint = schema_change(root)
     path = support.state_directory(root) / "schemas" / f"{phase}-{version}-{snapshot['head']}-{fingerprint}.json"
-    if phase == "deployed":
+    if phase in {"deployed", "production-current"}:
         initialized = support.state_directory(root) / "schemas" / f"initialized-{version}-{snapshot['head']}-{fingerprint}.json"
         if not initialized.exists():
-            raise support.WorkflowError("Deployment attestation requires matching initialization attestation")
+            raise support.WorkflowError(f"{phase} attestation requires matching initialization attestation")
         prior = support.read_json(initialized)
         if (prior.get("phase") != "initialized" or prior.get("head") != snapshot["head"]
                 or prior.get("release") != version or prior.get("fingerprint") != fingerprint
                 or not prior.get("note") or not prior.get("author")
-                or not isinstance(prior.get("createdAt"), (int, float)) or not prior.get("id")):
-            raise support.WorkflowError("Deployment attestation requires valid matching initialization evidence")
+                or not valid_timestamp(prior.get("createdAt")) or not nonempty(prior.get("id"))):
+            raise support.WorkflowError(f"{phase} attestation requires valid matching initialization evidence")
+        if time.time() < prior["createdAt"]:
+            raise support.WorkflowError(f"{phase} attestation cannot predate initialization evidence")
     author = run(["git", "config", "user.name"], cwd=root).stdout.strip()
     if not author:
         raise support.WorkflowError("Schema attestation requires git user.name as the human author")
@@ -242,6 +248,23 @@ def attest(phase: str, version: str, note: str) -> dict:
     }
     support.write_json(path, record)
     return record
+
+
+def nonempty(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def valid_timestamp(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def valid_schema_record(record: dict, phase: str, version: str, head: str,
+                        fingerprint: str) -> bool:
+    return (record.get("version") == 1 and record.get("phase") == phase
+            and record.get("head") == head and record.get("release") == version
+            and record.get("fingerprint") == fingerprint
+            and nonempty(record.get("note")) and nonempty(record.get("author"))
+            and valid_timestamp(record.get("createdAt")) and nonempty(record.get("id")))
 
 
 def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
@@ -299,18 +322,26 @@ def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
     schema = {"changedSincePreviousRelease": changed, "previousRelease": previous,
               "fingerprint": fingerprint, "attestations": []}
     if changed:
-        for phase in ("initialized", "deployed"):
-            path = support.state_directory(root) / "schemas" / f"{phase}-{version}-{snapshot['head']}-{fingerprint}.json"
-            if not path.exists():
-                raise support.WorkflowError(f"Missing or stale {phase} schema attestation")
-            record = support.read_json(path)
-            if (record.get("phase") != phase or record.get("head") != snapshot["head"]
-                    or record.get("release") != version or record.get("fingerprint") != fingerprint
-                    or not record.get("note") or not record.get("author")
-                    or not isinstance(record.get("createdAt"), (int, float)) or not record.get("id")):
-                raise support.WorkflowError(f"Missing or stale {phase} schema attestation")
-            schema["attestations"].append(record["id"])
-        schema["status"] = "initialized and deployed attestations recorded"
+        directory = support.state_directory(root) / "schemas"
+        records = {}
+        for phase in ("initialized", "deployed", "production-current"):
+            path = directory / f"{phase}-{version}-{snapshot['head']}-{fingerprint}.json"
+            if path.exists():
+                records[phase] = support.read_json(path)
+        initialized = records.get("initialized")
+        if initialized is None or not valid_schema_record(
+                initialized, "initialized", version, snapshot["head"], fingerprint):
+            raise support.WorkflowError("Missing or stale initialized schema attestation")
+        production_phase = next((phase for phase in ("deployed", "production-current")
+                                 if phase in records and valid_schema_record(
+                                     records[phase], phase, version, snapshot["head"], fingerprint)
+                                 and records[phase]["createdAt"] >= initialized["createdAt"]), None)
+        if production_phase is None:
+            raise support.WorkflowError("Missing or stale deployed or production-current schema attestation")
+        schema["attestations"] = [initialized["id"], records[production_phase]["id"]]
+        schema["productionEvidencePhase"] = production_phase
+        schema["status"] = ("initialized and deployed attestations recorded" if production_phase == "deployed"
+                            else "initialized; production confirmed current")
     else:
         schema["status"] = "unchanged; no deployment attestation required"
     schema["attestationsAreLocalRecordsNotRemoteVerification"] = True
@@ -332,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     schema = commands.add_parser("record-schema")
     schema.add_argument("version")
-    schema.add_argument("--phase", required=True, choices=("initialized", "deployed"))
+    schema.add_argument("--phase", required=True, choices=tuple(sorted(SCHEMA_PHASES)))
     schema.add_argument("--note", required=True)
     build_parser = commands.add_parser("build")
     build_parser.add_argument("--configuration", required=True, choices=("Debug", "Release"))

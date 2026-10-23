@@ -6,6 +6,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 
@@ -189,6 +190,77 @@ PY
         self.assertIn("Missing or stale deployed", self.run_cli("preflight", "v1.2.3", *self.apps(), check=False).stderr)
         self.run_cli("record-schema", "v1.2.3", "--phase", "deployed", "--note", "Deployed manually")
         self.assertEqual(json.loads(self.run_cli("preflight", "v1.2.3", *self.apps()).stdout)["status"], "passed")
+
+    def prepare_schema_change(self):
+        self.model.write_text('@Model final class Recipe { var title: String = "" }\n')
+        self.commit()
+        self.debug_record = self.build_cli("Debug")
+        self.release_record = self.build_cli("Release")
+        self.debug = Path(self.debug_record["artifact"]["path"])
+        self.release = Path(self.release_record["artifact"]["path"])
+        self.add_full_check_record()
+
+    def test_production_current_attestation_is_explicit_and_satisfies_preflight(self):
+        self.prepare_schema_change()
+        missing_init = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                                    "--note", "Console shows no pending production changes", check=False)
+        self.assertNotEqual(missing_init.returncode, 0)
+        self.assertIn("matching initialization", missing_init.stderr)
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                     "--note", "Console shows nothing to deploy")
+        result = json.loads(self.run_cli("preflight", "v1.2.3", *self.apps()).stdout)
+        self.assertEqual(result["schema"]["status"], "initialized; production confirmed current")
+        self.assertEqual(result["schema"]["productionEvidencePhase"], "production-current")
+        self.assertEqual(len(result["schema"]["attestations"]), 2)
+
+    def test_production_current_rejects_malformed_or_earlier_initialization_time(self):
+        self.prepare_schema_change()
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        schema_dir = self.state / "schemas"
+        init_path = next(schema_dir.glob("initialized-*.json"))
+        initialized = json.loads(init_path.read_text())
+        initialized["createdAt"] = 200
+        init_path.write_text(json.dumps(initialized))
+        current = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                               "--note", "No pending changes")
+        current_record = json.loads(current.stdout)
+        current_path = next(schema_dir.glob("production-current-*.json"))
+        current_record["createdAt"] = 100
+        current_path.write_text(json.dumps(current_record))
+        result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("production-current", result.stderr)
+
+    def test_production_current_rejects_stale_identity_and_malformed_record(self):
+        self.prepare_schema_change()
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                     "--note", "Console shows nothing to deploy")
+        current = next((self.state / "schemas").glob("production-current-*.json"))
+        original = json.loads(current.read_text())
+        for key, invalid in (("head", "0" * 40), ("release", "v9.9.9"),
+                             ("fingerprint", "0" * 64), ("note", ""), ("id", "")):
+            with self.subTest(field=key):
+                record = dict(original)
+                record[key] = invalid
+                current.write_text(json.dumps(record))
+                result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_production_current_rejects_stale_release_and_unknown_programmatic_phase(self):
+        self.prepare_schema_change()
+        invalid = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                               "--note", "No pending changes", check=False)
+        self.assertNotEqual(invalid.returncode, 0)
+        from importlib.util import module_from_spec, spec_from_file_location
+        sys.path.insert(0, str(SOURCE))
+        spec = spec_from_file_location("release_module", SOURCE / "release.py")
+        release = module_from_spec(spec)
+        spec.loader.exec_module(release)
+        with self.assertRaises(release.support.WorkflowError):
+            release.attest("unknown", "v1.2.3", "note")
+        sys.path.remove(str(SOURCE))
 
     def test_rejects_provenance_from_another_revision(self):
         self.add_full_check_record()

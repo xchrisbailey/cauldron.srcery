@@ -12,9 +12,9 @@ Use Python 3's standard library only. These tools run from a checkout, discover 
 
 ## Release preflight (`tools/release.py`)
 
-- `record-schema VERSION --phase initialized|deployed --note TEXT` records an explicit human attestation at the current revision/model fingerprint; deployment requires an initialization attestation. This is not remote verification.
+- `record-schema VERSION --phase initialized|deployed|production-current --note TEXT` records an explicit human attestation at the current revision/model fingerprint. Both production phases require matching initialized evidence; `production-current` means a human checked CloudKit Console and saw nothing pending, not that anything was deployed. Local records are not remote verification.
 - `preflight VERSION --debug-app PATH --release-app PATH` is read-only except local evidence. Require a clean unchanged revision, matching source/generated version settings, a not-yet-existing version tag, current full check evidence, and actual signed app version/entitlements: Debug Development and Release Production, matching team/container. Do not substitute build settings for signed artifacts.
-- Detect schema-sensitive changes since the previous release tag using model-bearing source files and the store model registry. If changed, require both initialization and deployment attestations for that model fingerprint and current revision; reject stale or missing records. No automated production deployment. If unchanged, report that explicitly without inventing a deployment.
+- Detect schema-sensitive changes since the previous release tag using model-bearing source files and the store model registry. If changed, require current matching initialization plus either valid deployment or `production-current` evidence for that fingerprint, revision and release; the production evidence timestamp cannot precede initialization. Reject stale or malformed records. No automated production deployment or inference of remote state. If unchanged, report that explicitly without inventing a deployment.
 - A successful preflight writes `state_directory()/releases/<VERSION>.json`, with `version=1`, `status=passed`, `head`, `tree`, version label and artifact checks. All checks fail closed. Preflight does not tag or push.
 
 ## Git hooks (`tools/hooks.py`, `.githooks/`)
