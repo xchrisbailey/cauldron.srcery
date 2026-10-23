@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import fcntl
 import json
 import os
@@ -120,7 +121,60 @@ def xcode_summary(bundle: Path) -> dict:
     return counts
 
 
-def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifact_dir: Path) -> int:
+def xcode_ui_test_count(bundle: Path) -> int:
+    try:
+        result = subprocess.run(
+            ["xcrun", "xcresulttool", "get", "test-results", "tests", "--path", str(bundle), "--compact"],
+            text=True, capture_output=True, check=False,
+        )
+    except OSError as error:
+        raise CheckFailure("runner-failed", f"could not launch xcresulttool test tree: {error}") from error
+    if result.returncode:
+        raise CheckFailure("runner-failed", "xcresult test tree could not be read")
+    try:
+        root = json.loads(result.stdout)
+        nodes = root["testNodes"]
+        if not isinstance(nodes, list):
+            raise TypeError("testNodes is not an array")
+    except (ValueError, KeyError, TypeError) as error:
+        raise CheckFailure("runner-failed", f"invalid xcresult test tree: {error}") from error
+
+    bundles = []
+    def visit(node: object) -> int:
+        if not isinstance(node, dict):
+            raise TypeError("test result node is not an object")
+        children = node.get("children", [])
+        if not isinstance(children, list):
+            raise TypeError("test result children is not an array")
+        if node.get("nodeType") == "Test Case":
+            if node.get("result") == "Skipped":
+                raise ValueError("UI test case was skipped")
+            if node.get("result") != "Passed":
+                raise ValueError(f"UI test case result is {node.get('result')!r}")
+            return 1
+        return sum(visit(child) for child in children)
+
+    try:
+        def find(node: object) -> None:
+            if not isinstance(node, dict):
+                raise TypeError("test result node is not an object")
+            if node.get("nodeType") == "UI test bundle" and node.get("name") == "CauldronUITests":
+                bundles.append(node)
+            for child in node.get("children", []):
+                find(child)
+        for node in nodes:
+            find(node)
+        if len(bundles) != 1:
+            raise ValueError(f"expected one CauldronUITests bundle, found {len(bundles)}")
+        count = visit(bundles[0])
+        if count <= 0:
+            raise ValueError("CauldronUITests executed zero test cases")
+    except (TypeError, ValueError) as error:
+        raise CheckFailure("zero-tests", f"invalid UI test execution evidence: {error}") from error
+    return count
+
+
+def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifact_dir: Path) -> tuple[int, int]:
     bundle = artifact_dir / f"{platform}-{uuid.uuid4().hex}.xcresult"
     destination = "platform=macOS" if platform == "macos" else os.environ.get(
         "IOS_SIMULATOR", "platform=iOS Simulator,name=iPhone 17,OS=27.0"
@@ -130,6 +184,21 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         command.extend(["-only-testing:" + selector])
     command.extend(["-resultBundlePath", str(bundle), "test"])
     code, output = run_command(command, cwd=root / "apple", log=log)
+    rendered = re.findall(
+        r"UI evidence PNG BASE64:(week-(?:no-targets|targets)-(?:390|1100)-(?:light|dark)):([A-Za-z0-9+/=]+)",
+        output,
+    )
+    if rendered:
+        destination = artifact_dir / "ui-rendered"
+        destination.mkdir(parents=True, exist_ok=True)
+        for name, encoded in rendered:
+            try:
+                image = base64.b64decode(encoded, validate=True)
+            except ValueError as error:
+                raise CheckFailure("runner-failed", f"invalid rendered screenshot data: {name}") from error
+            if not image.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise CheckFailure("runner-failed", f"rendered screenshot is not a PNG: {name}")
+            (destination / f"{name}.png").write_bytes(image)
     counts = None
     if bundle.exists():
         try:
@@ -154,6 +223,14 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         raise classify_failure(output, code)
     if counts is None:
         raise CheckFailure("runner-failed", "xcodebuild succeeded without creating a result bundle")
+    ui_count = 0
+    requires_ui = not selectors or any(selector.startswith("CauldronUITests/") for selector in selectors)
+    if requires_ui:
+        try:
+            ui_count = xcode_ui_test_count(bundle)
+        except CheckFailure as failure:
+            failure.details.update(testCount=counts["totalTestCount"] - counts["skippedTests"], xcresult=counts)
+            raise
     executed = counts["totalTestCount"] - counts["skippedTests"]
     if executed <= 0:
         raise CheckFailure("zero-tests", "Xcode reported zero executed tests", testCount=0, xcresult=counts)
@@ -161,7 +238,7 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         raise CheckFailure(
             "assertion-failed", f"{counts['failedTests']} test(s) failed", testCount=executed, xcresult=counts
         )
-    return executed
+    return executed, ui_count
 
 
 def package_run(root: Path, filter_value: str | None, log: Path) -> int:
@@ -217,7 +294,8 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
             raise
         for platform in ("macos", "ios"):
             try:
-                counts[platform] = xcode_run(root, platform, [], log, artifact_dir)
+                counts[platform], counts[f"{platform}UITests"] = xcode_run(
+                    root, platform, [], log, artifact_dir)
             except CheckFailure as error:
                 if error.details.get("testCount"):
                     counts[platform] = error.details["testCount"]
@@ -300,7 +378,7 @@ def main(argv: list[str] | None = None) -> int:
                     lock, fd = with_ios_lock(support.state_directory(root))
                 except BlockingIOError as error:
                     raise CheckFailure("runner-failed", "another iOS test runner holds the shared lock") from error
-            test_count = xcode_run(root, args.platform, selectors, log, artifacts)
+            test_count, _ = xcode_run(root, args.platform, selectors, log, artifacts)
             counts = {}
         after = support.snapshot(root)
         if after != record["before"]:
@@ -327,7 +405,9 @@ def main(argv: list[str] | None = None) -> int:
         if fd is not None:
             os.close(fd)
         signal.signal(signal.SIGTERM, previous_sigterm)
-    details["artifacts"] = [str(item) for item in sorted(artifacts.glob("*.xcresult"))]
+    details["artifacts"] = [
+        str(item) for item in sorted(artifacts.glob("*.xcresult"))
+    ] + [str(item) for item in sorted(artifacts.glob("ui-rendered/*.png"))]
     final = support.finish_run(path, record, status, **details)
     summary = f"checks: {final['status']} ({final['scope']}/{final['platform']})"
     if final.get("testCount") is not None:

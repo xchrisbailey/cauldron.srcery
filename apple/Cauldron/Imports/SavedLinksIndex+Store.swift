@@ -10,7 +10,7 @@ extension SavedLinksIndex {
   static var live: SavedLinksIndex { live(mode: CauldronStore.launchMode) }
 
   static func live(mode: CauldronStore.Mode) -> SavedLinksIndex {
-    mode == .inMemory ? SavedLinksIndex(folder: nil) : .appGroup
+    mode == .synced || mode == .local ? .appGroup : SavedLinksIndex(folder: nil)
   }
 
   /// Writes the index from the recipes in `context`: the links of every recipe that isn't

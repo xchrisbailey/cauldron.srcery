@@ -17,7 +17,7 @@ struct CauldronApp: App {
   @State private var ai = RecipeAIService.forLaunch(mode: CauldronStore.launchMode)
   /// What the share extension left for the app; never picked up under test.
   @State private var sharedImports = SharedImportQueue(
-    enabled: CauldronStore.launchMode != .inMemory)
+    enabled: CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local)
 
   init() {
     #if DEBUG && os(macOS)
@@ -49,7 +49,9 @@ struct CauldronApp: App {
     // The share sheet's duplicate check reads this, so it starts from what the store holds.
     SavedLinksIndex.live.rewrite(from: container.mainContext)
     // An export left in the temporary folder is a full copy of the cook's data.
-    ExportFiles.sweep()
+    if CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local {
+      ExportFiles.sweep()
+    }
     // Takes the notification delegate now, so a timer that ends with the app open shows its
     // banner even when no recipe has been brewed since launch.
     _ = LiveBrewAlerts.shared
@@ -76,22 +78,35 @@ struct CauldronApp: App {
         .environment(sync)
         .environment(ai)
         .sharedImports(sharedImports, ai: ai)
-        .task { await sync.run() }
+        .task {
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
+          await sync.run()
+        }
         // The share extension reads the AI choices from the App Group, so they follow Settings
         // there whenever the app comes forward or goes away.
         .onChange(of: scenePhase, initial: true) {
-          guard CauldronStore.launchMode != .inMemory else { return }
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
           RecipeAIService.shareChoices(to: RecipeAIService.sharedDefaults)
         }
         // Estimates that waited for the AI run when the app comes forward and whenever the
         // network comes back.
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
           RecipeAIService.moveKeys(mode: CauldronStore.launchMode)
           ai.refreshKey()
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }
         .task {
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
           for await path in NWPathMonitor() where path.status == .satisfied {
             await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
           }
@@ -101,6 +116,9 @@ struct CauldronApp: App {
         // until Health is connected.
         .task(id: scenePhase) {
           guard scenePhase == .active else { return }
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
           await HealthSync.shared.appDidBecomeActive(in: container.mainContext)
         }
         // The macros widget follows the diary: its numbers are left for it when the app starts,
@@ -147,6 +165,7 @@ struct CauldronApp: App {
       .modelContainer(container)
     #endif
   }
+
 }
 
 extension Scene {

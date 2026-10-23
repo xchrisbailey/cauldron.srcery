@@ -27,7 +27,15 @@ enum CauldronStore {
     case local
     /// Nothing is written to disk. For tests and previews; each container is separate.
     case inMemory
+    /// The UI-test contract was supplied to a build that must not launch against a real store.
+    case unavailable
   }
+
+  #if DEBUG
+    static let isDebugBuild = true
+  #else
+    static let isDebugBuild = false
+  #endif
 
   /// The App Group the app and its extensions share. The store lives in its container, so the
   /// widget and the share extension read the same data as the app.
@@ -50,14 +58,18 @@ enum CauldronStore {
       environment: ProcessInfo.processInfo.environment, arguments: CommandLine.arguments)
   }
 
-  static func launchMode(environment: [String: String], arguments: [String]) -> Mode {
+  static func launchMode(
+    environment: [String: String], arguments: [String], debugBuild: Bool = isDebugBuild
+  ) -> Mode {
+    if environment[uiTestInMemoryEnvironmentKey] == "1" {
+      return debugBuild ? .inMemory : .unavailable
+    }
     if environment["XCTestConfigurationFilePath"] != nil { return .inMemory }
     #if DEBUG
-      if environment[uiTestInMemoryEnvironmentKey] == "1" { return .inMemory }
       #if os(macOS)
-        if arguments.contains(initializeSchemaArgument) { return .inMemory }
+        if debugBuild && arguments.contains(initializeSchemaArgument) { return .inMemory }
       #endif
-      if arguments.contains(localStoreArgument) { return .local }
+      if debugBuild && arguments.contains(localStoreArgument) { return .local }
     #endif
     return .synced
   }
@@ -90,6 +102,8 @@ enum CauldronStore {
       case .inMemory:
         ModelConfiguration(
           UUID().uuidString, schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+      case .unavailable:
+        throw LaunchError.uiTestStoreUnavailableOutsideDebug
       }
     return try ModelContainer(for: schema, configurations: [configuration])
   }
@@ -147,6 +161,10 @@ enum CauldronStore {
       if let initializationError { throw initializationError }
     }
   #endif
+}
+
+enum LaunchError: Error {
+  case uiTestStoreUnavailableOutsideDebug
 }
 
 #if DEBUG && os(macOS)

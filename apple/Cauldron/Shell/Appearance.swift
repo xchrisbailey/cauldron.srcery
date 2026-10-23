@@ -37,8 +37,21 @@ private struct AppearanceModifier: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .preferredColorScheme(choice.colorScheme)
+      .preferredColorScheme(uiTestColorScheme ?? choice.colorScheme)
       .tint(Brand.Colors.magic)
+  }
+
+  private var uiTestColorScheme: ColorScheme? {
+    #if DEBUG
+      guard CauldronStore.launchMode == .inMemory else { return nil }
+      return switch ProcessInfo.processInfo.environment["CAULDRON_UI_TEST_APPEARANCE"] {
+      case "light": .light
+      case "dark": .dark
+      default: nil
+      }
+    #else
+      return nil
+    #endif
   }
 }
 

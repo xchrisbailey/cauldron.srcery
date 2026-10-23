@@ -9,7 +9,7 @@ extension RecipeAIService {
   /// nothing once the key has moved, and moves one that another device saved with an older
   /// build as soon as iCloud Keychain brings it.
   static func forLaunch(mode: CauldronStore.Mode) -> RecipeAIService {
-    guard mode != .inMemory else { return .offline() }
+    guard mode == .synced || mode == .local else { return .offline() }
     moveKeys(mode: mode)
     return .live()
   }
@@ -18,7 +18,7 @@ extension RecipeAIService {
   /// a move the keychain refused at launch, or a key an older build saved on another device,
   /// is picked up without a relaunch. Never under test.
   static func moveKeys(mode: CauldronStore.Mode) {
-    guard mode != .inMemory else { return }
+    guard mode == .synced || mode == .local else { return }
     AIKeyMove.run(shared: AIKeyGroup.shared, legacy: AIKeyGroup.legacy)
   }
 }

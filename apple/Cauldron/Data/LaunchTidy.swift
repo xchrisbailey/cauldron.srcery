@@ -10,7 +10,7 @@ extension CauldronStore {
   /// they only wait for the next launch. Returns how many rows went.
   @discardableResult
   static func tidyAtLaunch(_ context: ModelContext, mode: Mode, now: Date = .now) -> Int {
-    guard mode != .inMemory else { return 0 }
+    guard mode == .synced || mode == .local else { return 0 }
     do {
       let removed = try Deduplication.tidy(context, now: now)
       if removed > 0 {

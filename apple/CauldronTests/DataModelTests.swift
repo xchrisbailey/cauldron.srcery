@@ -193,6 +193,19 @@ struct DataModelTests {
         == .inMemory)
     #expect(
       CauldronStore.launchMode(
+        environment: [CauldronStore.uiTestInMemoryEnvironmentKey: "1"], arguments: ["Cauldron"],
+        debugBuild: false) == .unavailable)
+    #expect(
+      CauldronStore.launchMode(
+        environment: [
+          CauldronStore.uiTestInMemoryEnvironmentKey: "1",
+          "XCTestConfigurationFilePath": "/x",
+        ], arguments: ["Cauldron"], debugBuild: false) == .unavailable)
+    #expect(throws: LaunchError.uiTestStoreUnavailableOutsideDebug) {
+      try CauldronStore.container(.unavailable)
+    }
+    #expect(
+      CauldronStore.launchMode(
         environment: ["XCTestConfigurationFilePath": "/x"], arguments: ["Cauldron", "-localStore"])
         == .inMemory)
     #if DEBUG

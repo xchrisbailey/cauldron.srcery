@@ -36,7 +36,7 @@ class ChecksCLITests(unittest.TestCase):
         self.install("xcodebuild", "echo 'SwiftCompile normal arm64 source.swift'\nif [ \"${STALE:-0}\" = 1 ]; then echo changed >> ../tracked.txt; fi\nwhile [ $# -gt 0 ]; do if [ \"$1\" = -resultBundlePath ]; then shift; mkdir -p \"$1\"; fi; shift; done\nif [ \"${XCODE_EXIT:-0}\" != 0 ]; then if [ \"${XCODE_ASSERTION:-0}\" = 1 ]; then echo \"Test Case 'Suite.testExample' failed\"; else echo 'error: emit-module command failed'; fi; exit \"$XCODE_EXIT\"; fi\n")
         self.install(
             "xcrun",
-            "if [ -n \"${SUMMARY:-}\" ]; then printf '%s\\n' \"$SUMMARY\"; else cat tools/tests/fixtures/checks/summary.json; fi\n",
+            "case \"$*\" in *'test-results tests'*) if [ -n \"${UI_TREE:-}\" ]; then printf '%s\\n' \"$UI_TREE\"; else cat tools/tests/fixtures/checks/ui-tests.json; fi ;; *) if [ -n \"${SUMMARY:-}\" ]; then printf '%s\\n' \"$SUMMARY\"; else cat tools/tests/fixtures/checks/summary.json; fi ;; esac\n",
         )
         self.install(
             "python3",
@@ -45,6 +45,9 @@ class ChecksCLITests(unittest.TestCase):
         (self.root / "tools/tests/fixtures/checks").mkdir(parents=True)
         (self.root / "tools/tests/fixtures/checks/summary.json").write_text(
             '{"totalTestCount":2,"passedTests":2,"failedTests":0,"skippedTests":0,"expectedFailures":0,"result":"Passed"}\n'
+        )
+        (self.root / "tools/tests/fixtures/checks/ui-tests.json").write_text(
+            '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"WeekTargetsUITests","nodeType":"Test Suite","children":[{"name":"testTargetsRoundtrip()","nodeType":"Test Case","result":"Passed"}]}]}]}]}\n'
         )
         self.git("init", "-q")
         self.git("config", "user.email", "checks@example.test")
@@ -95,6 +98,20 @@ class ChecksCLITests(unittest.TestCase):
             "-only-testing:CauldronUITests/WeekTargetsUITests/testTargetsRoundtrip()",
             Path(self.records()[-1]["log"]).read_text(),
         )
+
+    def test_ready_fails_when_ui_target_is_omitted_or_skipped(self) -> None:
+        omitted = self.invoke(
+            "ready",
+            UI_TREE='{"testNodes":[{"name":"CauldronTests","nodeType":"Test Bundle","children":[]}]}',
+        )
+        self.assertEqual(omitted.returncode, 1)
+        self.assertIn("invalid UI test execution evidence", omitted.stderr)
+        skipped = self.invoke(
+            "ready",
+            UI_TREE='{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"testSkipped()","nodeType":"Test Case","result":"Skipped"}]}]}]}',
+        )
+        self.assertEqual(skipped.returncode, 1)
+        self.assertIn("UI test case was skipped", skipped.stderr)
 
     def test_build_and_zero_test_failures_are_not_passes(self) -> None:
         failed = self.invoke("focused", "--platform", "macos", "--test", "CauldronTests/Suite", XCODE_EXIT="1")
@@ -254,7 +271,8 @@ class ChecksCLITests(unittest.TestCase):
         self.assertEqual(record["status"], "passed")
         self.assertEqual(record["scope"], "full")
         self.assertEqual(record["counts"], {
-            "ios": 2, "macos": 2, "package": 2, "toolingTestCount": 1,
+            "ios": 2, "iosUITests": 1, "macos": 2, "macosUITests": 1,
+            "package": 2, "toolingTestCount": 1,
         })
         self.assertIs(record["lint"], True)
         self.assertIs(record["tooling"], True)

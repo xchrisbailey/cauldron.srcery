@@ -124,7 +124,11 @@ extension EnvironmentValues {
 enum DraftKeepers {
   /// The app's file, or memory under test so a test run never reads or writes the real one.
   static let shared: any DraftKeeping = {
-    if CauldronStore.launchMode != .inMemory, let file = FileDraftKeeper.live() { return file }
+    if CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local,
+      let file = FileDraftKeeper.live()
+    {
+      return file
+    }
     return MemoryDraftKeeper()
   }()
 }

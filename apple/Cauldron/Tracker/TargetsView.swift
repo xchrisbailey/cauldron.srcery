@@ -128,12 +128,14 @@ struct TargetsEditor: View {
           if step < Self.steps - 1 {
             Button(t.continue.text, action: next)
               .buttonStyle(.brandProminent)
+              .accessibilityIdentifier("targets.continue")
           } else {
             Button(t.save.text) {
               attempted = true
               save()
             }
             .buttonStyle(.brandProminent)
+            .accessibilityIdentifier("targets.save")
             .disabled(form.calculation == nil)
           }
         }
@@ -180,6 +182,7 @@ private struct AboutStep: View {
         Text(verbatim: t.sex.text)
       }
       .pickerStyle(.segmented)
+      .accessibilityIdentifier("targets.sex")
       .listRowBackground(Brand.Colors.mantle)
       FieldError(errors[.sex])
     } header: {
@@ -195,6 +198,7 @@ private struct AboutStep: View {
         Text(verbatim: t.birthDate.text)
       }
       .brandText(.body)
+      .accessibilityIdentifier("targets.birthDate")
       .opacity(form.birthDate == nil ? 0.55 : 1)
       .listRowBackground(Brand.Colors.mantle)
       FieldError(errors[.birthDate])
@@ -537,6 +541,7 @@ private struct TargetRow: View {
           .multilineTextAlignment(.trailing)
           .brandText(.quantity)
           .frame(maxWidth: 104)
+          .accessibilityIdentifier("targets.macro.\(key)")
           #if os(iOS)
             .keyboardType(.numberPad)
           #endif
@@ -578,6 +583,7 @@ struct NumberField: View {
         .multilineTextAlignment(.trailing)
         .brandText(.quantity)
         .frame(maxWidth: label != unit ? 120 : .infinity)
+        .accessibilityIdentifier("targets.field.\(label)")
         #if os(iOS)
           .keyboardType(decimal ? .decimalPad : .numberPad)
         #endif

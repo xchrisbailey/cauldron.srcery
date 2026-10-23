@@ -14,6 +14,13 @@ path. UI screenshot attachments are retained in the `.xcresult` bundle; export t
 non-repository scratch/artifact directory with `xcrun xcresulttool export attachments --path
 <result.xcresult> --output-path <artifact-directory>`.
 
+The focused `CauldronTests/WeekViewsTests/weeklyTargetSummaryAndSetupRenderAtBothWidthsAndAppearances()`
+test exports full WeekPlanner PNGs at 390pt and 1100pt in both appearances, with and without saved
+targets, under the runner record's `ui-rendered/` directory. The test writes image bytes to its
+XCTest log and the runner decodes them into shared artifacts, avoiding writes outside the app's
+sandbox. These ImageRenderer outputs are inspectable layout artifacts, not substitutes for
+simulator screenshots or human review.
+
 Attachments prove that a screen rendered, not that it has no clipping or accessibility defects.
 Review exported PNGs at representative narrow and wide sizes in light and dark appearance. Human
 VoiceOver, real-device sizing, and second-device/iCloud behavior remain manual checks; do not infer
