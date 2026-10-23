@@ -481,6 +481,7 @@ struct AppLinkTests {
     for visit in [0, 1] {
       let view = AppDestinationView(destination: .tracker, visit: visit)
         .environment(SyncStatusModel(account: FakeICloudAccount(.synced)))
+        .environment(HealthSync.disabled())
         .modelContainer(container)
         .frame(width: 390, height: 800)
       #expect(ImageRenderer(content: view).cgImage != nil)
