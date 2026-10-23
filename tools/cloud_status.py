@@ -125,6 +125,20 @@ def pages(url: str, bearer: str) -> list[dict]:
     raise StatusError("App Store Connect pagination exceeded the safety limit.")
 
 
+def exact_run_commit(run: dict) -> tuple[str, str, dict]:
+    attrs = run.get("attributes")
+    if not isinstance(attrs, dict) or type(attrs.get("isPullRequestBuild")) is not bool:
+        raise StatusError("Build run is missing Apple's documented isPullRequestBuild boolean.")
+    field = "sourceCommit" if attrs["isPullRequestBuild"] else "destinationCommit"
+    metadata = attrs.get(field)
+    if not isinstance(metadata, dict):
+        raise StatusError(f"Build run is missing Apple's {field} commit metadata object.")
+    sha = metadata.get("commitSha")
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+        raise StatusError(f"Build run has no valid {field}.commitSha.")
+    return sha.lower(), field, attrs
+
+
 def status(commit: str, version: str | None = None, tag: str | None = None,
            build_run_id: str | None = None, workflow_id: str | None = None) -> dict:
     if not re.fullmatch(r"[0-9a-fA-F]{40,64}", commit):
@@ -135,22 +149,38 @@ def status(commit: str, version: str | None = None, tag: str | None = None,
         run_data = resource(f"{BASE}/ciBuildRuns/{urllib.parse.quote(build_run_id, safe='')}", bearer)
     elif workflow_id:
         runs = pages(f"{BASE}/ciWorkflows/{urllib.parse.quote(workflow_id, safe='')}/buildRuns?limit=200", bearer)
-        run_data = next((item for item in runs if item.get("attributes", {}).get("sourceCommit") == commit), None)
+        for item in runs:
+            run_commit, _, _ = exact_run_commit(item)
+            if run_commit == commit.lower():
+                run_data = item
+                break
     else:
         raise StatusError("Provide --build-run-id or --workflow-id to query a bounded resource collection.")
     if run_data is None:
         return {"status": "not-found", "requestedCommit": commit, "verifiedCommit": None,
-                "version": version, "versionStatus": "unknown" if not version else "not-verified",
+                "version": version, "versionStatus": "unknown",
                 "buildRun": None, "message": "No build run for the exact requested commit."}
-    attrs = run_data.get("attributes", {})
-    verified_commit = attrs.get("sourceCommit")
-    if verified_commit != commit:
+    verified_commit, commit_field, attrs = exact_run_commit(run_data)
+    if verified_commit != commit.lower():
         raise StatusError("The requested build run belongs to a different commit.")
     run_id = run_data.get("id")
     builds = pages(f"{BASE}/ciBuildRuns/{urllib.parse.quote(str(run_id), safe='')}/builds?limit=200", bearer)
+    build_versions = [b.get("attributes", {}).get("version") for b in builds
+                      if isinstance(b.get("attributes"), dict)]
+    matching_versions = [v for v in build_versions if isinstance(v, str)]
+    if version is None:
+        version_status = "unknown"
+    elif version in matching_versions:
+        version_status = "matched"
+    elif matching_versions and len(matching_versions) == len(build_versions):
+        version_status = "mismatch"
+    else:
+        version_status = "unknown"
     return {"status": attrs.get("completionStatus") or attrs.get("executionProgress") or "unknown",
             "requestedCommit": commit, "verifiedCommit": verified_commit,
-            "version": version, "versionStatus": "unknown" if not version else "requested-not-verified-by-resource",
+            "commitField": f"attributes.{commit_field}.commitSha",
+            "commitType": "pull-request-source" if attrs["isPullRequestBuild"] else "branch-or-tag-destination",
+            "version": version, "versionStatus": version_status,
             "tag": tag, "buildRun": {"id": run_id, "url": f"https://appstoreconnect.apple.com/ci/builds/{urllib.parse.quote(str(run_id), safe='')}",
                                       "progress": attrs.get("executionProgress"),
                                       "completion": attrs.get("completionStatus")},

@@ -14,31 +14,72 @@ spec.loader.exec_module(cloud)
 class CloudStatusTests(unittest.TestCase):
     commit = "a" * 40
 
-    def test_exact_commit_build_status_and_missing_version_is_unknown(self):
-        run = {"id": "R1", "attributes": {"sourceCommit": self.commit,
-               "executionProgress": "COMPLETE", "completionStatus": "SUCCEEDED"}}
+    def run_fixture(self, *, run_id="R1", is_pr=False, source=None, destination=None, progress="COMPLETE", completion="SUCCEEDED"):
+        return {"id": run_id, "type": "ciBuildRuns", "attributes": {
+               "isPullRequestBuild": is_pr,
+               "sourceCommit": {"commitSha": source or "b" * 40, "message": "source"},
+               "destinationCommit": {"commitSha": destination or self.commit, "message": "destination"},
+               "executionProgress": progress, "completionStatus": completion}}
+
+    def test_build_run_uses_destination_commit_object_and_matches_build_version(self):
+        run = self.run_fixture()
         with patch.object(cloud, "token", return_value="safe"), \
              patch.object(cloud, "resource", return_value=run), \
-             patch.object(cloud, "pages", return_value=[{"id": "B1", "attributes": {"platform": "IOS"}}]):
-            result = cloud.status(self.commit, build_run_id="R1")
+             patch.object(cloud, "pages", return_value=[{"id": "B1", "type": "builds", "attributes": {
+                 "platform": "IOS", "version": "1.2.3", "processingState": "VALID"}}]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
         self.assertEqual(result["verifiedCommit"], self.commit)
-        self.assertEqual(result["versionStatus"], "unknown")
+        self.assertEqual(result["commitField"], "attributes.destinationCommit.commitSha")
+        self.assertEqual(result["commitType"], "branch-or-tag-destination")
+        self.assertEqual(result["versionStatus"], "matched")
         self.assertEqual(result["builds"][0]["platform"], "IOS")
 
-    def test_wrong_commit_fails_and_run_retries_remain_raw(self):
-        wrong = {"id": "R1", "attributes": {"sourceCommit": "b" * 40}}
-        with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=wrong):
-            with self.assertRaises(cloud.StatusError):
+    def test_workflow_uses_pr_source_commit_object(self):
+        run = self.run_fixture(is_pr=True, source=self.commit, destination="c" * 40)
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "pages", side_effect=[[run], []]):
+            result = cloud.status(self.commit, workflow_id="WF")
+        self.assertEqual(result["verifiedCommit"], self.commit)
+        self.assertEqual(result["commitField"], "attributes.sourceCommit.commitSha")
+        self.assertEqual(result["commitType"], "pull-request-source")
+
+    def test_requested_version_mismatch_is_reported(self):
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=[{"id": "B1", "attributes": {"version": "1.2.2"}}]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "mismatch")
+
+    def test_build_run_rejects_commit_mismatch_and_missing_documented_shape(self):
+        with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=self.run_fixture(destination="d" * 40)):
+            with self.assertRaisesRegex(cloud.StatusError, "different commit"):
+                cloud.status(self.commit, build_run_id="R1")
+        malformed = {"id": "R1", "attributes": {"sourceCommit": {"commitSha": self.commit}}}
+        with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=malformed):
+            with self.assertRaisesRegex(cloud.StatusError, "isPullRequestBuild"):
                 cloud.status(self.commit, build_run_id="R1")
 
+    def test_missing_version_is_unknown(self):
+        run = self.run_fixture()
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=run), patch.object(cloud, "pages", return_value=[]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "unknown")
+
     def test_retry_progress_is_reported_without_success_translation(self):
-        retry = {"id": "R2", "attributes": {"sourceCommit": self.commit,
-                 "executionProgress": "PENDING", "completionStatus": None}}
+        retry = self.run_fixture(progress="PENDING", completion=None)
         with patch.object(cloud, "token", return_value="safe"), \
              patch.object(cloud, "resource", return_value=retry), patch.object(cloud, "pages", return_value=[]):
             result = cloud.status(self.commit, build_run_id="R2")
         self.assertEqual(result["status"], "PENDING")
         self.assertIsNone(result["buildRun"]["completion"])
+
+    def test_build_status_not_synthetic(self):
+        run = self.run_fixture(progress="COMPLETE", completion="SUCCEEDED")
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=run), patch.object(cloud, "pages", return_value=[]):
+            result = cloud.status(self.commit, build_run_id="R1")
+        self.assertEqual(result["status"], "SUCCEEDED")
 
     def test_pagination_collects_all_pages(self):
         first = {"data": [{"id": "B1"}], "links": {"next": f"{cloud.BASE}/ciBuildRuns?page=2"}}
@@ -46,13 +87,14 @@ class CloudStatusTests(unittest.TestCase):
         with patch.object(cloud, "get_json", side_effect=[first, second]):
             result = cloud.pages(f"{cloud.BASE}/ciBuildRuns?page=1", "safe")
         self.assertEqual([item["id"] for item in result], ["B1", "B2"])
-    def test_workflow_run_listing_never_selects_another_commit(self):
+    def test_workflow_listing_never_selects_another_commit(self):
+        wrong = self.run_fixture(destination="b" * 40)
         with patch.object(cloud, "token", return_value="safe"), \
-             patch.object(cloud, "pages", return_value=[{"id": "R1", "attributes": {"sourceCommit": "b" * 40}}]):
+             patch.object(cloud, "pages", return_value=[wrong]):
             result = cloud.status(self.commit, workflow_id="WF", version="1.2.3")
         self.assertEqual(result["status"], "not-found")
         self.assertIsNone(result["verifiedCommit"])
-        self.assertEqual(result["versionStatus"], "not-verified")
+        self.assertEqual(result["versionStatus"], "unknown")
 
     def test_credentials_and_transport_failures_are_sanitized(self):
         with patch.dict("os.environ", {}, clear=True):
