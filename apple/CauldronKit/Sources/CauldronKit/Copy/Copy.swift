@@ -85,6 +85,24 @@ public enum Copy {
     public func withSuffix(_ text: String, suffix: String) -> CopyString {
       plain("\(text) \(suffix)")
     }
+    public func labeledValue(_ label: String, _ value: String) -> CopyString {
+      plain("\(label): \(value)")
+    }
+    public func withLabelAndDetail(_ label: String, detail: String?) -> CopyString {
+      plain(detail.map { "\(label): \($0)" } ?? label)
+    }
+    public func commaSeparated(_ first: String, _ second: String?) -> CopyString {
+      plain(second.map { "\(first), \($0)" } ?? first)
+    }
+    public func joined(_ values: [String], separator: String) -> CopyString {
+      plain(values.joined(separator: separator))
+    }
+    public func weekCellCalories(_ value: String, show: Bool) -> CopyString {
+      plain(show ? value : "·")
+    }
+    public func calendarCalories(_ value: String, unit: String, show: Bool) -> CopyString {
+      plain(show ? "\(value) \(unit)" : " ")
+    }
   }
 
   public struct Catalogue: Sendable {

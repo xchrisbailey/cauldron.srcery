@@ -50,11 +50,15 @@ struct WeekCalendarGrid: View {
         Text(verbatim: WeekDates.dayOfMonth(day))
           .brandText(.quantity)
           .foregroundStyle(isToday ? Brand.Colors.heat : Brand.Colors.ink)
-        Text(verbatim: calories > 0 ? "\(WeekFigures.whole(calories)) kcal" : " ")
-          .brandText(.quantity)
-          .foregroundStyle(Brand.Colors.subtext)
-          .lineLimit(1)
-          .minimumScaleFactor(0.7)
+        Text(
+          verbatim: Copy.display.calendarCalories(
+            WeekFigures.whole(calories), unit: Copy.tracker.macros.calories.text, show: calories > 0
+          ).text
+        )
+        .brandText(.quantity)
+        .foregroundStyle(Brand.Colors.subtext)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
       }
       .frame(maxWidth: .infinity)
       .padding(.vertical, 6)

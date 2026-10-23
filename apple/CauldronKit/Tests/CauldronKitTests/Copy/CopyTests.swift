@@ -151,6 +151,18 @@ struct CopyArgumentTests {
     #expect(Copy.display.target("2,000").text == "/ 2,000")
     #expect(Copy.display.alternative("2", unit: "oz").text == "(2 oz)")
     #expect(Copy.display.parenthesized("optional").text == "(optional)")
+    #expect(Copy.display.labeledValue("Total", "250 kcal").text == "Total: 250 kcal")
+    #expect(Copy.display.withLabelAndDetail("Check this", detail: nil).text == "Check this")
+    #expect(
+      Copy.display.withLabelAndDetail("Check this", detail: "misread").text
+        == "Check this: misread")
+    #expect(Copy.display.commaSeparated("flour", "sifted").text == "flour, sifted")
+    #expect(Copy.display.commaSeparated("flour", nil).text == "flour")
+    #expect(Copy.display.weekCellCalories("350", show: true).text == "350")
+    #expect(Copy.display.weekCellCalories("0", show: false).text == "·")
+    #expect(Copy.display.calendarCalories("350", unit: "kcal", show: true).text == "350 kcal")
+    #expect(Copy.display.calendarCalories("0", unit: "kcal", show: false).text == " ")
+    #expect(Copy.display.joined(["one", "two"], separator: " ").text == "one two")
     #expect(
       Copy.display.macroTotal(
         calories: "250", caloriesUnit: "kcal", protein: "12", proteinUnit: "protein",

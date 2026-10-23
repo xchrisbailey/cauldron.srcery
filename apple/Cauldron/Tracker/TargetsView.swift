@@ -457,7 +457,7 @@ private struct TargetsStep: View {
             ).text, size: 17)
         )
         .brandText(.section)
-        Text(monoNumbers(lines.joined(separator: " "), size: 13))
+        Text(monoNumbers(Copy.display.joined(lines, separator: " ").text, size: 13))
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
       }

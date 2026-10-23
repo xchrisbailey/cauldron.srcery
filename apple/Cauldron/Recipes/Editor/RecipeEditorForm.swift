@@ -289,8 +289,8 @@ struct FlagNote: View {
 
   var body: some View {
     Text(
-      verbatim: ([Copy.editor.needsALook.text] + (detail.map { [$0.text] } ?? [])).joined(
-        separator: ": ")
+      verbatim: Copy.display.withLabelAndDetail(Copy.editor.needsALook.text, detail: detail?.text)
+        .text
     )
     .brandText(.control)
     .foregroundStyle(Brand.Colors.tips)

@@ -91,6 +91,7 @@ struct WeightView: View {
         onClose: { editing = nil })
     }
     .alert(
+      // copylint:ignore -- preserve empty title while this alert is hidden
       Text(verbatim: failure?.text ?? ""),
       isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     ) {

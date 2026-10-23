@@ -334,7 +334,8 @@ private struct MacroColumn: View {
             .font(WidgetType.number(17))
             .widgetAccentable()
           if let target = calories.targetText {
-            Text(verbatim: "/ \(target)").font(WidgetType.number(12, weight: .regular))
+            Text(verbatim: Copy.display.target(target).text).font(
+              WidgetType.number(12, weight: .regular))
           }
           Text(verbatim: unit(of: .calories)).font(WidgetType.number(11, weight: .regular))
           if snapshot.hasWaitingEntry {
