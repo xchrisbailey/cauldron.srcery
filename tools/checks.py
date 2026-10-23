@@ -20,7 +20,7 @@ import workflow_support as support
 
 
 SELECTOR = re.compile(
-    r"Cauldron(?:UI)?Tests/[A-Za-z_][A-Za-z0-9_.]*(?:/[A-Za-z_][A-Za-z0-9_.]*(?:\([A-Za-z0-9_:,.-]*\))?)?\Z"
+    r"Cauldron(?:UI)?Tests(?:/[A-Za-z_][A-Za-z0-9_.]*(?:/[A-Za-z_][A-Za-z0-9_.]*(?:\([A-Za-z0-9_:,.-]*\))?)?)?\Z"
 )
 ASSERTION_MARKERS = ("XCTAssert", "Expectation failed", "#expect failed")
 
@@ -208,7 +208,10 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
     if counts is None:
         raise CheckFailure("runner-failed", "xcodebuild succeeded without creating a result bundle")
     ui_count = 0
-    requires_ui = not selectors or any(selector.startswith("CauldronUITests/") for selector in selectors)
+    requires_ui = not selectors or any(
+        selector == "CauldronUITests" or selector.startswith("CauldronUITests/")
+        for selector in selectors
+    )
     if requires_ui:
         try:
             ui_count = xcode_ui_test_count(bundle)
@@ -265,6 +268,10 @@ def tooling_run(root: Path, log: Path) -> int:
 
 def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
     counts: dict[str, int | bool] = {}
+    required_targets = {
+        "macos": ["CauldronTests"],
+        "ios": ["CauldronTests", "CauldronUITests"],
+    }
     try:
         code, output = run_command(["make", "lint"], cwd=root / "apple", log=log)
         if code:
@@ -276,14 +283,20 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
             if error.details.get("testCount"):
                 counts["package"] = error.details["testCount"]
             raise
-        for platform in ("macos", "ios"):
+        for platform, targets in required_targets.items():
+            selectors = targets
             try:
-                counts[platform], counts[f"{platform}UITests"] = xcode_run(
-                    root, platform, [], log, artifact_dir)
+                counts[platform], ui_count = xcode_run(
+                    root, platform, selectors, log, artifact_dir)
+                if platform == "ios":
+                    counts["iosUITests"] = ui_count
             except CheckFailure as error:
                 if error.details.get("testCount"):
                     counts[platform] = error.details["testCount"]
                 raise
+        counts["requiredTargets"] = required_targets
+        counts["executedTargets"] = required_targets
+        counts["macosUITests"] = "opt-in-not-run"
         counts["toolingTestCount"] = tooling_run(root, log)
         counts["tooling"] = True
     except CheckFailure as error:

@@ -99,7 +99,22 @@ class ChecksCLITests(unittest.TestCase):
             Path(self.records()[-1]["log"]).read_text(),
         )
 
-    def test_ready_fails_when_ui_target_is_omitted_or_skipped(self) -> None:
+    def test_ready_requires_ios_ui_but_does_not_select_mac_ui(self) -> None:
+        result = self.invoke("ready")
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        record = self.records()[0]
+        log = Path(record["log"]).read_text()
+        self.assertIn("-only-testing:CauldronTests", log)
+        self.assertIn("-only-testing:CauldronUITests", log)
+        self.assertEqual(record["counts"]["requiredTargets"], {
+            "macos": ["CauldronTests"],
+            "ios": ["CauldronTests", "CauldronUITests"],
+        })
+        self.assertEqual(record["counts"]["executedTargets"], record["counts"]["requiredTargets"])
+        self.assertEqual(record["counts"]["macosUITests"], "opt-in-not-run")
+        self.assertNotIn("-only-testing:CauldronUITests", log.split("platform=macOS", 1)[1].split("platform=iOS", 1)[0])
+
+    def test_ready_fails_when_required_ios_ui_target_is_omitted_or_skipped(self) -> None:
         omitted = self.invoke(
             "ready",
             UI_TREE='{"testNodes":[{"name":"CauldronTests","nodeType":"Test Bundle","children":[]}]}',
@@ -271,7 +286,16 @@ class ChecksCLITests(unittest.TestCase):
         self.assertEqual(record["status"], "passed")
         self.assertEqual(record["scope"], "full")
         self.assertEqual(record["counts"], {
-            "ios": 2, "iosUITests": 1, "macos": 2, "macosUITests": 1,
+            "ios": 2, "iosUITests": 1, "macos": 2,
+            "macosUITests": "opt-in-not-run",
+            "requiredTargets": {
+                "macos": ["CauldronTests"],
+                "ios": ["CauldronTests", "CauldronUITests"],
+            },
+            "executedTargets": {
+                "macos": ["CauldronTests"],
+                "ios": ["CauldronTests", "CauldronUITests"],
+            },
             "package": 2, "toolingTestCount": 1,
         })
         self.assertIs(record["lint"], True)

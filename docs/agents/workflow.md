@@ -19,7 +19,7 @@ For UI interaction checks and inspectable image artifacts, read [UI evidence](..
 
 During behaviour changes, use the relevant failing assertion and then focused green checks. For behaviour-preserving work, record a passing baseline. Compiler failures or intentionally empty code do not establish behavioural red. Copy catalogue, export decoding, schema and cross-platform rendering checks are related contracts, not unrelated unit tests; include them when that surface changes.
 
-Commit the slice, merge the latest integration tip if needed, and run focused checks on the clean resulting head. Dirty-run evidence is retained for diagnosis, but does not establish committed completion. The lead or assigned verifier runs `make -C apple ready` once on the final clean integrated revision, after fixes. It runs existing lint, all package/Mac/iOS tests and tooling tests. An infrastructure retry is recorded separately from the failed run; it does not rewrite the failed record as a pass.
+Commit the slice, merge the latest integration tip if needed, and run focused checks on the clean resulting head. Dirty-run evidence is retained for diagnosis, but does not establish committed completion. The lead or assigned verifier runs `make -C apple ready` once on the final clean integrated revision, after fixes. It runs lint, all package tests, Mac app tests (not Mac UI automation), iOS app and UI tests, and tooling tests. Mac UI automation remains explicit opt-in. An infrastructure retry is recorded separately from the failed run; it does not rewrite the failed record as a pass.
 
 ## Worker completion and checked integration
 
