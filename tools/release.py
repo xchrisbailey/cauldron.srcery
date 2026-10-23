@@ -102,6 +102,76 @@ def schema_change(root: Path) -> tuple[bool, str | None, str]:
     return changed, previous, fingerprint
 
 
+def committed_text(root: Path, path: str) -> str:
+    return support.git("show", f"HEAD:{path}", cwd=root)
+
+
+def plan_snapshot(root: Path) -> dict:
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    def git(*args: str) -> str:
+        result = subprocess.run(["git", *args], cwd=root, env=env, text=True,
+                                capture_output=True, check=False)
+        if result.returncode:
+            raise support.WorkflowError(result.stderr.strip() or f"git {' '.join(args)} failed")
+        return result.stdout.strip()
+    return {"head": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"),
+            "dirty": bool(git("status", "--porcelain", "--untracked-files=all")),
+            "worktree": str(root.resolve())}
+
+
+def plan(requested_version: str | None = None) -> dict:
+    """Describe release readiness from committed inputs without writing evidence."""
+    root = support.repository()
+    snap = plan_snapshot(root)
+    try:
+        project = committed_text(root, "apple/project.yml")
+        generated = committed_text(root, "apple/Cauldron.xcodeproj/project.pbxproj")
+        source_matches = re.findall(r'^\s*MARKETING_VERSION:\s*["\']?([^\s"\']+)', project, re.M)
+        generated_matches = set(re.findall(r"\bMARKETING_VERSION\s*=\s*([^;\s]+)\s*;", generated))
+        if len(source_matches) != 1 or len(generated_matches) != 1:
+            raise support.WorkflowError("Committed project version settings are inconsistent or ambiguous")
+        source_version, generated_version = source_matches[0], generated_matches.pop()
+        version = f"v{source_version}"
+        version_label(version)
+        if requested_version:
+            version_label(requested_version)
+        tags = git_tags(root)
+        previous = max((tag for _, tag in tags if subprocess.run(
+            ["git", "merge-base", "--is-ancestor", tag, "HEAD"], cwd=root,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        ).returncode == 0), key=lambda tag: next(v for v, t in tags if t == tag), default=None)
+        current_sources = source_map(root)
+        prior_sources = source_map(root, previous) if previous else {}
+        changed_paths = sorted(name for name in set(current_sources) | set(prior_sources)
+                               if current_sources.get(name) != prior_sources.get(name))
+        schema_changed = previous is None or bool(changed_paths)
+        result = {
+            "version": 1, "status": "advisory", "head": snap["head"], "tree": snap["tree"],
+            "workingTree": "dirty" if snap["dirty"] else "clean",
+            "scope": "committed HEAD only; working edits are not included",
+            "projectVersion": source_version, "generatedVersion": generated_version,
+            "requestedVersion": requested_version,
+            "requestedVersionMatches": requested_version in (None, version),
+            "versionsMatch": source_version == generated_version,
+            "previousRelease": previous, "schemaChangedSincePreviousRelease": schema_changed,
+            "schemaSourcePaths": changed_paths,
+            "requiredEvidence": ["initialized", "deployed or production-current"] if schema_changed else [],
+            "builds": "not run", "signing": "not inspected", "initialization": "not run",
+            "network": "not used", "writes": "none",
+            "nextSteps": ["Finalize and commit the version and generated project settings before release verification.",
+                          "Run release builds and full validation on the exact clean release revision."]
+                         + (["Initialize Development, then inspect/deploy schema or confirm Production is current."]
+                            if schema_changed else []),
+        }
+        if snap["dirty"]:
+            result["warning"] = "Working changes (including staged, unstaged, and untracked files) are excluded; plan is for committed HEAD only."
+        if not result["versionsMatch"]:
+            result["warning"] = "Committed source and generated project versions differ."
+        return result
+    except (support.WorkflowError, OSError, ValueError) as error:
+        raise support.WorkflowError(f"Cannot produce committed release plan: {error}") from error
+
+
 def artifact_digest(app: Path) -> str:
     if not app.is_dir() or app.is_symlink():
         raise support.WorkflowError(f"App bundle does not exist or is not a directory: {app}")
@@ -360,6 +430,8 @@ def preflight(version: str, debug_path: Path, release_path: Path) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
+    plan_parser = commands.add_parser("plan", help="show a read-only advisory for committed HEAD")
+    plan_parser.add_argument("version", nargs="?")
     schema = commands.add_parser("record-schema")
     schema.add_argument("version")
     schema.add_argument("--phase", required=True, choices=tuple(sorted(SCHEMA_PHASES)))
@@ -374,6 +446,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "record-schema":
             value = attest(args.phase, args.version, args.note)
+        elif args.command == "plan":
+            value = plan(args.version)
         elif args.command == "build":
             value = build(args.configuration)
         else:
