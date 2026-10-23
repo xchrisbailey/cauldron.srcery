@@ -120,7 +120,7 @@ def xcode_summary(bundle: Path) -> dict:
     return counts
 
 
-def xcode_ui_test_count(bundle: Path) -> int:
+def xcode_target_test_count(bundle: Path, target: str) -> int:
     try:
         result = subprocess.run(
             ["xcrun", "xcresulttool", "get", "test-results", "tests", "--path", str(bundle), "--compact"],
@@ -139,6 +139,8 @@ def xcode_ui_test_count(bundle: Path) -> int:
         raise CheckFailure("runner-failed", f"invalid xcresult test tree: {error}") from error
 
     bundles = []
+    bundle_types = {"Unit test bundle", "UI test bundle"}
+
     def visit(node: object) -> int:
         if not isinstance(node, dict):
             raise TypeError("test result node is not an object")
@@ -146,10 +148,9 @@ def xcode_ui_test_count(bundle: Path) -> int:
         if not isinstance(children, list):
             raise TypeError("test result children is not an array")
         if node.get("nodeType") == "Test Case":
-            if node.get("result") == "Skipped":
-                raise ValueError("UI test case was skipped")
             if node.get("result") != "Passed":
-                raise ValueError(f"UI test case result is {node.get('result')!r}")
+                label = "was skipped" if node.get("result") == "Skipped" else f"result is {node.get('result')!r}"
+                raise ValueError(f"{target} test case {label}")
             return 1
         return sum(visit(child) for child in children)
 
@@ -157,23 +158,25 @@ def xcode_ui_test_count(bundle: Path) -> int:
         def find(node: object) -> None:
             if not isinstance(node, dict):
                 raise TypeError("test result node is not an object")
-            if node.get("nodeType") == "UI test bundle" and node.get("name") == "CauldronUITests":
+            if node.get("nodeType") in bundle_types and node.get("name") == target:
                 bundles.append(node)
             for child in node.get("children", []):
                 find(child)
         for node in nodes:
             find(node)
         if len(bundles) != 1:
-            raise ValueError(f"expected one CauldronUITests bundle, found {len(bundles)}")
+            raise ValueError(f"expected one {target} bundle, found {len(bundles)}")
         count = visit(bundles[0])
         if count <= 0:
-            raise ValueError("CauldronUITests executed zero test cases")
+            raise ValueError(f"{target} executed zero test cases")
     except (TypeError, ValueError) as error:
         raise CheckFailure("zero-tests", f"invalid UI test execution evidence: {error}") from error
     return count
 
 
-def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifact_dir: Path) -> tuple[int, int]:
+def xcode_run(
+    root: Path, platform: str, selectors: list[str], log: Path, artifact_dir: Path
+) -> tuple[int, dict[str, int]]:
     bundle = artifact_dir / f"{platform}-{uuid.uuid4().hex}.xcresult"
     destination = "platform=macOS" if platform == "macos" else os.environ.get(
         "IOS_SIMULATOR", "platform=iOS Simulator,name=iPhone 17,OS=27.0"
@@ -207,16 +210,20 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         raise classify_failure(output, code)
     if counts is None:
         raise CheckFailure("runner-failed", "xcodebuild succeeded without creating a result bundle")
-    ui_count = 0
-    requires_ui = not selectors or any(
-        selector == "CauldronUITests" or selector.startswith("CauldronUITests/")
-        for selector in selectors
-    )
-    if requires_ui:
+    selected_targets = sorted({selector.split("/", 1)[0] for selector in selectors})
+    if not selected_targets:
+        selected_targets = ["CauldronTests", "CauldronUITests"]
+    target_test_counts = {}
+    for target in selected_targets:
         try:
-            ui_count = xcode_ui_test_count(bundle)
+            target_test_counts[target] = xcode_target_test_count(bundle, target)
         except CheckFailure as failure:
-            failure.details.update(testCount=counts["totalTestCount"] - counts["skippedTests"], xcresult=counts)
+            failure.details.update(
+                testCount=counts["totalTestCount"] - counts["skippedTests"],
+                targetTestCounts=target_test_counts,
+                requiredTargets=selected_targets,
+                xcresult=counts,
+            )
             raise
     executed = counts["totalTestCount"] - counts["skippedTests"]
     if executed <= 0:
@@ -225,7 +232,7 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         raise CheckFailure(
             "assertion-failed", f"{counts['failedTests']} test(s) failed", testCount=executed, xcresult=counts
         )
-    return executed, ui_count
+    return executed, target_test_counts
 
 
 def package_run(root: Path, filter_value: str | None, log: Path) -> int:
@@ -267,7 +274,7 @@ def tooling_run(root: Path, log: Path) -> int:
 
 
 def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
-    counts: dict[str, int | bool] = {}
+    counts: dict[str, object] = {}
     required_targets = {
         "macos": ["CauldronTests"],
         "ios": ["CauldronTests", "CauldronUITests"],
@@ -286,16 +293,20 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
         for platform, targets in required_targets.items():
             selectors = targets
             try:
-                counts[platform], ui_count = xcode_run(
+                counts[platform], target_counts = xcode_run(
                     root, platform, selectors, log, artifact_dir)
+                counts.setdefault("targetTestCounts", {})[platform] = target_counts
                 if platform == "ios":
-                    counts["iosUITests"] = ui_count
+                    counts["iosUITests"] = target_counts["CauldronUITests"]
             except CheckFailure as error:
                 if error.details.get("testCount"):
                     counts[platform] = error.details["testCount"]
                 raise
         counts["requiredTargets"] = required_targets
-        counts["executedTargets"] = required_targets
+        counts["executedTargets"] = {
+            platform: [target for target, target_count in targets.items() if target_count > 0]
+            for platform, targets in counts["targetTestCounts"].items()
+        }
         counts["macosUITests"] = "opt-in-not-run"
         counts["toolingTestCount"] = tooling_run(root, log)
         counts["tooling"] = True

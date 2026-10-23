@@ -36,7 +36,7 @@ class ChecksCLITests(unittest.TestCase):
         self.install("xcodebuild", "echo 'SwiftCompile normal arm64 source.swift'\nif [ \"${STALE:-0}\" = 1 ]; then echo changed >> ../tracked.txt; fi\nwhile [ $# -gt 0 ]; do if [ \"$1\" = -resultBundlePath ]; then shift; mkdir -p \"$1\"; fi; shift; done\nif [ \"${XCODE_EXIT:-0}\" != 0 ]; then if [ \"${XCODE_ASSERTION:-0}\" = 1 ]; then echo \"Test Case 'Suite.testExample' failed\"; else echo 'error: emit-module command failed'; fi; exit \"$XCODE_EXIT\"; fi\n")
         self.install(
             "xcrun",
-            "case \"$*\" in *'test-results tests'*) if [ -n \"${UI_TREE:-}\" ]; then printf '%s\\n' \"$UI_TREE\"; else cat tools/tests/fixtures/checks/ui-tests.json; fi ;; *) if [ -n \"${SUMMARY:-}\" ]; then printf '%s\\n' \"$SUMMARY\"; else cat tools/tests/fixtures/checks/summary.json; fi ;; esac\n",
+            "case \"$*\" in *'test-results tests'*) case \"$*\" in *macos-*) tree=\"${MAC_TREE:-}\" ;; *ios-*) tree=\"${IOS_TREE:-}\" ;; esac; if [ -n \"$tree\" ]; then printf '%s\\n' \"$tree\"; else cat tools/tests/fixtures/checks/target-tests.json; fi ;; *) if [ -n \"${SUMMARY:-}\" ]; then printf '%s\\n' \"$SUMMARY\"; else cat tools/tests/fixtures/checks/summary.json; fi ;; esac\n",
         )
         self.install(
             "python3",
@@ -46,8 +46,8 @@ class ChecksCLITests(unittest.TestCase):
         (self.root / "tools/tests/fixtures/checks/summary.json").write_text(
             '{"totalTestCount":2,"passedTests":2,"failedTests":0,"skippedTests":0,"expectedFailures":0,"result":"Passed"}\n'
         )
-        (self.root / "tools/tests/fixtures/checks/ui-tests.json").write_text(
-            '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"WeekTargetsUITests","nodeType":"Test Suite","children":[{"name":"testTargetsRoundtrip()","nodeType":"Test Case","result":"Passed"}]}]}]}]}\n'
+        (self.root / "tools/tests/fixtures/checks/target-tests.json").write_text(
+            '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronTests","nodeType":"Unit test bundle","children":[{"name":"Suite","nodeType":"Test Suite","children":[{"name":"testApp()","nodeType":"Test Case","result":"Passed"}]}]},{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"WeekTargetsUITests","nodeType":"Test Suite","children":[{"name":"testTargetsRoundtrip()","nodeType":"Test Case","result":"Passed"}]}]}]}]}\n'
         )
         self.git("init", "-q")
         self.git("config", "user.email", "checks@example.test")
@@ -111,22 +111,40 @@ class ChecksCLITests(unittest.TestCase):
             "ios": ["CauldronTests", "CauldronUITests"],
         })
         self.assertEqual(record["counts"]["executedTargets"], record["counts"]["requiredTargets"])
+        self.assertEqual(record["counts"]["targetTestCounts"], {
+            "macos": {"CauldronTests": 1},
+            "ios": {"CauldronTests": 1, "CauldronUITests": 1},
+        })
         self.assertEqual(record["counts"]["macosUITests"], "opt-in-not-run")
         self.assertNotIn("-only-testing:CauldronUITests", log.split("platform=macOS", 1)[1].split("platform=iOS", 1)[0])
 
     def test_ready_fails_when_required_ios_ui_target_is_omitted_or_skipped(self) -> None:
+        app_only = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronTests","nodeType":"Unit test bundle","children":[{"name":"appCase","nodeType":"Test Case","result":"Passed"}]}]}]}'
         omitted = self.invoke(
             "ready",
-            UI_TREE='{"testNodes":[{"name":"CauldronTests","nodeType":"Test Bundle","children":[]}]}',
+            IOS_TREE=app_only,
         )
         self.assertEqual(omitted.returncode, 1)
-        self.assertIn("invalid UI test execution evidence", omitted.stderr)
+        self.assertIn("expected one CauldronUITests bundle, found 0", omitted.stderr)
+        skipped_ui = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronTests","nodeType":"Unit test bundle","children":[{"name":"appCase","nodeType":"Test Case","result":"Passed"}]},{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"testSkipped()","nodeType":"Test Case","result":"Skipped"}]}]}]}'
         skipped = self.invoke(
             "ready",
-            UI_TREE='{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"testSkipped()","nodeType":"Test Case","result":"Skipped"}]}]}]}',
+            IOS_TREE=skipped_ui,
         )
         self.assertEqual(skipped.returncode, 1)
-        self.assertIn("UI test case was skipped", skipped.stderr)
+        self.assertIn("CauldronUITests test case was skipped", skipped.stderr)
+
+    def test_ready_fails_when_required_ios_app_target_is_missing_empty_or_skipped(self) -> None:
+        ui_only = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"uiCase","nodeType":"Test Case","result":"Passed"}]}]}]}'
+        empty_app = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronTests","nodeType":"Unit test bundle","children":[]},{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"uiCase","nodeType":"Test Case","result":"Passed"}]}]}]}'
+        skipped_app = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronTests","nodeType":"Unit test bundle","children":[{"name":"appCase","nodeType":"Test Case","result":"Skipped"}]},{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"uiCase","nodeType":"Test Case","result":"Passed"}]}]}]}'
+        for tree, expected in ((ui_only, "expected one CauldronTests bundle, found 0"),
+                               (empty_app, "CauldronTests executed zero test cases"),
+                               (skipped_app, "CauldronTests test case was skipped")):
+            with self.subTest(expected=expected):
+                result = self.invoke("ready", IOS_TREE=tree)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(expected, result.stderr)
 
     def test_build_and_zero_test_failures_are_not_passes(self) -> None:
         failed = self.invoke("focused", "--platform", "macos", "--test", "CauldronTests/Suite", XCODE_EXIT="1")
@@ -295,6 +313,10 @@ class ChecksCLITests(unittest.TestCase):
             "executedTargets": {
                 "macos": ["CauldronTests"],
                 "ios": ["CauldronTests", "CauldronUITests"],
+            },
+            "targetTestCounts": {
+                "macos": {"CauldronTests": 1},
+                "ios": {"CauldronTests": 1, "CauldronUITests": 1},
             },
             "package": 2, "toolingTestCount": 1,
         })
