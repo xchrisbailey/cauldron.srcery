@@ -106,10 +106,23 @@ def committed_text(root: Path, path: str) -> str:
     return support.git("show", f"HEAD:{path}", cwd=root)
 
 
+def plan_snapshot(root: Path) -> dict:
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    def git(*args: str) -> str:
+        result = subprocess.run(["git", *args], cwd=root, env=env, text=True,
+                                capture_output=True, check=False)
+        if result.returncode:
+            raise support.WorkflowError(result.stderr.strip() or f"git {' '.join(args)} failed")
+        return result.stdout.strip()
+    return {"head": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"),
+            "dirty": bool(git("status", "--porcelain", "--untracked-files=all")),
+            "worktree": str(root.resolve())}
+
+
 def plan(requested_version: str | None = None) -> dict:
     """Describe release readiness from committed inputs without writing evidence."""
     root = support.repository()
-    snap = support.snapshot(root)
+    snap = plan_snapshot(root)
     try:
         project = committed_text(root, "apple/project.yml")
         generated = committed_text(root, "apple/Cauldron.xcodeproj/project.pbxproj")
