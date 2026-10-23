@@ -10,16 +10,7 @@ final class CopyVisitor: SyntaxVisitor {
   }
 
   override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-    let name: String
-    if let identifier = node.calledExpression.as(DeclReferenceExprSyntax.self) {
-      name = identifier.baseName.text
-    } else if let member = node.calledExpression.as(MemberAccessExprSyntax.self) {
-      name = member.declName.baseName.text
-    } else {
-      return .visitChildren
-    }
-
-    guard ["Text", "Button", "Label"].contains(name),
+    guard let name = node.calledExpression.copyLintTitleType,
       let argument = node.arguments.first(where: {
         $0.label == nil || ($0.label?.text == "verbatim" && name == "Text")
       }),
@@ -84,12 +75,54 @@ extension ExprSyntax {
   var hasStringLiteral: Bool {
     Syntax(self).hasStringLiteral
   }
+
+  var copyLintTitleType: String? {
+    guard let components = copyLintMemberPath else { return nil }
+    let typePath = components.last == "init" ? Array(components.dropLast()) : components
+    guard let typeName = typePath.last,
+      typePath.count == 1 || (typePath.count == 2 && typePath.first == "SwiftUI"),
+      ["Text", "Button", "Label"].contains(typeName)
+    else {
+      return nil
+    }
+    return typeName
+  }
+
+  var copyLintImageType: Bool {
+    guard let components = copyLintMemberPath else { return false }
+    let typePath = components.last == "init" ? Array(components.dropLast()) : components
+    return typePath == ["Image"] || typePath == ["SwiftUI", "Image"]
+  }
+
+  private var copyLintMemberPath: [String]? {
+    if let reference = self.as(DeclReferenceExprSyntax.self) {
+      return [reference.baseName.text]
+    }
+    guard let member = self.as(MemberAccessExprSyntax.self),
+      let base = member.base,
+      let basePath = base.copyLintMemberPath
+    else { return nil }
+    return basePath + [member.declName.baseName.text]
+  }
 }
 
 extension Syntax {
   var hasStringLiteral: Bool {
     if self.is(StringLiteralExprSyntax.self) { return true }
     if self.as(ExprSyntax.self)?.isRootedInCopy == true { return false }
+    if let call = self.as(FunctionCallExprSyntax.self) {
+      if call.calledExpression.hasStringLiteral { return true }
+      return call.arguments.contains { argument in
+        if call.calledExpression.copyLintImageType,
+          argument.expression.as(StringLiteralExprSyntax.self) != nil,
+          argument.label == nil
+            || ["systemName", "decorative"].contains(argument.label?.text ?? "")
+        {
+          return false
+        }
+        return argument.expression.hasStringLiteral
+      }
+    }
     for child in children(viewMode: .sourceAccurate) where child.hasStringLiteral { return true }
     return false
   }

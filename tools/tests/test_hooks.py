@@ -86,12 +86,25 @@ class HookTests(unittest.TestCase):
             'Text("copylint:ignore -- text is not a directive")',
             "// copylint:ignore --",
             'Text("reason required")',
+            'Text.init("explicit visible")',
+            'SwiftUI.Text.init(verbatim: "qualified visible")',
+            'Button.init("Save", action: {})',
+            'Label.init("Favorite", systemImage: "star")',
+            'Text.init(Copy.title)',
+            'Text(Image(systemName: "star"))',
+            'Text(Image("asset-name"))',
+            'Text(Image(decorative: "asset-name", bundle: nil))',
+            'Text(condition ? Image(systemName: "star") : Image("other-asset"))',
+            'Text(SwiftUI.Image(systemName: "star"))',
+            'Text(image(named: "asset-name"))',
+            'Text(condition ? "yes" : "no")',
+            'Text("visible \\(Copy.title)")',
         ]) + "\n")
         from hooks import copy_lint
         with self.assertRaises(Exception) as failure:
             copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
         diagnostics = str(failure.exception)
-        for line in (5, 6, 7, 10, 11, 13):
+        for line in (5, 6, 7, 10, 11, 13, 14, 15, 16, 17, 24, 25, 26):
             self.assertIn(f":{line}:", diagnostics)
         self.assertNotIn(":9:", diagnostics)
         self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
