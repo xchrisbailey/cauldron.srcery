@@ -35,6 +35,20 @@
                ReferencedContainer = "container:Cauldron.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "BB55C7E719ED23F5DBAAD960"
+               BuildableName = "CauldronUITests.xctest"
+               BlueprintName = "CauldronUITests"
+               ReferencedContainer = "container:Cauldron.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -61,6 +75,17 @@
                BlueprintIdentifier = "24BCE90082B4A95C2D5735B3"
                BuildableName = "CauldronTests.xctest"
                BlueprintName = "CauldronTests"
+               ReferencedContainer = "container:Cauldron.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "BB55C7E719ED23F5DBAAD960"
+               BuildableName = "CauldronUITests.xctest"
+               BlueprintName = "CauldronUITests"
                ReferencedContainer = "container:Cauldron.xcodeproj">
             </BuildableReference>
          </TestableReference>

@@ -254,16 +254,32 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         BUNDLE_LOADER: $(TEST_HOST)
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Cauldron.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Cauldron
+  # UI automation uses XCTest because Apple's XCUIApplication API requires it.
+  # The app under test must select the isolated in-memory Debug launch mode.
+  CauldronUITests:
+    type: bundle.ui-testing
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources: [CauldronUITests]
+    dependencies:
+      - target: Cauldron
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.srcery.cauldron.uitests
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator macosx"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        TEST_TARGET_NAME: Cauldron
 schemes:
   Cauldron:
     build:
       targets:
         Cauldron: all
         CauldronTests: [test]
+        CauldronUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
-      targets: [CauldronTests]
+      targets: [CauldronTests, CauldronUITests]
     archive:
       config: Release
