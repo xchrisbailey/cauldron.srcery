@@ -158,6 +158,7 @@ struct RecipesRoot: View {
       if !Task.isCancelled { withAnimation { notice = nil } }
     }
     .confirmationDialog(
+      // copylint:ignore -- preserve empty title while this dialog is hidden
       Text(verbatim: banishing.map { Copy.recipes.banishConfirm($0.title).verb.text } ?? ""),
       isPresented: Binding(get: { banishing != nil }, set: { if !$0 { banishing = nil } }),
       titleVisibility: .visible, presenting: banishing

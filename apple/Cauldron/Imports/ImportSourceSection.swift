@@ -63,7 +63,10 @@ struct ImportSourceSection: View {
         VStack(alignment: .leading, spacing: 6) {
           Text(
             verbatim:
-              "\(Copy.imports.duplicate(duplicate.title).text) \(Copy.imports.saveAnyway.text)"
+              Copy.display.duplicateWarning(
+                Copy.imports.duplicate(duplicate.title).text,
+                saveAnyway: Copy.imports.saveAnyway.text
+              ).text
           )
           .brandText(.control)
           .fixedSize(horizontal: false, vertical: true)

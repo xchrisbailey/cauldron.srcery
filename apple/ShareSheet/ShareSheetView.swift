@@ -406,7 +406,7 @@ private struct IngredientList: View {
               .foregroundStyle(Brand.Colors.overlay1)
           }
         }
-        Text(verbatim: parsed.note.map { "\(parsed.item), \($0)" } ?? parsed.item)
+        Text(verbatim: Copy.display.commaSeparated(parsed.item, parsed.note).text)
           .font(ShareFonts.font(size: size, weight: 400))
           .foregroundStyle(colour)
       } else {
@@ -435,7 +435,7 @@ private struct StepList: View {
     VStack(alignment: .leading, spacing: 12) {
       ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-          Text(verbatim: "\(index + 1)")
+          Text(verbatim: Copy.display.number(index + 1).text)
             .font(ShareFonts.mono(size: size - 1, weight: 500))
             .foregroundStyle(Brand.Colors.magic)
             .frame(minWidth: 18, alignment: .trailing)

@@ -309,6 +309,7 @@ private struct DiaryDayList: View {
       if !Task.isCancelled { withAnimation { notice = nil } }
     }
     .alert(
+      // copylint:ignore -- preserve the empty title fallback while the alert is hidden
       Text(verbatim: failure?.text ?? ""),
       isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     ) {
@@ -411,8 +412,9 @@ private struct SlotHeader: View {
       Spacer()
       if !section.entries.isEmpty {
         Text(
-          verbatim:
-            "\(MacroMeter.whole(section.subtotal.calories)) \(Copy.tracker.macros.calories.text)"
+          verbatim: Copy.display.calories(
+            MacroMeter.whole(section.subtotal.calories), unit: Copy.tracker.macros.calories.text
+          ).text
         )
         .brandText(.quantity)
         .foregroundStyle(Brand.Colors.subtext)
@@ -471,8 +473,9 @@ extension EntryRow {
   fileprivate func numbers(_ totals: MacroTotals) -> some View {
     VStack(alignment: .trailing, spacing: 2) {
       Text(
-        verbatim:
-          "\(MacroMeter.whole(totals.calories)) \(Copy.tracker.macros.calories.text)"
+        verbatim: Copy.display.calories(
+          MacroMeter.whole(totals.calories), unit: Copy.tracker.macros.calories.text
+        ).text
       )
       .font(.brand(.quantity, size: 14))
       .fontWeight(.semibold)
@@ -480,8 +483,12 @@ extension EntryRow {
         ForEach([MacroKey.protein, .carbs, .fat], id: \.self) { key in
           HStack(spacing: 3) {
             Circle().fill(key.tint).frame(width: 6, height: 6)
-            Text(verbatim: "\(MacroMeter.whole(totals[key]))\(Copy.tracker.macros.grams.text)")
-              .brandText(.unit)
+            Text(
+              verbatim: Copy.display.compactUnit(
+                MacroMeter.whole(totals[key]), unit: Copy.tracker.macros.grams.text
+              ).text
+            )
+            .brandText(.unit)
           }
         }
       }

@@ -15,6 +15,8 @@ make -C apple tooling-test
 
 Use exact Xcode identifiers. A method identifier includes its parentheses; an exit-zero run with zero executed tests is a failure. The runner reads result bundles, records actual counts and classifies assertion, compilation, test-runner and selection failures separately. iOS runs share a lock; this is not permission to boot/drive an unrelated simulator.
 
+For UI interaction checks and inspectable image artifacts, read [UI evidence](../native/ui-evidence.md). Use the explicit isolated UI-test launch contract; a separate UI-test runner does not automatically make the app's store or services safe. Rendering success alone is not layout or accessibility verification.
+
 During behaviour changes, use the relevant failing assertion and then focused green checks. For behaviour-preserving work, record a passing baseline. Compiler failures or intentionally empty code do not establish behavioural red. Copy catalogue, export decoding, schema and cross-platform rendering checks are related contracts, not unrelated unit tests; include them when that surface changes.
 
 Commit the slice, merge the latest integration tip if needed, and run focused checks on the clean resulting head. Dirty-run evidence is retained for diagnosis, but does not establish committed completion. The lead or assigned verifier runs `make -C apple ready` once on the final clean integrated revision, after fixes. It runs existing lint, all package/Mac/iOS tests and tooling tests. An infrastructure retry is recorded separately from the failed run; it does not rewrite the failed record as a pass.
@@ -43,6 +45,7 @@ Run integration from a clean, non-main integration checkout. The command validat
 Run `make -C apple setup-hooks` in the owning checkout. Installation is repository-local, refuses a different existing hooks path, and leaves hook files and user changes intact. The configured path is absolute to that checkout; keep it available, and reinstall after relocating it. Hooks use their owning tools but inspect the active worktree.
 
 - Pre-commit checks **staged** Swift formatting/store/button policies, JSON/property-list parsing and Python syntax. It never formats, stages or stashes. Partially staged working copies do not substitute for staged content.
+- Swift-aware [copy lint](copy-lint.md) checks visible literal/interpolated view titles in both staged and full-source checks. Keep exceptions attached to the specific call with a reason.
 - Pre-push requires a clean checked-out revision for native/tooling/release changes. Native changes reuse valid current-head full evidence or run the final runner once. Tooling-only changes run tooling tests. Other revisions must be validated from their own clean checkout. A release tag additionally requires that exact commit/version's successful preflight.
 - For a new destination ref, no destination comparison commit is advertised, so the gate conservatively checks introduced history instead of trusting another remote's main branch. Workers return local commits; native branch pushes wait for the lead's full-validation approval rather than triggering a full suite from every worker.
 - As with any local Git hook, deliberate `--no-verify` bypasses it; these are local guardrails, not a remote security boundary. Native CI remains intentionally absent. A shared environment that needs enforcement against bypasses should add server-side checks rather than claim the local hook is unbypassable.
@@ -50,6 +53,8 @@ Run `make -C apple setup-hooks` in the owning checkout. Installation is reposito
 ## Release preparation
 
 Read `docs/native/data-model.md` before schema work or any `v*` tag. Builds, development schema initialization, production promotion and TestFlight distribution are different events.
+
+Start with `python3 -B tools/release.py plan VERSION` to inspect committed version consistency, changed model/registry sources and attestation requirements before building. The plan is read-only and advisory, not release approval. Resolve pending edits and finalize the version before the final readiness run. See [release tools](../native/release-tools.md) for revision scope and the authenticated, read-only Xcode Cloud status command; a tag or local test result cannot establish Apple's build or delivery state.
 
 1. Commit the intended version and run final full validation on the clean release revision.
 2. Use `python3 -B tools/release.py build --configuration Debug`, then the same command with `Release`, to create signed artifacts and revision-bound provenance without launching the app. Read the output paths. Missing or wrong signing fails preflight rather than weakening the runtime guard.

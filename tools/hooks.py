@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import plistlib
 import re
@@ -24,6 +26,8 @@ STORE_PATTERN = re.compile(
     r"ModelContainer(?:\.init)?\(|ModelContainer *= *(?:try +)?\.init|ModelConfiguration|\.modelContainer\("
 )
 BUTTON_TARGETS = {"Cauldron", "CauldronImports", "CauldronShare", "CauldronWidgets", "ShareSheet"}
+COPY_ROOTS = ("apple/Cauldron/", "apple/CauldronImports/", "apple/CauldronShare/",
+              "apple/CauldronWidgets/", "apple/ShareSheet/", "apple/Shared/")
 
 
 def child_environment() -> dict[str, str]:
@@ -59,6 +63,95 @@ def lint_native(policy: str) -> None:
         errors.extend(native_policy(str(path.relative_to(root)), path.read_text(), policy))
     if errors:
         raise WorkflowError("\n".join(errors))
+    if policy in {"all", "copy"}:
+        sources = []
+        for directory in COPY_ROOTS:
+            folder = root / directory
+            if folder.exists():
+                sources.extend((str(path.relative_to(root)), path.read_bytes()) for path in folder.rglob("*.swift"))
+        copy_lint(sources)
+
+
+def file_identity(path: Path) -> dict[str, str | int]:
+    resolved = path.resolve(strict=True)
+    stat = resolved.stat()
+    digest = hashlib.sha256()
+    with resolved.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {
+        "path": str(resolved),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def toolchain_identity() -> dict[str, object]:
+    compiler_result = subprocess.run(["xcrun", "--find", "swiftc"], text=True, capture_output=True)
+    if compiler_result.returncode:
+        raise WorkflowError("Swift-aware copy lint requires Xcode's host Swift toolchain (xcrun --find swiftc failed).")
+    compiler = Path(compiler_result.stdout.strip())
+    compiler_realpath = compiler.resolve(strict=True)
+    host = compiler.parent.parent / "lib/swift/host"
+    sdk_path = Path(subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()).resolve(strict=True)
+    architecture = "arm64" if platform.machine() == "arm64" else "x86_64"
+    host_inputs = [
+        host / "SwiftSyntax.swiftmodule" / f"{architecture}-apple-macos.swiftinterface",
+        host / "SwiftParser.swiftmodule" / f"{architecture}-apple-macos.swiftinterface",
+        host / "libSwiftSyntax.dylib",
+        host / "libSwiftParser.dylib",
+        host / "libSwiftDiagnostics.dylib",
+    ]
+    return {
+        "swiftc": {
+            **file_identity(compiler_realpath),
+            "invoked_path": str(compiler),
+        },
+        "swiftc_version": subprocess.check_output([str(compiler), "--version"], text=True).splitlines()[0],
+        "sdk_path": str(sdk_path),
+        "sdk_version": subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-version"], text=True).strip(),
+        "sdk_build": subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-build-version"], text=True).strip(),
+        "architecture": architecture,
+        "host_path": str(host.resolve(strict=True)),
+        "host_inputs": [file_identity(path) for path in host_inputs],
+    }
+
+
+def copy_lint(
+    sources: list[tuple[str, bytes]], helper_bytes: bytes | None = None,
+    identity: dict[str, object] | None = None,
+) -> None:
+    root = repository()
+    if helper_bytes is None:
+        helper_bytes = (TOOLS / "copy_lint.swift").read_bytes()
+    identity = identity or toolchain_identity()
+    identity_bytes = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(identity_bytes + b"\0" + helper_bytes).hexdigest()
+    cache = state_directory(root) / "copy-lint" / digest
+    executable = cache / "copy-lint"
+    if not executable.is_file():
+        cache.mkdir(parents=True, exist_ok=True)
+        source = cache / "copy_lint.swift"
+        source.write_bytes(helper_bytes)
+        compiler = Path(identity["swiftc"]["invoked_path"])
+        host = Path(str(identity["host_path"]))
+        sdk = str(identity["sdk_path"])
+        target = str(identity["architecture"])
+        command = [str(compiler), "-sdk", sdk, "-target", f"{target}-apple-macosx15.0", "-I", str(host), "-L", str(host), "-lSwiftSyntax", "-lSwiftParser", str(source), "-o", str(executable)]
+        result = subprocess.run(command, text=True, capture_output=True)
+        if result.returncode:
+            raise WorkflowError("Could not compile SwiftSyntax copy checker with the installed host toolchain; copy lint fails closed.\n" + result.stderr)
+    with tempfile.TemporaryDirectory(prefix="cauldron-copy-lint-") as directory:
+        args = [str(executable)]
+        for path, content in sources:
+            staged = Path(directory) / path
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            staged.write_bytes(content)
+            args.append(str(staged))
+        result = subprocess.run(args, text=True, capture_output=True, env={**os.environ, "DYLD_LIBRARY_PATH": str(identity["host_path"])})
+    if result.returncode:
+        raise WorkflowError(result.stdout + result.stderr or "Swift-aware copy lint failed")
 
 
 def pre_commit() -> None:
@@ -68,6 +161,8 @@ def pre_commit() -> None:
     ).decode().split("\0")
     errors = []
     swift = []
+    staged_sources = []
+    helper_bytes = None
     with tempfile.TemporaryDirectory(prefix="cauldron-staged-") as directory:
         temporary = Path(directory)
         for path in filter(None, paths):
@@ -85,6 +180,8 @@ def pre_commit() -> None:
                     ast.parse(text, filename=path)
                 elif path.startswith("apple/"):
                     errors.extend(native_policy(path, text))
+                    if path.endswith(".swift") and path.startswith(COPY_ROOTS):
+                        staged_sources.append((path, content))
                     destination = temporary / path
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(text)
@@ -101,6 +198,12 @@ def pre_commit() -> None:
             )
             if result.returncode:
                 errors.append(result.stdout + result.stderr)
+        if staged_sources:
+            try:
+                helper_bytes = subprocess.check_output(["git", "show", ":tools/copy_lint.swift"], cwd=root)
+                copy_lint(staged_sources, helper_bytes)
+            except (WorkflowError, subprocess.CalledProcessError) as error:
+                errors.append(str(error))
     if errors:
         raise WorkflowError("Staged checks failed; nothing was rewritten:\n" + "\n".join(errors))
     print("Staged checks passed (Swift policies/format, JSON, property lists, Python syntax).")
@@ -210,7 +313,7 @@ def main() -> int:
     sub.add_parser("pre-commit")
     sub.add_parser("pre-push")
     lint = sub.add_parser("lint-native")
-    lint.add_argument("--policy", choices=("all", "store", "buttons"), default="all")
+    lint.add_argument("--policy", choices=("all", "store", "buttons", "copy"), default="all")
     args = parser.parse_args()
     try:
         if args.command == "install":

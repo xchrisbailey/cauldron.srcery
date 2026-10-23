@@ -129,6 +129,54 @@ PY
         self.assertEqual(json.loads(result.stdout)["status"], "passed")
         self.assertTrue((self.state / "releases/v1.2.3.json").exists())
 
+    def test_plan_is_read_only_advisory_and_dirty_edits_are_excluded(self):
+        self.model.write_text('@Model final class Recipe { var committed = "yes" }\n')
+        self.commit()
+        before = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        result = self.run_cli("plan", "v1.2.3")
+        plan = json.loads(result.stdout)
+        self.assertEqual(plan["status"], "advisory")
+        self.assertEqual(plan["schemaSourcePaths"], ["apple/Cauldron/Recipe.swift"])
+        self.assertEqual(plan["requiredEvidence"], ["initialized", "deployed or production-current"])
+        after = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        self.assertEqual(after, before)
+        self.model.write_text("@Model final class Recipe { var changed = true }\n")
+        self.git("add", str(self.model.relative_to(self.root)))
+        self.model.write_text("@Model final class Recipe { var stagedAndChanged = true }\n")
+        (self.root / "untracked-model.swift").write_text("@Model final class Extra {}\n")
+        dirty = json.loads(self.run_cli("plan").stdout)
+        self.assertEqual(dirty["workingTree"], "dirty")
+        self.assertIn("committed HEAD only", dirty["scope"])
+        self.assertEqual(dirty["schemaSourcePaths"], plan["schemaSourcePaths"])
+        self.assertIn("staged, unstaged, and untracked", dirty["warning"])
+        self.assertEqual(json.loads(self.run_cli("plan", "v9.9.9").stdout)["requestedVersionMatches"], False)
+
+    def test_plan_in_fresh_repository_does_not_create_evidence_or_touch_git_files(self):
+        fresh = Path(self.temp.name) / "fresh"
+        (fresh / "tools").mkdir(parents=True)
+        (fresh / "tools/workflow_support.py").write_bytes((SOURCE / "workflow_support.py").read_bytes())
+        (fresh / "tools/release.py").write_bytes((SOURCE / "release.py").read_bytes())
+        (fresh / "apple/Cauldron.xcodeproj").mkdir(parents=True)
+        (fresh / "apple/Cauldron").mkdir()
+        (fresh / "apple/project.yml").write_text('MARKETING_VERSION: "1.2.3"\n')
+        (fresh / "apple/Cauldron.xcodeproj/project.pbxproj").write_text("MARKETING_VERSION = 1.2.3;\n")
+        (fresh / "apple/Cauldron/Recipe.swift").write_text("@Model final class Recipe {}\n")
+        subprocess.run(["git", "init", "-q"], cwd=fresh, check=True)
+        subprocess.run(["git", "config", "user.name", "Plan Test"], cwd=fresh, check=True)
+        subprocess.run(["git", "config", "user.email", "plan@example.test"], cwd=fresh, check=True)
+        subprocess.run(["git", "add", "."], cwd=fresh, check=True)
+        subprocess.run(["git", "commit", "-qm", "fixture"], cwd=fresh, check=True)
+        subprocess.run(["git", "tag", "v1.2.2"], cwd=fresh, check=True)
+        git_files_before = {path.relative_to(fresh / ".git"): path.read_bytes()
+                            for path in (fresh / ".git").rglob("*") if path.is_file()}
+        result = subprocess.run(["python3", "-B", "tools/release.py", "plan"], cwd=fresh,
+                                text=True, capture_output=True, check=True)
+        self.assertEqual(json.loads(result.stdout)["status"], "advisory")
+        self.assertFalse((fresh / ".git/cauldron").exists())
+        git_files_after = {path.relative_to(fresh / ".git"): path.read_bytes()
+                           for path in (fresh / ".git").rglob("*") if path.is_file()}
+        self.assertEqual(git_files_after, git_files_before)
+
     def test_rejects_wrong_environment_and_artifact_mutation(self):
         self.add_full_check_record()
         entitlements = self.debug / "entitlements.plist"

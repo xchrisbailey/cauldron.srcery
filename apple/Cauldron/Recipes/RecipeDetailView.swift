@@ -445,7 +445,7 @@ struct StepView: View {
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
-      Text(verbatim: "\(number)")
+      Text(verbatim: Copy.display.number(number).text)
         .brandText(.quantity)
         .foregroundStyle(Brand.Colors.base)
         .frame(width: 24, height: 24)
@@ -466,7 +466,10 @@ struct StepView: View {
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
-      Text(verbatim: "\(Copy.editor.step(number).text). \(text)" + (timer.map { " \($0)" } ?? "")))
+      Text(
+        verbatim: Copy.display.accessibleStepAndTimer(
+          Copy.editor.step(number).text, text: text, timer: timer
+        ).text))
   }
 }
 

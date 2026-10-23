@@ -144,16 +144,15 @@ struct AddDescribeTab: View {
   private var totalLine: some View {
     let totals = model.totals
     let macros = Copy.tracker.macros
-    let grams = macros.grams.text
     return VStack(alignment: .leading, spacing: 4) {
       Text(verbatim: describe.total.text).brandText(.body)
       Text(
-        verbatim: [
-          "\(MacroMeter.whole(totals.calories)) \(macros.calories.text)",
-          "\(MacroMeter.whole(totals.protein))\(grams) \(macros.protein.text)",
-          "\(MacroMeter.whole(totals.carbs))\(grams) \(macros.carbs.text)",
-          "\(MacroMeter.whole(totals.fat))\(grams) \(macros.fat.text)",
-        ].joined(separator: " · ")
+        verbatim: Copy.display.macroTotal(
+          calories: MacroMeter.whole(totals.calories), caloriesUnit: macros.calories.text,
+          protein: MacroMeter.whole(totals.protein), proteinUnit: macros.protein.text,
+          carbs: MacroMeter.whole(totals.carbs), carbsUnit: macros.carbs.text,
+          fat: MacroMeter.whole(totals.fat), fatUnit: macros.fat.text, grams: macros.grams.text
+        ).text
       )
       .brandText(.quantity)
       Text(verbatim: Copy.tracker.diary.estimate.text)
@@ -251,7 +250,7 @@ private struct FoodRow: View {
           VStack(spacing: 2) {
             TextField(
               MacroMeter(key: key, eaten: 0, target: nil).name.text,
-              text: $row.draft[macro: key], prompt: Text(verbatim: "0")
+              text: $row.draft[macro: key], prompt: Text(verbatim: Copy.display.number(0).text)
             )
             .labelsHidden()
             .multilineTextAlignment(.center)

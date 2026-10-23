@@ -86,7 +86,7 @@ struct RecipeLogForm: View {
         }
         .listRowBackground(Brand.Colors.mantle)
         FieldError(attempted ? draft.servingsError : nil)
-        Text(monoNumbers("\(entry.total.text): \(totalText)", size: 13))
+        Text(monoNumbers(Copy.display.labeledValue(entry.total.text, totalText).text, size: 13))
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
           .listRowBackground(Color.clear)

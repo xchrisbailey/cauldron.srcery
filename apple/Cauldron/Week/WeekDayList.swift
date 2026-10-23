@@ -103,12 +103,16 @@ struct WeekDayList<Top: View, Bottom: View>: View {
               .lineLimit(1)
               .minimumScaleFactor(0.7)
             Text(verbatim: WeekDates.dayOfMonth(tabDay)).brandText(.quantity)
-            Text(verbatim: calories > 0 ? WeekFigures.whole(calories) : "·")
-              .brandText(.quantity)
-              .lineLimit(1)
-              .minimumScaleFactor(0.6)
-              .opacity(0.8)
-              .accessibilityHidden(true)
+            Text(
+              verbatim: Copy.display.weekCellCalories(
+                WeekFigures.whole(calories), show: calories > 0
+              ).text
+            )
+            .brandText(.quantity)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .opacity(0.8)
+            .accessibilityHidden(true)
           }
           .foregroundStyle(
             isShown ? Brand.Colors.base : (isToday ? Brand.Colors.heat : Brand.Colors.ink)

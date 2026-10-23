@@ -55,7 +55,7 @@ private struct MeterView: View {
           .font(.brand(.quantity, size: big ? 28 : 17))
           .fontWeight(.semibold)
         if let target = meter.targetText {
-          Text(verbatim: "/ \(target)").brandText(.unit)
+          Text(verbatim: Copy.display.target(target).text).brandText(.unit)
         }
         Text(verbatim: meter.unit.text).brandText(.unit)
       }

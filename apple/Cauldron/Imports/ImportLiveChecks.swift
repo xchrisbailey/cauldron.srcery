@@ -67,6 +67,7 @@
           .buttonStyle(.plain)
         }
       } header: {
+        // copylint:ignore -- developer-only diagnostic heading, absent from release builds
         Text(verbatim: "Live checks (debug builds)")
       }
       .listRowBackground(Brand.Colors.mantle)

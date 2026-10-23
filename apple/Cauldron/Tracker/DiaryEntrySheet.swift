@@ -128,7 +128,7 @@ struct DiaryEntrySheet: View {
       .listRowBackground(Brand.Colors.mantle)
       FieldError(attempted ? draft.errors(requireCalories: false)[.servings] : nil)
       if let total {
-        Text(monoNumbers("\(entry.total.text): \(total)", size: 13))
+        Text(monoNumbers(Copy.display.labeledValue(entry.total.text, total).text, size: 13))
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
           .listRowBackground(Color.clear)

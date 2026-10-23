@@ -34,13 +34,16 @@ struct DiaryEntryFields: View {
             .accessibilityHidden(true)
           Text(verbatim: meter.name.text).brandText(.body)
           Spacer()
-          TextField(meter.name.text, text: $draft[macro: key], prompt: Text(verbatim: "0"))
-            .labelsHidden()
-            .multilineTextAlignment(.trailing)
-            .brandText(.quantity)
-            #if os(iOS)
-              .keyboardType(key == .calories ? .numberPad : .decimalPad)
-            #endif
+          TextField(
+            meter.name.text, text: $draft[macro: key],
+            prompt: Text(verbatim: Copy.display.number(0).text)
+          )
+          .labelsHidden()
+          .multilineTextAlignment(.trailing)
+          .brandText(.quantity)
+          #if os(iOS)
+            .keyboardType(key == .calories ? .numberPad : .decimalPad)
+          #endif
           Text(verbatim: meter.unit.text).brandText(.unit)
         }
         .listRowBackground(Brand.Colors.mantle)

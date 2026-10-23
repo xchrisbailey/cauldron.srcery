@@ -86,7 +86,10 @@ struct BrewScreen: View {
       }
       .buttonStyle(.plain)
       .accessibilityLabel(
-        Text(verbatim: "\(Copy.brewing.leave.text): \(model.plan.recipe.title)")
+        Text(
+          verbatim: Copy.display.leaveRecipe(
+            Copy.brewing.leave.text, title: model.plan.recipe.title
+          ).text)
       )
       #if os(macOS)
         .keyboardShortcut(.escape, modifiers: [])
@@ -129,8 +132,9 @@ struct BrewScreen: View {
         .lineSpacing(stepSize * 0.25)
         .accessibilityLabel(
           Text(
-            verbatim: "\(Copy.brewing.stepOf(model.index + 1, model.plan.count).text). \(step.text)"
-          ))
+            verbatim: Copy.display.accessibleStep(
+              Copy.brewing.stepOf(model.index + 1, model.plan.count).text, text: step.text
+            ).text))
       let ingredients = model.plan.ingredients(for: model.index)
       if !ingredients.isEmpty {
         VStack(alignment: .leading, spacing: 8) {

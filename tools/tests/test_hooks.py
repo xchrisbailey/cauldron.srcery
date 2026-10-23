@@ -7,8 +7,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 TOOLS = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(TOOLS))
 
 
 class HookTests(unittest.TestCase):
@@ -62,6 +65,143 @@ class HookTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CauldronStore", result.stderr)
         self.assertEqual(path.read_text(), "let safe = 1\n")
+
+    def test_copy_lint_parses_visible_literals_not_comments_metadata_or_copy_expressions(self):
+        result = subprocess.run(
+            ["xcrun", "--find", "swiftc"], capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        source = self.root / "fixture.swift"
+        source.write_text("\n".join([
+            '// Text("not visible")',
+            "Text(Copy.title)",
+            'Label(Copy.title, systemImage: "fork.knife")',
+            'Button("\\(Copy.action)") { }',
+            'Text("bad")',
+            'Text(verbatim: "also bad")',
+            'Text("composed " + Copy.detail)',
+            "// copylint:ignore -- debug specimen, not product copy",
+            'Text("preview")',
+            'Text("adjacent title")',
+            'Text("copylint:ignore -- text is not a directive")',
+            "// copylint:ignore --",
+            'Text("reason required")',
+            'Text.init("explicit visible")',
+            'SwiftUI.Text.init(verbatim: "qualified visible")',
+            'Button.init("Save", action: {})',
+            'Label.init("Favorite", systemImage: "star")',
+            'Text.init(Copy.title)',
+            'Text(Image(systemName: "star"))',
+            'Text(Image("asset-name"))',
+            'Text(Image(decorative: "asset-name", bundle: nil))',
+            'Text(condition ? Image(systemName: "star") : Image("other-asset"))',
+            'Text(SwiftUI.Image(systemName: "star"))',
+            'Text(image(named: "asset-name"))',
+            'Text(condition ? "yes" : "no")',
+            'Text("visible \\(Copy.title)")',
+            'Text(verbatim: title { "Uncatalogued visible title" })',
+            'Text(verbatim: value.map { "Raw \\($0)" } ?? Copy.title)',
+            'Text(verbatim: title { Copy.title })',
+            'Text(verbatim: title { Image(systemName: "star") })',
+        ]) + "\n")
+        from hooks import copy_lint
+        with self.assertRaises(Exception) as failure:
+            copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
+        diagnostics = str(failure.exception)
+        for line in (5, 6, 7, 10, 11, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28):
+            self.assertIn(f":{line}:", diagnostics)
+        for line in (9, 18, 19, 20, 21, 22, 23, 29, 30):
+            self.assertNotIn(f":{line}:", diagnostics)
+        self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
+
+    def test_copy_lint_suppression_is_comment_trivia_and_belongs_to_one_call(self):
+        from hooks import copy_lint
+        source = self.root / "exceptions.swift"
+        source.write_text("\n".join([
+            "// copylint:ignore -- one preview only",
+            'Text("first")',
+            'Text("second")',
+            'Text("copylint:ignore -- text, not a comment")',
+            "// copylint:ignore --",
+            'Text("empty reason")',
+            'Text("trailing exception") // copylint:ignore -- one call only',
+            'Text("after trailing exception")',
+            "// copylint:ignore --missing separator",
+            'Text("malformed directive")',
+        ]) + "\n")
+        with self.assertRaises(Exception) as failure:
+            copy_lint([("apple/Cauldron/Exceptions.swift", source.read_bytes())])
+        diagnostics = str(failure.exception)
+        for line in (3, 4, 6, 8, 10):
+            self.assertIn(f":{line}:", diagnostics)
+        for line in (2, 7):
+            self.assertNotIn(f":{line}:", diagnostics)
+        self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
+
+    def test_copy_lint_recompiles_when_injected_sdk_or_host_identity_changes(self):
+        from hooks import copy_lint
+
+        def identity(sdk_build, syntax_hash):
+            return {
+                "swiftc": {
+                    "path": "/toolchain/usr/bin/swift-frontend", "invoked_path": "/toolchain/usr/bin/swiftc",
+                    "sha256": "compiler",
+                },
+                "swiftc_version": "Swift version stable",
+                "sdk_path": "/sdk/MacOSX.sdk",
+                "sdk_version": "27.0",
+                "sdk_build": sdk_build,
+                "architecture": "arm64",
+                "host_path": "/toolchain/usr/lib/swift/host",
+                "host_inputs": [{"path": "libSwiftSyntax.dylib", "sha256": syntax_hash}],
+            }
+
+        identities = [identity("build-a", "syntax-a")] * 2
+        identities.extend([identity("build-b", "syntax-a"), identity("build-b", "syntax-b")])
+        commands = []
+
+        def run(args, **_kwargs):
+            commands.append(args)
+            if "-o" in args:
+                Path(args[args.index("-o") + 1]).write_bytes(b"cached checker")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with (
+            mock.patch("hooks.repository", return_value=self.root),
+            mock.patch("hooks.toolchain_identity", side_effect=identities),
+            mock.patch("hooks.subprocess.run", side_effect=run),
+        ):
+            for _ in identities:
+                copy_lint([("apple/Cauldron/Fixture.swift", b"Text(Copy.title)\n")], b"checker")
+
+        compiles = [args for args in commands if "-o" in args]
+        self.assertEqual(len(compiles), 3)
+        self.assertEqual(sum(args[0].endswith("/copy-lint") for args in commands), 4)
+
+    def test_staged_copy_violation_cannot_be_hidden_by_worktree_fix_or_unstaged_ignore(self):
+        app = self.root / "apple/Cauldron"
+        app.mkdir(parents=True)
+        (self.root / "apple/.swift-format").write_text("{}\n")
+        path = app / "Visible.swift"
+        path.write_text('Text("visible")\n')
+        (self.root / "tools").mkdir()
+        (self.root / "tools/copy_lint.swift").write_bytes((TOOLS / "copy_lint.swift").read_bytes())
+        share = self.root / "apple/ShareSheet/Visible.swift"
+        share.parent.mkdir(parents=True)
+        share.write_text('Text("share visible")\n')
+        self.git("add", "apple", "tools/copy_lint.swift")
+        path.write_text('// copylint:ignore -- not user facing\nText("visible")\n')
+        share.write_text("Text(Copy.share.title)\n")
+        binary = self.root / ".git/fake-bin"
+        binary.mkdir()
+        swift = binary / "swift"
+        swift.write_text("#!/bin/sh\nexit 0\n")
+        swift.chmod(0o755)
+        environment = {**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"]}
+        result = self.command("pre-commit", environment=environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Visible.swift", result.stderr)
+        self.assertIn("ShareSheet", result.stderr)
 
     def test_install_preserves_custom_hooks(self):
         self.git("config", "core.hooksPath", "custom-hooks")

@@ -40,6 +40,70 @@ public enum Copy {
   public static let describeNative = catalogue.describeNative
   public static let importNative = catalogue.importNative
   public static let libraryNative = catalogue.libraryNative
+  public static let display = Display()
+
+  /// Small product-visible formatters that keep punctuation and spacing out of views.
+  public struct Display: Sendable {
+    public let unavailable = plain("—")
+
+    public init() {}
+    public func number(_ value: Int) -> CopyString { plain("\(value)") }
+    public func calories(_ value: String, unit: String) -> CopyString {
+      plain("\(value) \(unit)")
+    }
+    public func compactUnit(_ value: String, unit: String) -> CopyString {
+      plain("\(value)\(unit)")
+    }
+    public func macroTotal(
+      calories: String, caloriesUnit: String, protein: String, proteinUnit: String,
+      carbs: String, carbsUnit: String, fat: String, fatUnit: String, grams: String
+    ) -> CopyString {
+      plain(
+        "\(calories) \(caloriesUnit) · \(protein)\(grams) \(proteinUnit) · \(carbs)\(grams) \(carbsUnit) · \(fat)\(grams) \(fatUnit)"
+      )
+    }
+    public func target(_ value: String) -> CopyString { plain("/ \(value)") }
+    public func proposedTarget(_ value: String, unit: String) -> CopyString {
+      plain("\(value) \(unit)")
+    }
+    public func parenthesized(_ value: String) -> CopyString { plain("(\(value))") }
+    public func alternative(_ amount: String, unit: String) -> CopyString {
+      plain("(\(amount) \(unit))")
+    }
+    public func duplicateWarning(_ title: String, saveAnyway: String) -> CopyString {
+      plain("\(title) \(saveAnyway)")
+    }
+    public func accessibleStep(_ step: String, text: String) -> CopyString {
+      plain("\(step). \(text)")
+    }
+    public func accessibleStepAndTimer(_ step: String, text: String, timer: String?) -> CopyString {
+      plain("\(step). \(text)\(timer.map { " \($0)" } ?? "")")
+    }
+    public func leaveRecipe(_ leave: String, title: String) -> CopyString {
+      plain("\(leave): \(title)")
+    }
+    public func withSuffix(_ text: String, suffix: String) -> CopyString {
+      plain("\(text) \(suffix)")
+    }
+    public func labeledValue(_ label: String, _ value: String) -> CopyString {
+      plain("\(label): \(value)")
+    }
+    public func withLabelAndDetail(_ label: String, detail: String?) -> CopyString {
+      plain(detail.map { "\(label): \($0)" } ?? label)
+    }
+    public func commaSeparated(_ first: String, _ second: String?) -> CopyString {
+      plain(second.map { "\(first), \($0)" } ?? first)
+    }
+    public func joined(_ values: [String], separator: String) -> CopyString {
+      plain(values.joined(separator: separator))
+    }
+    public func weekCellCalories(_ value: String, show: Bool) -> CopyString {
+      plain(show ? value : "·")
+    }
+    public func calendarCalories(_ value: String, unit: String, show: Bool) -> CopyString {
+      plain(show ? "\(value) \(unit)" : " ")
+    }
+  }
 
   public struct Catalogue: Sendable {
     public let errors = Errors()
