@@ -230,10 +230,7 @@ def attest(phase: str, version: str, note: str) -> dict:
         if not initialized.exists():
             raise support.WorkflowError(f"{phase} attestation requires matching initialization attestation")
         prior = support.read_json(initialized)
-        if (prior.get("phase") != "initialized" or prior.get("head") != snapshot["head"]
-                or prior.get("release") != version or prior.get("fingerprint") != fingerprint
-                or not prior.get("note") or not prior.get("author")
-                or not valid_timestamp(prior.get("createdAt")) or not nonempty(prior.get("id"))):
+        if not valid_schema_record(prior, "initialized", version, snapshot["head"], fingerprint):
             raise support.WorkflowError(f"{phase} attestation requires valid matching initialization evidence")
         if time.time() < prior["createdAt"]:
             raise support.WorkflowError(f"{phase} attestation cannot predate initialization evidence")
@@ -260,11 +257,13 @@ def valid_timestamp(value) -> bool:
 
 def valid_schema_record(record: dict, phase: str, version: str, head: str,
                         fingerprint: str) -> bool:
-    return (record.get("version") == 1 and record.get("phase") == phase
+    return (type(record.get("version")) is int and record["version"] == 1
+            and record.get("phase") == phase
             and record.get("head") == head and record.get("release") == version
             and record.get("fingerprint") == fingerprint
             and nonempty(record.get("note")) and nonempty(record.get("author"))
-            and valid_timestamp(record.get("createdAt")) and nonempty(record.get("id")))
+            and valid_timestamp(record.get("createdAt"))
+            and record["createdAt"] <= time.time() and nonempty(record.get("id")))
 
 
 def preflight(version: str, debug_path: Path, release_path: Path) -> dict:

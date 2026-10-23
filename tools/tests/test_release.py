@@ -248,6 +248,52 @@ PY
                 result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
                 self.assertNotEqual(result.returncode, 0)
 
+    def test_production_evidence_rejects_future_timestamps_and_boolean_version(self):
+        self.prepare_schema_change()
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                     "--note", "Console shows nothing to deploy")
+        schemas = self.state / "schemas"
+        init = next(schemas.glob("initialized-*.json"))
+        production = next(schemas.glob("production-current-*.json"))
+        original_init = json.loads(init.read_text())
+        original_production = json.loads(production.read_text())
+        for field, path, original in (("initialized", init, original_init),
+                                      ("production-current", production, original_production)):
+            with self.subTest(phase=field):
+                record = dict(original)
+                record["createdAt"] = 4102444800
+                path.write_text(json.dumps(record))
+                if field == "initialized":
+                    current = dict(original_production)
+                    current["createdAt"] = 4102444801
+                    production.write_text(json.dumps(current))
+                result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+                self.assertNotEqual(result.returncode, 0)
+                init.write_text(json.dumps(original_init))
+                production.write_text(json.dumps(original_production))
+        malformed = dict(original_init)
+        malformed["version"] = True
+        init.write_text(json.dumps(malformed))
+        result = self.run_cli("preflight", "v1.2.3", *self.apps(), check=False)
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_recording_production_requires_strict_initialized_record(self):
+        self.prepare_schema_change()
+        self.run_cli("record-schema", "v1.2.3", "--phase", "initialized", "--note", "Initializer succeeded")
+        init = next((self.state / "schemas").glob("initialized-*.json"))
+        original = json.loads(init.read_text())
+        for field, invalid in (("version", 999), ("note", {"text": "initialized"}),
+                               ("author", ["Release Test"]), ("createdAt", True),
+                               ("createdAt", float("inf"))):
+            with self.subTest(field=field, invalid=invalid):
+                record = dict(original)
+                record[field] = invalid
+                init.write_text(json.dumps(record))
+                result = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
+                                      "--note", "Console shows nothing to deploy", check=False)
+                self.assertNotEqual(result.returncode, 0)
+
     def test_production_current_rejects_stale_release_and_unknown_programmatic_phase(self):
         self.prepare_schema_change()
         invalid = self.run_cli("record-schema", "v1.2.3", "--phase", "production-current",
