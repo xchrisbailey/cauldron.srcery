@@ -65,6 +65,7 @@ extension ExprSyntax {
 extension Syntax {
   var hasStringLiteral: Bool {
     if self.is(StringLiteralExprSyntax.self) { return true }
+    if self.as(ExprSyntax.self)?.isRootedInCopy == true { return false }
     for child in children(viewMode: .sourceAccurate) where child.hasStringLiteral { return true }
     return false
   }
