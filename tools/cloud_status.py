@@ -199,10 +199,10 @@ def status(commit: str, version: str | None = None, tag: str | None = None,
     all_versions_known = bool(build_statuses) and len(release_versions) == len(build_statuses)
     if version is None:
         version_status = "unknown"
-    elif all_versions_known and all(release_version == version for release_version in release_versions):
-        version_status = "matched"
-    elif all_versions_known:
+    elif any(release_version != version for release_version in release_versions):
         version_status = "mismatch"
+    elif all_versions_known:
+        version_status = "matched"
     else:
         version_status = "unknown"
     return {"status": attrs.get("completionStatus") or attrs.get("executionProgress") or "unknown",

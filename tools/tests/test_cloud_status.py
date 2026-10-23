@@ -113,6 +113,30 @@ class CloudStatusTests(unittest.TestCase):
             result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
         self.assertEqual(result["versionStatus"], "mismatch")
 
+    def test_known_version_mismatch_takes_precedence_over_unknown_linked_build(self):
+        builds = [
+            {"id": "B1", "attributes": {"version": "42"}},
+            {"id": "B2", "attributes": {"version": "43"}},
+        ]
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=builds), \
+             patch.object(cloud, "get_json", side_effect=[self.prerelease("1.2.2", "IOS"), {"data": None}]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "mismatch")
+
+    def test_known_version_match_with_unknown_linked_build_stays_unknown(self):
+        builds = [
+            {"id": "B1", "attributes": {"version": "42"}},
+            {"id": "B2", "attributes": {"version": "43"}},
+        ]
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=builds), \
+             patch.object(cloud, "get_json", side_effect=[self.prerelease("1.2.3", "IOS"), {"data": None}]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "unknown")
+
     def test_build_run_rejects_commit_mismatch_and_missing_documented_shape(self):
         with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=self.run_fixture(destination="d" * 40)):
             with self.assertRaisesRegex(cloud.StatusError, "different commit"):
