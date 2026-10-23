@@ -7,6 +7,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
@@ -70,24 +72,93 @@ class HookTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         source = self.root / "fixture.swift"
-        source.write_text('''
-// Text("not visible")
-Text(Copy.title)
-Label(Copy.title, systemImage: "fork.knife")
-Button("\\(Copy.action)") { }
-Text("bad")
-Text(verbatim: "also bad")
-Text("composed " + Copy.detail)
-// copylint:ignore -- design token preview, not app copy
-Text("preview")
-''')
+        source.write_text("\n".join([
+            '// Text("not visible")',
+            "Text(Copy.title)",
+            'Label(Copy.title, systemImage: "fork.knife")',
+            'Button("\\(Copy.action)") { }',
+            'Text("bad")',
+            'Text(verbatim: "also bad")',
+            'Text("composed " + Copy.detail)',
+            "// copylint:ignore -- debug specimen, not product copy",
+            'Text("preview")',
+            'Text("adjacent title")',
+            'Text("copylint:ignore -- text is not a directive")',
+            "// copylint:ignore --",
+            'Text("reason required")',
+        ]) + "\n")
         from hooks import copy_lint
         with self.assertRaises(Exception) as failure:
             copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
-        self.assertIn(":6:", str(failure.exception))
-        self.assertIn(":7:", str(failure.exception))
-        self.assertIn(":8:", str(failure.exception))
-        self.assertNotIn(":10:", str(failure.exception))
+        diagnostics = str(failure.exception)
+        for line in (5, 6, 7, 10, 11, 13):
+            self.assertIn(f":{line}:", diagnostics)
+        self.assertNotIn(":9:", diagnostics)
+        self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
+
+    def test_copy_lint_suppression_is_comment_trivia_and_belongs_to_one_call(self):
+        from hooks import copy_lint
+        source = self.root / "exceptions.swift"
+        source.write_text("\n".join([
+            "// copylint:ignore -- one preview only",
+            'Text("first")',
+            'Text("second")',
+            'Text("copylint:ignore -- text, not a comment")',
+            "// copylint:ignore --",
+            'Text("empty reason")',
+            'Text("trailing exception") // copylint:ignore -- one call only',
+            'Text("after trailing exception")',
+            "// copylint:ignore --missing separator",
+            'Text("malformed directive")',
+        ]) + "\n")
+        with self.assertRaises(Exception) as failure:
+            copy_lint([("apple/Cauldron/Exceptions.swift", source.read_bytes())])
+        diagnostics = str(failure.exception)
+        for line in (3, 4, 6, 8, 10):
+            self.assertIn(f":{line}:", diagnostics)
+        for line in (2, 7):
+            self.assertNotIn(f":{line}:", diagnostics)
+        self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
+
+    def test_copy_lint_recompiles_when_injected_sdk_or_host_identity_changes(self):
+        from hooks import copy_lint
+
+        def identity(sdk_build, syntax_hash):
+            return {
+                "swiftc": {
+                    "path": "/toolchain/usr/bin/swift-frontend", "invoked_path": "/toolchain/usr/bin/swiftc",
+                    "sha256": "compiler",
+                },
+                "swiftc_version": "Swift version stable",
+                "sdk_path": "/sdk/MacOSX.sdk",
+                "sdk_version": "27.0",
+                "sdk_build": sdk_build,
+                "architecture": "arm64",
+                "host_path": "/toolchain/usr/lib/swift/host",
+                "host_inputs": [{"path": "libSwiftSyntax.dylib", "sha256": syntax_hash}],
+            }
+
+        identities = [identity("build-a", "syntax-a")] * 2
+        identities.extend([identity("build-b", "syntax-a"), identity("build-b", "syntax-b")])
+        commands = []
+
+        def run(args, **_kwargs):
+            commands.append(args)
+            if "-o" in args:
+                Path(args[args.index("-o") + 1]).write_bytes(b"cached checker")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with (
+            mock.patch("hooks.repository", return_value=self.root),
+            mock.patch("hooks.toolchain_identity", side_effect=identities),
+            mock.patch("hooks.subprocess.run", side_effect=run),
+        ):
+            for _ in identities:
+                copy_lint([("apple/Cauldron/Fixture.swift", b"Text(Copy.title)\n")], b"checker")
+
+        compiles = [args for args in commands if "-o" in args]
+        self.assertEqual(len(compiles), 3)
+        self.assertEqual(sum(args[0].endswith("/copy-lint") for args in commands), 4)
 
     def test_staged_copy_violation_cannot_be_hidden_by_worktree_fix_or_unstaged_ignore(self):
         app = self.root / "apple/Cauldron"

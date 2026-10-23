@@ -3,12 +3,10 @@ import SwiftParser
 import SwiftSyntax
 
 final class CopyVisitor: SyntaxVisitor {
-  let source: String
-  var violations: [(Int, String)] = []
+  var violations: [(Int, String, String?)] = []
 
-  init(source: String) {
-    self.source = source
-    super.init(viewMode: .sourceAccurate)
+  override init(viewMode: SyntaxTreeViewMode = .sourceAccurate) {
+    super.init(viewMode: viewMode)
   }
 
   override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
@@ -32,14 +30,40 @@ final class CopyVisitor: SyntaxVisitor {
 
     let location = node.startLocation(
       converter: SourceLocationConverter(fileName: "", tree: node.root))
-    let lines = source.components(separatedBy: .newlines)
-    let prior = location.line > 1 ? lines[location.line - 2] : ""
-    let current = location.line <= lines.count ? lines[location.line - 1] : ""
-    if prior.contains("copylint:ignore") || current.contains("copylint:ignore") {
+    let exception = copyLintException(for: node)
+    if exception == .valid {
       return .visitChildren
     }
-    violations.append((location.line, name))
+    let reasonError =
+      exception == .invalid
+      ? "copylint ignore requires `// copylint:ignore -- reason` attached to this title"
+      : nil
+    violations.append((location.line, name, reasonError))
     return .visitChildren
+  }
+
+  private func copyLintException(for node: FunctionCallExprSyntax) -> ExceptionState {
+    let leading = node.firstToken(viewMode: .sourceAccurate)?.leadingTrivia ?? []
+    let trailing = node.lastToken(viewMode: .sourceAccurate)?.trailingTrivia ?? []
+    for trivia in [leading, trailing] {
+      for piece in trivia {
+        guard case .lineComment(let text) = piece else { continue }
+        let comment = text.trimmingCharacters(in: .whitespaces)
+        let marker = "// copylint:ignore"
+        guard comment.hasPrefix(marker) else { continue }
+        let suffix = comment.dropFirst(marker.count)
+        guard suffix.hasPrefix(" -- ") else { return .invalid }
+        let reason = suffix.dropFirst(4).trimmingCharacters(in: .whitespaces)
+        return reason.isEmpty ? .invalid : .valid
+      }
+    }
+    return .none
+  }
+
+  private enum ExceptionState: Equatable {
+    case none
+    case valid
+    case invalid
   }
 }
 
@@ -81,10 +105,14 @@ for path in paths {
   do {
     let source = try String(contentsOfFile: path, encoding: .utf8)
     let tree = Parser.parse(source: source)
-    let visitor = CopyVisitor(source: source)
+    let visitor = CopyVisitor()
     visitor.walk(tree)
-    for (line, kind) in visitor.violations {
-      print("\(path):\(line): user-facing \(kind) string must come from Copy")
+    for (line, kind, reasonError) in visitor.violations {
+      if let reasonError {
+        print("\(path):\(line): \(reasonError)")
+      } else {
+        print("\(path):\(line): user-facing \(kind) string must come from Copy")
+      }
       failed = true
     }
   } catch {

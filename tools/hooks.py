@@ -72,25 +72,72 @@ def lint_native(policy: str) -> None:
         copy_lint(sources)
 
 
-def copy_lint(sources: list[tuple[str, bytes]], helper_bytes: bytes | None = None) -> None:
+def file_identity(path: Path) -> dict[str, str | int]:
+    resolved = path.resolve(strict=True)
+    stat = resolved.stat()
+    digest = hashlib.sha256()
+    with resolved.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {
+        "path": str(resolved),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def toolchain_identity() -> dict[str, object]:
+    compiler_result = subprocess.run(["xcrun", "--find", "swiftc"], text=True, capture_output=True)
+    if compiler_result.returncode:
+        raise WorkflowError("Swift-aware copy lint requires Xcode's host Swift toolchain (xcrun --find swiftc failed).")
+    compiler = Path(compiler_result.stdout.strip())
+    compiler_realpath = compiler.resolve(strict=True)
+    host = compiler.parent.parent / "lib/swift/host"
+    sdk_path = Path(subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()).resolve(strict=True)
+    architecture = "arm64" if platform.machine() == "arm64" else "x86_64"
+    host_inputs = [
+        host / "SwiftSyntax.swiftmodule" / f"{architecture}-apple-macos.swiftinterface",
+        host / "SwiftParser.swiftmodule" / f"{architecture}-apple-macos.swiftinterface",
+        host / "libSwiftSyntax.dylib",
+        host / "libSwiftParser.dylib",
+        host / "libSwiftDiagnostics.dylib",
+    ]
+    return {
+        "swiftc": {
+            **file_identity(compiler_realpath),
+            "invoked_path": str(compiler),
+        },
+        "swiftc_version": subprocess.check_output([str(compiler), "--version"], text=True).splitlines()[0],
+        "sdk_path": str(sdk_path),
+        "sdk_version": subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-version"], text=True).strip(),
+        "sdk_build": subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-build-version"], text=True).strip(),
+        "architecture": architecture,
+        "host_path": str(host.resolve(strict=True)),
+        "host_inputs": [file_identity(path) for path in host_inputs],
+    }
+
+
+def copy_lint(
+    sources: list[tuple[str, bytes]], helper_bytes: bytes | None = None,
+    identity: dict[str, object] | None = None,
+) -> None:
     root = repository()
     if helper_bytes is None:
         helper_bytes = (TOOLS / "copy_lint.swift").read_bytes()
-    swiftc = subprocess.run(["xcrun", "--find", "swiftc"], text=True, capture_output=True)
-    if swiftc.returncode:
-        raise WorkflowError("Swift-aware copy lint requires Xcode's host Swift toolchain (xcrun --find swiftc failed).")
-    compiler = Path(swiftc.stdout.strip())
-    version = subprocess.check_output([str(compiler), "--version"], text=True).splitlines()[0]
-    digest = hashlib.sha256(version.encode() + b"\0" + helper_bytes).hexdigest()
+    identity = identity or toolchain_identity()
+    identity_bytes = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(identity_bytes + b"\0" + helper_bytes).hexdigest()
     cache = state_directory(root) / "copy-lint" / digest
     executable = cache / "copy-lint"
     if not executable.is_file():
         cache.mkdir(parents=True, exist_ok=True)
         source = cache / "copy_lint.swift"
         source.write_bytes(helper_bytes)
-        host = compiler.parent.parent / "lib/swift/host"
-        sdk = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip()
-        target = "arm64" if platform.machine() == "arm64" else "x86_64"
+        compiler = Path(identity["swiftc"]["invoked_path"])
+        host = Path(str(identity["host_path"]))
+        sdk = str(identity["sdk_path"])
+        target = str(identity["architecture"])
         command = [str(compiler), "-sdk", sdk, "-target", f"{target}-apple-macosx15.0", "-I", str(host), "-L", str(host), "-lSwiftSyntax", "-lSwiftParser", str(source), "-o", str(executable)]
         result = subprocess.run(command, text=True, capture_output=True)
         if result.returncode:
@@ -102,7 +149,7 @@ def copy_lint(sources: list[tuple[str, bytes]], helper_bytes: bytes | None = Non
             staged.parent.mkdir(parents=True, exist_ok=True)
             staged.write_bytes(content)
             args.append(str(staged))
-        result = subprocess.run(args, text=True, capture_output=True, env={**os.environ, "DYLD_LIBRARY_PATH": str(compiler.parent.parent / "lib/swift/host")})
+        result = subprocess.run(args, text=True, capture_output=True, env={**os.environ, "DYLD_LIBRARY_PATH": str(identity["host_path"])})
     if result.returncode:
         raise WorkflowError(result.stdout + result.stderr or "Swift-aware copy lint failed")
 

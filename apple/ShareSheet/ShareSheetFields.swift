@@ -77,8 +77,10 @@ struct ShareSheetFields: View {
         .focused(focus, equals: field)
         .accessibilityFocused(accessibilityFocus, equals: field)
         .accessibilityLabel(Text(verbatim: label.text))
-        // copylint:ignore -- empty hint when there is no field error
-        .accessibilityHint(Text(verbatim: error?.text ?? ""))
+        .accessibilityHint(
+          // copylint:ignore -- empty hint when there is no field error
+          Text(verbatim: error?.text ?? "")
+        )
         .submitLabel(field == .cookMinutes ? .done : .next)
         .onSubmit { advance() }
       if let error {
