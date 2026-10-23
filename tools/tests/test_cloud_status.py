@@ -30,6 +30,22 @@ class CloudStatusTests(unittest.TestCase):
         with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=wrong):
             with self.assertRaises(cloud.StatusError):
                 cloud.status(self.commit, build_run_id="R1")
+
+    def test_retry_progress_is_reported_without_success_translation(self):
+        retry = {"id": "R2", "attributes": {"sourceCommit": self.commit,
+                 "executionProgress": "PENDING", "completionStatus": None}}
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=retry), patch.object(cloud, "pages", return_value=[]):
+            result = cloud.status(self.commit, build_run_id="R2")
+        self.assertEqual(result["status"], "PENDING")
+        self.assertIsNone(result["buildRun"]["completion"])
+
+    def test_pagination_collects_all_pages(self):
+        first = {"data": [{"id": "B1"}], "links": {"next": f"{cloud.BASE}/ciBuildRuns?page=2"}}
+        second = {"data": [{"id": "B2"}], "links": {}}
+        with patch.object(cloud, "get_json", side_effect=[first, second]):
+            result = cloud.pages(f"{cloud.BASE}/ciBuildRuns?page=1", "safe")
+        self.assertEqual([item["id"] for item in result], ["B1", "B2"])
     def test_workflow_run_listing_never_selects_another_commit(self):
         with patch.object(cloud, "token", return_value="safe"), \
              patch.object(cloud, "pages", return_value=[{"id": "R1", "attributes": {"sourceCommit": "b" * 40}}]):
