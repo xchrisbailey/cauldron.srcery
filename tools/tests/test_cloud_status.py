@@ -51,6 +51,11 @@ class CloudStatusTests(unittest.TestCase):
             result = cloud.status(sha, build_run_id="R1")
         self.assertEqual(result["verifiedCommit"], sha)
 
+    def test_sha_lengths_between_supported_exact_formats_are_rejected(self):
+        for sha_length in (41, 63):
+            with self.subTest(sha_length=sha_length), self.assertRaisesRegex(cloud.StatusError, "exact 40- or 64"):
+                cloud.status("a" * sha_length, build_run_id="R1")
+
     def test_workflow_uses_pr_source_commit_object(self):
         run = self.run_fixture(is_pr=True, source=self.commit, destination="c" * 40)
         with patch.object(cloud, "token", return_value="safe"), \
@@ -94,6 +99,19 @@ class CloudStatusTests(unittest.TestCase):
         self.assertEqual(result["versionStatus"], "matched")
         self.assertEqual([(b["buildNumber"], b["marketingVersion"], b["platform"]) for b in result["builds"]],
                          [("42", "1.2.3", "IOS"), ("43", "1.2.3", "MAC_OS")])
+
+    def test_mixed_marketing_versions_do_not_report_run_version_as_matched(self):
+        builds = [
+            {"id": "B1", "attributes": {"version": "42"}},
+            {"id": "B2", "attributes": {"version": "43"}},
+        ]
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=builds), \
+             patch.object(cloud, "get_json", side_effect=[self.prerelease("1.2.3", "IOS"),
+                                                            self.prerelease("1.2.2", "MAC_OS")]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "mismatch")
 
     def test_build_run_rejects_commit_mismatch_and_missing_documented_shape(self):
         with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=self.run_fixture(destination="d" * 40)):

@@ -169,7 +169,7 @@ def build_release_metadata(build: dict, bearer: str) -> dict:
 
 def status(commit: str, version: str | None = None, tag: str | None = None,
            build_run_id: str | None = None, workflow_id: str | None = None) -> dict:
-    if not re.fullmatch(r"[0-9a-fA-F]{40,64}", commit):
+    if not re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", commit):
         raise StatusError("Commit must be an exact 40- or 64-character hexadecimal SHA.")
     bearer = token()
     run_data = None
@@ -199,7 +199,7 @@ def status(commit: str, version: str | None = None, tag: str | None = None,
     all_versions_known = bool(build_statuses) and len(release_versions) == len(build_statuses)
     if version is None:
         version_status = "unknown"
-    elif all_versions_known and version in release_versions:
+    elif all_versions_known and all(release_version == version for release_version in release_versions):
         version_status = "matched"
     elif all_versions_known:
         version_status = "mismatch"
