@@ -26,6 +26,8 @@ STORE_PATTERN = re.compile(
     r"ModelContainer(?:\.init)?\(|ModelContainer *= *(?:try +)?\.init|ModelConfiguration|\.modelContainer\("
 )
 BUTTON_TARGETS = {"Cauldron", "CauldronImports", "CauldronShare", "CauldronWidgets", "ShareSheet"}
+COPY_ROOTS = ("apple/Cauldron/", "apple/CauldronImports/", "apple/CauldronShare/",
+              "apple/CauldronWidgets/", "apple/ShareSheet/", "apple/Shared/")
 
 
 def child_environment() -> dict[str, str]:
@@ -62,7 +64,12 @@ def lint_native(policy: str) -> None:
     if errors:
         raise WorkflowError("\n".join(errors))
     if policy in {"all", "copy"}:
-        copy_lint([(str(path.relative_to(root)), path.read_bytes()) for path in (root / "apple/Cauldron").rglob("*.swift")])
+        sources = []
+        for directory in COPY_ROOTS:
+            folder = root / directory
+            if folder.exists():
+                sources.extend((str(path.relative_to(root)), path.read_bytes()) for path in folder.rglob("*.swift"))
+        copy_lint(sources)
 
 
 def copy_lint(sources: list[tuple[str, bytes]], helper_bytes: bytes | None = None) -> None:
@@ -126,7 +133,7 @@ def pre_commit() -> None:
                     ast.parse(text, filename=path)
                 elif path.startswith("apple/"):
                     errors.extend(native_policy(path, text))
-                    if path.startswith("apple/Cauldron/") and path.endswith(".swift"):
+                    if path.endswith(".swift") and path.startswith(COPY_ROOTS):
                         staged_sources.append((path, content))
                     destination = temporary / path
                     destination.parent.mkdir(parents=True, exist_ok=True)

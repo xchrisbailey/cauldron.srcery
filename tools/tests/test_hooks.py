@@ -97,8 +97,12 @@ Text("preview")
         path.write_text('Text("visible")\n')
         (self.root / "tools").mkdir()
         (self.root / "tools/copy_lint.swift").write_bytes((TOOLS / "copy_lint.swift").read_bytes())
+        share = self.root / "apple/ShareSheet/Visible.swift"
+        share.parent.mkdir(parents=True)
+        share.write_text('Text("share visible")\n')
         self.git("add", "apple", "tools/copy_lint.swift")
         path.write_text('// copylint:ignore -- not user facing\nText("visible")\n')
+        share.write_text("Text(Copy.share.title)\n")
         binary = self.root / ".git/fake-bin"
         binary.mkdir()
         swift = binary / "swift"
@@ -108,6 +112,7 @@ Text("preview")
         result = self.command("pre-commit", environment=environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Visible.swift", result.stderr)
+        self.assertIn("ShareSheet", result.stderr)
 
     def test_install_preserves_custom_hooks(self):
         self.git("config", "core.hooksPath", "custom-hooks")
