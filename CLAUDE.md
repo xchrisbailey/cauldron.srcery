@@ -25,7 +25,7 @@ A personal recipe box, weekly meal planner and macro tracker, by srcery. It is a
 
 Run these from `apple/`:
 
-- `make ready`: lint, then every test. Run it before reporting work done.
+- `make ready`: lint, package tests, Mac app tests, iOS app/UI tests and tooling tests. Mac UI automation is opt-in; see `docs/native/ui-evidence.md`. Run readiness before reporting work done.
 - `make format` rewrites sources; `make lint` fails on anything it would change and on lint rules.
 - `make test-kit`: `swift test` for `CauldronKit`. This is the only one that runs on Linux.
 - `make test-mac`, `make test-ios`: the app's tests on macOS and on the iOS simulator (`IOS_SIMULATOR` overrides the destination).

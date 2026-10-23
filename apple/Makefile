@@ -8,7 +8,7 @@ CONFIGURATION ?= Debug
 
 .PHONY: ready format lint lint-store lint-buttons lint-copy test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
 
-## lint and every test, with exact-revision evidence and nonzero test counts
+## standard readiness; Mac UI automation is opt-in (docs/native/ui-evidence.md)
 ready:
 	python3 -B ../tools/checks.py ready
 

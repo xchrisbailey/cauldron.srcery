@@ -3,7 +3,7 @@
 Run a focused UI test through the shared runner, for example:
 
 ```sh
-make -C apple test-focused PLATFORM=ios TEST=CauldronUITests/WeekTargetsUITests/testTargetsRoundtrip()
+make -C apple test-focused PLATFORM=ios 'TEST=CauldronUITests/WeekTargetsUITests/testTargetsRoundtrip()'
 ```
 
 UI tests launch the app with the Debug-only `CAULDRON_UI_TEST_IN_MEMORY=1` contract. This is
@@ -34,8 +34,5 @@ Review exported PNGs at representative narrow and wide sizes in light and dark a
 VoiceOver, real-device sizing, and second-device/iCloud behavior remain manual checks; do not infer
 those from simulator screenshots.
 
-The user accepted the prior Mac UI coverage and waived a rerun at the latest head. The accepted Mac
-screenshots and their `.xcresult` provenance remain under
-`.git/cauldron/runs/357b295c814b44d9b71f171a691dd515/attachments/`, produced at commit `8b521bb`.
-They are historical accepted evidence, not a latest-head Mac UI pass. The latest-head Mac UI rerun
-is waived, while Mac app tests remain required by standard readiness.
+Keep accepted historical screenshots and any waived checks in the originating issue and runner
+handoff, with the actual producing revision. An accepted waiver is not a current-head test pass.
