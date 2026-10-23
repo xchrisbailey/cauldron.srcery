@@ -84,8 +84,11 @@ struct CheckInView: View {
             Text(verbatim: t.perDay.text).brandText(.unit)
           }
           Text(
-            verbatim: t.basedOn(estimate.loggedDays, estimate.weighIns, check.weeks).text
-              + (thin.map { " \($0)" } ?? "")
+            verbatim: thin.map {
+              Copy.display.withSuffix(
+                t.basedOn(estimate.loggedDays, estimate.weighIns, check.weeks).text, suffix: $0
+              ).text
+            } ?? t.basedOn(estimate.loggedDays, estimate.weighIns, check.weeks).text
           )
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
@@ -125,12 +128,17 @@ struct CheckInView: View {
                 Text(verbatim: meter.name.text).brandText(.body)
               }
               .gridColumnAlignment(.leading)
-              Text(verbatim: "\(MacroMeter.whole(current(key, targets))) \(meter.unit.text)")
-                .brandText(.quantity)
-                .foregroundStyle(Brand.Colors.subtext)
               Text(
-                verbatim:
-                  "\(MacroMeter.whole(proposed(key, check))) \(meter.unit.text)"
+                verbatim: Copy.display.proposedTarget(
+                  MacroMeter.whole(current(key, targets)), unit: meter.unit.text
+                ).text
+              )
+              .brandText(.quantity)
+              .foregroundStyle(Brand.Colors.subtext)
+              Text(
+                verbatim: Copy.display.proposedTarget(
+                  MacroMeter.whole(proposed(key, check)), unit: meter.unit.text
+                ).text
               )
               .font(.brand(.quantity, size: 14))
               .fontWeight(.semibold)

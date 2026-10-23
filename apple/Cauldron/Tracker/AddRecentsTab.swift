@@ -90,7 +90,9 @@ struct AddRecentsTab: View {
           Spacer(minLength: 8)
           VStack(alignment: .trailing, spacing: 2) {
             Text(
-              verbatim: "\(MacroMeter.whole(totals.calories)) \(Copy.tracker.macros.calories.text)"
+              verbatim: Copy.display.calories(
+                MacroMeter.whole(totals.calories), unit: Copy.tracker.macros.calories.text
+              ).text
             )
             .brandText(.quantity)
             if let count, count > 1 {

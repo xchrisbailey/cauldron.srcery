@@ -127,7 +127,7 @@ private struct PageThumbnail: View {
       .frame(width: 64, height: 84)
       .clipShape(RoundedRectangle(cornerRadius: 6))
       .overlay(alignment: .bottomLeading) {
-        Text(verbatim: "\(number)")
+        Text(verbatim: Copy.display.number(number).text)
           .brandText(.quantity)
           .foregroundStyle(Brand.Colors.ink)
           .padding(.horizontal, 5)

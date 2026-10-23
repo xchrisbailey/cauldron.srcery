@@ -33,9 +33,11 @@
           .pickerStyle(.segmented)
           .labelsHidden()
 
+          // copylint:ignore -- brand specimen, not app product copy
           Text(verbatim: "cauldron").brandText(.title)
 
           VStack(alignment: .leading, spacing: 12) {
+            // copylint:ignore -- brand specimen, not app product copy
             Text(verbatim: "Palette").brandText(.section)
             LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
               ForEach(Brand.Colors.Token.allCases, id: \.self) { token in
@@ -45,15 +47,20 @@
           }
 
           VStack(alignment: .leading, spacing: 12) {
+            // copylint:ignore -- brand specimen, not app product copy
             Text(verbatim: "Type").brandText(.section)
+            // copylint:ignore -- brand specimen, not app product copy
             Text(verbatim: "Title, Geist 34 bold").brandText(.title)
+            // copylint:ignore -- brand specimen, not app product copy
             Text(verbatim: "Section, Geist 20 semibold").brandText(.section)
+            // copylint:ignore -- brand specimen, not app product copy
             Text(
               verbatim:
                 "Body, Geist 15 on a 1.6 line. Fold the egg whites into the batter in three "
                 + "additions, turning the bowl as you go."
             )
             .brandText(.body)
+            // copylint:ignore -- brand specimen, not app product copy
             Text(verbatim: "Control, Geist 14 medium").brandText(.control)
             HStack(spacing: 16) {
               QuantityText("1 1/2", unit: "cups")

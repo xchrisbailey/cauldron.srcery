@@ -25,6 +25,7 @@ final class CopyVisitor: SyntaxVisitor {
       let argument = node.arguments.first(where: {
         $0.label == nil || ($0.label?.text == "verbatim" && name == "Text")
       }),
+      !argument.expression.isRootedInCopy,
       argument.expression.as(StringLiteralExprSyntax.self) != nil
         || argument.expression.hasStringLiteral
     else { return .visitChildren }
@@ -43,6 +44,19 @@ final class CopyVisitor: SyntaxVisitor {
 }
 
 extension ExprSyntax {
+  var isRootedInCopy: Bool {
+    if let reference = self.as(DeclReferenceExprSyntax.self) {
+      return reference.baseName.text == "Copy"
+    }
+    if let member = self.as(MemberAccessExprSyntax.self) {
+      return member.base?.as(ExprSyntax.self)?.isRootedInCopy == true
+    }
+    if let call = self.as(FunctionCallExprSyntax.self) {
+      return call.calledExpression.as(ExprSyntax.self)?.isRootedInCopy == true
+    }
+    return false
+  }
+
   var hasStringLiteral: Bool {
     Syntax(self).hasStringLiteral
   }

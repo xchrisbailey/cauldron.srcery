@@ -146,16 +146,18 @@ struct ReadingView: View {
         QuantityText(unit)
       }
       if let alt = reading.alt {
-        Text(verbatim: "(\(alt.amount) \(alt.unit))").brandText(.quantity)
+        Text(verbatim: Copy.display.alternative(alt.amount, unit: alt.unit).text).brandText(
+          .quantity)
       }
       if !reading.item.isEmpty || showsEmpty {
-        Text(verbatim: reading.item.isEmpty ? "—" : reading.item).brandText(.control)
+        Text(verbatim: reading.item.isEmpty ? Copy.display.unavailable.text : reading.item)
+          .brandText(.control)
       }
       if let note = reading.note {
         Text(verbatim: note).brandText(.control).foregroundStyle(Brand.Colors.subtext)
       }
       if reading.optional {
-        Text(verbatim: "(\(Copy.recipeView.optional.text))")
+        Text(verbatim: Copy.display.parenthesized(Copy.recipeView.optional.text).text)
           .brandText(.control).foregroundStyle(Brand.Colors.subtext)
       }
     }

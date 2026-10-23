@@ -145,6 +145,29 @@ struct CopyTests {
 /// Plurals and optional arguments, spelled out as literals rather than derived.
 @Suite("Copy with arguments")
 struct CopyArgumentTests {
+  @Test func displayFormattersPreserveVisibleSpacingAndPunctuation() {
+    #expect(Copy.display.calories("250", unit: "kcal").text == "250 kcal")
+    #expect(Copy.display.compactUnit("12", unit: "g").text == "12g")
+    #expect(Copy.display.target("2,000").text == "/ 2,000")
+    #expect(Copy.display.alternative("2", unit: "oz").text == "(2 oz)")
+    #expect(Copy.display.parenthesized("optional").text == "(optional)")
+    #expect(
+      Copy.display.macroTotal(
+        calories: "250", caloriesUnit: "kcal", protein: "12", proteinUnit: "protein",
+        carbs: "30", carbsUnit: "carbs", fat: "8", fatUnit: "fat", grams: "g"
+      ).text == "250 kcal · 12g protein · 30g carbs · 8g fat"
+    )
+    #expect(
+      Copy.display.withSuffix("Based on 5 days.", suffix: "Not enough yet.").text
+        == "Based on 5 days. Not enough yet.")
+    #expect(
+      Copy.display.accessibleStepAndTimer("1 of 3", text: "Stir the sauce", timer: nil).text
+        == "1 of 3. Stir the sauce")
+    #expect(
+      Copy.display.accessibleStepAndTimer("1 of 3", text: "Stir the sauce", timer: "2:00").text
+        == "1 of 3. Stir the sauce 2:00")
+  }
+
   @Test func pluralsFollowTheCount() {
     #expect(Copy.library.count(1).text == "1 recipe")
     #expect(Copy.library.count(0).text == "0 recipes")
