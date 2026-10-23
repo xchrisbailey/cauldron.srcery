@@ -99,14 +99,19 @@ class HookTests(unittest.TestCase):
             'Text(image(named: "asset-name"))',
             'Text(condition ? "yes" : "no")',
             'Text("visible \\(Copy.title)")',
+            'Text(verbatim: title { "Uncatalogued visible title" })',
+            'Text(verbatim: value.map { "Raw \\($0)" } ?? Copy.title)',
+            'Text(verbatim: title { Copy.title })',
+            'Text(verbatim: title { Image(systemName: "star") })',
         ]) + "\n")
         from hooks import copy_lint
         with self.assertRaises(Exception) as failure:
             copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
         diagnostics = str(failure.exception)
-        for line in (5, 6, 7, 10, 11, 13, 14, 15, 16, 17, 24, 25, 26):
+        for line in (5, 6, 7, 10, 11, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28):
             self.assertIn(f":{line}:", diagnostics)
-        self.assertNotIn(":9:", diagnostics)
+        for line in (9, 18, 19, 20, 21, 22, 23, 29, 30):
+            self.assertNotIn(f":{line}:", diagnostics)
         self.assertIn("requires `// copylint:ignore -- reason`", diagnostics)
 
     def test_copy_lint_suppression_is_comment_trivia_and_belongs_to_one_call(self):

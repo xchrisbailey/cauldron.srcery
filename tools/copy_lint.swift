@@ -108,22 +108,31 @@ extension ExprSyntax {
 
 extension Syntax {
   var hasStringLiteral: Bool {
+    containsStringLiteral(skipping: [])
+  }
+
+  private func containsStringLiteral(skipping excluded: Set<SyntaxIdentifier>) -> Bool {
+    if excluded.contains(id) { return false }
     if self.is(StringLiteralExprSyntax.self) { return true }
     if self.as(ExprSyntax.self)?.isRootedInCopy == true { return false }
+
+    var nestedExclusions = excluded
     if let call = self.as(FunctionCallExprSyntax.self) {
-      if call.calledExpression.hasStringLiteral { return true }
-      return call.arguments.contains { argument in
-        if call.calledExpression.copyLintImageType,
-          argument.expression.as(StringLiteralExprSyntax.self) != nil,
-          argument.label == nil
-            || ["systemName", "decorative"].contains(argument.label?.text ?? "")
-        {
-          return false
+      if call.calledExpression.copyLintImageType {
+        for argument in call.arguments {
+          if argument.expression.as(StringLiteralExprSyntax.self) != nil,
+            argument.label == nil
+              || ["systemName", "decorative"].contains(argument.label?.text ?? "")
+          {
+            nestedExclusions.insert(argument.expression.id)
+          }
         }
-        return argument.expression.hasStringLiteral
       }
     }
-    for child in children(viewMode: .sourceAccurate) where child.hasStringLiteral { return true }
+    for child in children(viewMode: .sourceAccurate)
+    where child.containsStringLiteral(skipping: nestedExclusions) {
+      return true
+    }
     return false
   }
 }
