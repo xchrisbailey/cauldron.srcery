@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import fcntl
 import json
 import os
@@ -184,21 +183,6 @@ def xcode_run(root: Path, platform: str, selectors: list[str], log: Path, artifa
         command.extend(["-only-testing:" + selector])
     command.extend(["-resultBundlePath", str(bundle), "test"])
     code, output = run_command(command, cwd=root / "apple", log=log)
-    rendered = re.findall(
-        r"UI evidence PNG BASE64:(week-(?:no-targets|targets)-(?:390|1100)-(?:light|dark)):([A-Za-z0-9+/=]+)",
-        output,
-    )
-    if rendered:
-        destination = artifact_dir / "ui-rendered"
-        destination.mkdir(parents=True, exist_ok=True)
-        for name, encoded in rendered:
-            try:
-                image = base64.b64decode(encoded, validate=True)
-            except ValueError as error:
-                raise CheckFailure("runner-failed", f"invalid rendered screenshot data: {name}") from error
-            if not image.startswith(b"\x89PNG\r\n\x1a\n"):
-                raise CheckFailure("runner-failed", f"rendered screenshot is not a PNG: {name}")
-            (destination / f"{name}.png").write_bytes(image)
     counts = None
     if bundle.exists():
         try:
@@ -405,9 +389,7 @@ def main(argv: list[str] | None = None) -> int:
         if fd is not None:
             os.close(fd)
         signal.signal(signal.SIGTERM, previous_sigterm)
-    details["artifacts"] = [
-        str(item) for item in sorted(artifacts.glob("*.xcresult"))
-    ] + [str(item) for item in sorted(artifacts.glob("ui-rendered/*.png"))]
+    details["artifacts"] = [str(item) for item in sorted(artifacts.glob("*.xcresult"))]
     final = support.finish_run(path, record, status, **details)
     summary = f"checks: {final['status']} ({final['scope']}/{final['platform']})"
     if final.get("testCount") is not None:

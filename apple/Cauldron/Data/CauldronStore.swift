@@ -113,6 +113,7 @@ enum CauldronStore {
       arguments: [String], environment: [String: String]
     ) -> Bool {
       arguments.contains(initializeSchemaArgument)
+        && environment[uiTestInMemoryEnvironmentKey] != "1"
         && environment["XCTestConfigurationFilePath"] == nil
     }
 

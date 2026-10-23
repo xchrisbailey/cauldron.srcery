@@ -15,6 +15,7 @@ struct CauldronApp: App {
   @State private var sync = SyncStatusModel(
     account: LiveICloudAccount(mode: CauldronStore.launchMode))
   @State private var ai = RecipeAIService.forLaunch(mode: CauldronStore.launchMode)
+  @State private var health = HealthSync.forLaunch(mode: CauldronStore.launchMode)
   /// What the share extension left for the app; never picked up under test.
   @State private var sharedImports = SharedImportQueue(
     enabled: CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local)
@@ -54,7 +55,9 @@ struct CauldronApp: App {
     }
     // Takes the notification delegate now, so a timer that ends with the app open shows its
     // banner even when no recipe has been brewed since launch.
-    _ = LiveBrewAlerts.shared
+    if CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local {
+      _ = LiveBrewAlerts.shared
+    }
     #if DEBUG
       // Demo data, only when launched with `-seed`, and only into an empty store.
       do {
@@ -77,6 +80,7 @@ struct CauldronApp: App {
         #endif
         .environment(sync)
         .environment(ai)
+        .environment(health)
         .sharedImports(sharedImports, ai: ai)
         .task {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
@@ -119,7 +123,7 @@ struct CauldronApp: App {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
             return
           }
-          await HealthSync.shared.appDidBecomeActive(in: container.mainContext)
+          await health.appDidBecomeActive(in: container.mainContext)
         }
         // The macros widget follows the diary: its numbers are left for it when the app starts,
         // comes forward or goes away, and when midnight passes.

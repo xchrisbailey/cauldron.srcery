@@ -6,6 +6,7 @@ import SwiftUI
 /// is the diary, with the targets a tap away to change.
 struct TrackerRoot: View {
   @Environment(\.modelContext) private var context
+  @Environment(HealthSync.self) private var health
   @Query private var targets: [TargetsRecord]
   @State private var changingTargets = false
   @Environment(\.scenePhase) private var scenePhase
@@ -27,9 +28,9 @@ struct TrackerRoot: View {
           }
       }
     }
-    .task { await checkHealth() }
+    .task { await Self.checkHealth(health: health, in: context) }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { Task { await checkHealth() } }
+      if phase == .active { Task { await Self.checkHealth(health: health, in: context) } }
     }
     .sheet(isPresented: $changingTargets) {
       NavigationStack {
@@ -47,8 +48,8 @@ struct TrackerRoot: View {
   }
 
   /// Weights from Health come in when the tracker opens and whenever the app comes forward.
-  private func checkHealth() async {
-    await HealthSync.shared.appDidBecomeActive(in: context)
+  static func checkHealth(health: HealthSync, in context: ModelContext) async {
+    await health.appDidBecomeActive(in: context)
   }
 
   @ViewBuilder
@@ -68,5 +69,6 @@ struct TrackerRoot: View {
   if let container = try? CauldronStore.container(.inMemory) {
     TrackerRoot()
       .modelContainer(container)
+      .environment(HealthSync.forLaunch(mode: .inMemory))
   }
 }

@@ -229,7 +229,8 @@ struct WeightViewsTests {
     let context = ModelContext(container)
     try DebugSeed.populate(context, today: today)
     for scheme in [ColorScheme.light, .dark] {
-      let view = WeightView(today: today).modelContainer(container)
+      let view = WeightView(today: today)
+        .environment(HealthSync.forLaunch(mode: .inMemory)).modelContainer(container)
         .environment(\.colorScheme, scheme)
       #expect(draws(view), "\(scheme)")
     }
@@ -237,7 +238,8 @@ struct WeightViewsTests {
 
   @Test func theWeightScreenDrawsEmpty() throws {
     let container = try CauldronStore.container(.inMemory)
-    let view = WeightView(today: today).modelContainer(container)
+    let view = WeightView(today: today)
+      .environment(HealthSync.forLaunch(mode: .inMemory)).modelContainer(container)
     #expect(draws(view))
   }
 
@@ -255,15 +257,12 @@ struct WeightViewsTests {
   }
 
   @Test func theHealthSectionDraws() throws {
-    // Since #162 the build carries HealthKit, so on iPhone the section offers to connect and on
-    // the Mac it says Health isn't here. Either way it must draw.
+    // Test renders use the no-access service even on a device with HealthKit enabled.
     let container = try CauldronStore.container(.inMemory)
-    let view = Form { HealthKitSection() }.modelContainer(container)
+    let view = Form { HealthKitSection() }
+      .environment(HealthSync.forLaunch(mode: .inMemory))
+      .modelContainer(container)
     #expect(draws(view))
-    #if os(iOS)
-      #expect(HealthSync.shared.status != .notSetUp)
-    #else
-      #expect(HealthSync.shared.status == .unavailable)
-    #endif
+    #expect(HealthSync.forLaunch(mode: .inMemory).status == .notSetUp)
   }
 }

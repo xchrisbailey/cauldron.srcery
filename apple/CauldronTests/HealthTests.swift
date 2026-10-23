@@ -13,7 +13,9 @@ actor FakeHealthStore: HealthStore {
   private(set) var samples: [String: (sample: NutritionSample, version: Int)] = [:]
   private(set) var authorizationRequests = 0
   private(set) var readRequests = 0
+  private(set) var nutritionReadRequests = 0
   private(set) var saveRequests = 0
+  private(set) var deleteRequests = 0
   var weights: [HealthWeightSample] = []
   var authorizationFails = false
   var writesFail = false
@@ -54,7 +56,8 @@ actor FakeHealthStore: HealthStore {
   }
 
   func nutritionSamples(since date: Date) async throws -> [HeldNutrition] {
-    samples.values.filter { $0.sample.date >= date }.map {
+    nutritionReadRequests += 1
+    return samples.values.filter { $0.sample.date >= date }.map {
       HeldNutrition(
         syncID: $0.sample.syncID, value: $0.sample.value, date: $0.sample.date,
         name: $0.sample.name, version: $0.version)
@@ -78,6 +81,7 @@ actor FakeHealthStore: HealthStore {
   }
 
   func deleteNutrition(syncIDs: [String]) async throws {
+    deleteRequests += 1
     if writesFail
       || syncIDs.contains(where: { HealthNutrition.nutrient(of: $0).map(denied.contains) ?? false })
     {
@@ -520,6 +524,30 @@ struct HealthSyncTests {
     let sync = await sync(store, configured: false)
     #expect(sync.status == .notSetUp)
     #expect(await store.authorizationRequests == 0)
+  }
+
+  @Test func trackerActivationInMemoryCannotReadOrDeleteHealthForAnEmptyDiary() async throws {
+    let suite = "health-ui-isolation-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defaults.removePersistentDomain(forName: suite)
+    defaults.set(true, forKey: HealthSync.enabledKey)
+    let store = FakeHealthStore()
+    let held = NutritionSample(
+      syncID: "com.srcery.cauldron.nutrition.old-entry.energy", nutrient: .energy,
+      value: 350, date: noon(today), name: "Existing Health meal")
+    await store.plant(held, version: 1)
+    let health = HealthSync.disabled(store: store, defaults: defaults)
+    let context = ModelContext(try CauldronStore.container(.inMemory))
+
+    await TrackerRoot.checkHealth(health: health, in: context)
+
+    #expect(health.status == .notSetUp)
+    #expect(await store.readRequests == 0)
+    #expect(await store.nutritionReadRequests == 0)
+    #expect(await store.saveRequests == 0)
+    #expect(await store.deleteRequests == 0)
+    #expect(await store.held[held.syncID] != nil)
+    #expect(defaults.bool(forKey: HealthSync.enabledKey))
   }
 
   @Test func aDeviceWithoutHealthIsNeverAsked() async {

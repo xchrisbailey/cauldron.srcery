@@ -13,6 +13,7 @@ struct WeightView: View {
   @Query private var meals: [DiaryEntryRecord]
   @Query private var profiles: [BodyProfileRecord]
   @Environment(\.modelContext) private var context
+  @Environment(HealthSync.self) private var health
   @State private var range = WeightRange.threeMonths
   @State private var editing: WeighInRecord?
   @State private var adding = false
@@ -79,7 +80,7 @@ struct WeightView: View {
         Button(t.add.text) { adding = true }
       }
     }
-    .refreshable { await HealthSync.shared.appDidBecomeActive(in: context) }
+    .refreshable { await health.appDidBecomeActive(in: context) }
     .sheet(isPresented: $adding) {
       WeightEntrySheet(
         day: today, today: today, unit: unit, existing: nil, pickDay: true,

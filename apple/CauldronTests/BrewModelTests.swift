@@ -36,6 +36,22 @@ struct BrewModelTests {
       screen: screen, now: clock.now)
   }
 
+  @Test func inMemoryLaunchUsesEphemeralTimerAndNoNotificationServices() async {
+    let recipe = recipe()
+    let plan = BrewPlan(recipe, scale: .servings(4), units: .asWritten)
+    let model = BrewLive.model(for: plan, mode: .inMemory)
+    await model.begin()
+    #expect(model.timers.notificationsRefused)
+    model.next()
+    await model.toggleTimer()
+    #expect(model.timers.timer(for: 1) != nil)
+
+    let nextLaunch = BrewLive.model(for: plan, mode: .inMemory)
+    await nextLaunch.begin()
+    #expect(nextLaunch.timers.timer(for: 1) == nil)
+    #expect(nextLaunch.timers.notificationsRefused)
+  }
+
   // MARK: Moving
 
   @Test func theCookMovesOneStepAtATimeAndStopsAtTheEnds() {

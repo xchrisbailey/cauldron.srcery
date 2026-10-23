@@ -1,10 +1,8 @@
 import CauldronKit
 import Foundation
-import ImageIO
 import SwiftData
 import SwiftUI
 import Testing
-import UniformTypeIdentifiers
 
 @testable import Cauldron
 
@@ -22,21 +20,6 @@ import UniformTypeIdentifiers
       ImageRenderer(content: view.frame(width: width, height: height)).cgImage != nil
     }
 
-    private func exportEvidence(
-      _ view: some View, width: CGFloat, height: CGFloat, name: String
-    ) throws {
-      let renderer = ImageRenderer(content: view.frame(width: width, height: height))
-      renderer.scale = 2
-      let data = NSMutableData()
-      guard let image = renderer.cgImage,
-        let destination = CGImageDestinationCreateWithData(
-          data as CFMutableData, UTType.png.identifier as CFString, 1, nil)
-      else { throw CocoaError(.fileWriteUnknown) }
-      CGImageDestinationAddImage(destination, image, nil)
-      guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
-      print("UI evidence PNG BASE64:\(name):\(data.base64EncodedString())")
-    }
-
     @Test func theWeekRendersEmptyAndSeededInBothAppearancesAtEverySize() throws {
       let empty = try CauldronStore.container(.inMemory)
       let full = try seeded()
@@ -50,7 +33,7 @@ import UniformTypeIdentifiers
       }
     }
 
-    @Test func weeklyTargetSummaryAndSetupRenderAtBothWidthsAndAppearances() throws {
+    @Test func weekPlannerAndTargetSetupRenderAtBothWidthsAndAppearances() throws {
       let start = LocalDate("2026-10-05")!
       for hasTargets in [false, true] {
         let container = try CauldronStore.container(.inMemory)
@@ -63,23 +46,12 @@ import UniformTypeIdentifiers
           start: start, today: start, startsOn: .monday, isCurrent: true, onPrevious: {},
           onNext: {}, onThisWeek: {}, onStartsOn: { _ in })
         for scheme in [ColorScheme.light, .dark] {
-          for (width, height) in [(1100.0, 800.0), (390.0, 800.0)] {
+          for width in [1_100.0, 390.0] {
+            let height = 1_200.0
             let plannerView = planner.modelContainer(container).environment(\.colorScheme, scheme)
             #expect(
               renders(plannerView, width: width, height: height),
               "targets \(hasTargets), \(scheme), \(width)")
-            let snapshot = WeekSnapshot(
-              start: start, records: [],
-              targets: hasTargets
-                ? TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70) : nil)
-            let summary = WeekTallyView(
-              snapshot: snapshot, day: start, onClearDay: {}, onOpenTargets: {}
-            ).environment(\.colorScheme, scheme)
-            try exportEvidence(
-              summary, width: width, height: 500,
-              name:
-                "week-\(hasTargets ? "targets" : "no-targets")-\(Int(width))-\(scheme == .dark ? "dark" : "light")"
-            )
           }
           #expect(
             renders(

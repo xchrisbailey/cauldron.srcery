@@ -130,6 +130,7 @@ struct AppDestinationLabel: View {
     } icon: {
       Image(systemName: destination.systemImage)
     }
+    .accessibilityIdentifier(destination.systemImage)
   }
 }
 

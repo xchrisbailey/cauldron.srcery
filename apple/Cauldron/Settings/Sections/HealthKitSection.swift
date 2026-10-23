@@ -8,7 +8,7 @@ import SwiftUI
 /// is `HealthSync`.
 struct HealthKitSection: View {
   @Environment(\.modelContext) private var context
-  private let health = HealthSync.shared
+  @Environment(HealthSync.self) private var health
   @State private var checking = false
 
   private let copy = Copy.settings.health
@@ -116,4 +116,5 @@ struct HealthKitSection: View {
 
 #Preview {
   Form { HealthKitSection() }
+    .environment(HealthSync.forLaunch(mode: .inMemory))
 }

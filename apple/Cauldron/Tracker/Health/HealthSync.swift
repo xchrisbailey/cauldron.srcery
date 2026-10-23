@@ -25,7 +25,30 @@ final class HealthSync {
     case on
   }
 
-  static let shared = HealthSync(store: HealthSync.liveStore, setup: .thisBuild)
+  static let shared: HealthSync = {
+    switch CauldronStore.launchMode {
+    case .synced, .local:
+      HealthSync(store: liveStore, setup: .thisBuild)
+    case .inMemory, .unavailable:
+      disabled()
+    }
+  }()
+
+  static func forLaunch(mode: CauldronStore.Mode) -> HealthSync {
+    switch mode {
+    case .synced, .local: shared
+    case .inMemory, .unavailable: disabled()
+    }
+  }
+
+  /// A test/preview service that can be instrumented without ever consulting Health or defaults.
+  static func disabled(
+    store: any HealthStore = UnavailableHealthStore(), defaults: UserDefaults = .standard
+  ) -> HealthSync {
+    HealthSync(
+      store: store, setup: HealthSetup(isConfigured: false), defaults: defaults,
+      accessAllowed: false)
+  }
 
   static let enabledKey = "health.enabled"
 
@@ -37,6 +60,7 @@ final class HealthSync {
   @ObservationIgnored private let defaults: UserDefaults
   @ObservationIgnored private let calendar: Calendar
   @ObservationIgnored private let now: @MainActor () -> Date
+  @ObservationIgnored private let accessAllowed: Bool
   @ObservationIgnored private var tail: Task<Void, Never>?
   @ObservationIgnored private var reconcileQueued = false
   @ObservationIgnored private var importing: Task<Int, Never>?
@@ -53,14 +77,16 @@ final class HealthSync {
 
   init(
     store: any HealthStore, setup: HealthSetup, defaults: UserDefaults = .standard,
-    calendar: Calendar = .current, now: @escaping @MainActor () -> Date = { .now }
+    calendar: Calendar = .current, now: @escaping @MainActor () -> Date = { .now },
+    accessAllowed: Bool = true
   ) {
     self.store = store
     self.setup = setup
     self.defaults = defaults
     self.calendar = calendar
     self.now = now
-    enabled = defaults.bool(forKey: Self.enabledKey)
+    self.accessAllowed = accessAllowed
+    enabled = accessAllowed && defaults.bool(forKey: Self.enabledKey)
   }
 
   private static var liveStore: any HealthStore {
@@ -72,6 +98,7 @@ final class HealthSync {
   }
 
   var status: Status {
+    guard accessAllowed else { return .notSetUp }
     guard setup.isConfigured else { return .notSetUp }
     guard store.availability == .supported else { return .unavailable }
     return enabled ? .on : .off
@@ -93,6 +120,7 @@ final class HealthSync {
 
   /// Stops reading and writing. What is already in Health stays there.
   func disconnect() {
+    guard accessAllowed else { return }
     enabled = false
     defaults.set(false, forKey: Self.enabledKey)
     failure = nil

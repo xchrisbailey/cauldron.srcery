@@ -807,65 +807,125 @@ struct WeekPlanTests {
   @Test func snapshotComparisonMatrixCoversEveryMetricAndPeriodBoundary() throws {
     struct MetricCase {
       let key: MacroKey
-      let name: String
-      let unit: String
       let dailyGoal: Double
-      let dailyGoalText: String
-      let weeklyGoalText: String
-      let dailyPlanned: [String]
-      let weeklyPlanned: [String]
+      let dailyRows: [String]
+      let weeklyRows: [String]
     }
     let metrics = [
       MetricCase(
-        key: .calories, name: "Calories", unit: "kcal", dailyGoal: 2_000, dailyGoalText: "2,000",
-        weeklyGoalText: "14,000", dailyPlanned: ["1,999.5", "2,000", "2,000.5"],
-        weeklyPlanned: ["13,999.5", "14,000", "14,000.5"]),
+        key: .calories, dailyGoal: 2_000,
+        dailyRows: [
+          "Calories: 1,999.5 kcal planned, 2,000 kcal target, 0.5 kcal remaining",
+          "Calories: 2,000 kcal planned, 2,000 kcal target, <0.1 kcal remaining",
+          "Calories: 2,000 kcal planned, 2,000 kcal target, 0 kcal remaining",
+          "Calories: 2,000 kcal planned, 2,000 kcal target, 0 kcal remaining",
+          "Calories: 2,000 kcal planned, 2,000 kcal target, 0 kcal remaining",
+          "Calories: 2,000 kcal planned, 2,000 kcal target, <0.1 kcal over target",
+          "Calories: 2,000.5 kcal planned, 2,000 kcal target, 0.5 kcal over target",
+        ],
+        weeklyRows: [
+          "Calories: 13,999.5 kcal planned, 14,000 kcal target, 0.5 kcal remaining",
+          "Calories: 14,000 kcal planned, 14,000 kcal target, <0.1 kcal remaining",
+          "Calories: 14,000 kcal planned, 14,000 kcal target, 0 kcal remaining",
+          "Calories: 14,000 kcal planned, 14,000 kcal target, 0 kcal remaining",
+          "Calories: 14,000 kcal planned, 14,000 kcal target, 0 kcal remaining",
+          "Calories: 14,000 kcal planned, 14,000 kcal target, <0.1 kcal over target",
+          "Calories: 14,000.5 kcal planned, 14,000 kcal target, 0.5 kcal over target",
+        ]),
       MetricCase(
-        key: .protein, name: "Protein", unit: "g", dailyGoal: 100, dailyGoalText: "100",
-        weeklyGoalText: "700", dailyPlanned: ["99.5", "100", "100.5"],
-        weeklyPlanned: ["699.5", "700", "700.5"]),
+        key: .protein, dailyGoal: 100,
+        dailyRows: [
+          "Protein: 99.5 g planned, 100 g target, 0.5 g remaining",
+          "Protein: 100 g planned, 100 g target, <0.1 g remaining",
+          "Protein: 100 g planned, 100 g target, 0 g remaining",
+          "Protein: 100 g planned, 100 g target, 0 g remaining",
+          "Protein: 100 g planned, 100 g target, 0 g remaining",
+          "Protein: 100 g planned, 100 g target, <0.1 g over target",
+          "Protein: 100.5 g planned, 100 g target, 0.5 g over target",
+        ],
+        weeklyRows: [
+          "Protein: 699.5 g planned, 700 g target, 0.5 g remaining",
+          "Protein: 700 g planned, 700 g target, <0.1 g remaining",
+          "Protein: 700 g planned, 700 g target, 0 g remaining",
+          "Protein: 700 g planned, 700 g target, 0 g remaining",
+          "Protein: 700 g planned, 700 g target, 0 g remaining",
+          "Protein: 700 g planned, 700 g target, <0.1 g over target",
+          "Protein: 700.5 g planned, 700 g target, 0.5 g over target",
+        ]),
       MetricCase(
-        key: .carbs, name: "Carbs", unit: "g", dailyGoal: 200, dailyGoalText: "200",
-        weeklyGoalText: "1,400", dailyPlanned: ["199.5", "200", "200.5"],
-        weeklyPlanned: ["1,399.5", "1,400", "1,400.5"]),
+        key: .carbs, dailyGoal: 200,
+        dailyRows: [
+          "Carbs: 199.5 g planned, 200 g target, 0.5 g remaining",
+          "Carbs: 200 g planned, 200 g target, <0.1 g remaining",
+          "Carbs: 200 g planned, 200 g target, 0 g remaining",
+          "Carbs: 200 g planned, 200 g target, 0 g remaining",
+          "Carbs: 200 g planned, 200 g target, 0 g remaining",
+          "Carbs: 200 g planned, 200 g target, <0.1 g over target",
+          "Carbs: 200.5 g planned, 200 g target, 0.5 g over target",
+        ],
+        weeklyRows: [
+          "Carbs: 1,399.5 g planned, 1,400 g target, 0.5 g remaining",
+          "Carbs: 1,400 g planned, 1,400 g target, <0.1 g remaining",
+          "Carbs: 1,400 g planned, 1,400 g target, 0 g remaining",
+          "Carbs: 1,400 g planned, 1,400 g target, 0 g remaining",
+          "Carbs: 1,400 g planned, 1,400 g target, 0 g remaining",
+          "Carbs: 1,400 g planned, 1,400 g target, <0.1 g over target",
+          "Carbs: 1,400.5 g planned, 1,400 g target, 0.5 g over target",
+        ]),
       MetricCase(
-        key: .fat, name: "Fat", unit: "g", dailyGoal: 70, dailyGoalText: "70",
-        weeklyGoalText: "490", dailyPlanned: ["69.5", "70", "70.5"],
-        weeklyPlanned: ["489.5", "490", "490.5"]),
+        key: .fat, dailyGoal: 70,
+        dailyRows: [
+          "Fat: 69.5 g planned, 70 g target, 0.5 g remaining",
+          "Fat: 70 g planned, 70 g target, <0.1 g remaining",
+          "Fat: 70 g planned, 70 g target, 0 g remaining",
+          "Fat: 70 g planned, 70 g target, 0 g remaining",
+          "Fat: 70 g planned, 70 g target, 0 g remaining",
+          "Fat: 70 g planned, 70 g target, <0.1 g over target",
+          "Fat: 70.5 g planned, 70 g target, 0.5 g over target",
+        ],
+        weeklyRows: [
+          "Fat: 489.5 g planned, 490 g target, 0.5 g remaining",
+          "Fat: 490 g planned, 490 g target, <0.1 g remaining",
+          "Fat: 490 g planned, 490 g target, 0 g remaining",
+          "Fat: 490 g planned, 490 g target, 0 g remaining",
+          "Fat: 490 g planned, 490 g target, 0 g remaining",
+          "Fat: 490 g planned, 490 g target, <0.1 g over target",
+          "Fat: 490.5 g planned, 490 g target, 0.5 g over target",
+        ]),
     ]
 
     for metric in metrics {
       for days in [1, 7] {
-        let targetText = days == 1 ? metric.dailyGoalText : metric.weeklyGoalText
-        for delta in [-0.5, 0.0, 0.5] {
+        let goal = metric.dailyGoal * Double(days)
+        let expectedRows = days == 1 ? metric.dailyRows : metric.weeklyRows
+        for (scenario, delta) in [-0.5, -0.0000001, -goal.ulp, 0.0, goal.ulp, 0.0000001, 0.5]
+          .enumerated()
+        {
           let context = try context()
           let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
           context.insert(target)
           var values = Dictionary(
-            uniqueKeysWithValues: metrics.map { ($0.key, $0.dailyGoal * Double(days)) })
-          values[metric.key] = metric.dailyGoal * Double(days) + delta
-          let item = recipe(
-            "Matrix entry", servings: 1,
-            macros: Macros(
-              calories: values[.calories], protein: values[.protein],
-              carbs: values[.carbs], fat: values[.fat]), in: context)
-          try WeekPlan.stir(item, at: dinner(monday), servings: 1, into: context)
+            uniqueKeysWithValues: metrics.map { ($0.key, $0.dailyGoal * Double(days) - 0.08) })
+          values[metric.key] = goal + delta - 0.08
+          let components = [
+            values, Dictionary(uniqueKeysWithValues: metrics.map { ($0.key, 0.04) }),
+            Dictionary(uniqueKeysWithValues: metrics.map { ($0.key, 0.04) }),
+          ]
+          for (index, component) in components.enumerated() {
+            let item = recipe(
+              "Fractional meal \(index + 1)", servings: 1,
+              macros: Macros(
+                calories: component[.calories], protein: component[.protein],
+                carbs: component[.carbs], fat: component[.fat]), in: context)
+            try WeekPlan.stir(item, at: dinner(monday), servings: 1, into: context)
+          }
           let records = try WeekPlan.fetch(
             from: monday, through: monday.adding(days: 6), in: context)
           let snapshot = WeekSnapshot(start: monday, records: records, targets: target)
           let comparison = try #require(
             days == 1 ? snapshot.dailyComparison(for: monday) : snapshot.weeklyComparison)
           let row = WeekFigures.comparisonRow(comparison, key: metric.key, locale: en)
-
-          // The expected row is literal acceptance data, not formatted from production values.
-          let index = delta < 0 ? 0 : delta > 0 ? 2 : 1
-          let plannedText = days == 1 ? metric.dailyPlanned[index] : metric.weeklyPlanned[index]
-          let difference = delta == 0 ? "0" : "0.5"
-          let suffix = delta > 0 ? "over target" : "remaining"
-          #expect(
-            row
-              == "\(metric.name): \(plannedText) \(metric.unit) planned, \(targetText) \(metric.unit) target, \(difference) \(metric.unit) \(suffix)"
-          )
+          #expect(row == expectedRows[scenario])
         }
       }
     }

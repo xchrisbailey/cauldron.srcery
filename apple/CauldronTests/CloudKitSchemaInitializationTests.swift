@@ -37,6 +37,10 @@
       #expect(CauldronStore.requestsSchemaInitialization(arguments: [flag], environment: [:]))
       #expect(
         !CauldronStore.requestsSchemaInitialization(
+          arguments: [flag],
+          environment: [CauldronStore.uiTestInMemoryEnvironmentKey: "1"]))
+      #expect(
+        !CauldronStore.requestsSchemaInitialization(
           arguments: [flag], environment: ["XCTestConfigurationFilePath": "test"]))
       #expect(CauldronStore.launchMode(environment: [:], arguments: [flag]) == .inMemory)
     }

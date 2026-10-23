@@ -132,10 +132,27 @@ final class NoBrewActivities: BrewActivities {
   func end(id: String) async {}
 }
 
+@MainActor
+final class NoBrewAlerts: BrewAlerts {
+  func permission() async -> AlertPermission { .denied }
+  func requestPermission() async -> AlertPermission { .denied }
+  func schedule(_ alert: BrewAlert) async {}
+  func cancel(id: String) async {}
+}
+
 /// The Mac's display sleep is the cook's own setting; only the iPhone keeps itself awake.
 @MainActor
 final class NoScreenAwake: ScreenAwake {
   func keepAwake(_ on: Bool) {}
+}
+
+@MainActor
+final class InMemoryBrewTimerStore: BrewTimerStore {
+  private var boards: [UUID: BrewTimerBoard] = [:]
+
+  func load(recipeID: UUID) -> BrewTimerBoard? { boards[recipeID] }
+  func save(_ board: BrewTimerBoard) { boards[board.recipeID] = board }
+  func remove(recipeID: UUID) { boards[recipeID] = nil }
 }
 
 /// Running timers in `UserDefaults`: on this device only, so they never go through the synced
@@ -174,17 +191,23 @@ final class UserDefaultsBrewTimerStore: BrewTimerStore {
 /// The real services, for the app.
 @MainActor
 enum BrewLive {
-  static func model(for plan: BrewPlan) -> BrewModel {
+  static func model(for plan: BrewPlan, mode: CauldronStore.Mode = CauldronStore.launchMode)
+    -> BrewModel
+  {
+    let usesLiveServices = mode == .synced || mode == .local
     #if os(iOS)
-      let activities: any BrewActivities = LiveBrewActivities()
-      let screen: any ScreenAwake = LiveScreenAwake()
+      let activities: any BrewActivities =
+        usesLiveServices
+        ? LiveBrewActivities() : NoBrewActivities()
+      let screen: any ScreenAwake = usesLiveServices ? LiveScreenAwake() : NoScreenAwake()
     #else
       let activities: any BrewActivities = NoBrewActivities()
       let screen: any ScreenAwake = NoScreenAwake()
     #endif
     let timers = BrewTimers(
       recipeID: plan.recipe.id, recipeTitle: plan.recipe.title,
-      store: UserDefaultsBrewTimerStore(), alerts: LiveBrewAlerts.shared,
+      store: usesLiveServices ? UserDefaultsBrewTimerStore() : InMemoryBrewTimerStore(),
+      alerts: usesLiveServices ? LiveBrewAlerts.shared : NoBrewAlerts(),
       activities: activities)
     return BrewModel(plan: plan, timers: timers, screen: screen)
   }
