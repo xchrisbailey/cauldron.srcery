@@ -187,7 +187,7 @@
 			path = Cauldron;
 			sourceTree = "<group>";
 		};
-		"TEMP_F0C591C7-EF81-4A5B-986E-1BE8DC542A93" /* Shared */ = {
+		"TEMP_D27DC5DE-7D7E-4402-9586-C8E0D95A34BF" /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
 			};
@@ -324,7 +324,7 @@
 			fileSystemSynchronizedGroups = (
 				FD0D1AFAAA0B04AEEBBA2A21 /* Cauldron */,
 				57DBE4B24C1F91D533590753 /* ShareSheet */,
-				667BABEF98556BB64AE8CA91 /* Shared */,
+				772BB1DCA60483B50D6459FF /* Shared */,
 			);
 			name = Cauldron;
 			packageProductDependencies = (
@@ -374,7 +374,7 @@
 			fileSystemSynchronizedGroups = (
 				42B06C750BCE9B7F3059D1D9 /* CauldronShare */,
 				CECD1D2A1D6F0C2A397593F7 /* ShareSheet */,
-				772BB1DCA60483B50D6459FF /* Shared */,
+				667BABEF98556BB64AE8CA91 /* Shared */,
 			);
 			name = CauldronShare;
 			packageProductDependencies = (
@@ -398,7 +398,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				B955E7B52B381F82754A1563 /* CauldronWidgets */,
-				"TEMP_F0C591C7-EF81-4A5B-986E-1BE8DC542A93" /* Shared */,
+				"TEMP_D27DC5DE-7D7E-4402-9586-C8E0D95A34BF" /* Shared */,
 			);
 			name = CauldronWidgets;
 			packageProductDependencies = (
@@ -655,7 +655,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.3.6;
+				MARKETING_VERSION = 0.3.7;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -738,7 +738,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.3.6;
+				MARKETING_VERSION = 0.3.7;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
