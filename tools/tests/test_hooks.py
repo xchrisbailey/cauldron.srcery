@@ -77,13 +77,17 @@ Label(Copy.title, systemImage: "fork.knife")
 Button("\\(Copy.action)") { }
 Text("bad")
 Text(verbatim: "also bad")
+Text("composed " + Copy.detail)
+// copylint:ignore -- design token preview, not app copy
+Text("preview")
 ''')
         from hooks import copy_lint
         with self.assertRaises(Exception) as failure:
             copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
         self.assertIn(":6:", str(failure.exception))
         self.assertIn(":7:", str(failure.exception))
-        self.assertNotIn(":2:", str(failure.exception))
+        self.assertIn(":8:", str(failure.exception))
+        self.assertNotIn(":10:", str(failure.exception))
 
     def test_staged_copy_violation_cannot_be_hidden_by_worktree_fix_or_unstaged_ignore(self):
         app = self.root / "apple/Cauldron"

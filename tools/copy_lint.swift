@@ -44,10 +44,14 @@ final class CopyVisitor: SyntaxVisitor {
 
 extension ExprSyntax {
   var hasStringLiteral: Bool {
+    Syntax(self).hasStringLiteral
+  }
+}
+
+extension Syntax {
+  var hasStringLiteral: Bool {
     if self.is(StringLiteralExprSyntax.self) { return true }
-    for child in children(viewMode: .sourceAccurate) {
-      if child.as(ExprSyntax.self)?.hasStringLiteral == true { return true }
-    }
+    for child in children(viewMode: .sourceAccurate) where child.hasStringLiteral { return true }
     return false
   }
 }
