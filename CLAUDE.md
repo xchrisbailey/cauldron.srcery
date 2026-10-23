@@ -57,3 +57,17 @@ Follow the "Depends on" line at the top of each ticket. Phase 0 (#159 to #162) i
 Provider profiles in `.claude/agents/` and `.opencode/agents/` share the contracts in `docs/agents/roles/`. The main session is the lead: it owns architecture, schema, project settings/signing, and final review. Delegate bounded implementation and fact lookup through the named roles.
 
 When delegating, integrating, stacking, reviewing or merging, read `docs/agents/orchestration.md`. For check evidence, worker-result contracts and checked integration, read `docs/agents/workflow.md`. The lead owns one final complete validation; workers use focused checks unless explicitly assigned verification. Before release tags or CloudKit schema preparation, read `docs/native/data-model.md`.
+
+## Agent skills
+
+### Issue tracker
+
+Before reading, publishing or updating issues, read `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Before triaging or labelling issues, read `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. Before domain exploration or spec writing, read `docs/agents/domain.md`.
