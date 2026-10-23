@@ -146,6 +146,12 @@ class ChecksCLITests(unittest.TestCase):
                 self.assertEqual(result.returncode, 1)
                 self.assertIn(expected, result.stderr)
 
+    def test_ready_fails_when_required_macos_app_target_is_omitted(self) -> None:
+        mac_ui_only = '{"testNodes":[{"name":"Cauldron","nodeType":"Test Plan","children":[{"name":"CauldronUITests","nodeType":"UI test bundle","children":[{"name":"uiCase","nodeType":"Test Case","result":"Passed"}]}]}]}'
+        result = self.invoke("ready", MAC_TREE=mac_ui_only)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("expected one CauldronTests bundle, found 0", result.stderr)
+
     def test_build_and_zero_test_failures_are_not_passes(self) -> None:
         failed = self.invoke("focused", "--platform", "macos", "--test", "CauldronTests/Suite", XCODE_EXIT="1")
         self.assertEqual(failed.returncode, 1)
