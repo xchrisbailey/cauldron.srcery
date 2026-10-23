@@ -34,10 +34,13 @@ struct WeekTallyView: View {
           }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("week.weeklyComparison")
       } else {
         VStack(alignment: .leading, spacing: 6) {
           Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
-          Button(Copy.week.tally.setTargets.text, action: onOpenTargets).brandText(.control)
+          Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
+            .brandText(.control)
+            .accessibilityIdentifier("week.setTargets")
         }
       }
       if let day, let comparison = snapshot.dailyComparison(for: day) {
@@ -53,6 +56,7 @@ struct WeekTallyView: View {
           }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("week.dailyComparison")
       }
     }
     .padding(.horizontal, 16)

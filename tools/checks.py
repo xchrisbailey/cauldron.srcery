@@ -20,7 +20,7 @@ import workflow_support as support
 
 
 SELECTOR = re.compile(
-    r"CauldronTests/[A-Za-z_][A-Za-z0-9_.]*(?:/[A-Za-z_][A-Za-z0-9_.]*(?:\([A-Za-z0-9_:,.-]*\))?)?\Z"
+    r"Cauldron(?:UI)?Tests/[A-Za-z_][A-Za-z0-9_.]*(?:/[A-Za-z_][A-Za-z0-9_.]*(?:\([A-Za-z0-9_:,.-]*\))?)?\Z"
 )
 ASSERTION_MARKERS = ("XCTAssert", "Expectation failed", "#expect failed")
 

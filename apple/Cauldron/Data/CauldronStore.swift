@@ -36,6 +36,8 @@ enum CauldronStore {
   /// In debug builds, `-localStore` opens a store kept on this device only, in a file of its
   /// own, so demo data (`-seed`) never reaches iCloud.
   static let localStoreArgument = "-localStore"
+  /// UI tests opt into an isolated store explicitly because the launched app may not inherit XCTest's environment.
+  static let uiTestInMemoryEnvironmentKey = "CAULDRON_UI_TEST_IN_MEMORY"
 
   #if DEBUG && os(macOS)
     static let initializeSchemaArgument = "-initializeCloudKitSchema"
@@ -51,6 +53,7 @@ enum CauldronStore {
   static func launchMode(environment: [String: String], arguments: [String]) -> Mode {
     if environment["XCTestConfigurationFilePath"] != nil { return .inMemory }
     #if DEBUG
+      if environment[uiTestInMemoryEnvironmentKey] == "1" { return .inMemory }
       #if os(macOS)
         if arguments.contains(initializeSchemaArgument) { return .inMemory }
       #endif

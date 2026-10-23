@@ -85,6 +85,17 @@ class ChecksCLITests(unittest.TestCase):
         log = Path(self.records()[0]["log"]).read_text()
         self.assertIn("-only-testing:CauldronTests/ImportTests/testImports()", log)
 
+    def test_focused_accepts_ui_test_method_selectors(self) -> None:
+        result = self.invoke(
+            "focused", "--platform", "ios",
+            "--test", "CauldronUITests/WeekTargetsUITests/testTargetsRoundtrip()",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            "-only-testing:CauldronUITests/WeekTargetsUITests/testTargetsRoundtrip()",
+            Path(self.records()[-1]["log"]).read_text(),
+        )
+
     def test_build_and_zero_test_failures_are_not_passes(self) -> None:
         failed = self.invoke("focused", "--platform", "macos", "--test", "CauldronTests/Suite", XCODE_EXIT="1")
         self.assertEqual(failed.returncode, 1)

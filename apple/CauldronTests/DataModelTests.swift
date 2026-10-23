@@ -189,9 +189,23 @@ struct DataModelTests {
     #expect(CauldronStore.launchMode(environment: [:], arguments: ["Cauldron"]) == .synced)
     #expect(
       CauldronStore.launchMode(
+        environment: [CauldronStore.uiTestInMemoryEnvironmentKey: "1"], arguments: ["Cauldron"])
+        == .inMemory)
+    #expect(
+      CauldronStore.launchMode(
         environment: ["XCTestConfigurationFilePath": "/x"], arguments: ["Cauldron", "-localStore"])
         == .inMemory)
     #if DEBUG
+      #expect(
+        CauldronStore.launchMode(
+          environment: [CauldronStore.uiTestInMemoryEnvironmentKey: "1"],
+          arguments: ["Cauldron", "-localStore"]
+        ) == .inMemory)
+      #expect(
+        CauldronStore.launchMode(
+          environment: [CauldronStore.uiTestInMemoryEnvironmentKey: "true"], arguments: ["Cauldron"]
+        )
+          == .synced)
       #expect(
         CauldronStore.launchMode(environment: [:], arguments: ["Cauldron", "-localStore"])
           == .local)
