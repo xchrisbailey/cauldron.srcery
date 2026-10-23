@@ -128,9 +128,11 @@ struct MacWindowsTests {
       for scheme in [ColorScheme.light, .dark] {
         let diary = DiaryView(today: today, targets: targets, openTargets: {})
           .modelContainer(container)
-        let weight = NavigationStack { WeightView(today: today) }.modelContainer(container)
+        let weight = NavigationStack { WeightView(today: today) }
+          .environment(HealthSync.disabled()).modelContainer(container)
         let settings = SettingsView()
-          .environment(sync).environment(RecipeAIService.offline())
+          .environment(sync).environment(RecipeAIService.offline()).environment(
+            HealthSync.disabled())
         let gather = GatherRoot().modelContainer(container)
         let week = WeekRoot().modelContainer(container)
         let recipes = RecipesRoot().modelContainer(container)

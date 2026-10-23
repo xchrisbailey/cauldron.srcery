@@ -1,6 +1,24 @@
 import XCTest
 
 final class WeekTargetsUITests: XCTestCase {
+  #if os(macOS)
+    @MainActor
+    func testNativeSettingsCommandOpensWithoutTerminatingApp() {
+      let app = XCUIApplication()
+      app.launchEnvironment["CAULDRON_UI_TEST_IN_MEMORY"] = "1"
+      app.launch()
+
+      XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+      app.typeKey(",", modifierFlags: .command)
+
+      let settings = app.windows.matching(
+        NSPredicate(format: "title CONTAINS[c] %@", "Settings")
+      ).firstMatch
+      XCTAssertTrue(settings.waitForExistence(timeout: 10), app.debugDescription)
+      XCTAssertEqual(app.state, .runningForeground)
+    }
+  #endif
+
   @MainActor
   func testTargetsRoundtrip() throws {
     let app = XCUIApplication()

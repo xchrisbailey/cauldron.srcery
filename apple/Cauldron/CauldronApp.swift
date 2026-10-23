@@ -163,6 +163,7 @@ struct CauldronApp: App {
         SettingsView()
           .environment(sync)
           .environment(ai)
+          .environment(health)
           .frame(minWidth: 480, idealWidth: 540, minHeight: 420, idealHeight: 680)
           .cauldronAppearance()
       }

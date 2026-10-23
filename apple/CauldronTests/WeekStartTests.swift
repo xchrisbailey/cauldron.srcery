@@ -230,7 +230,7 @@ struct WeekStartTests {
     let sync = SyncStatusModel(account: FakeICloudAccount(.synced))
     for scheme in [ColorScheme.light, .dark] {
       let settings = SettingsView()
-        .environment(sync).environment(RecipeAIService.offline())
+        .environment(sync).environment(RecipeAIService.offline()).environment(HealthSync.disabled())
         .modelContainer(container).environment(\.colorScheme, scheme)
       #expect(ImageRenderer(content: settings.frame(width: 420, height: 900)).cgImage != nil)
       let section = Form { WeekStartSection() }

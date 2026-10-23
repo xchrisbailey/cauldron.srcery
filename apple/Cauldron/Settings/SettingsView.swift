@@ -71,4 +71,5 @@ struct SyncStatusRow: View {
   SettingsView()
     .environment(SyncStatusModel(account: LiveICloudAccount(mode: .inMemory)))
     .environment(RecipeAIService.offline())
+    .environment(HealthSync.disabled())
 }
