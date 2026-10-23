@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import plistlib
 import re
@@ -59,6 +61,43 @@ def lint_native(policy: str) -> None:
         errors.extend(native_policy(str(path.relative_to(root)), path.read_text(), policy))
     if errors:
         raise WorkflowError("\n".join(errors))
+    if policy in {"all", "copy"}:
+        copy_lint([(str(path.relative_to(root)), path.read_bytes()) for path in (root / "apple/Cauldron").rglob("*.swift")])
+
+
+def copy_lint(sources: list[tuple[str, bytes]], helper_bytes: bytes | None = None) -> None:
+    root = repository()
+    if helper_bytes is None:
+        helper_bytes = (TOOLS / "copy_lint.swift").read_bytes()
+    swiftc = subprocess.run(["xcrun", "--find", "swiftc"], text=True, capture_output=True)
+    if swiftc.returncode:
+        raise WorkflowError("Swift-aware copy lint requires Xcode's host Swift toolchain (xcrun --find swiftc failed).")
+    compiler = Path(swiftc.stdout.strip())
+    version = subprocess.check_output([str(compiler), "--version"], text=True).splitlines()[0]
+    digest = hashlib.sha256(version.encode() + b"\0" + helper_bytes).hexdigest()
+    cache = state_directory(root) / "copy-lint" / digest
+    executable = cache / "copy-lint"
+    if not executable.is_file():
+        cache.mkdir(parents=True, exist_ok=True)
+        source = cache / "copy_lint.swift"
+        source.write_bytes(helper_bytes)
+        host = compiler.parent.parent / "lib/swift/host"
+        sdk = subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip()
+        target = "arm64" if platform.machine() == "arm64" else "x86_64"
+        command = [str(compiler), "-sdk", sdk, "-target", f"{target}-apple-macosx15.0", "-I", str(host), "-L", str(host), "-lSwiftSyntax", "-lSwiftParser", str(source), "-o", str(executable)]
+        result = subprocess.run(command, text=True, capture_output=True)
+        if result.returncode:
+            raise WorkflowError("Could not compile SwiftSyntax copy checker with the installed host toolchain; copy lint fails closed.\n" + result.stderr)
+    with tempfile.TemporaryDirectory(prefix="cauldron-copy-lint-") as directory:
+        args = [str(executable)]
+        for path, content in sources:
+            staged = Path(directory) / path
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            staged.write_bytes(content)
+            args.append(str(staged))
+        result = subprocess.run(args, text=True, capture_output=True, env={**os.environ, "DYLD_LIBRARY_PATH": str(compiler.parent.parent / "lib/swift/host")})
+    if result.returncode:
+        raise WorkflowError(result.stdout + result.stderr or "Swift-aware copy lint failed")
 
 
 def pre_commit() -> None:
@@ -68,6 +107,8 @@ def pre_commit() -> None:
     ).decode().split("\0")
     errors = []
     swift = []
+    staged_sources = []
+    helper_bytes = None
     with tempfile.TemporaryDirectory(prefix="cauldron-staged-") as directory:
         temporary = Path(directory)
         for path in filter(None, paths):
@@ -85,6 +126,8 @@ def pre_commit() -> None:
                     ast.parse(text, filename=path)
                 elif path.startswith("apple/"):
                     errors.extend(native_policy(path, text))
+                    if path.startswith("apple/Cauldron/") and path.endswith(".swift"):
+                        staged_sources.append((path, content))
                     destination = temporary / path
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(text)
@@ -101,6 +144,12 @@ def pre_commit() -> None:
             )
             if result.returncode:
                 errors.append(result.stdout + result.stderr)
+        if staged_sources:
+            try:
+                helper_bytes = subprocess.check_output(["git", "show", ":tools/copy_lint.swift"], cwd=root)
+                copy_lint(staged_sources, helper_bytes)
+            except (WorkflowError, subprocess.CalledProcessError) as error:
+                errors.append(str(error))
     if errors:
         raise WorkflowError("Staged checks failed; nothing was rewritten:\n" + "\n".join(errors))
     print("Staged checks passed (Swift policies/format, JSON, property lists, Python syntax).")
@@ -210,7 +259,7 @@ def main() -> int:
     sub.add_parser("pre-commit")
     sub.add_parser("pre-push")
     lint = sub.add_parser("lint-native")
-    lint.add_argument("--policy", choices=("all", "store", "buttons"), default="all")
+    lint.add_argument("--policy", choices=("all", "store", "buttons", "copy"), default="all")
     args = parser.parse_args()
     try:
         if args.command == "install":

@@ -1,12 +1,12 @@
 # All local checks for the native app. There is no CI: run `make ready` before opening a PR.
 
-SWIFT_SOURCES := Cauldron CauldronImports CauldronShare CauldronWidgets Shared ShareSheet CauldronTests CauldronKit/Package.swift CauldronKit/Sources CauldronKit/Tests
+SWIFT_SOURCES := Cauldron CauldronImports CauldronShare CauldronWidgets Shared ShareSheet CauldronTests CauldronUITests CauldronKit/Package.swift CauldronKit/Sources CauldronKit/Tests
 XCODEBUILD := xcodebuild -project Cauldron.xcodeproj -scheme Cauldron -skipPackagePluginValidation
 IOS_SIMULATOR ?= platform=iOS Simulator,name=iPhone 17,OS=27.0
 PLATFORM ?= macos
 CONFIGURATION ?= Debug
 
-.PHONY: ready format lint lint-store lint-buttons test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
+.PHONY: ready format lint lint-store lint-buttons lint-copy test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
 
 ## lint and every test, with exact-revision evidence and nonzero test counts
 ready:
@@ -17,7 +17,7 @@ format:
 	swift format format --in-place --recursive --parallel $(SWIFT_SOURCES)
 
 ## fail on anything `make format` would change, and on lint rules
-lint: lint-store lint-buttons
+lint: lint-store lint-buttons lint-copy
 	swift format lint --strict --recursive --parallel $(SWIFT_SOURCES)
 
 ## Only CauldronStore may open a store. A container made anywhere else can land on
@@ -30,6 +30,10 @@ lint-store:
 ## fill, so the text disappears. Use `.brandProminent` instead.
 lint-buttons:
 	python3 -B ../tools/hooks.py lint-native --policy buttons
+
+## SwiftSyntax parses app view expressions so only visible literal copy is caught.
+lint-copy:
+	python3 -B ../tools/hooks.py lint-native --policy copy
 
 test: test-kit test-app
 

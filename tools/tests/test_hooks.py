@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 TOOLS = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(TOOLS))
 
 
 class HookTests(unittest.TestCase):
@@ -62,6 +63,47 @@ class HookTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CauldronStore", result.stderr)
         self.assertEqual(path.read_text(), "let safe = 1\n")
+
+    def test_copy_lint_parses_visible_literals_not_comments_metadata_or_copy_expressions(self):
+        result = subprocess.run(
+            ["xcrun", "--find", "swiftc"], capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        source = self.root / "fixture.swift"
+        source.write_text('''
+// Text("not visible")
+Text(Copy.title)
+Label(Copy.title, systemImage: "fork.knife")
+Button("\\(Copy.action)") { }
+Text("bad")
+Text(verbatim: "also bad")
+''')
+        from hooks import copy_lint
+        with self.assertRaises(Exception) as failure:
+            copy_lint([("apple/Cauldron/Fixture.swift", source.read_bytes())])
+        self.assertIn(":6:", str(failure.exception))
+        self.assertIn(":7:", str(failure.exception))
+        self.assertNotIn(":2:", str(failure.exception))
+
+    def test_staged_copy_violation_cannot_be_hidden_by_worktree_fix_or_unstaged_ignore(self):
+        app = self.root / "apple/Cauldron"
+        app.mkdir(parents=True)
+        (self.root / "apple/.swift-format").write_text("{}\n")
+        path = app / "Visible.swift"
+        path.write_text('Text("visible")\n')
+        (self.root / "tools").mkdir()
+        (self.root / "tools/copy_lint.swift").write_bytes((TOOLS / "copy_lint.swift").read_bytes())
+        self.git("add", "apple", "tools/copy_lint.swift")
+        path.write_text('// copylint:ignore -- not user facing\nText("visible")\n')
+        binary = self.root / ".git/fake-bin"
+        binary.mkdir()
+        swift = binary / "swift"
+        swift.write_text("#!/bin/sh\nexit 0\n")
+        swift.chmod(0o755)
+        environment = {**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"]}
+        result = self.command("pre-commit", environment=environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Visible.swift", result.stderr)
 
     def test_install_preserves_custom_hooks(self):
         self.git("config", "core.hooksPath", "custom-hooks")
