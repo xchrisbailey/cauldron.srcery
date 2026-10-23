@@ -21,18 +21,35 @@ class CloudStatusTests(unittest.TestCase):
                "destinationCommit": {"commitSha": destination or self.commit, "message": "destination"},
                "executionProgress": progress, "completionStatus": completion}}
 
-    def test_build_run_uses_destination_commit_object_and_matches_build_version(self):
+    @staticmethod
+    def prerelease(version="1.2.3", platform="IOS"):
+        return {"data": {"id": "P1", "type": "preReleaseVersions",
+                         "attributes": {"version": version, "platform": platform}}}
+
+    def test_build_run_uses_destination_commit_and_prerelease_version_and_platform(self):
         run = self.run_fixture()
+        build = {"id": "B1", "type": "builds", "attributes": {
+            "version": "42", "processingState": "VALID"}}
         with patch.object(cloud, "token", return_value="safe"), \
              patch.object(cloud, "resource", return_value=run), \
-             patch.object(cloud, "pages", return_value=[{"id": "B1", "type": "builds", "attributes": {
-                 "platform": "IOS", "version": "1.2.3", "processingState": "VALID"}}]):
+             patch.object(cloud, "pages", return_value=[build]), \
+             patch.object(cloud, "get_json", return_value=self.prerelease()):
             result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
         self.assertEqual(result["verifiedCommit"], self.commit)
         self.assertEqual(result["commitField"], "attributes.destinationCommit.commitSha")
         self.assertEqual(result["commitType"], "branch-or-tag-destination")
         self.assertEqual(result["versionStatus"], "matched")
         self.assertEqual(result["builds"][0]["platform"], "IOS")
+        self.assertEqual(result["builds"][0]["marketingVersion"], "1.2.3")
+        self.assertEqual(result["builds"][0]["buildNumber"], "42")
+
+    def test_64_character_commit_sha_matches_api_metadata(self):
+        sha = "d" * 64
+        run = self.run_fixture(destination=sha)
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=run), patch.object(cloud, "pages", return_value=[]):
+            result = cloud.status(sha, build_run_id="R1")
+        self.assertEqual(result["verifiedCommit"], sha)
 
     def test_workflow_uses_pr_source_commit_object(self):
         run = self.run_fixture(is_pr=True, source=self.commit, destination="c" * 40)
@@ -44,11 +61,39 @@ class CloudStatusTests(unittest.TestCase):
         self.assertEqual(result["commitType"], "pull-request-source")
 
     def test_requested_version_mismatch_is_reported(self):
+        build = {"id": "B1", "attributes": {"version": "42"}}
         with patch.object(cloud, "token", return_value="safe"), \
              patch.object(cloud, "resource", return_value=self.run_fixture()), \
-             patch.object(cloud, "pages", return_value=[{"id": "B1", "attributes": {"version": "1.2.2"}}]):
+             patch.object(cloud, "pages", return_value=[build]), \
+             patch.object(cloud, "get_json", return_value=self.prerelease(version="1.2.2")):
             result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
         self.assertEqual(result["versionStatus"], "mismatch")
+
+    def test_missing_prerelease_relationship_is_unknown(self):
+        build = {"id": "B1", "attributes": {"version": "42"}}
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=[build]), \
+             patch.object(cloud, "get_json", return_value={"data": None}):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "unknown")
+        self.assertIsNone(result["builds"][0]["marketingVersion"])
+        self.assertIsNone(result["builds"][0]["platform"])
+
+    def test_multiple_builds_keep_each_marketing_version_build_number_and_platform(self):
+        builds = [
+            {"id": "B1", "attributes": {"version": "42", "processingState": "VALID"}},
+            {"id": "B2", "attributes": {"version": "43", "processingState": "PROCESSING"}},
+        ]
+        with patch.object(cloud, "token", return_value="safe"), \
+             patch.object(cloud, "resource", return_value=self.run_fixture()), \
+             patch.object(cloud, "pages", return_value=builds), \
+             patch.object(cloud, "get_json", side_effect=[self.prerelease("1.2.3", "IOS"),
+                                                            self.prerelease("1.2.3", "MAC_OS")]):
+            result = cloud.status(self.commit, version="1.2.3", build_run_id="R1")
+        self.assertEqual(result["versionStatus"], "matched")
+        self.assertEqual([(b["buildNumber"], b["marketingVersion"], b["platform"]) for b in result["builds"]],
+                         [("42", "1.2.3", "IOS"), ("43", "1.2.3", "MAC_OS")])
 
     def test_build_run_rejects_commit_mismatch_and_missing_documented_shape(self):
         with patch.object(cloud, "token", return_value="safe"), patch.object(cloud, "resource", return_value=self.run_fixture(destination="d" * 40)):

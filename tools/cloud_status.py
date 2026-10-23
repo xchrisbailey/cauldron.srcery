@@ -25,6 +25,10 @@ class StatusError(Exception):
     pass
 
 
+class ResourceNotFound(StatusError):
+    pass
+
+
 def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
@@ -91,6 +95,8 @@ def get_json(url: str, bearer: str) -> dict:
     except StatusError:
         raise
     except urllib.error.HTTPError as error:
+        if error.code == 404:
+            raise ResourceNotFound("App Store Connect resource was not found.") from None
         raise StatusError(f"App Store Connect request failed with HTTP {error.code}.") from None
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
         raise StatusError("App Store Connect request failed (network or invalid response).") from None
@@ -134,9 +140,31 @@ def exact_run_commit(run: dict) -> tuple[str, str, dict]:
     if not isinstance(metadata, dict):
         raise StatusError(f"Build run is missing Apple's {field} commit metadata object.")
     sha = metadata.get("commitSha")
-    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", sha):
         raise StatusError(f"Build run has no valid {field}.commitSha.")
     return sha.lower(), field, attrs
+
+
+def build_release_metadata(build: dict, bearer: str) -> dict:
+    build_id = build.get("id")
+    attrs = build.get("attributes")
+    if not isinstance(build_id, str) or not isinstance(attrs, dict):
+        raise StatusError("App Store Connect returned a build without its documented id/attributes.")
+    url = (f"{BASE}/builds/{urllib.parse.quote(build_id, safe='')}/preReleaseVersion?"
+           + urllib.parse.urlencode({"fields[preReleaseVersions]": "version,platform"}))
+    try:
+        related = get_json(url, bearer).get("data")
+    except ResourceNotFound:
+        related = None
+    release_attrs = related.get("attributes") if isinstance(related, dict) else None
+    if not isinstance(release_attrs, dict):
+        release_attrs = {}
+    marketing_version = release_attrs.get("version")
+    platform = release_attrs.get("platform")
+    return {"id": build_id, "buildNumber": attrs.get("version"),
+            "platform": platform if isinstance(platform, str) else None,
+            "marketingVersion": marketing_version if isinstance(marketing_version, str) else None,
+            "processingState": attrs.get("processingState")}
 
 
 def status(commit: str, version: str | None = None, tag: str | None = None,
@@ -165,14 +193,15 @@ def status(commit: str, version: str | None = None, tag: str | None = None,
         raise StatusError("The requested build run belongs to a different commit.")
     run_id = run_data.get("id")
     builds = pages(f"{BASE}/ciBuildRuns/{urllib.parse.quote(str(run_id), safe='')}/builds?limit=200", bearer)
-    build_versions = [b.get("attributes", {}).get("version") for b in builds
-                      if isinstance(b.get("attributes"), dict)]
-    matching_versions = [v for v in build_versions if isinstance(v, str)]
+    build_statuses = [build_release_metadata(build, bearer) for build in builds]
+    release_versions = [item["marketingVersion"] for item in build_statuses
+                        if item["marketingVersion"] is not None]
+    all_versions_known = bool(build_statuses) and len(release_versions) == len(build_statuses)
     if version is None:
         version_status = "unknown"
-    elif version in matching_versions:
+    elif all_versions_known and version in release_versions:
         version_status = "matched"
-    elif matching_versions and len(matching_versions) == len(build_versions):
+    elif all_versions_known:
         version_status = "mismatch"
     else:
         version_status = "unknown"
@@ -184,9 +213,7 @@ def status(commit: str, version: str | None = None, tag: str | None = None,
             "tag": tag, "buildRun": {"id": run_id, "url": f"https://appstoreconnect.apple.com/ci/builds/{urllib.parse.quote(str(run_id), safe='')}",
                                       "progress": attrs.get("executionProgress"),
                                       "completion": attrs.get("completionStatus")},
-            "builds": [{"id": b.get("id"), "platform": b.get("attributes", {}).get("platform"),
-                        "version": b.get("attributes", {}).get("version"),
-                        "processingState": b.get("attributes", {}).get("processingState")} for b in builds]}
+             "builds": build_statuses}
 
 
 def main(argv: list[str] | None = None) -> int:
