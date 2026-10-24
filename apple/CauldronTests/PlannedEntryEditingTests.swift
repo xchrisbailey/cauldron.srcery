@@ -72,6 +72,47 @@ struct PlannedEntryEditingTests {
     #expect((batch.entries ?? []).count == 1)
   }
 
+  @Test @MainActor func untouchedBatchDraftUsesSyncedTotalForConflictRepairSaveEligibility() throws
+  {
+    let container = try CauldronStore.container(.inMemory)
+    let context = ModelContext(container)
+    let monday = try #require(LocalDate("2026-10-19"))
+    let batch = PlannedBatchRecord(
+      weekStart: monday, title: "Soup", totalServings: 4, ingredientYield: 4)
+    for dayOffset in 0..<2 {
+      let entry = PlanEntryRecord(
+        day: monday.adding(days: dayOffset), slot: .dinner, title: "Soup", servings: 3)
+      entry.batch = batch
+      context.insert(entry)
+    }
+    context.insert(batch)
+    try context.save()
+    let batchID = batch.id
+    let draft = PlannedBatchEditDraft(openedTotal: 4)
+
+    #expect(WeekPlan.allocation(batch).isOverAssigned)
+    #expect(!draft.canSave(currentTotal: batch.totalServings, assigned: 6))
+
+    batch.totalServings = 6
+    try context.save()
+    let refreshedContext = ModelContext(container)
+    let refreshedBatch = try #require(
+      refreshedContext.fetch(
+        FetchDescriptor<PlannedBatchRecord>(predicate: #Predicate { $0.id == batchID })
+      ).first)
+    let allocation = WeekPlan.allocation(refreshedBatch)
+
+    #expect(!allocation.isOverAssigned)
+    #expect(draft.effectiveTotal(currentTotal: refreshedBatch.totalServings) == 6)
+    #expect(
+      draft.canSave(currentTotal: refreshedBatch.totalServings, assigned: allocation.assigned))
+    #expect(try draft.totalToCommit(currentTotal: refreshedBatch.totalServings) == nil)
+    var explicitDraft = PlannedBatchEditDraft(openedTotal: 4)
+    explicitDraft.setTotal(5)
+    #expect(explicitDraft.effectiveTotal(currentTotal: refreshedBatch.totalServings) == 5)
+    #expect(!explicitDraft.canSave(currentTotal: refreshedBatch.totalServings, assigned: 6))
+  }
+
   @Test @MainActor func explicitCapacityIncreaseAndAssignmentCommitAsOneChange() throws {
     let container = try CauldronStore.container(.inMemory)
     let context = ModelContext(container)

@@ -10,6 +10,9 @@ extension Copy {
     public let thisWeek = plain("This week")
     public let today = plain("today")
     public let days = plain("Days")
+    public let batches = plain("Batches")
+    public let done = plain("Done")
+    public let planRecipe = voice("Plan a recipe")
     public let copyLastWeek = plain("Copy last week")
     public let copiedLastWeek = plain("Copied last week's meals.")
     public let nothingToCopy = plain("Last week has nothing planned.")
@@ -55,6 +58,17 @@ extension Copy {
       "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day."
     )
     public let editBatch = plain("Edit planned batch")
+    public func batchConflicts(_ count: Int) -> CopyString {
+      plain("\(count) \(count == 1 ? "batch needs" : "batches need") allocation repair")
+    }
+    public func batchButtonLabel(count: Int, unassigned: Int, conflicts: Int) -> CopyString {
+      var parts = ["\(count) \(count == 1 ? "batch" : "batches")"]
+      if unassigned > 0 {
+        parts.append("\(unassigned) \(unassigned == 1 ? "serving" : "servings") unassigned")
+      }
+      if conflicts > 0 { parts.append(batchConflicts(conflicts).text) }
+      return plain(parts.joined(separator: ", "))
+    }
     public let unassign = plain("Unassign")
     public let addAssignment = plain("Assign servings")
     public let removeBatch = plain("Remove batch")

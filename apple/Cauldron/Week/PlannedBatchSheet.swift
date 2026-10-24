@@ -31,111 +31,122 @@ struct PlannedBatchSheet: View {
       title: batch.title, total: displayedTotal, assigned: allocation.assigned,
       hasInvalidEntries: allocation.hasInvalidEntries)
   }
-  private var displayedTotal: Int { draft.hasExplicitChange ? draft.total : batch.totalServings }
+  private var displayedTotal: Int { draft.effectiveTotal(currentTotal: batch.totalServings) }
   private var totalSelection: Binding<Int> {
     Binding(get: { displayedTotal }, set: { draft.setTotal($0) })
   }
 
   var body: some View {
-    NavigationStack {
-      Form {
-        Section {
-          Picker(selection: totalSelection) {
-            ForEach(1...WeekLimits.servings, id: \.self) { value in
-              Text(verbatim: String(value)).brandText(.quantity).tag(value)
-            }
-          } label: {
-            Text(verbatim: Copy.week.spread.total.text)
+    Form {
+      Section {
+        Picker(selection: totalSelection) {
+          ForEach(1...WeekLimits.servings, id: \.self) { value in
+            Text(verbatim: String(value)).brandText(.quantity).tag(value)
+              .accessibilityIdentifier("week.batchEditor.totalOption.\(value)")
           }
-          Text(verbatim: draftSummary.status)
-            .brandText(.quantity)
-            .foregroundStyle(
-              draftSummary.isConflict ? Brand.Colors.heat : Brand.Colors.subtext)
+        } label: {
+          Text(verbatim: Copy.week.spread.total.text)
         }
-        Section {
-          ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.persistentModelID) { entry in
-            assignmentRow(entry)
-          }
-        } header: {
-          Text(verbatim: Copy.week.spread.days.text)
+        .accessibilityIdentifier("week.batchEditor.total")
+        Text(verbatim: draftSummary.status)
+          .brandText(.quantity)
+          .foregroundStyle(
+            draftSummary.isConflict ? Brand.Colors.heat : Brand.Colors.subtext)
+      }
+      Section {
+        ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.persistentModelID) { entry in
+          assignmentRow(entry)
         }
-        Section {
-          Picker(selection: $day) {
-            ForEach(week, id: \.self) { value in
-              Text(verbatim: WeekDates.label(value, long: true))
-                .brandText(.quantity).tag(LocalDate?.some(value))
-            }
-          } label: {
-            Text(verbatim: Copy.week.day.text)
+      } header: {
+        Text(verbatim: Copy.week.spread.days.text)
+      }
+      Section {
+        Picker(selection: $day) {
+          ForEach(week, id: \.self) { value in
+            Text(verbatim: WeekDates.label(value, long: true))
+              .brandText(.quantity).tag(LocalDate?.some(value))
+              .accessibilityIdentifier("week.batchEditor.dayOption.\(value.description)")
           }
-          Picker(selection: $slot) {
-            ForEach(MealSlot.allCases, id: \.self) { value in
-              Text(verbatim: Copy.week.slots[value].text).tag(value)
-            }
-          } label: {
-            Text(verbatim: Copy.week.slot.text)
+        } label: {
+          Text(verbatim: Copy.week.day.text)
+        }
+        .accessibilityIdentifier("week.batchEditor.day")
+        Picker(selection: $slot) {
+          ForEach(MealSlot.allCases, id: \.self) { value in
+            Text(verbatim: Copy.week.slots[value].text)
+              .tag(value)
+              .accessibilityIdentifier("week.batchEditor.slotOption.\(value.rawValue)")
           }
-          Picker(selection: $servings) {
-            ForEach(
-              1...max(
-                1,
-                min(
-                  WeekLimits.servings,
-                  max(
-                    1,
-                    draft.availableServings(
-                      currentTotal: batch.totalServings, assigned: allocation.assigned)))),
-              id: \.self
-            ) { value in
-              Text(verbatim: String(value)).brandText(.quantity).tag(value)
-            }
-          } label: {
-            Text(verbatim: Copy.week.servings.text)
+        } label: {
+          Text(verbatim: Copy.week.slot.text)
+        }
+        .accessibilityIdentifier("week.batchEditor.slot")
+        Picker(selection: $servings) {
+          ForEach(
+            1...max(
+              1,
+              min(
+                WeekLimits.servings,
+                max(
+                  1,
+                  draft.availableServings(
+                    currentTotal: batch.totalServings, assigned: allocation.assigned)))),
+            id: \.self
+          ) { value in
+            Text(verbatim: String(value)).brandText(.quantity).tag(value)
+              .accessibilityIdentifier("week.batchEditor.servingsOption.\(value)")
           }
-          Button(action: assign) {
-            Text(verbatim: Copy.week.addAssignment.text)
-          }
-          .disabled(week.isEmpty || draftSummary.assignable < servings)
-        } header: {
+        } label: {
+          Text(verbatim: Copy.week.servings.text)
+        }
+        .accessibilityIdentifier("week.batchEditor.servings")
+        Button(action: assign) {
           Text(verbatim: Copy.week.addAssignment.text)
         }
-        if let problem {
-          Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
-        }
-        Section {
-          Button(role: .destructive) {
-            confirmingRemoval = true
-          } label: {
-            Text(verbatim: Copy.week.removeBatch.text)
-          }
-        }
+        .accessibilityIdentifier("week.batchEditor.assign")
+        .disabled(week.isEmpty || draftSummary.assignable < servings)
+      } header: {
+        Text(verbatim: Copy.week.addAssignment.text)
       }
-      .formStyle(.grouped)
-      .scrollContentBackground(.hidden)
-      .background(Brand.Colors.base)
-      .navigationTitle(Text(verbatim: batch.title))
-      #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-      #endif
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button {
-            dismiss()
-          } label: {
-            Text(verbatim: Copy.week.cancel.text)
-          }
-        }
-        ToolbarItem(placement: .confirmationAction) {
-          Button(action: save) { Text(verbatim: Copy.week.save.text) }
-            .disabled(draft.total < allocation.assigned)
-        }
+      if let problem {
+        Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
       }
-      .sheet(item: $editingEntry) { entry in
-        BatchAssignmentEditor(entry: entry, batch: batch)
+      Section {
+        Button(role: .destructive) {
+          confirmingRemoval = true
+        } label: {
+          Text(verbatim: Copy.week.removeBatch.text)
+        }
+        .accessibilityIdentifier("week.batchEditor.remove")
       }
     }
-    // Keep presentation modifiers outside the stack: ImageRenderer teardown can enqueue an
-    // action after its update has ended when a dialog is attached to this NavigationStack.
+    .formStyle(.grouped)
+    .scrollContentBackground(.hidden)
+    .background(Brand.Colors.base)
+    .navigationTitle(Text(verbatim: batch.title))
+    #if os(iOS)
+      .navigationBarTitleDisplayMode(.inline)
+    #endif
+    .toolbar {
+      ToolbarItem(placement: .cancellationAction) {
+        Button {
+          dismiss()
+        } label: {
+          Text(verbatim: Copy.week.cancel.text)
+        }
+        .accessibilityIdentifier("week.batchEditor.cancel")
+      }
+      ToolbarItem(placement: .confirmationAction) {
+        Button(action: save) { Text(verbatim: Copy.week.save.text) }
+          .disabled(
+            !draft.canSave(currentTotal: batch.totalServings, assigned: allocation.assigned)
+          )
+          .accessibilityIdentifier("week.batchEditor.save")
+      }
+    }
+    .sheet(item: $editingEntry) { entry in
+      BatchAssignmentEditor(entry: entry, batch: batch)
+    }
     .confirmationDialog(
       Text(verbatim: Copy.week.removeBatchConfirm.text), isPresented: $confirmingRemoval,
       titleVisibility: .visible
@@ -143,6 +154,7 @@ struct PlannedBatchSheet: View {
       Button(role: .destructive, action: removeBatch) {
         Text(verbatim: Copy.week.removeBatch.text)
       }
+      .accessibilityIdentifier("week.batchEditor.confirmRemove")
       Button(role: .cancel) {
       } label: {
         Text(verbatim: Copy.week.cancel.text)

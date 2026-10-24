@@ -36,7 +36,9 @@
         calorieRow(in: selectedContent).label.contains("0 kcal planned"), app.debugDescription)
       closeSheet(in: app)
       XCTAssertTrue(anotherDay.isSelected, app.debugDescription)
-      XCTAssertTrue(app.descendants(matching: .any)["week.weeklyComparison"].exists)
+      let weeklySummary = app.descendants(matching: .any)["week.weeklyComparison"]
+      reveal(weeklySummary, in: app, direction: .down)
+      XCTAssertTrue(weeklySummary.exists, app.debugDescription)
     }
 
     @MainActor

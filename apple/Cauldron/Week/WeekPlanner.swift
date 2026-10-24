@@ -11,6 +11,7 @@ private enum WeekSheet: Identifiable {
   case batch(PlannedBatchRecord)
   case nutrition(LocalDate)
   case targetSetup(LocalDate)
+  case batches
 
   var id: String {
     switch self {
@@ -21,6 +22,7 @@ private enum WeekSheet: Identifiable {
     case .batch(let batch): "batch-\(batch.id.uuidString)"
     case .nutrition(let day): "nutrition-\(day)"
     case .targetSetup(let day): "target-setup-\(day)"
+    case .batches: "batches"
     }
   }
 }
@@ -123,7 +125,9 @@ struct WeekPlanner: View {
       case .change(let id):
         changeSheet(id, snapshot)
       case .batch(let id):
-        PlannedBatchSheet(batch: id) { self.sheet = nil }
+        NavigationStack {
+          PlannedBatchSheet(batch: id) { self.sheet = nil }
+        }
       case .nutrition(let day):
         WeekNutritionSheet(snapshot: snapshot, day: day) { self.sheet = .targetSetup(day) }
       case .targetSetup(let day):
@@ -135,6 +139,8 @@ struct WeekPlanner: View {
               }
             }
         }
+      case .batches:
+        BatchManagementSheet(weekStart: start, today: today)
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -277,11 +283,21 @@ struct WeekPlanner: View {
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
         }
-        batchSummaries
+        #if os(macOS)
+          batchSummaries
+        #endif
       }
     } bottom: {
       WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
     }
+    #if os(iOS)
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          BatchManagementButton(batches: batches) { sheet = .batches }
+        }
+      }
+      .navigationBarTitleDisplayMode(.inline)
+    #endif
   }
 
   @ViewBuilder
