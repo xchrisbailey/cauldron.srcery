@@ -26,9 +26,15 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         top()
           .listRowBackground(Color.clear)
           .listRowSeparator(.hidden)
+          .listRowInsets(
+            showNutritionAction
+              ? EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16) : nil)
         dayTabs
           .listRowBackground(Color.clear)
           .listRowSeparator(.hidden)
+          .listRowInsets(
+            showNutritionAction
+              ? EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16) : nil)
         if showNutritionAction {
           selectedDayHeader
             .listRowBackground(Color.clear)

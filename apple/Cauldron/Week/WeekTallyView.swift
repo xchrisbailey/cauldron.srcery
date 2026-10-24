@@ -24,7 +24,6 @@ struct WeekTallyView: View {
           comparison: snapshot.weeklyComparison, tally: snapshot.weekTally,
           onOpenTargets: onOpenTargets)
       }
-      .accessibilityIdentifier("week.compactTally")
     } else {
       VStack(alignment: .leading, spacing: 10) {
         ViewThatFits(in: .horizontal) {
