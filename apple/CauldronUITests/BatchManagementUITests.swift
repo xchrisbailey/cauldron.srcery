@@ -37,9 +37,7 @@ final class BatchManagementUITests: XCTestCase {
       let app = launchWeek()
       let selectedDay = selectedDayTab(in: app)
       XCTAssertFalse(selectedDay.isEmpty, app.debugDescription)
-      let weeklyTally = app.descendants(matching: .any)["week.tally.week"]
-      XCTAssertTrue(weeklyTally.waitForExistence(timeout: 5), app.debugDescription)
-      XCTAssertTrue(weeklyTally.label.contains("3,500 kcal"), weeklyTally.label)
+      assertWeeklyCalories("3,500", in: app)
       app.buttons["week.batches"].tap()
 
       let batch = batchRow(
@@ -64,13 +62,19 @@ final class BatchManagementUITests: XCTestCase {
       app.buttons["week.batches.done"].tap()
       XCTAssertEqual(selectedDayTab(in: app), selectedDay)
       XCTAssertTrue(app.buttons["week.batches"].label.contains("2 servings unassigned"))
-      XCTAssertTrue(
-        app.buttons.matching(
-          NSPredicate(
-            format: "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@",
-            "Breakfast bowl", "2 servings", "1,000 kcal")
-        ).firstMatch.exists, "The selected day's meals should reflect the committed assignment.")
-      XCTAssertTrue(weeklyTally.label.contains("4,500 kcal"), weeklyTally.label)
+      assertWeeklyCalories("4,500", in: app)
+
+      let committedMeal = app.buttons.matching(
+        NSPredicate(
+          format: "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@",
+          "Breakfast bowl", "2 servings", "1,000 kcal")
+      )
+      for _ in 0..<8 {
+        if committedMeal.count == 1 && committedMeal.firstMatch.isHittable { break }
+        app.swipeUp()
+      }
+      XCTAssertEqual(committedMeal.count, 1, app.debugDescription)
+      XCTAssertTrue(committedMeal.firstMatch.isHittable, app.debugDescription)
       app.terminate()
     }
 
@@ -145,6 +149,24 @@ final class BatchManagementUITests: XCTestCase {
       let choice = app.descendants(matching: .any)[option]
       XCTAssertTrue(choice.waitForExistence(timeout: 5), app.debugDescription)
       choice.tap()
+    }
+
+    @MainActor
+    private func assertWeeklyCalories(
+      _ amount: String, in app: XCUIApplication, file: StaticString = #filePath,
+      line: UInt = #line
+    ) {
+      let modernMetric = app.descendants(matching: .any)["week.weeklyMetric.calories"]
+      let legacyWeeklyTally = app.descendants(matching: .any)["week.tally.week"]
+      let metric = modernMetric.exists ? modernMetric : legacyWeeklyTally
+      XCTAssertTrue(
+        metric.waitForExistence(timeout: 5),
+        "The weekly calories metric must be present.", file: file, line: line)
+      XCTAssertTrue(
+        metric.label.contains(amount), metric.label, file: file, line: line)
+      XCTAssertTrue(
+        metric.label.localizedCaseInsensitiveContains("kcal"), metric.label, file: file,
+        line: line)
     }
 
     @MainActor
