@@ -76,6 +76,24 @@ import Testing
       }
     }
 
+    @Test func compactWeeklyAndOnDemandDailyNutritionRenderAtNarrowWidths() {
+      let start = LocalDate("2026-10-05")!
+      let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      let snapshot = WeekSnapshot(start: start, records: [], targets: target)
+      for scheme in [ColorScheme.light, .dark] {
+        let weekly = WeekTallyView(
+          snapshot: snapshot, day: start, onClearDay: {}, onOpenTargets: {}, compact: true
+        )
+        .environment(\.colorScheme, scheme)
+        let daily = WeekNutritionSheet(snapshot: snapshot, day: start, onOpenTargets: {})
+          .environment(\.colorScheme, scheme)
+        for width in [320.0, 390.0] {
+          #expect(renders(weekly, width: width, height: 600), "weekly \(scheme) \(width)")
+          #expect(renders(daily, width: width, height: 600), "daily \(scheme) \(width)")
+        }
+      }
+    }
+
     @Test func theStirSheetsRenderInBothAppearances() throws {
       let container = try seeded()
       let context = ModelContext(container)

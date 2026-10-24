@@ -9,6 +9,8 @@ private enum WeekSheet: Identifiable {
   case dropped(UUID, MealTarget, Int?)
   case change(UUID)
   case batch(PlannedBatchRecord)
+  case nutrition(LocalDate)
+  case targetSetup(LocalDate)
 
   var id: String {
     switch self {
@@ -17,6 +19,8 @@ private enum WeekSheet: Identifiable {
       "dropped-\(id.uuidString)-\(target.day)-\(target.slot.rawValue)-\(position ?? -1)"
     case .change(let id): "change-\(id.uuidString)"
     case .batch(let batch): "batch-\(batch.id.uuidString)"
+    case .nutrition(let day): "nutrition-\(day)"
+    case .targetSetup(let day): "target-setup-\(day)"
     }
   }
 }
@@ -82,6 +86,14 @@ struct WeekPlanner: View {
     chosenDay.flatMap { snapshot.days.contains($0) ? $0 : nil }
   }
 
+  private var usesCompactNutrition: Bool {
+    #if os(iOS)
+      true
+    #else
+      false
+    #endif
+  }
+
   var body: some View {
     let snapshot = snapshot
     // The sheet, the dialog, the notice and its timer hang off the stack, not its content.
@@ -112,6 +124,17 @@ struct WeekPlanner: View {
         changeSheet(id, snapshot)
       case .batch(let id):
         PlannedBatchSheet(batch: id) { self.sheet = nil }
+      case .nutrition(let day):
+        WeekNutritionSheet(snapshot: snapshot, day: day) { self.sheet = .targetSetup(day) }
+      case .targetSetup(let day):
+        NavigationStack {
+          TargetsView(context: context, onSaved: { self.sheet = .nutrition(day) })
+            .toolbar {
+              ToolbarItem(placement: .cancellationAction) {
+                Button(Copy.ui.close.text) { self.sheet = .nutrition(day) }
+              }
+            }
+        }
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -207,10 +230,10 @@ struct WeekPlanner: View {
       onThisWeek: onThisWeek)
   }
 
-  private func tally(_ snapshot: WeekSnapshot) -> some View {
+  private func tally(_ snapshot: WeekSnapshot, compact: Bool = false) -> some View {
     WeekTallyView(
       snapshot: snapshot, day: shownDay, onClearDay: { chosenDay = nil },
-      onOpenTargets: { changingTargets = true })
+      onOpenTargets: { changingTargets = true }, compact: compact)
   }
 
   private func gridPage(_ snapshot: WeekSnapshot) -> some View {
@@ -243,11 +266,12 @@ struct WeekPlanner: View {
     return WeekDayList(
       snapshot: snapshot, today: today, day: shown, onChoose: { chosenDay = $0 },
       onAdd: { sheet = .stir($0) }, onOpen: { sheet = .change($0) }, onRemove: remove,
+      onNutrition: { sheet = .nutrition($0) }, showNutritionAction: usesCompactNutrition,
       onPlanRecipe: planRecipe
     ) {
       VStack(alignment: .leading, spacing: 12) {
         header
-        tally(snapshot)
+        tally(snapshot, compact: usesCompactNutrition)
         if snapshot.isEmpty && batches.isEmpty {
           Text(verbatim: Copy.week.empty.text)
             .brandText(.body)

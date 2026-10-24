@@ -12,6 +12,8 @@ struct WeekDayList<Top: View, Bottom: View>: View {
   let onAdd: (MealTarget) -> Void
   let onOpen: (UUID) -> Void
   let onRemove: (UUID) -> Void
+  let onNutrition: (LocalDate) -> Void
+  let showNutritionAction: Bool
   /// A recipe dropped on a meal's heading. It opens the days step. A day's tab takes no drop, as
   /// on the web.
   let onPlanRecipe: (UUID, MealTarget, UUID?) -> Void
@@ -27,6 +29,16 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         dayTabs
           .listRowBackground(Color.clear)
           .listRowSeparator(.hidden)
+        if showNutritionAction {
+          HStack {
+            Spacer(minLength: 0)
+            Button(Copy.week.tally.nutritionAction.text) { onNutrition(day) }
+              .brandText(.control)
+              .accessibilityIdentifier("week.openDailyNutrition")
+          }
+          .listRowBackground(Color.clear)
+          .listRowSeparator(.hidden)
+        }
       }
       ForEach(MealSlot.allCases, id: \.self) { slot in
         let target = MealTarget(day: day, slot: slot)

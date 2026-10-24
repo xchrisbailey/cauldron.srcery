@@ -140,6 +140,12 @@ extension Copy {
         "Incomplete comparison: some planned meals are not fully counted.")
       public let noTargets = plain("Set targets to compare this plan with your weekly goals.")
       public let setTargets = plain("Set targets")
+      public let compactHeading = plain("Weekly plan — Planned / Goal")
+      public let nutritionAction = plain("Nutrition")
+      public let dailyNutritionTitle = plain("Daily nutrition")
+      public let planned = plain("Planned")
+      public let goal = plain("Goal")
+      public let noDailyTargets = plain("Set daily targets to compare this plan.")
 
       public init() {}
 
@@ -157,6 +163,18 @@ extension Copy {
             + "\(difference) \(unit) \(isOver ? "over target" : "remaining")")
       }
       public func showDay(_ day: String) -> CopyString { plain("Show \(day)") }
+      public func compactMetric(
+        name: String, planned: String, goal: String, unit: String, isOver: Bool
+      ) -> CopyString {
+        plain(
+          "\(name): Planned \(planned) / Goal \(goal) \(unit)\(isOver ? ", over goal" : "")")
+      }
+      public func knownTotal(name: String, planned: String, unit: String) -> CopyString {
+        plain("\(name): \(planned) \(unit) planned")
+      }
+      public func compactPair(planned: String, goal: String, unit: String) -> CopyString {
+        plain("\(planned) / \(goal) \(unit)")
+      }
 
       public struct Macros: Sendable {
         public let calories = plain("kcal")

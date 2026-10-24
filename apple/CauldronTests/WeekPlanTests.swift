@@ -804,6 +804,17 @@ struct WeekPlanTests {
     #expect(belowPrecision.1 == "Protein: 700 g planned, 700 g target, <0.1 g over target")
   }
 
+  @Test func compactWeeklyPairAndAccessibilityRetainSmallOverGoalDifference() {
+    let planned = WeekFigures.compactAmount(700.04, locale: en)
+    let goal = WeekFigures.compactAmount(700, locale: en)
+    #expect(planned == "700.04")
+    #expect(planned != goal)
+    #expect(
+      Copy.week.tally.compactMetric(
+        name: "Protein", planned: planned, goal: goal, unit: "g", isOver: 700.04 > 700
+      ).text == "Protein: Planned 700.04 / Goal 700 g, over goal")
+  }
+
   @Test func snapshotComparisonMatrixCoversEveryMetricAndPeriodBoundary() throws {
     struct MetricCase {
       let key: MacroKey

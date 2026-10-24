@@ -8,64 +8,81 @@ struct WeekTallyView: View {
   let day: LocalDate?
   let onClearDay: () -> Void
   let onOpenTargets: () -> Void
+  var compact = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      ViewThatFits(in: .horizontal) {
-        HStack(alignment: .top, spacing: 16) { groups }
-        VStack(alignment: .leading, spacing: 12) { groups }
-      }
-      if let note = WeekFigures.note(week: snapshot.weekTally, day: day.map(snapshot.tally)) {
-        Text(verbatim: note)
-          .brandText(.control)
-          .foregroundStyle(Brand.Colors.subtext)
-      }
-      if let comparison = snapshot.weeklyComparison {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
-          Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-          ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-            Text(verbatim: WeekFigures.comparisonRow(comparison, key: key))
-              .brandText(.quantity)
-          }
-          if comparison.isIncomplete {
-            Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-              .foregroundStyle(Brand.Colors.heat)
-          }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("week.weeklyComparison")
-      } else {
-        VStack(alignment: .leading, spacing: 6) {
-          Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
-          Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
+    if compact {
+      VStack(alignment: .leading, spacing: 8) {
+        if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
+          Text(verbatim: note)
             .brandText(.control)
-            .accessibilityIdentifier("week.setTargets")
+            .foregroundStyle(
+              snapshot.weekTally.missing + snapshot.weekTally.freeText > 0
+                ? Brand.Colors.heat : Brand.Colors.subtext)
+        }
+        CompactWeekNutritionView(
+          comparison: snapshot.weeklyComparison, tally: snapshot.weekTally,
+          onOpenTargets: onOpenTargets)
+      }
+      .accessibilityIdentifier("week.compactTally")
+    } else {
+      VStack(alignment: .leading, spacing: 10) {
+        ViewThatFits(in: .horizontal) {
+          HStack(alignment: .top, spacing: 16) { groups }
+          VStack(alignment: .leading, spacing: 12) { groups }
+        }
+        if let note = WeekFigures.note(week: snapshot.weekTally, day: day.map(snapshot.tally)) {
+          Text(verbatim: note)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
+        if let comparison = snapshot.weeklyComparison {
+          VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
+            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
+            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
+              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key))
+                .brandText(.quantity)
+            }
+            if comparison.isIncomplete {
+              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
+                .foregroundStyle(Brand.Colors.heat)
+            }
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityIdentifier("week.weeklyComparison")
+        } else {
+          VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
+            Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
+              .brandText(.control)
+              .accessibilityIdentifier("week.setTargets")
+          }
+        }
+        if let day, let comparison = snapshot.dailyComparison(for: day) {
+          VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text).brandText(.control)
+            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
+            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
+              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key)).brandText(.quantity)
+            }
+            if comparison.isIncomplete {
+              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
+                .foregroundStyle(Brand.Colors.heat)
+            }
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityIdentifier("week.dailyComparison")
         }
       }
-      if let day, let comparison = snapshot.dailyComparison(for: day) {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text).brandText(.control)
-          Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-          ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-            Text(verbatim: WeekFigures.comparisonRow(comparison, key: key)).brandText(.quantity)
-          }
-          if comparison.isIncomplete {
-            Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-              .foregroundStyle(Brand.Colors.heat)
-          }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("week.dailyComparison")
-      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 14)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
+      .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface0, lineWidth: 1))
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel(Text(verbatim: Copy.week.tally.label.text))
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 14)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
-    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface0, lineWidth: 1))
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel(Text(verbatim: Copy.week.tally.label.text))
   }
 
   @ViewBuilder

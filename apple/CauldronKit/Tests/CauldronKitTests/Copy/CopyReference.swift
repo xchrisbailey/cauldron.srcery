@@ -721,6 +721,14 @@ enum CopyReference {
       path: "week.tally.noTargets", tone: .plain,
       text: "Set targets to compare this plan with your weekly goals."),
     .init(path: "week.tally.setTargets", tone: .plain, text: "Set targets"),
+    .init(path: "week.tally.compactHeading", tone: .plain, text: "Weekly plan — Planned / Goal"),
+    .init(path: "week.tally.nutritionAction", tone: .plain, text: "Nutrition"),
+    .init(path: "week.tally.dailyNutritionTitle", tone: .plain, text: "Daily nutrition"),
+    .init(path: "week.tally.planned", tone: .plain, text: "Planned"),
+    .init(path: "week.tally.goal", tone: .plain, text: "Goal"),
+    .init(
+      path: "week.tally.noDailyTargets", tone: .plain,
+      text: "Set daily targets to compare this plan."),
     .init(path: "week.spread.days", tone: .plain, text: "Days"),
     .init(
       path: "week.spread.hint", tone: .plain,
@@ -1085,6 +1093,19 @@ enum CopyReference {
     .init(
       call: "Copy.week.tally.showDay(\"Monday\")", actual: Copy.week.tally.showDay("Monday"),
       tone: .plain, text: "Show Monday"),
+    .init(
+      call: "Copy.week.tally.compactMetric(protein, over)",
+      actual: Copy.week.tally.compactMetric(
+        name: "Protein", planned: "700.04", goal: "700", unit: "g", isOver: true),
+      tone: .plain, text: "Protein: Planned 700.04 / Goal 700 g, over goal"),
+    .init(
+      call: "Copy.week.tally.knownTotal(protein)",
+      actual: Copy.week.tally.knownTotal(name: "Protein", planned: "3", unit: "g"),
+      tone: .plain, text: "Protein: 3 g planned"),
+    .init(
+      call: "Copy.week.tally.compactPair(calories)",
+      actual: Copy.week.tally.compactPair(planned: "4,000", goal: "14,000", unit: "kcal"),
+      tone: .plain, text: "4,000 / 14,000 kcal"),
     .init(
       call: "Copy.week.spread.planned(3, nil)", actual: Copy.week.spread.planned(3, nil),
       tone: .plain, text: "3 servings planned"),
