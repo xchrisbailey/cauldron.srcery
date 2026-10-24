@@ -16,6 +16,7 @@ struct WeekTallyView: View {
         if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
           Text(verbatim: note)
             .brandText(.control)
+            .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(
               snapshot.weekTally.missing + snapshot.weekTally.freeText > 0
                 ? Brand.Colors.heat : Brand.Colors.subtext)
