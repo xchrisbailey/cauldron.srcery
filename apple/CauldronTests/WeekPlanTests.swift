@@ -765,7 +765,7 @@ struct WeekPlanTests {
   }
 
   @Test func weeklyComparisonPreservesFractionalProteinDifferencesInItsPresentedRow() throws {
-    func row(lastServingProtein: Double) throws -> (Double, String) {
+    func row(lastServingProtein: Double) throws -> (Double, String, WeekMacroComparison) {
       let context = try context()
       let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
       context.insert(target)
@@ -786,7 +786,7 @@ struct WeekPlanTests {
       let comparison = try #require(snapshot.weeklyComparison)
       return (
         comparison.planned.protein,
-        WeekFigures.comparisonRow(comparison, key: .protein, locale: en)
+        WeekFigures.comparisonRow(comparison, key: .protein, locale: en), comparison
       )
     }
 
@@ -802,19 +802,7 @@ struct WeekPlanTests {
     let belowPrecision = try row(lastServingProtein: 100.04)
     #expect(belowPrecision.0 == 700.04)
     #expect(belowPrecision.1 == "Protein: 700 g planned, 700 g target, <0.1 g over target")
-  }
-
-  @Test func compactWeeklyPairAndAccessibilityRetainSmallOverGoalDifference() {
-    func comparison(protein: Double, counted: Int) -> WeekMacroComparison {
-      let tally = MacroTally(
-        totals: MacroTotals(calories: 0, protein: protein, carbs: 0, fat: 0),
-        counted: counted, missing: 0, freeText: 0)
-      return WeekMacroComparison(
-        tally: tally, dailyTarget: MacroTargets(calories: 0, protein: 100, carbs: 0, fat: 0))
-    }
-
-    let roundoff = comparison(
-      protein: (0..<7).reduce(0) { $0 + 100.00000000000001 }, counted: 7)
+    let roundoff = try row(lastServingProtein: 100.00000000000001).2
     #expect(roundoff.planned.protein > roundoff.target.protein)
     #expect(roundoff.remaining(for: .protein) == 0)
     #expect(!WeekFigures.isOverGoal(roundoff, key: .protein))
@@ -824,7 +812,7 @@ struct WeekPlanTests {
       isOver: WeekFigures.isOverGoal(roundoff, key: .protein))
     #expect(roundedPair.text == "Protein: Planned 700 / Goal 700 g")
 
-    let tinyOverage = comparison(protein: 700.004, counted: 7)
+    let tinyOverage = try row(lastServingProtein: 100.004).2
     let tinyPlanned = WeekFigures.compactAmount(tinyOverage.planned.protein, locale: en)
     let tinyGoal = WeekFigures.compactAmount(tinyOverage.target.protein, locale: en)
     #expect(tinyPlanned == tinyGoal)
@@ -835,15 +823,15 @@ struct WeekPlanTests {
         isOver: WeekFigures.isOverGoal(tinyOverage, key: .protein)
       ).text == "Protein: Planned 700 / Goal 700 g, over goal")
 
-    let actualOverage = comparison(protein: 700.04, counted: 7)
-    let planned = WeekFigures.compactAmount(actualOverage.planned.protein, locale: en)
-    let goal = WeekFigures.compactAmount(actualOverage.target.protein, locale: en)
+    let planned = WeekFigures.compactAmount(belowPrecision.2.planned.protein, locale: en)
+    let goal = WeekFigures.compactAmount(belowPrecision.2.target.protein, locale: en)
     #expect(planned == "700.04")
     #expect(planned != goal)
+    #expect(WeekFigures.isOverGoal(belowPrecision.2, key: .protein))
     #expect(
       Copy.week.tally.compactMetric(
         name: "Protein", planned: planned, goal: goal, unit: "g",
-        isOver: WeekFigures.isOverGoal(actualOverage, key: .protein)
+        isOver: WeekFigures.isOverGoal(belowPrecision.2, key: .protein)
       ).text == "Protein: Planned 700.04 / Goal 700 g, over goal")
   }
 
