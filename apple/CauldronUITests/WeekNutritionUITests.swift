@@ -24,6 +24,7 @@ final class WeekNutritionUITests: XCTestCase {
     XCTAssertTrue(app.navigationBars["Daily nutrition"].waitForExistence(timeout: 5))
     XCTAssertTrue(calorieRow(in: app).label.contains("0 kcal planned"), app.debugDescription)
     closeSheet(in: app)
+    XCTAssertTrue(anotherDay.isSelected, app.debugDescription)
     XCTAssertTrue(app.descendants(matching: .any)["week.weeklyComparison"].exists)
   }
 
