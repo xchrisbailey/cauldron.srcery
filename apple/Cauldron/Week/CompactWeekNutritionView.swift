@@ -34,6 +34,7 @@ struct CompactWeekNutritionView: View {
           Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
           Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
             .brandText(.control)
+            .frame(minHeight: 44)
             .accessibilityIdentifier("week.setTargets")
         }
       }
