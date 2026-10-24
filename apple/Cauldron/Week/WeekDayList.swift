@@ -94,6 +94,9 @@ struct WeekDayList<Top: View, Bottom: View>: View {
     }
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
+    #if os(iOS)
+      .listSectionSpacing(.compact)
+    #endif
   }
 
   private var dayTabs: some View {
