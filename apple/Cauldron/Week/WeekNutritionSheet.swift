@@ -42,6 +42,7 @@ struct WeekNutritionSheet: View {
               }
               Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
                 .brandText(.control)
+                .frame(minHeight: 44)
                 .accessibilityIdentifier("week.dailySetTargets")
             }
           }

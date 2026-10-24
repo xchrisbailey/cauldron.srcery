@@ -8,27 +8,66 @@ struct WeekHeaderView: View {
   let onPrevious: () -> Void
   let onNext: () -> Void
   let onThisWeek: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
-    HStack(spacing: 4) {
-      WeekIconButton(
-        systemImage: "chevron.left", label: Copy.week.previousWeek.text, action: onPrevious)
-      Text(verbatim: WeekDates.rangeLabel(start: start))
-        .brandText(.section)
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-      WeekIconButton(
-        systemImage: "chevron.right", label: Copy.week.nextWeek.text, action: onNext)
-      Spacer(minLength: 8)
-      if !isCurrent {
-        Button(action: onThisWeek) {
-          Text(verbatim: Copy.week.thisWeek.text)
-            .brandText(.control)
-            .foregroundStyle(Brand.Colors.magic)
-            .frame(minHeight: 44)
+    #if os(iOS)
+      ViewThatFits(in: .horizontal) {
+        row(adaptive: true)
+        VStack(alignment: .leading, spacing: 4) {
+          range.fixedSize(horizontal: false, vertical: true)
+          HStack {
+            previous
+            Spacer(minLength: 8)
+            if !dynamicTypeSize.isAccessibilitySize { thisWeek }
+            Spacer(minLength: 8)
+            next
+          }
+          if dynamicTypeSize.isAccessibilitySize { thisWeek }
         }
-        .buttonStyle(.plain)
       }
+    #else
+      row(adaptive: false)
+    #endif
+  }
+
+  private func row(adaptive: Bool) -> some View {
+    HStack(spacing: 4) {
+      previous
+      range
+        .lineLimit(1)
+        .minimumScaleFactor(adaptive ? 1 : 0.8)
+        .fixedSize(horizontal: adaptive, vertical: true)
+      next
+      Spacer(minLength: 8)
+      thisWeek
+    }
+  }
+
+  private var range: some View {
+    Text(verbatim: WeekDates.rangeLabel(start: start)).brandText(.section)
+  }
+
+  private var previous: some View {
+    WeekIconButton(
+      systemImage: "chevron.left", label: Copy.week.previousWeek.text, action: onPrevious)
+  }
+
+  private var next: some View {
+    WeekIconButton(
+      systemImage: "chevron.right", label: Copy.week.nextWeek.text, action: onNext)
+  }
+
+  @ViewBuilder
+  private var thisWeek: some View {
+    if !isCurrent {
+      Button(action: onThisWeek) {
+        Text(verbatim: Copy.week.thisWeek.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.magic)
+          .frame(minHeight: 44)
+      }
+      .buttonStyle(.plain)
     }
   }
 }

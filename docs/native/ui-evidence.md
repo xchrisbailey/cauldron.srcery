@@ -34,5 +34,13 @@ Review exported PNGs at representative narrow and wide sizes in light and dark a
 VoiceOver, real-device sizing, and second-device/iCloud behavior remain manual checks; do not infer
 those from simulator screenshots.
 
+`WeekTargetsUITests/testPopulatedWeekShowsScheduleWithoutScrolling()` checks actual first-meal
+visibility without scrolling, for breakfast-first and dinner-only days in both appearances.
+Run it on the representative 390 × 844pt iPhone viewport; attachment names record measured size.
+Its seven-batch fixture requires both the Debug-only in-memory launch contract and
+`CAULDRON_UI_TEST_WEEK=breakfast|dinner`; it cannot populate a local or synced store. Separate
+batch additions share a recipe, and two servings remain unassigned. The target-save test also
+exercises setup from daily nutrition and return to refreshed daily and weekly comparisons.
+
 Keep accepted historical screenshots and any waived checks in the originating issue and runner
 handoff, with the actual producing revision. An accepted waiver is not a current-head test pass.
