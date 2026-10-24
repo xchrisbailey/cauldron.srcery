@@ -1,6 +1,44 @@
 import XCTest
 
 final class WeekTargetsUITests: XCTestCase {
+  #if os(iOS)
+    @MainActor
+    func testPopulatedWeekShowsScheduleWithoutScrolling() {
+      for scenario in ["breakfast", "dinner"] {
+        for appearance in ["light", "dark"] {
+          let app = XCUIApplication()
+          app.launchEnvironment["CAULDRON_UI_TEST_IN_MEMORY"] = "1"
+          app.launchEnvironment["CAULDRON_UI_TEST_WEEK"] = scenario
+          app.launchEnvironment["CAULDRON_UI_TEST_APPEARANCE"] = appearance
+          app.launch()
+          navigateToWeek(in: app)
+          let firstMeal = app.buttons.matching(
+            NSPredicate(
+              format: "label CONTAINS %@ AND label CONTAINS %@", "Breakfast bowl", "kcal")
+          ).firstMatch
+          attachScreenshot(of: app, named: "week-density-\(scenario)-\(appearance)")
+          guard firstMeal.waitForExistence(timeout: 5) else {
+            XCTFail("First meal must exist on initial presentation: \(scenario), \(appearance)")
+            app.terminate()
+            continue
+          }
+          XCTAssertTrue(
+            firstMeal.isHittable,
+            "First meal must be visible before scrolling: \(app.debugDescription)")
+          XCTAssertGreaterThanOrEqual(firstMeal.frame.minY, app.frame.minY)
+          XCTAssertLessThanOrEqual(firstMeal.frame.maxY, app.tabBars.firstMatch.frame.minY)
+          let dayStrip = app.descendants(matching: .any)["Days"].firstMatch
+          XCTAssertTrue(dayStrip.exists)
+          if dayStrip.exists {
+            XCTAssertGreaterThan(dayStrip.frame.height, 0)
+            XCTAssertLessThan(dayStrip.frame.maxY, firstMeal.frame.minY)
+          }
+          app.terminate()
+        }
+      }
+    }
+  #endif
+
   #if os(macOS)
     @MainActor
     func testNativeSettingsCommandOpensWithoutTerminatingApp() {

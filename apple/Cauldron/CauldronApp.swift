@@ -64,6 +64,8 @@ struct CauldronApp: App {
         try DebugSeed.populateIfRequested(
           arguments: CommandLine.arguments, mode: CauldronStore.launchMode,
           context: ModelContext(container), today: DebugSeed.today())
+        try WeekUITestFixture.populateIfRequested(
+          mode: CauldronStore.launchMode, context: container.mainContext)
       } catch {
         fatalError("Cauldron couldn't seed its data store: \(error)")
       }
