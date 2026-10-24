@@ -37,12 +37,9 @@ final class BatchManagementUITests: XCTestCase {
       let app = launchWeek()
       let selectedDay = selectedDayTab(in: app)
       XCTAssertFalse(selectedDay.isEmpty, app.debugDescription)
-      let weeklyNutrition = app.descendants(matching: .any)["week.weeklyComparison"]
-      let dailyNutrition = app.descendants(matching: .any)["week.dailyComparison"]
-      XCTAssertTrue(weeklyNutrition.waitForExistence(timeout: 5), app.debugDescription)
-      XCTAssertTrue(dailyNutrition.waitForExistence(timeout: 5), app.debugDescription)
-      let previousWeeklyNutrition = weeklyNutrition.label
-      let previousDailyNutrition = dailyNutrition.label
+      let weeklyTally = app.descendants(matching: .any)["week.tally.week"]
+      XCTAssertTrue(weeklyTally.waitForExistence(timeout: 5), app.debugDescription)
+      XCTAssertTrue(weeklyTally.label.contains("3,500 kcal"), weeklyTally.label)
       app.buttons["week.batches"].tap()
 
       let batch = batchRow(
@@ -70,10 +67,10 @@ final class BatchManagementUITests: XCTestCase {
       XCTAssertTrue(
         app.buttons.matching(
           NSPredicate(
-            format: "label CONTAINS %@ AND label CONTAINS %@", "Breakfast bowl", "2 servings")
+            format: "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@",
+            "Breakfast bowl", "2 servings", "1,000 kcal")
         ).firstMatch.exists, "The selected day's meals should reflect the committed assignment.")
-      XCTAssertNotEqual(weeklyNutrition.label, previousWeeklyNutrition)
-      XCTAssertNotEqual(dailyNutrition.label, previousDailyNutrition)
+      XCTAssertTrue(weeklyTally.label.contains("4,500 kcal"), weeklyTally.label)
       app.terminate()
     }
 
@@ -105,7 +102,9 @@ final class BatchManagementUITests: XCTestCase {
       XCTAssertTrue(removable.waitForExistence(timeout: 5), app.debugDescription)
       removable.tap()
       app.buttons["week.batchEditor.remove"].tap()
-      let confirm = app.buttons["week.batchEditor.confirmRemove"]
+      let dialog = app.sheets["Remove this batch and all its planned meals?"]
+      XCTAssertTrue(dialog.waitForExistence(timeout: 5), app.debugDescription)
+      let confirm = dialog.buttons["week.batchEditor.confirmRemove"].firstMatch
       XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
       confirm.tap()
 

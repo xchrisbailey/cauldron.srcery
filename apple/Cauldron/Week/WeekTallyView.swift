@@ -72,7 +72,9 @@ struct WeekTallyView: View {
   private var groups: some View {
     TallyGroup(
       label: Copy.week.tally.week.text, tally: snapshot.weekTally,
-      sub: WeekFigures.average(of: snapshot.weekTally, daysPlanned: snapshot.daysPlanned))
+      sub: WeekFigures.average(of: snapshot.weekTally, daysPlanned: snapshot.daysPlanned)
+    )
+    .accessibilityIdentifier("week.tally.week")
     if let day {
       HStack(alignment: .top, spacing: 8) {
         TallyGroup(
