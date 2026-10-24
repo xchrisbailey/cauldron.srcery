@@ -42,7 +42,7 @@ struct WeekNutritionSheet: View {
               }
               Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
                 .brandText(.control)
-                .accessibilityIdentifier("week.setTargets")
+                .accessibilityIdentifier("week.dailySetTargets")
             }
           }
           if let note = WeekFigures.note(week: snapshot.tally(of: day), day: nil) {
@@ -54,6 +54,7 @@ struct WeekNutritionSheet: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
       }
+      .accessibilityIdentifier("week.dailyNutritionContent")
       .background(Brand.Colors.base)
       .navigationTitle(Copy.week.tally.dailyNutritionTitle.text)
       #if os(iOS)
