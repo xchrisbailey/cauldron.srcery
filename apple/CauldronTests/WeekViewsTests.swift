@@ -199,6 +199,12 @@ import Testing
             width: 390, height: 760), "empty list \(scheme)")
         let populated = BatchManagementSheet(
           batches: batches, weekStart: start, today: start)
+        let seven = BatchManagementSheet(
+          batches: Array(batches.prefix(7)), weekStart: start, today: start)
+        #expect(
+          renders(
+            seven.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 760), "seven distinct batches \(scheme)")
         #expect(
           renders(
             populated.modelContainer(container).environment(\.colorScheme, scheme),
