@@ -765,6 +765,21 @@ struct WeekPlanTests {
   }
 
   @Test func weeklyComparisonPreservesFractionalProteinDifferencesInItsPresentedRow() throws {
+    func comparisonForSevenEqualMeals(protein: Double) throws -> WeekMacroComparison {
+      let context = try context()
+      let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      context.insert(target)
+      let meal = recipe(
+        "Protein meal", servings: 1,
+        macros: Macros(calories: 100, protein: protein, carbs: 10, fat: 5), in: context)
+      try WeekPlan.stir(
+        meal, days: monday.weekDays().map { DayServings(date: $0, servings: 1) },
+        slot: .dinner, into: context)
+      let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+      let snapshot = WeekSnapshot(start: monday, records: records, targets: target)
+      return try #require(snapshot.weeklyComparison)
+    }
+
     func row(lastServingProtein: Double) throws -> (Double, String, WeekMacroComparison) {
       let context = try context()
       let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
@@ -802,7 +817,7 @@ struct WeekPlanTests {
     let belowPrecision = try row(lastServingProtein: 100.04)
     #expect(belowPrecision.0 == 700.04)
     #expect(belowPrecision.1 == "Protein: 700 g planned, 700 g target, <0.1 g over target")
-    let roundoff = try row(lastServingProtein: 100.00000000000001).2
+    let roundoff = try comparisonForSevenEqualMeals(protein: 100.00000000000001)
     #expect(roundoff.planned.protein > roundoff.target.protein)
     #expect(roundoff.remaining(for: .protein) == 0)
     #expect(!WeekFigures.isOverGoal(roundoff, key: .protein))
