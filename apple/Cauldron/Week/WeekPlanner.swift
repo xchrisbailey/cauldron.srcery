@@ -117,7 +117,7 @@ struct WeekPlanner: View {
           PlannedBatchSheet(batch: id) { self.sheet = nil }
         }
       case .batches:
-        BatchManagementSheet(batches: batches, weekStart: start, today: today)
+        BatchManagementSheet(weekStart: start, today: today)
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -252,7 +252,6 @@ struct WeekPlanner: View {
       onPlanRecipe: planRecipe
     ) {
       VStack(alignment: .leading, spacing: 12) {
-        batchEntry
         header
         tally(snapshot)
         if snapshot.isEmpty && batches.isEmpty {
@@ -260,10 +259,21 @@ struct WeekPlanner: View {
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
         }
+        #if os(macOS)
+          batchSummaries
+        #endif
       }
     } bottom: {
       WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
     }
+    #if os(iOS)
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          BatchManagementButton(batches: batches) { sheet = .batches }
+        }
+      }
+      .navigationBarTitleDisplayMode(.inline)
+    #endif
   }
 
   @ViewBuilder
@@ -275,12 +285,6 @@ struct WeekPlanner: View {
         }
       }
     }
-  }
-
-  @ViewBuilder
-  private var batchEntry: some View {
-    BatchManagementButton(batches: batches) { sheet = .batches }
-      .frame(maxWidth: .infinity, alignment: .trailing)
   }
 
   @ViewBuilder

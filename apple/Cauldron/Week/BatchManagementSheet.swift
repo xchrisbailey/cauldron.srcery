@@ -1,4 +1,5 @@
 import CauldronKit
+import SwiftData
 import SwiftUI
 
 struct BatchManagementButton: View {
@@ -39,6 +40,7 @@ struct BatchManagementButton: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityIdentifier("week.batches")
     .accessibilityLabel(
       Text(
         verbatim: Copy.week.batchButtonLabel(
@@ -50,12 +52,21 @@ struct BatchManagementButton: View {
 }
 
 struct BatchManagementSheet: View {
-  let batches: [PlannedBatchRecord]
   let weekStart: LocalDate
   let today: LocalDate
+  @Query private var batches: [PlannedBatchRecord]
 
   @Environment(\.dismiss) private var dismiss
   @State private var planning = false
+
+  init(weekStart: LocalDate, today: LocalDate) {
+    self.weekStart = weekStart
+    self.today = today
+    let lower = weekStart.description
+    let upper = weekStart.adding(days: 6).description
+    _batches = Query(
+      filter: #Predicate { $0.weekStartKey >= lower && $0.weekStartKey <= upper })
+  }
 
   private var orderedBatches: [PlannedBatchRecord] {
     batches.sorted {
@@ -83,6 +94,7 @@ struct BatchManagementSheet: View {
             NavigationLink(value: batch.id) {
               BatchManagementRow(batch: batch)
             }
+            .accessibilityIdentifier("week.batch.\(batch.id.uuidString)")
           }
         }
       }
@@ -100,6 +112,7 @@ struct BatchManagementSheet: View {
           } label: {
             Text(verbatim: Copy.week.done.text)
           }
+          .accessibilityIdentifier("week.batches.done")
         }
         if !orderedBatches.isEmpty {
           #if os(iOS)

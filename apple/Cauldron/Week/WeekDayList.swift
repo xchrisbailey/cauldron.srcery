@@ -131,6 +131,7 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: WeekDates.label(tabDay, long: true)))
+        .accessibilityIdentifier("week.day.\(tabDay.description)")
         .accessibilityAddTraits(isShown ? .isSelected : [])
       }
     }

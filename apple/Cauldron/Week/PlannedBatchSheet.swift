@@ -42,10 +42,12 @@ struct PlannedBatchSheet: View {
         Picker(selection: totalSelection) {
           ForEach(1...WeekLimits.servings, id: \.self) { value in
             Text(verbatim: String(value)).brandText(.quantity).tag(value)
+              .accessibilityIdentifier("week.batchEditor.totalOption.\(value)")
           }
         } label: {
           Text(verbatim: Copy.week.spread.total.text)
         }
+        .accessibilityIdentifier("week.batchEditor.total")
         Text(verbatim: draftSummary.status)
           .brandText(.quantity)
           .foregroundStyle(
@@ -63,17 +65,22 @@ struct PlannedBatchSheet: View {
           ForEach(week, id: \.self) { value in
             Text(verbatim: WeekDates.label(value, long: true))
               .brandText(.quantity).tag(LocalDate?.some(value))
+              .accessibilityIdentifier("week.batchEditor.dayOption.\(value.description)")
           }
         } label: {
           Text(verbatim: Copy.week.day.text)
         }
+        .accessibilityIdentifier("week.batchEditor.day")
         Picker(selection: $slot) {
           ForEach(MealSlot.allCases, id: \.self) { value in
-            Text(verbatim: Copy.week.slots[value].text).tag(value)
+            Text(verbatim: Copy.week.slots[value].text)
+              .tag(value)
+              .accessibilityIdentifier("week.batchEditor.slotOption.\(value.rawValue)")
           }
         } label: {
           Text(verbatim: Copy.week.slot.text)
         }
+        .accessibilityIdentifier("week.batchEditor.slot")
         Picker(selection: $servings) {
           ForEach(
             1...max(
@@ -87,13 +94,16 @@ struct PlannedBatchSheet: View {
             id: \.self
           ) { value in
             Text(verbatim: String(value)).brandText(.quantity).tag(value)
+              .accessibilityIdentifier("week.batchEditor.servingsOption.\(value)")
           }
         } label: {
           Text(verbatim: Copy.week.servings.text)
         }
+        .accessibilityIdentifier("week.batchEditor.servings")
         Button(action: assign) {
           Text(verbatim: Copy.week.addAssignment.text)
         }
+        .accessibilityIdentifier("week.batchEditor.assign")
         .disabled(week.isEmpty || draftSummary.assignable < servings)
       } header: {
         Text(verbatim: Copy.week.addAssignment.text)
@@ -107,6 +117,7 @@ struct PlannedBatchSheet: View {
         } label: {
           Text(verbatim: Copy.week.removeBatch.text)
         }
+        .accessibilityIdentifier("week.batchEditor.remove")
       }
     }
     .formStyle(.grouped)
@@ -123,17 +134,17 @@ struct PlannedBatchSheet: View {
         } label: {
           Text(verbatim: Copy.week.cancel.text)
         }
+        .accessibilityIdentifier("week.batchEditor.cancel")
       }
       ToolbarItem(placement: .confirmationAction) {
         Button(action: save) { Text(verbatim: Copy.week.save.text) }
           .disabled(draft.total < allocation.assigned)
+          .accessibilityIdentifier("week.batchEditor.save")
       }
     }
     .sheet(item: $editingEntry) { entry in
       BatchAssignmentEditor(entry: entry, batch: batch)
     }
-    // Keep presentation modifiers outside the stack: ImageRenderer teardown can enqueue an
-    // action after its update has ended when a dialog is attached to this NavigationStack.
     .confirmationDialog(
       Text(verbatim: Copy.week.removeBatchConfirm.text), isPresented: $confirmingRemoval,
       titleVisibility: .visible
@@ -141,6 +152,7 @@ struct PlannedBatchSheet: View {
       Button(role: .destructive, action: removeBatch) {
         Text(verbatim: Copy.week.removeBatch.text)
       }
+      .accessibilityIdentifier("week.batchEditor.confirmRemove")
       Button(role: .cancel) {
       } label: {
         Text(verbatim: Copy.week.cancel.text)

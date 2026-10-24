@@ -172,7 +172,7 @@ import Testing
             width: 240, height: 70), "batch entry \(scheme)")
         #expect(
           renders(
-            BatchManagementSheet(batches: [batch], weekStart: start, today: start)
+            BatchManagementSheet(weekStart: start, today: start)
               .modelContainer(container).environment(\.colorScheme, scheme),
             width: 390, height: 800), "batch list \(scheme)")
       }
@@ -182,6 +182,8 @@ import Testing
       let container = try CauldronStore.container(.inMemory)
       let context = ModelContext(container)
       let start = LocalDate("2026-10-19")!
+      let emptyStart = LocalDate("2026-10-12")!
+      let sevenStart = LocalDate("2026-10-26")!
       let recipe = RecipeRecord(title: "A recipe added more than once")
       context.insert(recipe)
       var batches: [PlannedBatchRecord] = []
@@ -190,17 +192,20 @@ import Testing
           try WeekPlan.createBatch(
             recipe: recipe, weekStart: start, totalServings: 4, in: context))
       }
+      for _ in 0..<7 {
+        _ = try WeekPlan.createBatch(
+          recipe: recipe, weekStart: sevenStart, totalServings: 4, in: context)
+      }
       try context.save()
       for scheme in [ColorScheme.light, .dark] {
-        let empty = BatchManagementSheet(batches: [], weekStart: start, today: start)
+        let empty = BatchManagementSheet(weekStart: emptyStart, today: emptyStart)
         #expect(
           renders(
             empty.modelContainer(container).environment(\.colorScheme, scheme),
             width: 390, height: 760), "empty list \(scheme)")
         let populated = BatchManagementSheet(
-          batches: batches, weekStart: start, today: start)
-        let seven = BatchManagementSheet(
-          batches: Array(batches.prefix(7)), weekStart: start, today: start)
+          weekStart: start, today: start)
+        let seven = BatchManagementSheet(weekStart: sevenStart, today: sevenStart)
         #expect(
           renders(
             seven.modelContainer(container).environment(\.colorScheme, scheme),
