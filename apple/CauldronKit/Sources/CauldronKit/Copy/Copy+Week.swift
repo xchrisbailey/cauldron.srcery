@@ -58,6 +58,12 @@ extension Copy {
       "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day."
     )
     public let editBatch = plain("Edit planned batch")
+    public func batchButtonUnassigned(_ count: Int) -> CopyString {
+      plain("\(count) unassigned")
+    }
+    public func batchButtonConflict(_ count: Int) -> CopyString {
+      plain("\(count) \(count == 1 ? "conflict" : "conflicts")")
+    }
     public func batchConflicts(_ count: Int) -> CopyString {
       plain("\(count) \(count == 1 ? "batch needs" : "batches need") allocation repair")
     }

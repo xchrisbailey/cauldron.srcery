@@ -33,6 +33,34 @@ final class BatchManagementUITests: XCTestCase {
     }
 
     @MainActor
+    func testBatchToolbarAndScreensFitBothAppearances() {
+      for appearance in ["light", "dark"] {
+        let app = launchWeek(appearance: appearance)
+        let entry = app.buttons["week.batches"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(entry.label.contains("7 batches"), entry.label)
+        XCTAssertTrue(entry.label.contains("2 servings unassigned"), entry.label)
+        XCTAssertGreaterThan(entry.frame.width, 64, "Toolbar entry frame: \(entry.frame)")
+        attachText(
+          "week.batches accessibility frame: \(entry.frame)",
+          named: "batch-entry-frame-\(appearance)")
+        attachScreenshot(of: app, named: "batch-entry-\(appearance)")
+
+        entry.tap()
+        XCTAssertTrue(app.buttons["week.batches.done"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, named: "batch-list-\(appearance)")
+
+        let duplicate = batchRow(
+          in: app, title: "Breakfast bowl", allocation: "1 of 3 servings planned")
+        XCTAssertTrue(duplicate.waitForExistence(timeout: 5), app.debugDescription)
+        duplicate.tap()
+        XCTAssertTrue(app.buttons["week.batchEditor.save"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, named: "batch-editor-\(appearance)")
+        app.terminate()
+      }
+    }
+
+    @MainActor
     func testAssignmentCommitSurvivesDraftCancelAndKeepsSelectedDay() {
       let app = launchWeek()
       let selectedDay = selectedDayTab(in: app)
@@ -121,15 +149,32 @@ final class BatchManagementUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchWeek() -> XCUIApplication {
+    private func launchWeek(appearance: String = "light") -> XCUIApplication {
       let app = XCUIApplication()
       app.launchEnvironment["CAULDRON_UI_TEST_IN_MEMORY"] = "1"
       app.launchEnvironment["CAULDRON_UI_TEST_WEEK"] = "breakfast"
+      app.launchEnvironment["CAULDRON_UI_TEST_APPEARANCE"] = appearance
       app.launch()
       let week = app.buttons["calendar"]
       XCTAssertTrue(week.waitForExistence(timeout: 10), app.debugDescription)
       week.tap()
       return app
+    }
+
+    @MainActor
+    private func attachScreenshot(of app: XCUIApplication, named name: String) {
+      let attachment = XCTAttachment(screenshot: app.screenshot())
+      attachment.name = name
+      attachment.lifetime = .keepAlways
+      add(attachment)
+    }
+
+    @MainActor
+    private func attachText(_ text: String, named name: String) {
+      let attachment = XCTAttachment(string: text)
+      attachment.name = name
+      attachment.lifetime = .keepAlways
+      add(attachment)
     }
 
     @MainActor

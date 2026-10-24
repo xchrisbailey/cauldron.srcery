@@ -146,6 +146,10 @@ struct CopyTests {
   }
 
   @Test func batchEntryCopyNamesServingsAndConflicts() {
+    #expect(Copy.week.batchButtonUnassigned(2) == .plain("2 unassigned"))
+    #expect(Copy.week.batchButtonUnassigned(1) == .plain("1 unassigned"))
+    #expect(Copy.week.batchButtonConflict(1) == .plain("1 conflict"))
+    #expect(Copy.week.batchButtonConflict(2) == .plain("2 conflicts"))
     #expect(
       Copy.week.batchButtonLabel(count: 7, unassigned: 2, conflicts: 0)
         == .plain("7 batches, 2 servings unassigned"))

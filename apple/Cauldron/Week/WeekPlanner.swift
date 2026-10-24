@@ -295,6 +295,7 @@ struct WeekPlanner: View {
         ToolbarItem(placement: .topBarLeading) {
           BatchManagementButton(batches: batches) { sheet = .batches }
         }
+        .sharedBackgroundVisibility(.hidden)
       }
       .navigationBarTitleDisplayMode(.inline)
     #endif

@@ -26,13 +26,15 @@ struct BatchManagementButton: View {
           Text(verbatim: String(batches.count)).brandText(.quantity)
         }
         if unassignedServings > 0 {
-          Text(verbatim: Copy.week.spread.remaining(unassignedServings).text)
+          Text(verbatim: Copy.week.batchButtonUnassigned(unassignedServings).text)
             .brandText(.quantity)
+            .lineLimit(1)
             .foregroundStyle(Brand.Colors.heat)
         }
         if conflictCount > 0 {
-          Text(verbatim: Copy.week.batchConflicts(conflictCount).text)
+          Text(verbatim: Copy.week.batchButtonConflict(conflictCount).text)
             .brandText(.quantity)
+            .lineLimit(1)
             .foregroundStyle(Brand.Colors.heat)
         }
       }
@@ -48,6 +50,7 @@ struct BatchManagementButton: View {
         ).text)
     )
     .accessibilityHint(Text(verbatim: Copy.week.editBatch.text))
+    .fixedSize(horizontal: true, vertical: false)
   }
 }
 
