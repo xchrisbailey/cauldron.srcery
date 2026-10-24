@@ -166,6 +166,47 @@ import Testing
             PlannedBatchSheet(batch: batch, onRemoved: {}).modelContainer(container)
               .environment(\.colorScheme, scheme), width: 440, height: 680),
           "batch editor \(scheme)")
+        #expect(
+          renders(
+            BatchManagementButton(batches: [batch], action: {}).environment(\.colorScheme, scheme),
+            width: 240, height: 70), "batch entry \(scheme)")
+        #expect(
+          renders(
+            BatchManagementSheet(batches: [batch], weekStart: start, today: start)
+              .modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 800), "batch list \(scheme)")
+      }
+    }
+
+    @Test func batchSheetSupportsEmptyAndTwentyOneSeparateRecipeBatches() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let start = LocalDate("2026-10-19")!
+      let recipe = RecipeRecord(title: "A recipe added more than once")
+      context.insert(recipe)
+      var batches: [PlannedBatchRecord] = []
+      for _ in 0..<21 {
+        batches.append(
+          try WeekPlan.createBatch(
+            recipe: recipe, weekStart: start, totalServings: 4, in: context))
+      }
+      try context.save()
+      for scheme in [ColorScheme.light, .dark] {
+        let empty = BatchManagementSheet(batches: [], weekStart: start, today: start)
+        #expect(
+          renders(
+            empty.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 760), "empty list \(scheme)")
+        let populated = BatchManagementSheet(
+          batches: batches, weekStart: start, today: start)
+        #expect(
+          renders(
+            populated.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 320, height: 760), "21 distinct batches \(scheme)")
+        #expect(
+          renders(
+            BatchManagementButton(batches: batches, action: {}).environment(\.colorScheme, scheme),
+            width: 240, height: 70), "21-batch entry \(scheme)")
       }
     }
 

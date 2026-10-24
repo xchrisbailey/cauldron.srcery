@@ -9,6 +9,7 @@ private enum WeekSheet: Identifiable {
   case dropped(UUID, MealTarget, Int?)
   case change(UUID)
   case batch(PlannedBatchRecord)
+  case batches
 
   var id: String {
     switch self {
@@ -17,6 +18,7 @@ private enum WeekSheet: Identifiable {
       "dropped-\(id.uuidString)-\(target.day)-\(target.slot.rawValue)-\(position ?? -1)"
     case .change(let id): "change-\(id.uuidString)"
     case .batch(let batch): "batch-\(batch.id.uuidString)"
+    case .batches: "batches"
     }
   }
 }
@@ -111,7 +113,11 @@ struct WeekPlanner: View {
       case .change(let id):
         changeSheet(id, snapshot)
       case .batch(let id):
-        PlannedBatchSheet(batch: id) { self.sheet = nil }
+        NavigationStack {
+          PlannedBatchSheet(batch: id) { self.sheet = nil }
+        }
+      case .batches:
+        BatchManagementSheet(batches: batches, weekStart: start, today: today)
       }
     }
     .sheet(isPresented: $changingTargets) {
@@ -246,6 +252,7 @@ struct WeekPlanner: View {
       onPlanRecipe: planRecipe
     ) {
       VStack(alignment: .leading, spacing: 12) {
+        batchEntry
         header
         tally(snapshot)
         if snapshot.isEmpty && batches.isEmpty {
@@ -253,7 +260,6 @@ struct WeekPlanner: View {
             .brandText(.body)
             .foregroundStyle(Brand.Colors.subtext)
         }
-        batchSummaries
       }
     } bottom: {
       WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
@@ -269,6 +275,12 @@ struct WeekPlanner: View {
         }
       }
     }
+  }
+
+  @ViewBuilder
+  private var batchEntry: some View {
+    BatchManagementButton(batches: batches) { sheet = .batches }
+      .frame(maxWidth: .infinity, alignment: .trailing)
   }
 
   @ViewBuilder
