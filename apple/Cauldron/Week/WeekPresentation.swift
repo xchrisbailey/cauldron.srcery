@@ -120,6 +120,11 @@ enum WeekFigures {
     return value.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
   }
 
+  /// Compact color and spoken over-goal meaning follow the authoritative comparison tolerance.
+  static func isOverGoal(_ comparison: WeekMacroComparison, key: MacroKey) -> Bool {
+    comparison.remaining(for: key) < 0
+  }
+
   private static func comparisonAmount(_ value: Double, locale: Locale) -> String {
     guard value.isFinite else { return 0.formatted(.number.locale(locale)) }
     return value.formatted(.number.precision(.fractionLength(0...1)).locale(locale))

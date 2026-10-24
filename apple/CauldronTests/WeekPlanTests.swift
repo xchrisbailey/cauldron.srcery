@@ -805,13 +805,34 @@ struct WeekPlanTests {
   }
 
   @Test func compactWeeklyPairAndAccessibilityRetainSmallOverGoalDifference() {
-    let planned = WeekFigures.compactAmount(700.04, locale: en)
-    let goal = WeekFigures.compactAmount(700, locale: en)
+    func comparison(protein: Double, counted: Int) -> WeekMacroComparison {
+      let tally = MacroTally(
+        totals: MacroTotals(calories: 0, protein: protein, carbs: 0, fat: 0),
+        counted: counted, missing: 0, freeText: 0)
+      return WeekMacroComparison(
+        tally: tally, dailyTarget: MacroTargets(calories: 0, protein: 100, carbs: 0, fat: 0))
+    }
+
+    let roundoff = comparison(
+      protein: (0..<7).reduce(0) { $0 + 100.00000000000001 }, counted: 7)
+    #expect(roundoff.planned.protein > roundoff.target.protein)
+    #expect(roundoff.remaining(for: .protein) == 0)
+    #expect(!WeekFigures.isOverGoal(roundoff, key: .protein))
+    let roundedPair = Copy.week.tally.compactMetric(
+      name: "Protein", planned: WeekFigures.compactAmount(roundoff.planned.protein, locale: en),
+      goal: WeekFigures.compactAmount(roundoff.target.protein, locale: en), unit: "g",
+      isOver: WeekFigures.isOverGoal(roundoff, key: .protein))
+    #expect(roundedPair.text == "Protein: Planned 700 / Goal 700 g")
+
+    let actualOverage = comparison(protein: 700.04, counted: 7)
+    let planned = WeekFigures.compactAmount(actualOverage.planned.protein, locale: en)
+    let goal = WeekFigures.compactAmount(actualOverage.target.protein, locale: en)
     #expect(planned == "700.04")
     #expect(planned != goal)
     #expect(
       Copy.week.tally.compactMetric(
-        name: "Protein", planned: planned, goal: goal, unit: "g", isOver: 700.04 > 700
+        name: "Protein", planned: planned, goal: goal, unit: "g",
+        isOver: WeekFigures.isOverGoal(actualOverage, key: .protein)
       ).text == "Protein: Planned 700.04 / Goal 700 g, over goal")
   }
 

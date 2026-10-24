@@ -68,7 +68,7 @@ struct CompactWeekNutritionView: View {
       planned: WeekFigures.compactAmount(planned), goal: WeekFigures.compactAmount(goal),
       unit: unit
     ).text
-    let overGoal = planned > goal
+    let overGoal = WeekFigures.isOverGoal(comparison, key: key)
     return VStack(alignment: .leading, spacing: 3) {
       Text(verbatim: WeekFigures.metricName(key))
         .brandText(prominent ? .section : .control)
