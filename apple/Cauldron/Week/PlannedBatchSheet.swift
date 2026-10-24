@@ -31,7 +31,7 @@ struct PlannedBatchSheet: View {
       title: batch.title, total: displayedTotal, assigned: allocation.assigned,
       hasInvalidEntries: allocation.hasInvalidEntries)
   }
-  private var displayedTotal: Int { draft.hasExplicitChange ? draft.total : batch.totalServings }
+  private var displayedTotal: Int { draft.effectiveTotal(currentTotal: batch.totalServings) }
   private var totalSelection: Binding<Int> {
     Binding(get: { displayedTotal }, set: { draft.setTotal($0) })
   }
@@ -138,7 +138,9 @@ struct PlannedBatchSheet: View {
       }
       ToolbarItem(placement: .confirmationAction) {
         Button(action: save) { Text(verbatim: Copy.week.save.text) }
-          .disabled(draft.total < allocation.assigned)
+          .disabled(
+            !draft.canSave(currentTotal: batch.totalServings, assigned: allocation.assigned)
+          )
           .accessibilityIdentifier("week.batchEditor.save")
       }
     }
