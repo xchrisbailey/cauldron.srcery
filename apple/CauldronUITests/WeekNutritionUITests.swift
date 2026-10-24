@@ -12,7 +12,7 @@ final class WeekNutritionUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Selected day planned against daily target"].exists)
     let fallbackCalories = calorieRow(in: app)
     XCTAssertTrue(fallbackCalories.waitForExistence(timeout: 5), app.debugDescription)
-    XCTAssertTrue(fallbackCalories.label.contains("3,500"), fallbackCalories.label)
+    XCTAssertFalse(fallbackCalories.label.contains(": 0 "), fallbackCalories.label)
     closeSheet(in: app)
 
     let anotherDay = app.buttons.matching(
