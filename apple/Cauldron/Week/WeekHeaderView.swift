@@ -12,6 +12,7 @@ struct WeekHeaderView: View {
 
   var body: some View {
     #if os(iOS)
+      // Give the date range and navigation their own rows when larger text needs the width.
       ViewThatFits(in: .horizontal) {
         row(adaptive: true)
         VStack(alignment: .leading, spacing: 4) {

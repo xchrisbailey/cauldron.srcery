@@ -33,6 +33,7 @@ struct WeekDayList<Top: View, Bottom: View>: View {
           selectedDayHeader
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
         }
       }
       ForEach(MealSlot.allCases, id: \.self) { slot in
@@ -98,6 +99,7 @@ struct WeekDayList<Top: View, Bottom: View>: View {
   private var dayTabs: some View {
     Group {
       if showNutritionAction {
+        // Keep day labels and touch targets readable instead of squeezing seven cells to fit.
         ViewThatFits(in: .horizontal) {
           tabRow(adaptive: true)
           ScrollViewReader { scroll in
