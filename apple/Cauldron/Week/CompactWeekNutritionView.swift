@@ -7,6 +7,7 @@ struct CompactWeekNutritionView: View {
   let tally: MacroTally
   let onOpenTargets: () -> Void
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @ScaledMetric(relativeTo: .title3) private var caloriePairSize = 24
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -16,30 +17,18 @@ struct CompactWeekNutritionView: View {
       if let comparison {
         VStack(alignment: .leading, spacing: 8) {
           metric(.calories, comparison: comparison, prominent: true)
-          if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 8) {
-              ForEach(WeekFigures.gramKeys, id: \.self) { key in
-                metric(key, comparison: comparison, prominent: false)
-              }
-            }
-          } else {
-            HStack(alignment: .top, spacing: 12) {
-              ForEach(WeekFigures.gramKeys, id: \.self) { key in
-                metric(key, comparison: comparison, prominent: false)
-                  .frame(maxWidth: .infinity, alignment: .leading)
-              }
+          VStack(alignment: .leading, spacing: 8) {
+            ForEach(WeekFigures.gramKeys, id: \.self) { key in
+              metric(key, comparison: comparison, prominent: false)
             }
           }
         }
       } else {
         VStack(alignment: .leading, spacing: 8) {
-          VStack(alignment: .leading, spacing: 5) {
-            total(.calories, prominent: true)
-            HStack(spacing: 12) {
-              ForEach(WeekFigures.gramKeys, id: \.self) { key in
-                total(key, prominent: false)
-                  .frame(maxWidth: .infinity, alignment: .leading)
-              }
+          total(.calories, prominent: true)
+          VStack(alignment: .leading, spacing: 8) {
+            ForEach(WeekFigures.gramKeys, id: \.self) { key in
+              total(key, prominent: false)
             }
           }
           Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
@@ -69,20 +58,30 @@ struct CompactWeekNutritionView: View {
       unit: unit
     ).text
     let overGoal = WeekFigures.isOverGoal(comparison, key: key)
-    return VStack(alignment: .leading, spacing: 3) {
-      Text(verbatim: WeekFigures.metricName(key))
-        .brandText(prominent ? .section : .control)
-        .foregroundStyle(Brand.Colors.subtext)
-      Text(verbatim: amount)
-        .brandText(.quantity)
-        .fixedSize(horizontal: false, vertical: true)
+    return VStack(alignment: .leading, spacing: 4) {
+      if prominent {
+        Text(verbatim: WeekFigures.metricName(key))
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+        calorieValue(amount, isOver: overGoal)
+      } else {
+        let label = WeekFigures.metricName(key)
+        if dynamicTypeSize.isAccessibilitySize {
+          macroRow(label: label, value: amount, isOver: overGoal, stacked: true)
+        } else {
+          ViewThatFits(in: .horizontal) {
+            macroRow(label: label, value: amount, isOver: overGoal, stacked: false)
+            macroRow(label: label, value: amount, isOver: overGoal, stacked: true)
+          }
+        }
+      }
       if let progress = comparison.progress(for: key) {
         GeometryReader { proxy in
           Capsule()
             .fill(Brand.Colors.surface0)
             .overlay(alignment: .leading) {
               Capsule()
-                .fill(overGoal ? Brand.Colors.heat : color(key))
+                .fill(overGoal ? Brand.Colors.heat : Brand.Colors.magic)
                 .frame(width: proxy.size.width * min(max(progress, 0), 1))
             }
         }
@@ -90,6 +89,7 @@ struct CompactWeekNutritionView: View {
         .accessibilityHidden(true)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(
       Text(
@@ -101,24 +101,81 @@ struct CompactWeekNutritionView: View {
     .accessibilityIdentifier("week.weeklyMetric.\(key)")
   }
 
-  private func color(_ key: MacroKey) -> Color {
-    switch key {
-    case .calories: Brand.Colors.magic
-    case .protein: Brand.Colors.trackerBlue
-    case .carbs: Brand.Colors.trackerTeal
-    case .fat: Brand.Colors.trackerRed
+  private func total(_ key: MacroKey, prominent: Bool) -> some View {
+    let unit = key == .calories ? Copy.week.tally.macros.calories.text : Copy.week.tally.grams.text
+    let value = Copy.week.tally.compactValue(
+      WeekFigures.compactAmount(tally.totals[key]), unit: unit
+    ).text
+    let label = WeekFigures.metricName(key)
+    return Group {
+      if prominent {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(verbatim: label).brandText(.control).foregroundStyle(Brand.Colors.subtext)
+          Text(verbatim: value).font(.brand(.quantity, size: caloriePairSize))
+        }
+      } else if dynamicTypeSize.isAccessibilitySize {
+        macroRow(label: label, value: value, isOver: false, stacked: true)
+      } else {
+        ViewThatFits(in: .horizontal) {
+          macroRow(label: label, value: value, isOver: false, stacked: false)
+          macroRow(label: label, value: value, isOver: false, stacked: true)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      Text(
+        verbatim: Copy.week.tally.knownTotal(
+          name: label, planned: WeekFigures.compactAmount(tally.totals[key]), unit: unit
+        ).text)
+    )
+  }
+
+  @ViewBuilder
+  private func calorieValue(_ value: String, isOver: Bool) -> some View {
+    if dynamicTypeSize.isAccessibilitySize {
+      VStack(alignment: .leading, spacing: 3) {
+        Text(verbatim: value).font(.brand(.quantity, size: caloriePairSize))
+        overGoalMarker(isOver)
+      }
+    } else {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(verbatim: value).font(.brand(.quantity, size: caloriePairSize))
+        Spacer(minLength: 0)
+        overGoalMarker(isOver)
+      }
     }
   }
 
-  private func total(_ key: MacroKey, prominent: Bool) -> some View {
-    let unit = key == .calories ? Copy.week.tally.macros.calories.text : Copy.week.tally.grams.text
-    return Text(
-      verbatim: Copy.week.tally.knownTotal(
-        name: WeekFigures.metricName(key), planned: WeekFigures.compactAmount(tally.totals[key]),
-        unit: unit
-      ).text
-    )
-    .brandText(.quantity)
-    .fixedSize(horizontal: false, vertical: true)
+  @ViewBuilder
+  private func macroRow(label: String, value: String, isOver: Bool, stacked: Bool) -> some View {
+    if stacked {
+      VStack(alignment: .leading, spacing: 3) {
+        Text(verbatim: label).brandText(.control).foregroundStyle(Brand.Colors.subtext)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(verbatim: value).brandText(.quantity)
+          Spacer(minLength: 0)
+          overGoalMarker(isOver)
+        }
+      }
+    } else {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(verbatim: label).brandText(.control).foregroundStyle(Brand.Colors.subtext)
+        Spacer(minLength: 8)
+        Text(verbatim: value).brandText(.quantity).fixedSize()
+        overGoalMarker(isOver)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func overGoalMarker(_ isOver: Bool) -> some View {
+    if isOver {
+      Text(verbatim: Copy.week.tally.overGoal.text)
+        .brandText(.control)
+        .foregroundStyle(Brand.Colors.heat)
+        .fixedSize()
+    }
   }
 }

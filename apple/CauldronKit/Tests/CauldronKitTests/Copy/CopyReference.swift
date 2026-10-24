@@ -726,6 +726,7 @@ enum CopyReference {
     .init(path: "week.tally.dailyNutritionTitle", tone: .plain, text: "Daily nutrition"),
     .init(path: "week.tally.planned", tone: .plain, text: "Planned"),
     .init(path: "week.tally.goal", tone: .plain, text: "Goal"),
+    .init(path: "week.tally.overGoal", tone: .plain, text: "Over goal"),
     .init(
       path: "week.tally.noDailyTargets", tone: .plain,
       text: "Set daily targets to compare this plan."),
@@ -1106,6 +1107,10 @@ enum CopyReference {
       call: "Copy.week.tally.compactPair(calories)",
       actual: Copy.week.tally.compactPair(planned: "4,000", goal: "14,000", unit: "kcal"),
       tone: .plain, text: "4,000 / 14,000 kcal"),
+    .init(
+      call: "Copy.week.tally.compactValue(calories)",
+      actual: Copy.week.tally.compactValue("8,510", unit: "kcal"),
+      tone: .plain, text: "8,510 kcal"),
     .init(
       call: "Copy.week.spread.planned(3, nil)", actual: Copy.week.spread.planned(3, nil),
       tone: .plain, text: "3 servings planned"),

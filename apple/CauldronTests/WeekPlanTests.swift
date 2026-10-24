@@ -824,6 +824,17 @@ struct WeekPlanTests {
       isOver: WeekFigures.isOverGoal(roundoff, key: .protein))
     #expect(roundedPair.text == "Protein: Planned 700 / Goal 700 g")
 
+    let tinyOverage = comparison(protein: 700.004, counted: 7)
+    let tinyPlanned = WeekFigures.compactAmount(tinyOverage.planned.protein, locale: en)
+    let tinyGoal = WeekFigures.compactAmount(tinyOverage.target.protein, locale: en)
+    #expect(tinyPlanned == tinyGoal)
+    #expect(WeekFigures.isOverGoal(tinyOverage, key: .protein))
+    #expect(
+      Copy.week.tally.compactMetric(
+        name: "Protein", planned: tinyPlanned, goal: tinyGoal, unit: "g",
+        isOver: WeekFigures.isOverGoal(tinyOverage, key: .protein)
+      ).text == "Protein: Planned 700 / Goal 700 g, over goal")
+
     let actualOverage = comparison(protein: 700.04, counted: 7)
     let planned = WeekFigures.compactAmount(actualOverage.planned.protein, locale: en)
     let goal = WeekFigures.compactAmount(actualOverage.target.protein, locale: en)

@@ -145,6 +145,7 @@ extension Copy {
       public let dailyNutritionTitle = plain("Daily nutrition")
       public let planned = plain("Planned")
       public let goal = plain("Goal")
+      public let overGoal = plain("Over goal")
       public let noDailyTargets = plain("Set daily targets to compare this plan.")
 
       public init() {}
@@ -174,6 +175,9 @@ extension Copy {
       }
       public func compactPair(planned: String, goal: String, unit: String) -> CopyString {
         plain("\(planned) / \(goal) \(unit)")
+      }
+      public func compactValue(_ value: String, unit: String) -> CopyString {
+        plain("\(value) \(unit)")
       }
 
       public struct Macros: Sendable {
