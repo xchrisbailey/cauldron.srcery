@@ -36,9 +36,9 @@
         calorieRow(in: selectedContent).label.contains("0 kcal planned"), app.debugDescription)
       closeSheet(in: app)
       XCTAssertTrue(anotherDay.isSelected, app.debugDescription)
-      let weeklySummary = app.descendants(matching: .any)["week.weeklyComparison"]
-      reveal(weeklySummary, in: app, direction: .down)
-      XCTAssertTrue(weeklySummary.exists, app.debugDescription)
+      let weeklyCalories = weeklyCaloriesMetric(in: app)
+      reveal(weeklyCalories, in: app, direction: .down)
+      XCTAssertTrue(weeklyCalories.exists, app.debugDescription)
     }
 
     @MainActor
@@ -89,6 +89,13 @@
     private func calorieRow(in content: XCUIElement) -> XCUIElement {
       content.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Calories:"))
         .firstMatch
+    }
+
+    @MainActor
+    private func weeklyCaloriesMetric(in app: XCUIApplication) -> XCUIElement {
+      let modernMetric = app.descendants(matching: .any)["week.weeklyMetric.calories"]
+      let legacyMetric = app.descendants(matching: .any)["week.tally.week"]
+      return modernMetric.exists ? modernMetric : legacyMetric
     }
 
     @MainActor
