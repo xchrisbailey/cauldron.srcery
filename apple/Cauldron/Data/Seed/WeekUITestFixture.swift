@@ -24,7 +24,9 @@
           recipe = firstRecipe
         } else {
           recipe = RecipeRecord(
-            title: index == 0 ? "Breakfast bowl" : "Planned recipe \(index + 1)")
+            title: index == 0
+              ? "Breakfast bowl with yoghurt, berries and toasted seeds"
+              : "Planned recipe \(index + 1)")
           recipe.servings = 1
           recipe.macros = Macros(calories: 500, protein: 30, carbs: 60, fat: 15)
           recipe.macrosSource = .manual
