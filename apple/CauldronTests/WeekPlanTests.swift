@@ -980,11 +980,44 @@ struct WeekPlanTests {
         == "Protein: 99.5 g planned, 100 g target, 0.5 g remaining")
     #expect(!comparison.isIncomplete)
     #expect(snapshot.weeklyComparison?.isIncomplete == true)
+    #expect(
+      WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday))
+        == Copy.week.tally.gaps(2).text)
+    #expect(WeekFigures.note(week: snapshot.tally(of: monday), day: nil) == nil)
     let empty = try #require(snapshot.dailyComparison(for: monday.adding(days: 3)))
     #expect(empty.planned.calories == 0 && empty.target.calories == 2_000)
     #expect(empty.remaining(for: .calories) == 2_000)
     #expect(snapshot.dailyComparison(for: monday.adding(days: 1))?.isIncomplete == true)
     #expect(WeekSnapshot(start: monday, records: []).dailyComparison(for: monday) == nil)
+  }
+
+  @Test func movingAnAssignmentIntoAViewedRangeUpdatesNutritionWithoutChangingAllocation() throws {
+    let context = try context()
+    let soup = recipe("Soup", servings: 2, macros: Macros(calories: 500), in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let outsideDisplayedWeek = try WeekPlan.assign(
+      1, on: monday.adding(days: 6), slot: .dinner, to: batch, in: context)
+    let displayedSunday = monday.adding(days: -1)
+
+    let before = try WeekSnapshot(
+      start: displayedSunday,
+      records: WeekPlan.fetch(
+        from: displayedSunday, through: displayedSunday.adding(days: 6), in: context))
+    let allocationBefore = WeekPlan.allocation(batch)
+    #expect(before.weekTally.totals.calories == 0)
+    #expect(allocationBefore.assigned == 1 && allocationBefore.unassigned == 1)
+
+    try WeekPlan.apply(
+      EntryChange(day: displayedSunday.adding(days: 6)), to: outsideDisplayedWeek, in: context)
+    let after = try WeekSnapshot(
+      start: displayedSunday,
+      records: WeekPlan.fetch(
+        from: displayedSunday, through: displayedSunday.adding(days: 6), in: context))
+    let allocationAfter = WeekPlan.allocation(batch)
+    #expect(after.weekTally.totals.calories == 500)
+    #expect(allocationAfter.assigned == allocationBefore.assigned)
+    #expect(allocationAfter.unassigned == allocationBefore.unassigned)
   }
 
   @Test func selectedDayTreatsSummedDecimalServingsAsExactWhenOnlyRoundoffDiffers() throws {

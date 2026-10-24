@@ -10,6 +10,9 @@ struct WeekNutritionSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 12) {
+          Text(verbatim: WeekDates.label(day, long: true))
+            .brandText(.section)
+            .accessibilityAddTraits(.isHeader)
           if let comparison = snapshot.dailyComparison(for: day) {
             VStack(alignment: .leading, spacing: 8) {
               Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text)
