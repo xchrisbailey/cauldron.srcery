@@ -1,6 +1,75 @@
 import XCTest
 
 final class WeekTargetsUITests: XCTestCase {
+  #if os(iOS)
+    @MainActor
+    func testSavingTargetsFromDailyNutritionRefreshesBothScopes() throws {
+      let app = XCUIApplication()
+      app.launchEnvironment["CAULDRON_UI_TEST_IN_MEMORY"] = "1"
+      app.launchEnvironment["CAULDRON_UI_TEST_APPEARANCE"] = "light"
+      app.launch()
+      navigateToWeek(in: app)
+      let selectedDay = try XCTUnwrap(
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "week.day."))
+          .allElementsBoundByIndex.first(where: \.isSelected)?.identifier)
+      let nutrition = app.buttons["week.openDailyNutrition"]
+      for _ in 0..<5 {
+        if nutrition.exists && nutrition.isHittable { break }
+        app.collectionViews.firstMatch.swipeUp()
+      }
+      activate(nutrition)
+      let setup = app.buttons["week.dailySetTargets"]
+      XCTAssertTrue(setup.waitForExistence(timeout: 5), app.debugDescription)
+      activate(setup)
+      completeTargetSetup(in: app, appearance: "light", daily: true)
+      activate(app.buttons["Close"])
+      let weekly = app.descendants(matching: .any)["week.weeklyComparison"]
+      for _ in 0..<5 {
+        if weekly.exists && weekly.isHittable { break }
+        app.collectionViews.firstMatch.swipeDown()
+      }
+      XCTAssertTrue(weekly.exists && weekly.isHittable, app.debugDescription)
+      XCTAssertTrue(app.buttons[selectedDay].isSelected, app.debugDescription)
+      XCTAssertFalse(app.buttons["week.setTargets"].exists)
+    }
+
+    @MainActor
+    func testPopulatedWeekShowsScheduleWithoutScrolling() {
+      for scenario in ["breakfast", "dinner"] {
+        for appearance in ["light", "dark"] {
+          let app = XCUIApplication()
+          app.launchEnvironment["CAULDRON_UI_TEST_IN_MEMORY"] = "1"
+          app.launchEnvironment["CAULDRON_UI_TEST_WEEK"] = scenario
+          app.launchEnvironment["CAULDRON_UI_TEST_APPEARANCE"] = appearance
+          app.launch()
+          navigateToWeek(in: app)
+          let firstMeal = app.buttons.matching(
+            NSPredicate(
+              format: "label CONTAINS %@ AND label CONTAINS %@", "Breakfast bowl", "kcal")
+          ).firstMatch
+          attachScreenshot(of: app, named: "week-density-\(scenario)-\(appearance)")
+          guard firstMeal.waitForExistence(timeout: 5) else {
+            XCTFail("First meal must exist on initial presentation: \(scenario), \(appearance)")
+            app.terminate()
+            continue
+          }
+          XCTAssertTrue(
+            firstMeal.isHittable,
+            "First meal must be visible before scrolling: \(app.debugDescription)")
+          XCTAssertGreaterThanOrEqual(firstMeal.frame.minY, app.frame.minY)
+          XCTAssertLessThanOrEqual(firstMeal.frame.maxY, app.tabBars.firstMatch.frame.minY)
+          let dayStrip = app.descendants(matching: .any)["Days"].firstMatch
+          XCTAssertTrue(dayStrip.exists)
+          if dayStrip.exists {
+            XCTAssertGreaterThan(dayStrip.frame.height, 0)
+            XCTAssertLessThan(dayStrip.frame.maxY, firstMeal.frame.minY)
+          }
+          app.terminate()
+        }
+      }
+    }
+  #endif
+
   #if os(macOS)
     @MainActor
     func testNativeSettingsCommandOpensWithoutTerminatingApp() {
@@ -49,7 +118,9 @@ final class WeekTargetsUITests: XCTestCase {
   }
 
   @MainActor
-  private func completeTargetSetup(in app: XCUIApplication, appearance: String) {
+  private func completeTargetSetup(
+    in app: XCUIApplication, appearance: String, daily: Bool = false
+  ) {
     #if os(macOS)
       let female = app.radioButtons["Female"]
     #else
@@ -103,12 +174,13 @@ final class WeekTargetsUITests: XCTestCase {
     #endif
     attachScreenshot(of: app, named: "targets-narrow-\(appearance)")
     activate(save)
-    let comparison = app.descendants(matching: .any)["week.weeklyComparison"]
+    let comparison = app.descendants(matching: .any)[
+      daily ? "week.dailyComparison" : "week.weeklyComparison"]
     XCTAssertTrue(comparison.waitForExistence(timeout: 10), app.debugDescription)
     XCTAssertFalse(app.buttons["targets.save"].exists, "Targets sheet should dismiss after saving")
     XCTAssertTrue(comparison.isHittable, app.debugDescription)
-    attachScreenshot(of: app, named: "week-targets-narrow-\(appearance)")
-    capturePlannerMeals(in: app, appearance: appearance, targets: true)
+    attachScreenshot(of: app, named: "week-\(daily ? "daily-" : "")targets-narrow-\(appearance)")
+    if !daily { capturePlannerMeals(in: app, appearance: appearance, targets: true) }
   }
 
   @MainActor

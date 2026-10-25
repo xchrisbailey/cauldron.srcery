@@ -76,6 +76,24 @@ import Testing
       }
     }
 
+    @Test func compactWeeklyAndOnDemandDailyNutritionRenderAtNarrowWidths() {
+      let start = LocalDate("2026-10-05")!
+      let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      let snapshot = WeekSnapshot(start: start, records: [], targets: target)
+      for scheme in [ColorScheme.light, .dark] {
+        let weekly = WeekTallyView(
+          snapshot: snapshot, day: start, onClearDay: {}, onOpenTargets: {}, compact: true
+        )
+        .environment(\.colorScheme, scheme)
+        let daily = WeekNutritionSheet(snapshot: snapshot, day: start, onOpenTargets: {})
+          .environment(\.colorScheme, scheme)
+        for width in [320.0, 390.0] {
+          #expect(renders(weekly, width: width, height: 600), "weekly \(scheme) \(width)")
+          #expect(renders(daily, width: width, height: 600), "daily \(scheme) \(width)")
+        }
+      }
+    }
+
     @Test func theStirSheetsRenderInBothAppearances() throws {
       let container = try seeded()
       let context = ModelContext(container)
@@ -166,6 +184,58 @@ import Testing
             PlannedBatchSheet(batch: batch, onRemoved: {}).modelContainer(container)
               .environment(\.colorScheme, scheme), width: 440, height: 680),
           "batch editor \(scheme)")
+        #expect(
+          renders(
+            BatchManagementButton(batches: [batch], action: {}).environment(\.colorScheme, scheme),
+            width: 240, height: 70), "batch entry \(scheme)")
+        #expect(
+          renders(
+            BatchManagementSheet(weekStart: start, today: start)
+              .modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 800), "batch list \(scheme)")
+      }
+    }
+
+    @Test func batchSheetSupportsEmptyAndTwentyOneSeparateRecipeBatches() throws {
+      let container = try CauldronStore.container(.inMemory)
+      let context = ModelContext(container)
+      let start = LocalDate("2026-10-19")!
+      let emptyStart = LocalDate("2026-10-12")!
+      let sevenStart = LocalDate("2026-10-26")!
+      let recipe = RecipeRecord(title: "A recipe added more than once")
+      context.insert(recipe)
+      var batches: [PlannedBatchRecord] = []
+      for _ in 0..<21 {
+        batches.append(
+          try WeekPlan.createBatch(
+            recipe: recipe, weekStart: start, totalServings: 4, in: context))
+      }
+      for _ in 0..<7 {
+        _ = try WeekPlan.createBatch(
+          recipe: recipe, weekStart: sevenStart, totalServings: 4, in: context)
+      }
+      try context.save()
+      for scheme in [ColorScheme.light, .dark] {
+        let empty = BatchManagementSheet(weekStart: emptyStart, today: emptyStart)
+        #expect(
+          renders(
+            empty.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 760), "empty list \(scheme)")
+        let populated = BatchManagementSheet(
+          weekStart: start, today: start)
+        let seven = BatchManagementSheet(weekStart: sevenStart, today: sevenStart)
+        #expect(
+          renders(
+            seven.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 390, height: 760), "seven distinct batches \(scheme)")
+        #expect(
+          renders(
+            populated.modelContainer(container).environment(\.colorScheme, scheme),
+            width: 320, height: 760), "21 distinct batches \(scheme)")
+        #expect(
+          renders(
+            BatchManagementButton(batches: batches, action: {}).environment(\.colorScheme, scheme),
+            width: 240, height: 70), "21-batch entry \(scheme)")
       }
     }
 

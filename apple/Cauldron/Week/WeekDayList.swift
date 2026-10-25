@@ -6,12 +6,14 @@ import SwiftUI
 struct WeekDayList<Top: View, Bottom: View>: View {
   let snapshot: WeekSnapshot
   let today: LocalDate
-  /// The day shown, which is also the day whose tally shows once the cook has chosen one.
+  /// The day whose meals and on-demand nutrition are shown.
   let day: LocalDate
   let onChoose: (LocalDate) -> Void
   let onAdd: (MealTarget) -> Void
   let onOpen: (UUID) -> Void
   let onRemove: (UUID) -> Void
+  let onNutrition: (LocalDate) -> Void
+  let showNutritionAction: Bool
   /// A recipe dropped on a meal's heading. It opens the days step. A day's tab takes no drop, as
   /// on the web.
   let onPlanRecipe: (UUID, MealTarget, UUID?) -> Void
@@ -24,9 +26,21 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         top()
           .listRowBackground(Color.clear)
           .listRowSeparator(.hidden)
+          .listRowInsets(
+            showNutritionAction
+              ? EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16) : nil)
         dayTabs
           .listRowBackground(Color.clear)
           .listRowSeparator(.hidden)
+          .listRowInsets(
+            showNutritionAction
+              ? EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16) : nil)
+        if showNutritionAction {
+          selectedDayHeader
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+        }
       }
       ForEach(MealSlot.allCases, id: \.self) { slot in
         let target = MealTarget(day: day, slot: slot)
@@ -86,9 +100,63 @@ struct WeekDayList<Top: View, Bottom: View>: View {
     }
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
+    #if os(iOS)
+      .listSectionSpacing(.compact)
+    #endif
   }
 
   private var dayTabs: some View {
+    Group {
+      if showNutritionAction {
+        // Keep day labels and touch targets readable instead of squeezing seven cells to fit.
+        ViewThatFits(in: .horizontal) {
+          tabRow(adaptive: true)
+          ScrollViewReader { scroll in
+            ScrollView(.horizontal) {
+              tabRow(adaptive: true)
+            }
+            .scrollIndicators(.hidden)
+            .onChange(of: day, initial: true) {
+              scroll.scrollTo(day, anchor: .center)
+            }
+          }
+        }
+      } else {
+        tabRow(adaptive: false)
+      }
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(Text(verbatim: Copy.week.days.text))
+  }
+
+  private var selectedDayHeader: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack {
+        selectedDayLabel.fixedSize()
+        Spacer(minLength: 8)
+        nutritionButton.fixedSize()
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        selectedDayLabel.fixedSize(horizontal: false, vertical: true)
+        nutritionButton
+      }
+    }
+  }
+
+  private var selectedDayLabel: some View {
+    Text(verbatim: WeekDates.label(day, long: true))
+      .brandText(.quantity)
+      .accessibilityAddTraits(.isHeader)
+  }
+
+  private var nutritionButton: some View {
+    Button(Copy.week.tally.nutritionAction.text) { onNutrition(day) }
+      .brandText(.control)
+      .frame(minHeight: 44)
+      .accessibilityIdentifier("week.openDailyNutrition")
+  }
+
+  private func tabRow(adaptive: Bool) -> some View {
     HStack(spacing: 4) {
       ForEach(snapshot.days, id: \.self) { tabDay in
         let isToday = tabDay == today
@@ -101,7 +169,8 @@ struct WeekDayList<Top: View, Bottom: View>: View {
             Text(verbatim: WeekDates.weekday(tabDay, long: false))
               .brandText(.control)
               .lineLimit(1)
-              .minimumScaleFactor(0.7)
+              .minimumScaleFactor(adaptive ? 1 : 0.7)
+              .fixedSize(horizontal: adaptive, vertical: true)
             Text(verbatim: WeekDates.dayOfMonth(tabDay)).brandText(.quantity)
             Text(
               verbatim: Copy.display.weekCellCalories(
@@ -110,14 +179,15 @@ struct WeekDayList<Top: View, Bottom: View>: View {
             )
             .brandText(.quantity)
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
+            .minimumScaleFactor(adaptive ? 1 : 0.6)
+            .fixedSize(horizontal: adaptive, vertical: true)
             .opacity(0.8)
             .accessibilityHidden(true)
           }
           .foregroundStyle(
             isShown ? Brand.Colors.base : (isToday ? Brand.Colors.heat : Brand.Colors.ink)
           )
-          .frame(maxWidth: .infinity)
+          .frame(minWidth: adaptive ? 44 : 0, maxWidth: .infinity)
           .padding(.vertical, 6)
           .background(
             isShown ? Brand.Colors.magic : Brand.Colors.surface0.opacity(0.5),
@@ -131,10 +201,10 @@ struct WeekDayList<Top: View, Bottom: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: WeekDates.label(tabDay, long: true)))
+        .accessibilityIdentifier("week.day.\(tabDay.description)")
         .accessibilityAddTraits(isShown ? .isSelected : [])
+        .id(tabDay)
       }
     }
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel(Text(verbatim: Copy.week.days.text))
   }
 }

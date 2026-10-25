@@ -26,13 +26,19 @@ struct PlannedBatchEditDraft {
   init(openedTotal: Int) { self.openedTotal = openedTotal; total = openedTotal }
   mutating func setTotal(_ value: Int) { total = value }
   var hasExplicitChange: Bool { total != openedTotal }
+  func effectiveTotal(currentTotal: Int) -> Int {
+    hasExplicitChange ? total : currentTotal
+  }
+  func canSave(currentTotal: Int, assigned: Int) -> Bool {
+    effectiveTotal(currentTotal: currentTotal) >= assigned
+  }
   func totalToCommit(currentTotal: Int) throws -> Int? {
     guard hasExplicitChange else { return nil }
     guard currentTotal == openedTotal else { throw PlannedBatchDraftError.staleTotal }
     return total
   }
   func availableServings(currentTotal: Int, assigned: Int) -> Int {
-    max(0, (hasExplicitChange ? total : currentTotal) - assigned)
+    max(0, effectiveTotal(currentTotal: currentTotal) - assigned)
   }
 
   mutating func save(to batch: PlannedBatchRecord, in context: ModelContext) throws {

@@ -765,7 +765,22 @@ struct WeekPlanTests {
   }
 
   @Test func weeklyComparisonPreservesFractionalProteinDifferencesInItsPresentedRow() throws {
-    func row(lastServingProtein: Double) throws -> (Double, String) {
+    func comparisonForSevenEqualMeals(protein: Double) throws -> WeekMacroComparison {
+      let context = try context()
+      let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
+      context.insert(target)
+      let meal = recipe(
+        "Protein meal", servings: 1,
+        macros: Macros(calories: 100, protein: protein, carbs: 10, fat: 5), in: context)
+      try WeekPlan.stir(
+        meal, days: monday.weekDays().map { DayServings(date: $0, servings: 1) },
+        slot: .dinner, into: context)
+      let records = try WeekPlan.fetch(from: monday, through: monday.adding(days: 6), in: context)
+      let snapshot = WeekSnapshot(start: monday, records: records, targets: target)
+      return try #require(snapshot.weeklyComparison)
+    }
+
+    func row(lastServingProtein: Double) throws -> (Double, String, WeekMacroComparison) {
       let context = try context()
       let target = TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70)
       context.insert(target)
@@ -786,7 +801,7 @@ struct WeekPlanTests {
       let comparison = try #require(snapshot.weeklyComparison)
       return (
         comparison.planned.protein,
-        WeekFigures.comparisonRow(comparison, key: .protein, locale: en)
+        WeekFigures.comparisonRow(comparison, key: .protein, locale: en), comparison
       )
     }
 
@@ -802,6 +817,37 @@ struct WeekPlanTests {
     let belowPrecision = try row(lastServingProtein: 100.04)
     #expect(belowPrecision.0 == 700.04)
     #expect(belowPrecision.1 == "Protein: 700 g planned, 700 g target, <0.1 g over target")
+    let roundoff = try comparisonForSevenEqualMeals(protein: 100.00000000000001)
+    #expect(roundoff.planned.protein > roundoff.target.protein)
+    #expect(roundoff.remaining(for: .protein) == 0)
+    #expect(!WeekFigures.isOverGoal(roundoff, key: .protein))
+    let roundedPair = Copy.week.tally.compactMetric(
+      name: "Protein", planned: WeekFigures.compactAmount(roundoff.planned.protein, locale: en),
+      goal: WeekFigures.compactAmount(roundoff.target.protein, locale: en), unit: "g",
+      isOver: WeekFigures.isOverGoal(roundoff, key: .protein))
+    #expect(roundedPair.text == "Protein: Planned 700 / Goal 700 g")
+
+    let tinyOverage = try row(lastServingProtein: 100.004).2
+    let tinyPlanned = WeekFigures.compactAmount(tinyOverage.planned.protein, locale: en)
+    let tinyGoal = WeekFigures.compactAmount(tinyOverage.target.protein, locale: en)
+    #expect(tinyPlanned == tinyGoal)
+    #expect(WeekFigures.isOverGoal(tinyOverage, key: .protein))
+    #expect(
+      Copy.week.tally.compactMetric(
+        name: "Protein", planned: tinyPlanned, goal: tinyGoal, unit: "g",
+        isOver: WeekFigures.isOverGoal(tinyOverage, key: .protein)
+      ).text == "Protein: Planned 700 / Goal 700 g, over goal")
+
+    let planned = WeekFigures.compactAmount(belowPrecision.2.planned.protein, locale: en)
+    let goal = WeekFigures.compactAmount(belowPrecision.2.target.protein, locale: en)
+    #expect(planned == "700.04")
+    #expect(planned != goal)
+    #expect(WeekFigures.isOverGoal(belowPrecision.2, key: .protein))
+    #expect(
+      Copy.week.tally.compactMetric(
+        name: "Protein", planned: planned, goal: goal, unit: "g",
+        isOver: WeekFigures.isOverGoal(belowPrecision.2, key: .protein)
+      ).text == "Protein: Planned 700.04 / Goal 700 g, over goal")
   }
 
   @Test func snapshotComparisonMatrixCoversEveryMetricAndPeriodBoundary() throws {
@@ -969,11 +1015,44 @@ struct WeekPlanTests {
         == "Protein: 99.5 g planned, 100 g target, 0.5 g remaining")
     #expect(!comparison.isIncomplete)
     #expect(snapshot.weeklyComparison?.isIncomplete == true)
+    #expect(
+      WeekFigures.note(week: snapshot.weekTally, day: snapshot.tally(of: monday))
+        == Copy.week.tally.gaps(2).text)
+    #expect(WeekFigures.note(week: snapshot.tally(of: monday), day: nil) == nil)
     let empty = try #require(snapshot.dailyComparison(for: monday.adding(days: 3)))
     #expect(empty.planned.calories == 0 && empty.target.calories == 2_000)
     #expect(empty.remaining(for: .calories) == 2_000)
     #expect(snapshot.dailyComparison(for: monday.adding(days: 1))?.isIncomplete == true)
     #expect(WeekSnapshot(start: monday, records: []).dailyComparison(for: monday) == nil)
+  }
+
+  @Test func movingAnAssignmentIntoAViewedRangeUpdatesNutritionWithoutChangingAllocation() throws {
+    let context = try context()
+    let soup = recipe("Soup", servings: 2, macros: Macros(calories: 500), in: context)
+    let batch = try WeekPlan.createBatch(
+      recipe: soup, weekStart: monday, totalServings: 2, in: context)
+    let outsideDisplayedWeek = try WeekPlan.assign(
+      1, on: monday.adding(days: 6), slot: .dinner, to: batch, in: context)
+    let displayedSunday = monday.adding(days: -1)
+
+    let before = try WeekSnapshot(
+      start: displayedSunday,
+      records: WeekPlan.fetch(
+        from: displayedSunday, through: displayedSunday.adding(days: 6), in: context))
+    let allocationBefore = WeekPlan.allocation(batch)
+    #expect(before.weekTally.totals.calories == 0)
+    #expect(allocationBefore.assigned == 1 && allocationBefore.unassigned == 1)
+
+    try WeekPlan.apply(
+      EntryChange(day: displayedSunday.adding(days: 6)), to: outsideDisplayedWeek, in: context)
+    let after = try WeekSnapshot(
+      start: displayedSunday,
+      records: WeekPlan.fetch(
+        from: displayedSunday, through: displayedSunday.adding(days: 6), in: context))
+    let allocationAfter = WeekPlan.allocation(batch)
+    #expect(after.weekTally.totals.calories == 500)
+    #expect(allocationAfter.assigned == allocationBefore.assigned)
+    #expect(allocationAfter.unassigned == allocationBefore.unassigned)
   }
 
   @Test func selectedDayTreatsSummedDecimalServingsAsExactWhenOnlyRoundoffDiffers() throws {

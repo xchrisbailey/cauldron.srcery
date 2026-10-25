@@ -10,6 +10,10 @@ extension Copy {
     public let thisWeek = plain("This week")
     public let today = plain("today")
     public let days = plain("Days")
+    public let batches = plain("Batches")
+    public let noBatches = plain("No planned batches for this week.")
+    public let done = plain("Done")
+    public let planRecipe = voice("Plan a recipe")
     public let copyLastWeek = plain("Copy last week")
     public let copiedLastWeek = plain("Copied last week's meals.")
     public let nothingToCopy = plain("Last week has nothing planned.")
@@ -55,6 +59,23 @@ extension Copy {
       "This batch's assignments exceed its servings or fall outside its week. Adjust the total, servings, or day."
     )
     public let editBatch = plain("Edit planned batch")
+    public func batchButtonUnassigned(_ count: Int) -> CopyString {
+      plain("\(count) unassigned")
+    }
+    public func batchButtonConflict(_ count: Int) -> CopyString {
+      plain("\(count) \(count == 1 ? "conflict" : "conflicts")")
+    }
+    public func batchConflicts(_ count: Int) -> CopyString {
+      plain("\(count) \(count == 1 ? "batch needs" : "batches need") allocation repair")
+    }
+    public func batchButtonLabel(count: Int, unassigned: Int, conflicts: Int) -> CopyString {
+      var parts = ["\(count) \(count == 1 ? "batch" : "batches")"]
+      if unassigned > 0 {
+        parts.append("\(unassigned) \(unassigned == 1 ? "serving" : "servings") unassigned")
+      }
+      if conflicts > 0 { parts.append(batchConflicts(conflicts).text) }
+      return plain(parts.joined(separator: ", "))
+    }
     public let unassign = plain("Unassign")
     public let addAssignment = plain("Assign servings")
     public let removeBatch = plain("Remove batch")
@@ -140,6 +161,13 @@ extension Copy {
         "Incomplete comparison: some planned meals are not fully counted.")
       public let noTargets = plain("Set targets to compare this plan with your weekly goals.")
       public let setTargets = plain("Set targets")
+      public let compactHeading = plain("Weekly plan — Planned / Goal")
+      public let nutritionAction = plain("Nutrition")
+      public let dailyNutritionTitle = plain("Daily nutrition")
+      public let planned = plain("Planned")
+      public let goal = plain("Goal")
+      public let overGoal = plain("Over goal")
+      public let noDailyTargets = plain("Set daily targets to compare this plan.")
 
       public init() {}
 
@@ -157,6 +185,21 @@ extension Copy {
             + "\(difference) \(unit) \(isOver ? "over target" : "remaining")")
       }
       public func showDay(_ day: String) -> CopyString { plain("Show \(day)") }
+      public func compactMetric(
+        name: String, planned: String, goal: String, unit: String, isOver: Bool
+      ) -> CopyString {
+        plain(
+          "\(name): Planned \(planned) / Goal \(goal) \(unit)\(isOver ? ", over goal" : "")")
+      }
+      public func knownTotal(name: String, planned: String, unit: String) -> CopyString {
+        plain("\(name): \(planned) \(unit) planned")
+      }
+      public func compactPair(planned: String, goal: String, unit: String) -> CopyString {
+        plain("\(planned) / \(goal) \(unit)")
+      }
+      public func compactValue(_ value: String, unit: String) -> CopyString {
+        plain("\(value) \(unit)")
+      }
 
       public struct Macros: Sendable {
         public let calories = plain("kcal")

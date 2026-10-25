@@ -38,7 +38,8 @@ private let nativeOnlyPrefixes = [
 /// Sunday as week starts, and the native picker offers every day.
 private let nativeOnlyPaths: Set<String> = [
   "week.tuesday", "week.wednesday", "week.thursday", "week.friday", "week.saturday",
-  "week.allocationConflict", "week.editBatch", "week.unassign", "week.addAssignment",
+  "week.allocationConflict", "week.batches", "week.noBatches", "week.done", "week.planRecipe",
+  "week.editBatch", "week.unassign", "week.addAssignment",
   "week.removeBatch", "week.removeBatchConfirm", "week.batchRemoved", "week.batchSaved",
   "week.batchChanged", "week.invalidAssignment", "week.editAssignment",
   "week.spread.total", "week.spread.allAssigned", "week.spread.saveUnassigned",
@@ -103,6 +104,10 @@ struct CopyTests {
         .plain
       ),
       "week.editBatch": ("Edit planned batch", .plain),
+      "week.batches": ("Batches", .plain),
+      "week.noBatches": ("No planned batches for this week.", .plain),
+      "week.done": ("Done", .plain),
+      "week.planRecipe": ("Plan a recipe", .voice),
       "week.unassign": ("Unassign", .plain),
       "week.addAssignment": ("Assign servings", .plain),
       "week.removeBatch": ("Remove batch", .plain),
@@ -139,6 +144,22 @@ struct CopyTests {
     ] {
       #expect(catalogue.strings[path] == nil, "\(path) has no native screen")
     }
+  }
+
+  @Test func batchEntryCopyNamesServingsAndConflicts() {
+    #expect(Copy.week.batchButtonUnassigned(2) == .plain("2 unassigned"))
+    #expect(Copy.week.batchButtonUnassigned(1) == .plain("1 unassigned"))
+    #expect(Copy.week.batchButtonConflict(1) == .plain("1 conflict"))
+    #expect(Copy.week.batchButtonConflict(2) == .plain("2 conflicts"))
+    #expect(
+      Copy.week.batchButtonLabel(count: 7, unassigned: 2, conflicts: 0)
+        == .plain("7 batches, 2 servings unassigned"))
+    #expect(
+      Copy.week.batchButtonLabel(count: 1, unassigned: 1, conflicts: 1)
+        == .plain("1 batch, 1 serving unassigned, 1 batch needs allocation repair"))
+    #expect(
+      Copy.week.batchButtonLabel(count: 0, unassigned: 0, conflicts: 0) == .plain("0 batches"))
+    #expect(Copy.week.batchConflicts(2) == .plain("2 batches need allocation repair"))
   }
 }
 

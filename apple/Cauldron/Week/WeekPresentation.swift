@@ -114,12 +114,23 @@ enum WeekFigures {
     ).text
   }
 
+  /// Compact weekly pairs retain enough precision to distinguish a small over-goal amount.
+  static func compactAmount(_ value: Double, locale: Locale = .current) -> String {
+    guard value.isFinite else { return 0.formatted(.number.locale(locale)) }
+    return value.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
+  }
+
+  /// Compact color and spoken over-goal meaning follow the authoritative comparison tolerance.
+  static func isOverGoal(_ comparison: WeekMacroComparison, key: MacroKey) -> Bool {
+    comparison.remaining(for: key) < 0
+  }
+
   private static func comparisonAmount(_ value: Double, locale: Locale) -> String {
     guard value.isFinite else { return 0.formatted(.number.locale(locale)) }
     return value.formatted(.number.precision(.fractionLength(0...1)).locale(locale))
   }
 
-  private static func metricName(_ key: MacroKey) -> String {
+  static func metricName(_ key: MacroKey) -> String {
     switch key {
     case .calories: Copy.tracker.macroNames.calories.text
     case .protein: Copy.tracker.macroNames.protein.text
