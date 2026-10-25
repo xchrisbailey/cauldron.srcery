@@ -85,7 +85,7 @@ struct BatchManagementSheet: View {
           ContentUnavailableView {
             Label(Copy.week.batches.text, systemImage: "square.stack.3d.up")
           } description: {
-            Text(verbatim: Copy.week.empty.text)
+            Text(verbatim: Copy.week.noBatches.text)
           } actions: {
             Button(action: { planning = true }) {
               Text(verbatim: Copy.week.planRecipe.text)

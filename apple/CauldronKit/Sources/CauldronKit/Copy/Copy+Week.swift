@@ -11,6 +11,7 @@ extension Copy {
     public let today = plain("today")
     public let days = plain("Days")
     public let batches = plain("Batches")
+    public let noBatches = plain("No planned batches for this week.")
     public let done = plain("Done")
     public let planRecipe = voice("Plan a recipe")
     public let copyLastWeek = plain("Copy last week")

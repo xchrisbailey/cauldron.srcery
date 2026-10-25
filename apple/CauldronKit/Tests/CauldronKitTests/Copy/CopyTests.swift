@@ -38,7 +38,7 @@ private let nativeOnlyPrefixes = [
 /// Sunday as week starts, and the native picker offers every day.
 private let nativeOnlyPaths: Set<String> = [
   "week.tuesday", "week.wednesday", "week.thursday", "week.friday", "week.saturday",
-  "week.allocationConflict", "week.batches", "week.done", "week.planRecipe",
+  "week.allocationConflict", "week.batches", "week.noBatches", "week.done", "week.planRecipe",
   "week.editBatch", "week.unassign", "week.addAssignment",
   "week.removeBatch", "week.removeBatchConfirm", "week.batchRemoved", "week.batchSaved",
   "week.batchChanged", "week.invalidAssignment", "week.editAssignment",
@@ -105,6 +105,7 @@ struct CopyTests {
       ),
       "week.editBatch": ("Edit planned batch", .plain),
       "week.batches": ("Batches", .plain),
+      "week.noBatches": ("No planned batches for this week.", .plain),
       "week.done": ("Done", .plain),
       "week.planRecipe": ("Plan a recipe", .voice),
       "week.unassign": ("Unassign", .plain),
