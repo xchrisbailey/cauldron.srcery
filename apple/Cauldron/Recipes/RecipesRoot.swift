@@ -302,7 +302,7 @@ struct RecipesRoot: View {
 
   @ViewBuilder
   private func library(opening: Opening) -> some View {
-    let visible = RecipeLibrary.visible(
+    let visible = RecipeLibrary.visibleMatches(
       recipes, matching: search, tag: tagFilter, sort: sort,
       index: searchCache.index(for: recipes))
     if recipes.isEmpty {
@@ -315,7 +315,7 @@ struct RecipesRoot: View {
   }
 
   @ViewBuilder
-  private func list(_ visible: [RecipeRecord], opening: Opening) -> some View {
+  private func list(_ visible: [RecipeMatch], opening: Opening) -> some View {
     switch opening {
     case .beside:
       // The list's selection is the recipe shown beside it.
@@ -330,29 +330,44 @@ struct RecipesRoot: View {
     }
   }
 
-  private func rows(_ visible: [RecipeRecord], opening: Opening) -> some View {
-    ForEach(visible) { recipe in
-      row(recipe, opening: opening)
+  /// The exact matches, then any close ones under their own heading.
+  @ViewBuilder
+  private func rows(_ visible: [RecipeMatch], opening: Opening) -> some View {
+    let close = visible.close
+    Section {
+      ForEach(visible.exact) { match in
+        row(match, opening: opening)
+      }
+    }
+    if !close.isEmpty {
+      Section {
+        ForEach(close) { match in
+          row(match, opening: opening)
+        }
+      } header: {
+        CloseMatchesHeader()
+      }
     }
   }
 
   @ViewBuilder
-  private func row(_ recipe: RecipeRecord, opening: Opening) -> some View {
+  private func row(_ match: RecipeMatch, opening: Opening) -> some View {
+    let recipe = match.recipe
     switch opening {
     case .beside:
-      card(recipe, selected: selection == recipe.id).tag(recipe.id)
+      card(recipe, selected: selection == recipe.id, reason: match.reasonLine).tag(recipe.id)
     case .over:
       Button {
         path.append(recipe.id)
       } label: {
-        card(recipe, selected: false)
+        card(recipe, selected: false, reason: match.reasonLine)
       }
       .buttonStyle(.plain)
     }
   }
 
-  private func card(_ recipe: RecipeRecord, selected: Bool) -> some View {
-    RecipeCardView(recipe: recipe, selected: selected)
+  private func card(_ recipe: RecipeRecord, selected: Bool, reason: String?) -> some View {
+    RecipeCardView(recipe: recipe, selected: selected, reason: reason)
       .contentShape(Rectangle())
       .listRowBackground(Color.clear)
       .listRowSeparator(.hidden)

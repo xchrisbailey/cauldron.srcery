@@ -31,7 +31,7 @@ struct AddRecipeTab: View {
   }
 
   private var list: some View {
-    let matches = RecipePicker.matches(
+    let matches = RecipePicker.found(
       recipes, query: query, index: searchCache.index(for: recipes))
     return List {
       Section {
@@ -44,22 +44,7 @@ struct AddRecipeTab: View {
           .listRowBackground(Brand.Colors.mantle)
       }
       Section {
-        ForEach(matches, id: \.id) { recipe in
-          Button {
-            picked = recipe
-          } label: {
-            VStack(alignment: .leading, spacing: 2) {
-              Text(verbatim: recipe.title).brandText(.body)
-              Text(verbatim: RecipePicker.detail(recipe))
-                .brandText(.control)
-                .foregroundStyle(Brand.Colors.subtext)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          .listRowBackground(Brand.Colors.mantle)
-        }
+        ForEach(matches.exact) { match in row(match) }
         if matches.isEmpty {
           Text(verbatim: Copy.week.noMatches.text)
             .brandText(.control)
@@ -67,7 +52,33 @@ struct AddRecipeTab: View {
             .listRowBackground(Color.clear)
         }
       }
+      let close = matches.close
+      if !close.isEmpty {
+        Section {
+          ForEach(close) { match in row(match) }
+        } header: {
+          CloseMatchesHeader()
+        }
+      }
     }
     .scrollContentBackground(.hidden)
+  }
+
+  private func row(_ match: RecipeMatch) -> some View {
+    Button {
+      picked = match.recipe
+    } label: {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(verbatim: match.recipe.title).brandText(.body)
+        if let reason = match.reasonLine { MatchReasonLine(text: reason) }
+        Text(verbatim: RecipePicker.detail(match.recipe))
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .listRowBackground(Brand.Colors.mantle)
   }
 }

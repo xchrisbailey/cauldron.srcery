@@ -136,6 +136,17 @@ struct CopyTests {
     #expect(Copy.week.spread.remaining(3) == .plain("3 servings unassigned"))
   }
 
+  @Test func closeMatchCopyIsNativeOnlyAndPlain() {
+    #expect(catalogue.strings["libraryNative.closeMatches"] == .plain("Close matches"))
+    #expect(Copy.libraryNative.matched("chicken") == .plain("Matched chicken"))
+    #expect(
+      Copy.libraryNative.anotherName("aubergine", for: "eggplant")
+        == .plain("aubergine, another name for eggplant"))
+    #expect(
+      Copy.libraryNative.matchedMissing("spicy, peanut", missing: "noodles")
+        == .plain("Matched spicy, peanut · no noodles"))
+  }
+
   @Test func leavesOutTheAuthAndAccountStrings() {
     #expect(catalogue.strings.keys.allSatisfy { !$0.hasPrefix("auth.") })
     for path in [

@@ -102,12 +102,27 @@ struct RecipeSearchIndexPerformanceTests {
     #expect(median < .milliseconds(2))
   }
 
+  @Test func eachKeystrokeOfAThreeWordMisspeltSearchTakesUnder2Milliseconds() {
+    let index = RecipeSearchIndex(Self.box(1_000))
+    // Three words, so a recipe lacking one still matches, and the first is misspelt.
+    let typed = Self.prefixes(of: "chikcen tomato casserole")
+    let median = Self.medianSearch(typed, on: index)
+    print(
+      "RecipeSearchIndex three-word misspelt keystroke, 1,000 recipes: median, quietest of 9 rounds \(median)"
+    )
+    #expect(median < .milliseconds(2))
+  }
+
   @Test func theBoxIsBigEnoughToMatterAndTheKeystrokesFindThings() {
     let index = RecipeSearchIndex(Self.box(1_000))
     #expect(index.entries.count == 1_000)
     #expect(index.words.count > 100)
     #expect(index.search("c").count > 100)
     #expect(index.search("chicken").count > 10)
-    #expect(index.search("chikcen").isEmpty)
+    #expect(index.search("chikcen").count == index.search("chicken").count)
+    #expect(index.search("chikcen").allSatisfy { $0.tier == .close })
+    let partial = index.search("chikcen tomato casserole")
+    #expect(partial.contains { $0.tier == .partial })
+    #expect(partial.allSatisfy { $0.tier != .exact })
   }
 }

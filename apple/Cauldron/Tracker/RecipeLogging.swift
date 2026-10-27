@@ -69,7 +69,17 @@ enum RecipePicker {
   static func matches(
     _ recipes: [RecipeRecord], query: String, index: RecipeSearchIndex? = nil
   ) -> [RecipeRecord] {
-    Array(RecipeLibrary.visible(recipes, matching: query, sort: .title, index: index).prefix(limit))
+    found(recipes, query: query, index: index).map(\.recipe)
+  }
+
+  /// `matches`, with how each recipe matched: exact ones by title, then close ones by title.
+  /// The limit counts across both.
+  static func found(
+    _ recipes: [RecipeRecord], query: String, index: RecipeSearchIndex? = nil
+  ) -> [RecipeMatch] {
+    Array(
+      RecipeLibrary.visibleMatches(recipes, matching: query, sort: .title, index: index)
+        .prefix(limit))
   }
 
   /// "320 kcal a serving · 25 min", or "No calories yet".

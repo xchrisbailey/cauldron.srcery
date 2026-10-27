@@ -23,3 +23,7 @@ _Avoid_: Leftover servings, uneaten servings
 **Search keywords**:
 Hidden words the app writes for a saved recipe, on the device, so search can find it by other names and descriptions ("leftover rice" finds Kimchi fried rice). They are never shown, they are not tags, and they are rewritten when the recipe's title, ingredients, tags or description change.
 _Avoid_: Tags, hashtags, labels
+
+**Close match**:
+A search result that needed forgiving: a typo, another name for a word typed, or one missing word. Close matches are listed after the exact matches, under their own heading, each with a plain line saying what it matched. A recipe that matches every word as typed is an exact match, never a close one.
+_Avoid_: Fuzzy match, suggestion, did you mean

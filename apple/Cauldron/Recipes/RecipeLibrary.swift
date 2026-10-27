@@ -23,35 +23,57 @@ enum RecipeSort: String, CaseIterable, Identifiable, Sendable {
 enum RecipeLibrary {
   /// `tag` is a tag's name in lowercase; a recipe has to carry a tag by that name (in any case).
   /// The search is the web's, run on a `RecipeSearchIndex`. Pass the index a view keeps for the
-  /// recipes; without one, an index is built from `recipes` for this call.
+  /// recipes; without one, an index is built from `recipes` for this call. Exact matches come
+  /// first, then close ones, each tier in `sort` order.
   static func visible(
     _ recipes: [RecipeRecord], matching query: String, tag: String? = nil, sort: RecipeSort,
     index: RecipeSearchIndex? = nil
   ) -> [RecipeRecord] {
+    visibleMatches(recipes, matching: query, tag: tag, sort: sort, index: index).map(\.recipe)
+  }
+
+  /// `visible`, with how each recipe matched.
+  static func visibleMatches(
+    _ recipes: [RecipeRecord], matching query: String, tag: String? = nil, sort: RecipeSort,
+    index: RecipeSearchIndex? = nil
+  ) -> [RecipeMatch] {
     found(recipes, matching: query, index: index)
-      .filter { !$0.isBanished && $0.carries(tag: tag) }
-      .sorted { precedes($0, $1, by: sort) }
+      .filter { !$0.recipe.isBanished && $0.recipe.carries(tag: tag) }
+      .sorted { a, b in
+        a.tier != b.tier ? a.tier < b.tier : precedes(a.recipe, b.recipe, by: sort)
+      }
   }
 
   /// The recipes ⌘K offers for what was typed, best first: a title that starts with it, then
-  /// one with every word in the title, then the rest, each by title. Nothing for a blank
-  /// search. Like the web's `search`, which stops at ten.
+  /// one with every word in the title, then the rest, each by title, and the close matches
+  /// after them. Nothing for a blank search. Like the web's `search`, which stops at ten; the
+  /// limit counts across the tiers.
   static func summon(
     _ recipes: [RecipeRecord], matching query: String, limit: Int = 10,
     index: RecipeSearchIndex? = nil
   ) -> [RecipeRecord] {
+    summonMatches(recipes, matching: query, limit: limit, index: index).map(\.recipe)
+  }
+
+  /// `summon`, with how each recipe matched.
+  static func summonMatches(
+    _ recipes: [RecipeRecord], matching query: String, limit: Int = 10,
+    index: RecipeSearchIndex? = nil
+  ) -> [RecipeMatch] {
     guard RecipeSearchIndex.hasWords(query) else { return [] }
     return Array(
-      found(recipes, matching: query, index: index).filter { !$0.isBanished }.prefix(limit))
+      found(recipes, matching: query, index: index).filter { !$0.recipe.isBanished }.prefix(limit))
   }
 
   /// The recipes the index finds for a search, in its order.
   private static func found(
     _ recipes: [RecipeRecord], matching query: String, index: RecipeSearchIndex?
-  ) -> [RecipeRecord] {
+  ) -> [RecipeMatch] {
     let index = index ?? RecipeSearchIndex(recipes.map(\.searchEntry))
     let byID = Dictionary(recipes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    return index.search(query).compactMap { byID[$0.id] }
+    return index.search(query).compactMap { result in
+      byID[result.id].map { RecipeMatch(recipe: $0, tier: result.tier, reason: result.reason) }
+    }
   }
 
   /// The tags the library can filter on, with how many recipes carry each, by name. A tag no
@@ -117,6 +139,32 @@ enum RecipeLibrary {
     let (x, y) = (a.title.lowercased(), b.title.lowercased())
     return x != y ? x < y : a.id.uuidString < b.id.uuidString
   }
+}
+
+/// A recipe a search found, with how well it matched and why.
+struct RecipeMatch: Identifiable {
+  let recipe: RecipeRecord
+  let tier: RecipeSearchIndex.Tier
+  let reason: RecipeSearchIndex.Reason
+
+  var id: UUID { recipe.id }
+
+  /// Whether the recipe goes under Close matches.
+  var isClose: Bool { tier != .exact }
+
+  /// The line under its title, naming what it matched. Exact matches have none.
+  var reasonLine: String? { reason.line?.text }
+
+  /// The line shortened for a row of ⌘K.
+  var shortReasonLine: String? { reason.shortLine?.text }
+}
+
+extension Array where Element == RecipeMatch {
+  /// The recipes that matched exactly, in order.
+  var exact: [RecipeMatch] { filter { !$0.isClose } }
+
+  /// The close and partial matches, in order. They go under the Close matches heading.
+  var close: [RecipeMatch] { filter(\.isClose) }
 }
 
 /// One entry in the library's tag menu.
