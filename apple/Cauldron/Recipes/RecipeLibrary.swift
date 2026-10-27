@@ -22,17 +22,14 @@ enum RecipeSort: String, CaseIterable, Identifiable, Sendable {
 /// tag and put in order. Plain functions, so they run without a view.
 enum RecipeLibrary {
   /// `tag` is a tag's name in lowercase; a recipe has to carry a tag by that name (in any case).
-  /// The search is the web's: see `RecipeSearch`.
+  /// The search is the web's, run on a `RecipeSearchIndex`. Pass the index a view keeps for the
+  /// recipes; without one, an index is built from `recipes` for this call.
   static func visible(
-    _ recipes: [RecipeRecord], matching query: String, tag: String? = nil, sort: RecipeSort
+    _ recipes: [RecipeRecord], matching query: String, tag: String? = nil, sort: RecipeSort,
+    index: RecipeSearchIndex? = nil
   ) -> [RecipeRecord] {
-    let search = RecipeSearch.Query(query)
-    return
-      recipes
-      .filter {
-        !$0.isBanished && $0.carries(tag: tag)
-          && search.matches(title: $0.title, document: $0.searchDocument)
-      }
+    found(recipes, matching: query, index: index)
+      .filter { !$0.isBanished && $0.carries(tag: tag) }
       .sorted { precedes($0, $1, by: sort) }
   }
 
@@ -40,21 +37,21 @@ enum RecipeLibrary {
   /// one with every word in the title, then the rest, each by title. Nothing for a blank
   /// search. Like the web's `search`, which stops at ten.
   static func summon(
-    _ recipes: [RecipeRecord], matching query: String, limit: Int = 10
+    _ recipes: [RecipeRecord], matching query: String, limit: Int = 10,
+    index: RecipeSearchIndex? = nil
   ) -> [RecipeRecord] {
-    let search = RecipeSearch.Query(query)
-    guard search.hasWords else { return [] }
-    let found = recipes.filter {
-      !$0.isBanished && search.matches(title: $0.title, document: $0.searchDocument)
-    }
-    let ranked = found.map { (recipe: $0, rank: search.titleRank($0.title)) }
-    return
-      ranked
-      .sorted { a, b in
-        if a.rank != b.rank { return a.rank > b.rank }
-        return titleOrder(a.recipe, b.recipe)
-      }
-      .prefix(limit).map(\.recipe)
+    guard RecipeSearchIndex.hasWords(query) else { return [] }
+    return Array(
+      found(recipes, matching: query, index: index).filter { !$0.isBanished }.prefix(limit))
+  }
+
+  /// The recipes the index finds for a search, in its order.
+  private static func found(
+    _ recipes: [RecipeRecord], matching query: String, index: RecipeSearchIndex?
+  ) -> [RecipeRecord] {
+    let index = index ?? RecipeSearchIndex(recipes.map(\.searchEntry))
+    let byID = Dictionary(recipes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    return index.search(query).compactMap { byID[$0.id] }
   }
 
   /// The tags the library can filter on, with how many recipes carry each, by name. A tag no
@@ -151,6 +148,11 @@ extension RecipeRecord {
   /// recipes saved before search looked at it are found by it too.
   fileprivate var searchDocument: String {
     summary.map { searchText + " " + $0 } ?? searchText
+  }
+
+  /// What the search index holds for the recipe.
+  var searchEntry: RecipeSearchIndex.Entry {
+    RecipeSearchIndex.Entry(id: id, title: title, document: searchDocument)
   }
 }
 

@@ -13,6 +13,7 @@ struct AddRecipeTab: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
   @State private var query = ""
+  @State private var searchCache = RecipeSearchCache()
   @State private var picked: RecipeRecord?
 
   var body: some View {
@@ -30,7 +31,8 @@ struct AddRecipeTab: View {
   }
 
   private var list: some View {
-    let matches = RecipePicker.matches(recipes, query: query)
+    let matches = RecipePicker.matches(
+      recipes, query: query, index: searchCache.index(for: recipes))
     return List {
       Section {
         TextField(Copy.tracker.logRecipe.search.text, text: $query)

@@ -367,6 +367,100 @@ struct RecipeLibraryTests {
     #expect(RecipeLibrary.summon(all, matching: "crispy").map(\.title) == ["Fries"])
   }
 
+  // MARK: The search index
+
+  @Test func everySearchBoxGetsTheSameRecipesFromAKeptIndexAsFromNone() {
+    let all = [
+      recipe("Zesty chicken soup", created: 1), recipe("Chicken soup", created: 2),
+      recipe("Soup", items: ["chicken"], created: 3), recipe("Chicken curry", created: 4),
+      recipe("Soup of the day", created: 5, banished: true), recipe("Cake", created: 6),
+    ]
+    let cache = RecipeSearchCache()
+    let index = cache.index(for: all)
+    for query in ["", "chicken", "soup", "chickens", "the day", "zzz", "chicken soup"] {
+      for sort in RecipeSort.allCases {
+        #expect(
+          RecipeLibrary.visible(all, matching: query, sort: sort, index: index).map(\.id)
+            == RecipeLibrary.visible(all, matching: query, sort: sort).map(\.id))
+      }
+      #expect(
+        RecipeLibrary.summon(all, matching: query, index: index).map(\.id)
+          == RecipeLibrary.summon(all, matching: query).map(\.id))
+      #expect(
+        RecipePicker.matches(all, query: query, index: index).map(\.id)
+          == RecipePicker.matches(all, query: query).map(\.id))
+      #expect(
+        StirFlowSheet.matches(all, search: query, index: index).map(\.id)
+          == StirFlowSheet.matches(all, search: query).map(\.id))
+    }
+  }
+
+  @Test func theLibraryTheSummonSheetTheLogPickerAndTheStirSheetAgree() {
+    let all = [
+      recipe("Zesty chicken soup", created: 1), recipe("Chicken soup", created: 2),
+      recipe("Soup", items: ["chicken"], created: 3), recipe("Chicken curry", created: 4),
+      recipe("Soup of the day", created: 5, banished: true),
+    ]
+    let index = RecipeSearchCache().index(for: all)
+    // The library by title, ⌘K by rank, the log picker by title and Stir by newest.
+    #expect(
+      RecipeLibrary.visible(all, matching: "chicken", sort: .title, index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Soup", "Zesty chicken soup"])
+    #expect(
+      RecipeLibrary.summon(all, matching: "chicken", index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Zesty chicken soup", "Soup"])
+    #expect(
+      RecipePicker.matches(all, query: "chicken", index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Soup", "Zesty chicken soup"])
+    #expect(
+      StirFlowSheet.matches(all, search: " chicken ", index: index).map(\.title)
+        == ["Chicken curry", "Soup", "Chicken soup", "Zesty chicken soup"])
+  }
+
+  @Test func theStirSheetListsTheLastCookedUntilASearchAndStopsAtThirty() {
+    let all = (1...40).map { recipe("Soup \($0)", created: TimeInterval($0)) }
+    let cooked = all[3]
+    cooked.lastCookedOn = LocalDate("2026-01-05")
+    #expect(StirFlowSheet.matches(all, search: "  ").first?.title == "Soup 4")
+    #expect(StirFlowSheet.matches(all, search: "  ").count == 30)
+    #expect(StirFlowSheet.matches(all, search: "soup").first?.title == "Soup 40")
+    #expect(StirFlowSheet.matches(all, search: "soup").count == 30)
+  }
+
+  @Test func theCachedIndexFollowsTheRecipesSearchableText() {
+    let soup = recipe("Soup")
+    let cake = recipe("Cake")
+    let cache = RecipeSearchCache()
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "soup", sort: .title, index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Soup"])
+    soup.title = "Stew"
+    soup.refreshSearchText()
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "soup", sort: .title, index: cache.index(for: [soup, cake])
+      ).isEmpty)
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "stew", sort: .title, index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Stew"])
+    soup.summary = "with cake crumbs"
+    #expect(
+      RecipeLibrary.summon(
+        [soup, cake], matching: "crumbs", index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Stew"])
+    let more = recipe("Soup again")
+    #expect(
+      RecipeLibrary.summon(
+        [soup, cake, more], matching: "again", index: cache.index(for: [soup, cake, more])
+      ).map(\.title)
+        == ["Soup again"])
+  }
+
   @Test func theLibraryCopyForFiltersIsFromTheCopyModule() {
     #expect(Copy.library.allTags.text == "All tags")
     #expect(Copy.library.clearFilters.text == "Clear filters")

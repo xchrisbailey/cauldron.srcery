@@ -10,11 +10,16 @@ struct RecipeSummonSheet: View {
   /// The recipes that can be found; the sheet leaves out any that were banished.
   let recipes: [RecipeRecord]
   let onOpen: (RecipeRecord) -> Void
+  /// The index for `recipes`; the library passes the one it keeps, so opening the sheet doesn't
+  /// build another.
+  var searchCache = RecipeSearchCache()
   @State private var query = ""
   @State private var lit: UUID?
   @FocusState private var focused: Bool
 
-  private var results: [RecipeRecord] { RecipeLibrary.summon(recipes, matching: query) }
+  private var results: [RecipeRecord] {
+    RecipeLibrary.summon(recipes, matching: query, index: searchCache.index(for: recipes))
+  }
 
   var body: some View {
     let results = results

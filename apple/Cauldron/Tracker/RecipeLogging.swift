@@ -66,8 +66,10 @@ enum RecipePicker {
   static let limit = 50
 
   /// The recipes to offer: not banished, narrowed by a search, by title.
-  static func matches(_ recipes: [RecipeRecord], query: String) -> [RecipeRecord] {
-    Array(RecipeLibrary.visible(recipes, matching: query, sort: .title).prefix(limit))
+  static func matches(
+    _ recipes: [RecipeRecord], query: String, index: RecipeSearchIndex? = nil
+  ) -> [RecipeRecord] {
+    Array(RecipeLibrary.visible(recipes, matching: query, sort: .title, index: index).prefix(limit))
   }
 
   /// "320 kcal a serving · 25 min", or "No calories yet".

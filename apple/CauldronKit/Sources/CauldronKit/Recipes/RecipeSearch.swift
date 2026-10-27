@@ -77,14 +77,14 @@ public enum RecipeSearch {
   /// What someone typed into a search box, ready to test recipes against.
   public struct Query: Sendable, Equatable {
     /// One word of the query, as typed and stemmed.
-    private struct Term: Sendable, Equatable {
+    struct Term: Sendable, Equatable {
       let typed: String
       let stem: String
     }
 
     /// The query, trimmed and lowercased: what a title may contain whole.
-    private let phrase: String
-    private let terms: [Term]
+    let phrase: String
+    let terms: [Term]
     /// Whether the query has any words at all. A query with none (blank, or only punctuation)
     /// matches every recipe.
     public let hasWords: Bool

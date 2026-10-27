@@ -10,6 +10,7 @@ struct RecipesRoot: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
   @State private var search = ""
+  @State private var searchCache = RecipeSearchCache()
   @State private var sort = RecipeSort.recent
   /// The tag the library is narrowed to, by its name in lowercase.
   @State private var tagFilter: String?
@@ -70,10 +71,12 @@ struct RecipesRoot: View {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
     .sheet(isPresented: $summoning) {
-      RecipeSummonSheet(recipes: recipes) { recipe in
-        summoning = false
-        open(recipe)
-      }
+      RecipeSummonSheet(
+        recipes: recipes,
+        onOpen: { recipe in
+          summoning = false
+          open(recipe)
+        }, searchCache: searchCache)
     }
     .sheet(isPresented: $renamingTag) {
       TagRenameSheet(
@@ -299,7 +302,9 @@ struct RecipesRoot: View {
 
   @ViewBuilder
   private func library(opening: Opening) -> some View {
-    let visible = RecipeLibrary.visible(recipes, matching: search, tag: tagFilter, sort: sort)
+    let visible = RecipeLibrary.visible(
+      recipes, matching: search, tag: tagFilter, sort: sort,
+      index: searchCache.index(for: recipes))
     if recipes.isEmpty {
       EmptyState(systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty)
     } else if visible.isEmpty {

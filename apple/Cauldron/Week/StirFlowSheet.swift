@@ -17,16 +17,27 @@ struct StirFlowSheet: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
   @State private var search = ""
+  @State private var searchCache = RecipeSearchCache()
   @State private var meal = ""
   @State private var problem: String?
   @State private var path: [UUID] = []
 
   /// The recipes the picker lists: the last cooked first until the cook searches.
   private var results: [RecipeRecord] {
+    Self.matches(recipes, search: search, index: searchCache.index(for: recipes))
+  }
+
+  /// How many recipes the picker lists.
+  static let limit = 30
+
+  static func matches(
+    _ recipes: [RecipeRecord], search: String, index: RecipeSearchIndex? = nil
+  ) -> [RecipeRecord] {
     let words = search.trimmingCharacters(in: .whitespacesAndNewlines)
     return Array(
-      RecipeLibrary.visible(recipes, matching: words, sort: words.isEmpty ? .lastCooked : .recent)
-        .prefix(30))
+      RecipeLibrary.visible(
+        recipes, matching: words, sort: words.isEmpty ? .lastCooked : .recent, index: index
+      ).prefix(limit))
   }
 
   var body: some View {
