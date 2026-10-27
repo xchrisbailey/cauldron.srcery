@@ -285,11 +285,13 @@ public struct RecipeSearchIndex: Sendable {
     let close =
       inDocument.hit.contains(false)
       ? forgiving(query.terms, hit: inDocument.hit, skipping: taken) : []
-    guard query.terms.count >= Self.partialWords else { return exact + close }
-    return exact + close + partial(query.terms, hit: inDocument.hit, skipping: taken)
+    guard query.typedWords.count >= Self.partialWords else { return exact + close }
+    return exact + close
+      + partial(
+        query.terms, typed: query.typedWords, hit: inDocument.hit, skipping: taken)
   }
 
-  /// A search of this many words or more may lack one of them.
+  /// A search of this many typed words or more may lack one of them. "Gluten-free" is one.
   static let partialWords = 3
 
   /// How many of `terms` each document has, by a word or a stem that starts with the term, the
@@ -391,11 +393,12 @@ public struct RecipeSearchIndex: Sendable {
       }
   }
 
-  /// The recipes that have every word but one, fewest mistakes first, then by title. Words are
+  /// The recipes that have every typed word but one, fewest mistakes first, then by title. Words are
   /// matched as `forgiving` matches them, so a recipe with every word is never here: those are
   /// exact or close. Recipes in `taken` were already found exactly, by their title.
   private func partial(
-    _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping taken: Set<Int>
+    _ terms: [RecipeSearch.Query.Term], typed: [RecipeSearch.Query.Typed], hit: [Bool],
+    skipping taken: Set<Int>
   ) -> [Result] {
     var ways: [[Int32]] = []
     var candidates: [[Candidate]] = []
@@ -422,16 +425,18 @@ public struct RecipeSearchIndex: Sendable {
       var missing: Int?
       var edits = 0
       var tooMany = false
-      for number in 0..<terms.count {
-        let way = ways[number][position]
-        if way == -2 {
+      for (number, word) in typed.enumerated() {
+        // A typed word is missing when any of its terms is.
+        if word.terms.contains(where: { ways[$0][position] == -2 }) {
           if missing != nil {
             tooMany = true
             break
           }
           missing = number
-        } else if way >= 0 {
-          edits += candidates[number][Int(way)].edits
+          continue
+        }
+        for term in word.terms where ways[term][position] >= 0 {
+          edits += candidates[term][Int(ways[term][position])].edits
         }
       }
       if !tooMany, let missing { found.append((position, missing, edits)) }
@@ -445,20 +450,23 @@ public struct RecipeSearchIndex: Sendable {
       .map { _, item in
         var matched: [String] = []
         var forgiven: [Reason.Forgiven] = []
-        for (number, term) in terms.enumerated() where number != item.missing {
-          let way = ways[number][item.position]
-          if way < 0 {
-            matched.append(term.typed)
-          } else {
-            let word = candidates[number][Int(way)].word
-            matched.append(word)
-            forgiven.append(Reason.Forgiven(typed: term.typed, matched: word, kind: .typo))
+        for (number, word) in typed.enumerated() where number != item.missing {
+          for index in word.terms {
+            let term = terms[index]
+            let way = ways[index][item.position]
+            if way < 0 {
+              matched.append(term.typed)
+            } else {
+              let found = candidates[index][Int(way)].word
+              matched.append(found)
+              forgiven.append(Reason.Forgiven(typed: term.typed, matched: found, kind: .typo))
+            }
           }
         }
         return Result(
           id: documents[item.position].id, tier: .partial,
           reason: Reason(
-            matched: matched, forgiven: forgiven, missing: terms[item.missing].typed))
+            matched: matched, forgiven: forgiven, missing: typed[item.missing].text))
       }
   }
 

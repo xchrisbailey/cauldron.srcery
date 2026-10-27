@@ -18,11 +18,13 @@ struct RecipeSearchPartialTests {
   // MARK: Filler words
 
   @Test func fillerWordsAreIgnored() {
-    let plain = SearchTestBox.titles("chicken thighs")
-    #expect(!plain.isEmpty)
-    for filler in ["something", "thing", "recipe", "dish"] {
-      #expect(SearchTestBox.titles("\(filler) chicken thighs") == plain)
-      #expect(SearchTestBox.titles("chicken \(filler) thighs") == plain)
+    let plain = results("chicken thighs")
+    #expect(plain.map(\.tier) == [.exact])
+    for filler in [
+      "something", "thing", "things", "recipe", "recipes", "dish", "dishes",
+    ] {
+      #expect(results("\(filler) chicken thighs") == plain)
+      #expect(results("chicken \(filler) thighs") == plain)
     }
   }
 
@@ -136,23 +138,45 @@ struct RecipeSearchPartialTests {
       ])
   }
 
-  @Test func glutenFreeDessertDoesNotFindTheCookies() {
-    for text in ["gluten-free dessert", "gluten free dessert", "Gluten-Free Dessert"] {
-      let titles = SearchTestBox.titles(text)
-      #expect(!titles.contains("Brown butter chocolate chip cookies"))
+  @Test func glutenFreeDessertIsTwoWordsSoItFindsNothing() {
+    for text in [
+      "gluten-free dessert", "Gluten-Free Dessert", "dessert gluten-free", "gluten-free, dessert",
+    ] {
+      #expect(SearchTestBox.titles(text).isEmpty)
     }
-    // It is three words ("gluten", "free", "dessert"), so the gluten-free chicken, which has two
-    // of them, is the one partial match.
-    let found = results("gluten-free dessert")
-    #expect(
-      found.map { SearchTestBox.title(of: $0.id) } == [
-        "Weeknight chicken thighs with lemon and garlic"
-      ])
-    #expect(found.first?.tier == .partial)
-    #expect(found.first?.reason.line?.text == "Matched gluten, free · no dessert")
-    // A dessert tag and flour are not gluten-free: the cookies match one word of three.
+    // Neither the dessert tag nor the flour makes the cookies gluten-free.
     #expect(SearchTestBox.titles("gluten dessert").isEmpty)
     #expect(SearchTestBox.titles("dessert flour") == ["Brown butter chocolate chip cookies"])
+  }
+
+  @Test func aHyphenatedWordIsOneTypedWordForTheMissingWordAllowance() throws {
+    let box = [
+      SearchTestBox.entry("Quick gluten-free brownies", tags: ["Gluten-free"], id: 1),
+      SearchTestBox.entry("Quick gluten dessert", id: 2),
+      SearchTestBox.entry("Quick dessert pie", id: 3),
+      SearchTestBox.entry("Gluten dessert", id: 4),
+    ]
+    let found = results("quick gluten-free dessert", in: box)
+    try #require(found.count == 3)
+    #expect(found.allSatisfy { $0.tier == .partial })
+    // "dessert" missing; "gluten-free" missing because "free" is, and because both parts are.
+    #expect(
+      found.map { SearchTestBox.title(of: $0.id, in: box) } == [
+        "Quick dessert pie", "Quick gluten dessert", "Quick gluten-free brownies",
+      ])
+    #expect(found[0].reason == Reason(matched: ["quick", "dessert"], missing: "gluten-free"))
+    #expect(found[1].reason == Reason(matched: ["quick", "dessert"], missing: "gluten-free"))
+    #expect(
+      found[2].reason == Reason(matched: ["quick", "gluten", "free"], missing: "dessert"))
+    #expect(found[0].reason.line?.text == "Matched quick, dessert · no gluten-free")
+  }
+
+  @Test func hyphenatedWordsStayStrictWhenTheyLeaveTwoTypedWords() {
+    let box = [SearchTestBox.entry("Quick gluten-free brownies", tags: ["Gluten-free"], id: 1)]
+    #expect(results("gluten-free dessert", in: box).isEmpty)
+    #expect(results("quick gluten-free", in: box).map(\.tier) == [.exact])
+    // Spaced out it is three typed words, and one may be missing.
+    #expect(results("gluten free dessert", in: box).map(\.tier) == [.partial])
   }
 
   // MARK: The test set's descriptions
