@@ -144,10 +144,12 @@ extension RecipeRecord {
   }
 
   /// Everything a search looks through: the title, ingredient items and tag names (as
-  /// `refreshSearchText` keeps them) and the description. The description is read here, so
-  /// recipes saved before search looked at it are found by it too.
+  /// `refreshSearchText` keeps them), the description and the hidden search keywords. The
+  /// description is read here, so recipes saved before search looked at it are found by it too.
+  /// Keywords that have gone stale still count until new ones are written.
   fileprivate var searchDocument: String {
-    summary.map { searchText + " " + $0 } ?? searchText
+    [searchText, summary, searchKeywords].compactMap { $0 }.filter { !$0.isEmpty }
+      .joined(separator: " ")
   }
 
   /// What the search index holds for the recipe.

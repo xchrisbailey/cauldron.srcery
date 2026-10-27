@@ -31,6 +31,8 @@ enum FinishedRecipeReceiver {
     var added = 0
     /// The covers to fetch (`attach`) before their files are removed.
     var covers: [Cover] = []
+    /// The ids of the recipes that were added, for what is done after a save.
+    var savedIDs: [UUID] = []
   }
 
   /// Saves what is waiting in `folder`, oldest first. Returns how many recipes were added, and
@@ -66,6 +68,7 @@ enum FinishedRecipeReceiver {
         RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context)
         settle(entry, coverLink: entry.recipe.coverLink, into: &received, fileManager: fileManager)
         received.added += 1
+        received.savedIDs.append(saved.id)
       } catch RecipeSaver.Failure.invalid {
         log.error("A finished recipe was not valid; its link was kept for a draft instead.")
         if !draft.sourceURL.isEmpty {

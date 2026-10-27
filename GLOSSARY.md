@@ -19,3 +19,7 @@ _Avoid_: Leftovers, cooking history
 **Unassigned servings**:
 The servings of a planned batch that have not yet been assigned to a day. They describe unfinished scheduling, not food left uneaten.
 _Avoid_: Leftover servings, uneaten servings
+
+**Search keywords**:
+Hidden words the app writes for a saved recipe, on the device, so search can find it by other names and descriptions ("leftover rice" finds Kimchi fried rice). They are never shown, they are not tags, and they are rewritten when the recipe's title, ingredients, tags or description change.
+_Avoid_: Tags, hashtags, labels
