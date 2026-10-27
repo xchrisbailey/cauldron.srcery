@@ -10,6 +10,9 @@ import Foundation
 /// a title that starts with the query, then a title with every word, then the rest, each by
 /// title.
 ///
+/// A search of three or more words that lacks exactly one of them still finds a recipe that has
+/// the rest, in the partial tier after the close ones. Shorter searches must match every word.
+///
 /// A word typed that starts no word anywhere in the box is forgiven a typo, by its length: none
 /// up to four letters, one from five and two from nine, never in the first letter and never
 /// for a word with a digit. A recipe that needed that comes after every exact one, in the close
@@ -278,11 +281,16 @@ public struct RecipeSearchIndex: Sendable {
     }
     let exact = startsWith + withEveryWord + rest
     // Words that start no word anywhere in the box are the only ones forgiven.
-    guard inDocument.hit.contains(false) else { return exact }
-    var taken = Set(inDocument.every)
-    taken.reserveCapacity(inDocument.every.count)
-    return exact + forgiving(query.terms, hit: inDocument.hit, skipping: taken)
+    let taken = Set(inDocument.every)
+    let close =
+      inDocument.hit.contains(false)
+      ? forgiving(query.terms, hit: inDocument.hit, skipping: taken) : []
+    guard query.terms.count >= Self.partialWords else { return exact + close }
+    return exact + close + partial(query.terms, hit: inDocument.hit, skipping: taken)
   }
+
+  /// A search of this many words or more may lack one of them.
+  static let partialWords = 3
 
   /// How many of `terms` each document has, by a word or a stem that starts with the term, the
   /// documents that have them all, and whether anything in the box starts with each term. A
@@ -380,6 +388,77 @@ public struct RecipeSearchIndex: Sendable {
         return Result(
           id: documents[item.position].id, tier: .close,
           reason: Reason(matched: matched, forgiven: forgiven))
+      }
+  }
+
+  /// The recipes that have every word but one, fewest mistakes first, then by title. Words are
+  /// matched as `forgiving` matches them, so a recipe with every word is never here: those are
+  /// exact or close. Recipes in `taken` were already found exactly, by their title.
+  private func partial(
+    _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping taken: Set<Int>
+  ) -> [Result] {
+    var ways: [[Int32]] = []
+    var candidates: [[Candidate]] = []
+    for (number, term) in terms.enumerated() {
+      var way = [Int32](repeating: -2, count: documents.count)
+      var options: [Candidate] = []
+      if hit[number] {
+        documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
+        documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
+      } else {
+        options = typoCandidates(for: term.typed)
+        for (choice, option) in options.enumerated() {
+          for document in option.documents where way[document] == -2 {
+            way[document] = Int32(choice)
+          }
+        }
+      }
+      ways.append(way)
+      candidates.append(options)
+    }
+
+    var found: [(position: Int, missing: Int, edits: Int)] = []
+    for position in 0..<documents.count where !taken.contains(position) {
+      var missing: Int?
+      var edits = 0
+      var tooMany = false
+      for number in 0..<terms.count {
+        let way = ways[number][position]
+        if way == -2 {
+          if missing != nil {
+            tooMany = true
+            break
+          }
+          missing = number
+        } else if way >= 0 {
+          edits += candidates[number][Int(way)].edits
+        }
+      }
+      if !tooMany, let missing { found.append((position, missing, edits)) }
+    }
+    return
+      found
+      .enumerated()
+      .sorted { a, b in
+        a.element.edits != b.element.edits ? a.element.edits < b.element.edits : a.offset < b.offset
+      }
+      .map { _, item in
+        var matched: [String] = []
+        var forgiven: [Reason.Forgiven] = []
+        for (number, term) in terms.enumerated() where number != item.missing {
+          let way = ways[number][item.position]
+          if way < 0 {
+            matched.append(term.typed)
+          } else {
+            let word = candidates[number][Int(way)].word
+            matched.append(word)
+            forgiven.append(Reason.Forgiven(typed: term.typed, matched: word, kind: .typo))
+          }
+        }
+        return Result(
+          id: documents[item.position].id, tier: .partial,
+          reason: Reason(
+            matched: matched, forgiven: forgiven, missing: terms[item.missing].typed))
       }
   }
 

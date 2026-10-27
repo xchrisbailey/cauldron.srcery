@@ -569,6 +569,43 @@ struct RecipeLibraryTests {
     #expect(RecipeLibrary.summonMatches(all, matching: "chiken").isEmpty)
   }
 
+  @Test func aPartialMatchNamesTheMissingWordInTheListAndInSummon() {
+    let all = [
+      recipe("Pad thai", items: ["rice noodles", "peanuts"]), recipe("Cake"),
+    ]
+    let listed = RecipeLibrary.visibleMatches(all, matching: "spicy peanut noodles", sort: .title)
+    #expect(listed.map(\.recipe.title) == ["Pad thai"])
+    #expect(listed.map(\.tier) == [.partial])
+    #expect(listed.first?.reasonLine == "Matched peanut, noodles · no spicy")
+    #expect(listed.close.count == 1)
+    #expect(listed.exact.isEmpty)
+
+    let summoned = RecipeLibrary.summonMatches(all, matching: "spicy peanut noodles")
+    #expect(summoned.map(\.recipe.title) == ["Pad thai"])
+    #expect(summoned.first?.shortReasonLine == "Matched peanut, noodles · no spicy")
+  }
+
+  @Test func partialMatchesComeAfterTheCloseOnesWhateverTheSort() {
+    // "Chicken soup" lacks "bowl" and "Chicken soup bowl" needs "chiken" forgiven: it sorts
+    // first by title but is the better match.
+    let all = [recipe("Chicken soup", created: 2), recipe("Chicken soup bowl", created: 1)]
+    for sort in [RecipeSort.title, .recent] {
+      let listed = RecipeLibrary.visibleMatches(all, matching: "chiken soup bowl", sort: sort)
+      #expect(listed.map(\.recipe.title) == ["Chicken soup bowl", "Chicken soup"])
+      #expect(listed.map(\.tier) == [.close, .partial])
+    }
+    let summoned = RecipeLibrary.summonMatches(all, matching: "chiken soup bowl")
+    #expect(summoned.map(\.tier) == [.close, .partial])
+    #expect(summoned.last?.reasonLine == "Matched chicken, soup · no bowl")
+  }
+
+  @Test func twoWordsStillNeedBothAndFillerWordsDoNotCount() {
+    let all = [recipe("Pad thai", items: ["rice noodles", "peanuts"])]
+    #expect(RecipeLibrary.visible(all, matching: "spicy peanut", sort: .title).isEmpty)
+    #expect(RecipeLibrary.visible(all, matching: "something spicy peanut", sort: .title).isEmpty)
+    #expect(RecipeLibrary.visible(all, matching: "a recipe with peanut", sort: .title).count == 1)
+  }
+
   @Test func theCloseMatchStringsAreFromTheCopyModule() {
     #expect(Copy.libraryNative.closeMatches.text == "Close matches")
   }

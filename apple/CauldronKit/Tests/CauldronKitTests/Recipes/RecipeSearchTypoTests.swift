@@ -31,9 +31,10 @@ struct RecipeSearchTypoTests {
   ]
 
   /// Searches that must find nothing: a correctly spelt word never pulls in a near miss, and a
-  /// short word is never forgiven.
+  /// short word is never forgiven. ("gluten-free dessert" left this list in #253: it is three
+  /// words, so the gluten-free chicken matches two of them. See the partial tests.)
   static let nothing = [
-    "bocoli", "pear", "beef", "mint", "salmon", "garbanzo", "gluten-free dessert", "chiken salmon",
+    "bocoli", "pear", "beef", "mint", "salmon", "garbanzo", "chiken salmon",
     "rcie", "pasd thai", "xhicken", "shicken",
   ]
 
