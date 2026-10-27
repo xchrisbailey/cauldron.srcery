@@ -5,7 +5,8 @@ import SwiftUI
 /// ⌘K: type to find a recipe and open it. Arrow keys move through the matches and Return opens
 /// the one that is lit; the first is lit until an arrow key says otherwise. A match is by name,
 /// ingredient, tag or description, as in the library's search, with a title that starts with
-/// what was typed first.
+/// what was typed first. What needed a typo goes after those, under Close matches, each with a
+/// short line saying what it matched.
 struct RecipeSummonSheet: View {
   /// The recipes that can be found; the sheet leaves out any that were banished.
   let recipes: [RecipeRecord]
@@ -17,13 +18,13 @@ struct RecipeSummonSheet: View {
   @State private var lit: UUID?
   @FocusState private var focused: Bool
 
-  private var results: [RecipeRecord] {
-    RecipeLibrary.summon(recipes, matching: query, index: searchCache.index(for: recipes))
+  private var results: [RecipeMatch] {
+    RecipeLibrary.summonMatches(recipes, matching: query, index: searchCache.index(for: recipes))
   }
 
   var body: some View {
     let results = results
-    let current = results.first { $0.id == lit } ?? results.first
+    let current = (results.first { $0.id == lit } ?? results.first)?.recipe
     VStack(alignment: .leading, spacing: 12) {
       TextField(Copy.recipes.summon.text, text: $query)
         .brandText(.body)
@@ -45,8 +46,18 @@ struct RecipeSummonSheet: View {
         .foregroundStyle(Brand.Colors.subtext)
       ScrollView {
         LazyVStack(spacing: 2) {
-          ForEach(results) { recipe in
-            row(recipe, lit: recipe.id == current?.id)
+          ForEach(results.exact) { match in
+            row(match, lit: match.id == current?.id)
+          }
+          let close = results.close
+          if !close.isEmpty {
+            CloseMatchesHeader()
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.horizontal, 10)
+              .padding(.top, 8)
+            ForEach(close) { match in
+              row(match, lit: match.id == current?.id)
+            }
           }
         }
       }
@@ -69,21 +80,27 @@ struct RecipeSummonSheet: View {
 
   /// What sits above the matches: how to search until something is typed, then what the
   /// matches are, or that there are none.
-  private func heading(_ results: [RecipeRecord]) -> String {
+  private func heading(_ results: [RecipeMatch]) -> String {
     if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       return Copy.recipes.summonHint.text
     }
     return (results.isEmpty ? Copy.library.noResults : Copy.library.results).text
   }
 
-  private func row(_ recipe: RecipeRecord, lit: Bool) -> some View {
-    Button {
+  private func row(_ match: RecipeMatch, lit: Bool) -> some View {
+    let recipe = match.recipe
+    return Button {
       onOpen(recipe)
     } label: {
       HStack(alignment: .firstTextBaseline, spacing: 12) {
-        Text(verbatim: recipe.title)
-          .brandText(.body)
-          .lineLimit(1)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(verbatim: recipe.title)
+            .brandText(.body)
+            .lineLimit(1)
+          if let reason = match.shortReasonLine {
+            MatchReasonLine(text: reason, lines: 1)
+          }
+        }
         Spacer(minLength: 0)
         if let time = RecipeTimes(recipe).total {
           Text(verbatim: time)
@@ -104,7 +121,7 @@ struct RecipeSummonSheet: View {
   }
 
   private func step(
-    _ delta: Int, in results: [RecipeRecord], from current: RecipeRecord?
+    _ delta: Int, in results: [RecipeMatch], from current: RecipeRecord?
   ) -> KeyPress.Result {
     guard !results.isEmpty else { return .ignored }
     let index = results.firstIndex { $0.id == current?.id } ?? 0

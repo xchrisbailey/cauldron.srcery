@@ -108,6 +108,7 @@ struct RecipeSearchIndexPerformanceTests {
     #expect(index.words.count > 100)
     #expect(index.search("c").count > 100)
     #expect(index.search("chicken").count > 10)
-    #expect(index.search("chikcen").isEmpty)
+    #expect(index.search("chikcen").count == index.search("chicken").count)
+    #expect(index.search("chikcen").allSatisfy { $0.tier == .close })
   }
 }

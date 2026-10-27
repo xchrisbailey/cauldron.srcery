@@ -4,6 +4,8 @@ import Testing
 
 /// The index answers the way the per-recipe search always has, only from words prepared once.
 /// `RecipeSearch.Query` is kept as the independent check: the old scan, run on every recipe.
+/// Accent folding is a deliberate change from it ("creme" now finds "Crème brûlée"), so a query
+/// that only folding makes find something is left out here and tested with the typo rules.
 @Suite("RecipeSearchIndex")
 struct RecipeSearchIndexTests {
   private static func entry(
@@ -49,7 +51,7 @@ struct RecipeSearchIndexTests {
   static let queries = [
     "", "   ", "!!", "soup", "Soup", "so", "s", "tomatoes", "tomato", "tomatoe", "chopp", "chop",
     "the", "of the", "soup of", "soup of the day", "tomato soup", "soup tomato", "cream",
-    "creme", "crème", "brûlée", "rice noodles", "noodle rice", "100g", "100", "10", "pasta,",
+    "crème", "brûlée", "rice noodles", "noodle rice", "100g", "100", "10", "pasta,",
     "pasta e fagioli", "weeknight dinner", "a quick weeknight dinner", "quick", "zzz",
     "one two three four five six seven eight nine soup", "soup soup soup", "  chicken   soup ",
     "ing", "bananas", "banana", "potato", "potatoes carrots", "carrot beef", "cheese",
@@ -106,7 +108,7 @@ struct RecipeSearchIndexTests {
     let index = RecipeSearchIndex(Self.box)
     #expect(index.words == index.words.sorted())
     #expect(Set(index.words).count == index.words.count)
-    for word in ["tomato", "tomatoes", "brûlée", "100g", "weeknight"] {
+    for word in ["tomato", "tomatoes", "brulee", "100g", "weeknight"] {
       #expect(index.words.contains(word))
     }
     #expect(!index.words.contains("zzz"))

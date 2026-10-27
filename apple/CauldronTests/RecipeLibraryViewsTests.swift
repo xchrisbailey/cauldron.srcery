@@ -26,6 +26,32 @@ import Testing
       }
     }
 
+    @Test func closeMatchesRenderUnderTheirHeadingInBothAppearances() throws {
+      let (_, recipes) = try seeded()
+      let recipe = try #require(recipes.first)
+      for scheme in [ColorScheme.light, .dark] {
+        let view = VStack(alignment: .leading, spacing: 8) {
+          CloseMatchesHeader()
+          RecipeCardView(recipe: recipe, reason: "Matched chicken")
+          MatchReasonLine(text: "Matched aubergine, another name for eggplant")
+        }
+        .environment(\.colorScheme, scheme)
+        #expect(renders(view))
+      }
+    }
+
+    @Test func aTypoShowsTheChickenRecipesAsCloseMatchesOnTheSeedBox() throws {
+      let (_, recipes) = try seeded()
+      let found = RecipeLibrary.visibleMatches(recipes, matching: "chiken", sort: .title)
+      #expect(found.exact.isEmpty)
+      #expect(found.close.contains { $0.recipe.title.lowercased().contains("chicken") })
+      #expect(found.close.allSatisfy { $0.reasonLine == "Matched chicken" })
+      // Spelt right, the same recipes are exact and carry no reason.
+      let spelt = RecipeLibrary.visibleMatches(recipes, matching: "chicken", sort: .title)
+      #expect(spelt.close.isEmpty)
+      #expect(spelt.allSatisfy { $0.reasonLine == nil })
+    }
+
     @Test func theRenameSheetRendersInBothAppearances() {
       for scheme in [ColorScheme.light, .dark] {
         #expect(

@@ -27,6 +27,32 @@ struct NoMatchesView: View {
   }
 }
 
+/// The heading over the results that needed forgiving: a typo, another name or a missing word.
+/// Library lists show it as a section header and ⌘K as a label.
+struct CloseMatchesHeader: View {
+  var body: some View {
+    Text(verbatim: Copy.libraryNative.closeMatches.text)
+      .brandText(.control)
+      .foregroundStyle(Brand.Colors.subtext)
+      .textCase(nil)
+      .accessibilityAddTraits(.isHeader)
+  }
+}
+
+/// The one line under a close match that says what it matched.
+struct MatchReasonLine: View {
+  let text: String
+  var lines = 2
+
+  var body: some View {
+    Text(verbatim: text)
+      .brandText(.control)
+      .foregroundStyle(Brand.Colors.subtext)
+      .lineLimit(lines)
+      .multilineTextAlignment(.leading)
+  }
+}
+
 /// A tag's new name. It stays open with what is wrong with the name until the name is good.
 struct TagRenameSheet: View {
   /// The tag's name now.

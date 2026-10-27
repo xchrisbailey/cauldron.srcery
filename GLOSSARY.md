@@ -19,3 +19,7 @@ _Avoid_: Leftovers, cooking history
 **Unassigned servings**:
 The servings of a planned batch that have not yet been assigned to a day. They describe unfinished scheduling, not food left uneaten.
 _Avoid_: Leftover servings, uneaten servings
+
+**Close match**:
+A search result that needed forgiving: a typo, another name for a word typed, or one missing word. Close matches are listed after the exact matches, under their own heading, each with a plain line saying what it matched. A recipe that matches every word as typed is an exact match, never a close one.
+_Avoid_: Fuzzy match, suggestion, did you mean
