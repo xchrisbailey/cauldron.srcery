@@ -188,11 +188,16 @@ struct RecipeSearchSynonymTests {
     #expect(titles("spring oni soup", groups: groups, ["scallion", "soup"]).isEmpty)
   }
 
-  @Test func aOneWordNameIsNotMatchedByItsStart() {
-    // "egg" is the start of "eggplant", and finding aubergines for it would be noise.
+  @Test func aOneWordNameIsMatchedByItsStartFromFiveLetters() {
+    // "egg" and "eggp" are the start of "eggplant" too, and finding aubergines for them would be
+    // noise under every egg.
     let groups = [["eggplant", "aubergine"]]
     #expect(titles("egg", groups: groups, ["aubergine"]).isEmpty)
-    #expect(titles("eggpl", groups: groups, ["aubergine"]).isEmpty)
+    #expect(titles("eggp", groups: groups, ["aubergine"]).isEmpty)
+    #expect(titles("eggpl", groups: groups, ["aubergine"]) == ["aubergine"])
+    #expect(titles("eggplan", groups: groups, ["aubergine"]) == ["aubergine"])
+    // Only the word being typed, which is the last.
+    #expect(titles("eggpl soup", groups: groups, ["aubergine", "soup"]).isEmpty)
   }
 
   @Test func aNameWithItsWordsAlreadyInTheBoxStillExpands() {

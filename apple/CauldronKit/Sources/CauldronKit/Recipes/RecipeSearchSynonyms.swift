@@ -56,14 +56,16 @@ public struct RecipeSearchSynonyms: Sendable {
     }
   }
 
-  /// Whether a typed word is the name's word: the same word or stem, or, for the last word of a
-  /// name of several that is the end of the query, the start of it. A one-word name is never
-  /// matched by its start: "egg" is not "eggplant".
+  /// Whether a typed word is the name's word: the same word or stem, or, for the name's last
+  /// word at the end of the query, the start of it. A one-word name is matched by its start only
+  /// from five letters: "eggpl" is "eggplant", but "egg" and "eggp" are not.
   private func matches(
-    _ term: RecipeSearch.Query.Term, _ word: RecipeSearch.Query.Term, beingTyped: Bool
+    _ term: RecipeSearch.Query.Term, _ word: RecipeSearch.Query.Term, beingTyped: Bool,
+    alone: Bool
   ) -> Bool {
     if term.typed == word.typed || term.stem == word.stem { return true }
-    return beingTyped && word.typed.hasPrefix(term.typed)
+    guard beingTyped, !alone || term.typed.count >= 5 else { return false }
+    return word.typed.hasPrefix(term.typed)
   }
 
   /// The names found in the typed words, left to right without overlapping, the longest name
@@ -80,7 +82,7 @@ public struct RecipeSearchSynonyms: Sendable {
         let all = name.terms.indices.allSatisfy { place in
           matches(
             terms[start + place], name.terms[place],
-            beingTyped: last > 0 && end == terms.count && place == last)
+            beingTyped: end == terms.count && place == last, alone: last == 0)
         }
         if all { here[name.terms.count, default: []].append(number) }
       }
