@@ -28,6 +28,13 @@ final class RecipeRecord {
   var stepsData: Data = Data()
   /// Lowercased title, ingredient items and tag names, for search.
   var searchText: String = ""
+  /// Hidden words the on-device model wrote so search can find the recipe by other names and
+  /// descriptions. Never shown. Empty or nil when none have been written.
+  var searchKeywords: String?
+  /// The fingerprint of the title, ingredient items, tags and description that
+  /// `searchKeywords` were written from. Nil until keywords are first written; a mismatch means
+  /// they are stale.
+  var searchKeywordsFingerprint: String?
 
   // Per serving. Any of them can be unknown.
   var calories: Double?
