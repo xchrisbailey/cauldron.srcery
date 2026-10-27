@@ -26,12 +26,12 @@ struct RecipeSearchSynonymTests {
     Typed(text: "kimchee rice", finds: ["Kimchi fried rice"]),
     Typed(text: "overnite oats", finds: ["Overnight oats"]),
     Typed(text: "overnite", finds: ["Overnight oats"]),
-    // The close-tier line is for a word with no exact hit anywhere; these have one.
-    Typed(text: "scallion", finds: ["Pad thai"]),
-    Typed(text: "spring onion", finds: ["Kimchi fried rice"]),
-    Typed(text: "cilantro", finds: ["Guacamole"]),
-    Typed(text: "coriander", finds: ["Chicken tikka masala"]),
-    Typed(text: "yogurt", finds: ["Overnight oats"]),
+    // Another name always counts, even when the word typed is in the box.
+    Typed(text: "scallion", finds: ["Pad thai", "Kimchi fried rice"]),
+    Typed(text: "spring onion", finds: ["Kimchi fried rice", "Pad thai"]),
+    Typed(text: "cilantro", finds: ["Guacamole", "Chicken tikka masala"]),
+    Typed(text: "coriander", finds: ["Chicken tikka masala", "Guacamole"]),
+    Typed(text: "yogurt", finds: ["Overnight oats", "Chicken tikka masala"]),
   ]
 
   /// Searches that must find nothing: another name for something the box doesn't hold.
@@ -51,14 +51,13 @@ struct RecipeSearchSynonymTests {
 
   @Test func crispsAlsoFindChocolateChipRecipesThroughTheChipStem() {
     // Flagged for Chris on the PR: "chips" and "chip" share a stem, so another name for crisps
-    // reaches chocolate chips. The exact "crisp" in a thigh recipe would stop it in the corpus.
-    let box = [
-      SearchTestBox.entry("Potato wedges", items: ["potato"], id: 1),
-      SearchTestBox.entry("Chocolate chip cookies", items: ["chocolate chips"], id: 2),
-      SearchTestBox.entry("Fish and chips", items: ["cod", "chips"], id: 3),
-    ]
+    // reaches chocolate chips. The thighs are the exact match ("crisp-skinned").
+    let found = RecipeSearchIndex(SearchTestBox.corpus).search("crisps")
     #expect(
-      Set(SearchTestBox.titles("crisps", in: box)) == ["Chocolate chip cookies", "Fish and chips"])
+      found.map { SearchTestBox.title(of: $0.id) } == [
+        "Weeknight chicken thighs with lemon and garlic", "Brown butter chocolate chip cookies",
+      ])
+    #expect(found.map(\.tier) == [.exact, .close])
   }
 
   // MARK: Tier and reason
@@ -99,10 +98,30 @@ struct RecipeSearchSynonymTests {
       result?.reason.line?.text == "Matched mozzarella, aubergine, another name for eggplant")
   }
 
-  @Test func aWordWithAnExactHitAnywhereNeverFallsBack() {
-    // "cilantro" is in Guacamole, so Chicken tikka masala (coriander) is not another match.
+  @Test func aWordInTheBoxStillFindsItsOtherNamesAfterTheExactMatches() {
     let found = RecipeSearchIndex(SearchTestBox.corpus).search("cilantro")
-    #expect(found.map(\.tier) == [.exact])
+    #expect(found.map(\.tier) == [.exact, .close])
+    #expect(found.map { SearchTestBox.title(of: $0.id) } == ["Guacamole", "Chicken tikka masala"])
+    #expect(found.last?.reason.line?.text == "Matched coriander, another name for cilantro")
+  }
+
+  @Test func aRecipeThatMatchedExactlyIsNotListedAgainAsClose() {
+    let box = [
+      SearchTestBox.entry("Both", items: ["cilantro", "coriander"], id: 1),
+      SearchTestBox.entry("Other", items: ["coriander"], id: 2),
+    ]
+    let found = RecipeSearchIndex(box).search("cilantro")
+    #expect(found.map { SearchTestBox.title(of: $0.id, in: box) } == ["Both", "Other"])
+    #expect(found.map(\.tier) == [.exact, .close])
+  }
+
+  @Test func aTypoStillFallsBackOnlyForAWordTheBoxLacks() {
+    // "chiken" is in the box as a word, so it is not a typo of "chicken" in the other recipe.
+    let box = [
+      SearchTestBox.entry("Chicken soup", items: ["chicken"], id: 1),
+      SearchTestBox.entry("Chiken fried", items: ["chiken"], id: 2),
+    ]
+    #expect(RecipeSearchIndex(box).search("chiken").map(\.tier) == [.exact])
   }
 
   @Test func aWordThatIsATypoAndAnotherNameOfTheSameWordReportsTheOtherName() {
@@ -169,23 +188,22 @@ struct RecipeSearchSynonymTests {
     #expect(titles("spring oni soup", groups: groups, ["scallion", "soup"]).isEmpty)
   }
 
-  @Test func aSingleWordNameBeingTypedNeedsThreeLetters() {
+  @Test func aOneWordNameIsNotMatchedByItsStart() {
+    // "egg" is the start of "eggplant", and finding aubergines for it would be noise.
     let groups = [["eggplant", "aubergine"]]
-    #expect(titles("eggpl", groups: groups, ["aubergine"]) == ["aubergine"])
-    #expect(titles("egg", groups: groups, ["aubergine"]) == ["aubergine"])
-    #expect(titles("eg", groups: groups, ["aubergine"]).isEmpty)
-    // Only the word being typed, which is the last.
-    #expect(titles("eggpl soup", groups: groups, ["aubergine", "soup"]).isEmpty)
+    #expect(titles("egg", groups: groups, ["aubergine"]).isEmpty)
+    #expect(titles("eggpl", groups: groups, ["aubergine"]).isEmpty)
   }
 
-  @Test func aNameWithAWordAlreadyInTheBoxStillExpandsWhenNoRecipeHasTheWholeName() {
+  @Test func aNameWithItsWordsAlreadyInTheBoxStillExpands() {
     // "green" and "onion" are both in the box, but no recipe has both.
     let groups = [["green onion", "scallion"]]
     #expect(
       titles("green onion", groups: groups, ["green beans"], ["red onion"], ["scallion"])
         == ["scallion"])
     #expect(
-      titles("green onion", groups: groups, ["green onion"], ["scallion"]) == ["green onion"])
+      titles("green onion", groups: groups, ["green onion"], ["scallion"])
+        == ["green onion", "scallion"])
   }
 
   @Test func anotherNameDoesNotChainIntoAnotherGroup() {

@@ -16,10 +16,11 @@ import Foundation
 /// tier, with a reason that says which words were forgiven as what. Accents are folded away on
 /// both sides, so they are never a typo.
 ///
-/// A word typed (or a name of several words, like "spring onion") is also forgiven when it is
-/// another name for what a recipe says, by `RecipeSearchSynonyms`. That is only tried for a word
-/// that starts no word of the box, or a name no recipe holds whole, and it comes before a typo:
-/// when a word is both a typo and another name of the same word, the reason says another name.
+/// A word typed (or a name of several words, like "spring onion") also finds a recipe that says
+/// another name for it, by `RecipeSearchSynonyms`, whether or not other recipes say the word as
+/// typed: those are exact, and the others come after them as close matches. Another name is
+/// tried before a typo: when a word is both a typo and another name of the same word, the reason
+/// says another name.
 public struct RecipeSearchIndex: Sendable {
   /// What the index needs to know about one recipe.
   public struct Entry: Sendable, Equatable {
@@ -284,12 +285,8 @@ public struct RecipeSearchIndex: Sendable {
       }
     }
     let exact = startsWith + withEveryWord + rest
-    // Words that start no word anywhere in the box are the only ones forgiven, and so are words
-    // that are another name that no recipe holds whole.
-    guard inDocument.hit.contains(false) || inDocument.every.isEmpty else { return exact }
-    var taken = Set(inDocument.every)
-    taken.reserveCapacity(inDocument.every.count)
-    return exact + forgiving(query.terms, hit: inDocument.hit, skipping: taken)
+    // Other names always count; a typo only forgives a word that starts no word of the box.
+    return exact + forgiving(query.terms, hit: inDocument.hit, skipping: inDocument.every)
   }
 
   /// How many of `terms` each document has, by a word or a stem that starts with the term, the
@@ -329,30 +326,36 @@ public struct RecipeSearchIndex: Sendable {
     let terms: Range<Int>
     /// Other names first, then typos, fewest mistakes first.
     let candidates: [Candidate]
-    /// Whether recipes can also have the typed word itself (it starts a word in the box).
+    /// Whether recipes can have the typed words as they are: a word that starts a word in the
+    /// box, or a name (which may be that no recipe holds it whole).
     let asTyped: Bool
   }
 
-  /// The recipes every word of which is found, where the words that started nothing (`hit` is
-  /// false) are matched by another name or a typo and the others as they are. Fewest mistakes
-  /// first, then by title. Recipes in `taken` were already found exactly.
+  /// The recipes every word of which is found, where a word may be matched as typed or as
+  /// another name, and a word that started nothing (`hit` is false) by a typo too. Fewest mistakes
+  /// first, then by title. Recipes in `exact` were already found exactly, and are not listed
+  /// again.
   private func forgiving(
-    _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping taken: Set<Int>
+    _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping exact: [Int]
   ) -> [Result] {
     // Nothing to forgive when every word is as typed and no name stands for any of them.
     guard let slots = places(for: terms, hit: hit),
       !slots.allSatisfy({ $0.asTyped && $0.candidates.isEmpty })
     else { return [] }
+    let taken = Set(exact)
 
     // For each slot, the way each recipe has it: nil for none, else the word it matched (a typed
     // word that matched as it was keeps its own place, at -1).
     var ways: [[Int32]] = []
     for slot in slots {
       var way = [Int32](repeating: -2, count: documents.count)
-      if slot.asTyped {
+      if slot.asTyped, slot.terms.count == 1 {
         let term = terms[slot.terms.lowerBound]
         documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
         documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
+      } else if slot.asTyped {
+        let every = reach(Array(terms[slot.terms]), words: documentWords, stems: documentStems)
+        for document in every.every { way[document] = -1 }
       }
       for (choice, option) in slot.candidates.enumerated() {
         for document in option.documents where way[document] == -2 {
@@ -404,14 +407,11 @@ public struct RecipeSearchIndex: Sendable {
       }
   }
 
-  /// The places to find in the query, or nil when a word that has to be forgiven has nothing to
-  /// be forgiven as. A name typed that no recipe holds whole stands for the other names of its
-  /// group; a word that starts no word of the box may also be a typo of one.
+  /// The places to find in the query, or nil when a word that starts no word of the box has
+  /// nothing to be forgiven as. A name typed stands for the other names of its group, whether or
+  /// not a recipe has it as typed; a word that starts no word of the box may also be a typo.
   private func places(for terms: [RecipeSearch.Query.Term], hit: [Bool]) -> [Slot]? {
-    let spans = synonyms.spans(in: terms) { range in
-      if range.count == 1 { return !hit[range.lowerBound] }
-      return reach(Array(terms[range]), words: documentWords, stems: documentStems).every.isEmpty
-    }
+    let spans = synonyms.spans(in: terms)
     var slots: [Slot] = []
     var next = 0
     func single(_ number: Int, others: [Int]) -> Bool {
@@ -427,8 +427,7 @@ public struct RecipeSearchIndex: Sendable {
         guard single(span.range.lowerBound, others: span.others) else { return nil }
       } else {
         let options = alternatives(among: span.others)
-        if options.isEmpty { return nil }
-        slots.append(Slot(terms: span.range, candidates: options, asTyped: false))
+        slots.append(Slot(terms: span.range, candidates: options, asTyped: true))
       }
       next = span.range.upperBound
     }

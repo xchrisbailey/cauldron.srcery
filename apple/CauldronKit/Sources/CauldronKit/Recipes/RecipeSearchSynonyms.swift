@@ -56,21 +56,19 @@ public struct RecipeSearchSynonyms: Sendable {
     }
   }
 
-  /// Whether a typed word is the name's word: the same word or stem, or, for the word at the
-  /// end of the query, the start of it (three letters at least when the name is one word).
+  /// Whether a typed word is the name's word: the same word or stem, or, for the last word of a
+  /// name of several that is the end of the query, the start of it. A one-word name is never
+  /// matched by its start: "egg" is not "eggplant".
   private func matches(
-    _ term: RecipeSearch.Query.Term, _ word: RecipeSearch.Query.Term, beingTyped: Bool,
-    alone: Bool
+    _ term: RecipeSearch.Query.Term, _ word: RecipeSearch.Query.Term, beingTyped: Bool
   ) -> Bool {
     if term.typed == word.typed || term.stem == word.stem { return true }
-    guard beingTyped, !alone || term.typed.count >= 3 else { return false }
-    return word.typed.hasPrefix(term.typed)
+    return beingTyped && word.typed.hasPrefix(term.typed)
   }
 
   /// The names found in the typed words, left to right without overlapping, the longest name
-  /// first at each place. `usable` says whether a stretch may be replaced by other names: a
-  /// name some recipe already holds whole is not.
-  func spans(in terms: [RecipeSearch.Query.Term], usable: (Range<Int>) -> Bool) -> [Span] {
+  /// first at each place.
+  func spans(in terms: [RecipeSearch.Query.Term]) -> [Span] {
     var found: [Span] = []
     var start = 0
     while start < terms.count {
@@ -78,28 +76,21 @@ public struct RecipeSearchSynonyms: Sendable {
       for (number, name) in names.enumerated() where !name.others.isEmpty {
         let end = start + name.terms.count
         guard end <= terms.count else { continue }
-        let alone = name.terms.count == 1
+        let last = name.terms.count - 1
         let all = name.terms.indices.allSatisfy { place in
           matches(
             terms[start + place], name.terms[place],
-            beingTyped: end == terms.count && place == name.terms.count - 1, alone: alone)
+            beingTyped: last > 0 && end == terms.count && place == last)
         }
         if all { here[name.terms.count, default: []].append(number) }
       }
-      var taken: Span?
-      for length in here.keys.sorted(by: >) {
-        let range = start..<start + length
-        guard usable(range) else { continue }
+      if let length = here.keys.max() {
         var others: [Int] = []
         for number in here[length] ?? [] {
           for other in names[number].others where !others.contains(other) { others.append(other) }
         }
-        taken = Span(range: range, others: others)
-        break
-      }
-      if let taken {
-        found.append(taken)
-        start = taken.range.upperBound
+        found.append(Span(range: start..<start + length, others: others))
+        start += length
       } else {
         start += 1
       }
