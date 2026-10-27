@@ -26,6 +26,8 @@ final class SharedImportQueue {
   @ObservationIgnored private let finishedFolder: URL?
   @ObservationIgnored private let now: @Sendable () -> Date
   @ObservationIgnored private let enabled: Bool
+  /// Writes search keywords for the recipes a pick-up adds. Set by `sharedImports`.
+  @ObservationIgnored var keywords: SearchKeywordRunner?
   /// The editors open now, each by its own token so one that is closed twice counts once.
   private var editors: Set<UUID> = []
   private(set) var retainedPending: [UUID] = []
@@ -78,6 +80,7 @@ final class SharedImportQueue {
         draftsFolder: folder ?? ShareInbox.folder())
       added = received.added
       covers = received.covers
+      for id in received.savedIDs { keywords?.enqueue(id, in: context) }
     }
     guard includingDrafts else { return added }
     deferred = []
@@ -256,6 +259,7 @@ final class SharedImportQueue {
 private struct SharedImportsPickUp: ViewModifier {
   let queue: SharedImportQueue
   let ai: RecipeAIService?
+  let keywords: SearchKeywordRunner?
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.modelContext) private var context
   @Environment(\.pageFetcher) private var fetcher
@@ -267,6 +271,7 @@ private struct SharedImportsPickUp: ViewModifier {
         // The share popover leaves a recipe while the window is open, and no scene change says
         // so: watch the folder it leaves it in.
         .task {
+          queue.keywords = keywords
           await queue.receiveWhileOpen(in: context) { [queue, context, ai, fetcher] added in
             await queue.settle(added: added, in: context, ai: ai, fetcher: fetcher)
           }
@@ -275,6 +280,7 @@ private struct SharedImportsPickUp: ViewModifier {
       // Runs at launch and each time the app comes forward.
       .task(id: scenePhase) {
         guard scenePhase == .active else { return }
+        queue.keywords = keywords
         // Recipes that synced in while the app was away count for the share sheet's duplicate
         // check too.
         SavedLinksIndex.live.rewrite(from: context)
@@ -289,7 +295,9 @@ extension View {
   /// Gives the view the queue of shared items and picks the inbox up whenever the app comes
   /// forward. Recipes the share sheet finished are saved into the view's context; `ai` runs
   /// the macro estimates they are waiting for.
-  func sharedImports(_ queue: SharedImportQueue, ai: RecipeAIService? = nil) -> some View {
-    modifier(SharedImportsPickUp(queue: queue, ai: ai))
+  func sharedImports(
+    _ queue: SharedImportQueue, ai: RecipeAIService? = nil, keywords: SearchKeywordRunner? = nil
+  ) -> some View {
+    modifier(SharedImportsPickUp(queue: queue, ai: ai, keywords: keywords))
   }
 }
