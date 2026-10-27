@@ -18,6 +18,12 @@ import Foundation
 /// for a word with a digit. A recipe that needed that comes after every exact one, in the close
 /// tier, with a reason that says which words were forgiven as what. Accents are folded away on
 /// both sides, so they are never a typo.
+///
+/// A word typed (or a name of several words, like "spring onion") also finds a recipe that says
+/// another name for it, by `RecipeSearchSynonyms`, whether or not other recipes say the word as
+/// typed: those are exact, and the others come after them as close matches. Another name is
+/// tried before a typo: when a word is both a typo and another name of the same word, the reason
+/// says another name.
 public struct RecipeSearchIndex: Sendable {
   /// What the index needs to know about one recipe.
   public struct Entry: Sendable, Equatable {
@@ -163,9 +169,11 @@ public struct RecipeSearchIndex: Sendable {
   private let documentStems: Vocabulary
   private let titleWords: Vocabulary
   private let titleStems: Vocabulary
+  private let synonyms: RecipeSearchSynonyms
 
-  public init(_ entries: [Entry]) {
+  public init(_ entries: [Entry], synonyms: RecipeSearchSynonyms = .standard) {
     self.entries = entries
+    self.synonyms = synonyms
     let keyed = entries.map {
       (entry: $0, title: RecipeSearch.folded($0.title).lowercased(), id: $0.id.uuidString)
     }
@@ -280,15 +288,16 @@ public struct RecipeSearchIndex: Sendable {
       }
     }
     let exact = startsWith + withEveryWord + rest
-    // Words that start no word anywhere in the box are the only ones forgiven.
+    // Other names always count; a typo only forgives a word that starts no word of the box.
+    let spans = synonyms.spans(in: query.terms)
+    let partialWanted = query.typedWords.count >= Self.partialWords
+    guard inDocument.hit.contains(false) || !spans.isEmpty || partialWanted else { return exact }
+    let matching = matching(query.terms, hit: inDocument.hit, names: spans)
     let taken = Set(inDocument.every)
-    let close =
-      inDocument.hit.contains(false)
-      ? forgiving(query.terms, hit: inDocument.hit, skipping: taken) : []
-    guard query.typedWords.count >= Self.partialWords else { return exact + close }
+    let close = forgiving(matching, terms: query.terms, skipping: taken)
+    guard partialWanted else { return exact + close }
     return exact + close
-      + partial(
-        query.terms, typed: query.typedWords, hit: inDocument.hit, skipping: taken)
+      + partial(matching, terms: query.terms, typed: query.typedWords, skipping: taken)
   }
 
   /// A search of this many typed words or more may lack one of them. "Gluten-free" is one.
@@ -317,55 +326,161 @@ public struct RecipeSearchIndex: Sendable {
     return (reached, every, hit)
   }
 
-  /// A word of the box that a typed word is a few mistakes from.
+  /// A word (or name) of the box that a typed word is a few mistakes from, or another name for.
   private struct Candidate {
     let word: String
     let edits: Int
+    let kind: Reason.Kind
     let documents: [Int]
   }
 
-  /// The recipes every word of which is found, where the words that started nothing (`hit` is
-  /// false) are matched by a typo and the others as they are. Fewest mistakes first, then by
-  /// title. Recipes in `taken` were already found exactly.
-  private func forgiving(
-    _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping taken: Set<Int>
-  ) -> [Result] {
-    // For each word typed, the way each recipe has it: nil for none, else the word it matched
-    // (a typed word that matched as it was keeps its own place, at -1).
-    var ways: [[Int32]] = []
-    var candidates: [[Candidate]] = []
+  /// How each recipe has each word typed: as it was typed, as another name, as a typo, or not at
+  /// all. A word typed that is one of several words of a known name may also be found as the
+  /// name's other names, together.
+  private struct Matching {
+    /// One word typed. A recipe's way is -2 for none, -1 for the word as typed, and otherwise
+    /// the place of the candidate it has, other names first, then typos, fewest mistakes first.
+    struct Word {
+      var way: [Int32]
+      let candidates: [Candidate]
+    }
+
+    /// A name of several words typed, and the other names of it that a recipe may have.
+    struct Name {
+      let range: Range<Int>
+      var way: [Int32]
+      let candidates: [Candidate]
+    }
+
+    /// What a recipe has in place of some of the words typed.
+    struct Piece {
+      let terms: Range<Int>
+      /// How it was found, or nil when as typed.
+      let candidate: Candidate?
+      let missing: Bool
+    }
+
+    var words: [Word]
+    var names: [Name]
+    /// The name each word typed is part of, by position in `names`.
+    var nameOf: [Int?]
+    /// Whether some word has no way at all to be found in any recipe.
+    var hopeless: Bool
+    /// Whether anything but the words as typed can be found: another name or a typo.
+    var forgives: Bool
+
+    /// Whether the recipe has the name as another name rather than the words typed as they are.
+    func chosen(_ name: Int, at position: Int) -> Bool {
+      let name = names[name]
+      return name.way[position] >= 0 && !name.range.allSatisfy { words[$0].way[position] == -1 }
+    }
+
+    func satisfied(_ number: Int, at position: Int) -> Bool {
+      if words[number].way[position] != -2 { return true }
+      guard let name = nameOf[number] else { return false }
+      return names[name].way[position] >= 0
+    }
+
+    /// The mistakes the recipe needed to match the words typed. Another name is none.
+    func edits(at position: Int) -> Int {
+      var total = 0
+      var number = 0
+      while number < words.count {
+        if let name = nameOf[number], chosen(name, at: position) {
+          number = names[name].range.upperBound
+          continue
+        }
+        let way = words[number].way[position]
+        if way >= 0 { total += words[number].candidates[Int(way)].edits }
+        number += 1
+      }
+      return total
+    }
+
+    /// What the recipe has for each word typed, in order. Another name stands for all the words
+    /// of the name typed at once.
+    func pieces(at position: Int) -> [Piece] {
+      var found: [Piece] = []
+      var number = 0
+      while number < words.count {
+        if let name = nameOf[number], chosen(name, at: position) {
+          let range = names[name].range
+          let candidate = names[name].candidates[Int(names[name].way[position])]
+          found.append(Piece(terms: range, candidate: candidate, missing: false))
+          number = range.upperBound
+          continue
+        }
+        let way = words[number].way[position]
+        let candidate = way >= 0 ? words[number].candidates[Int(way)] : nil
+        found.append(Piece(terms: number..<number + 1, candidate: candidate, missing: way == -2))
+        number += 1
+      }
+      return found
+    }
+  }
+
+  /// How the recipes have the words typed. A word that starts a word of the box is found as it
+  /// is; one that starts nothing may be a typo of one. A name typed also stands for the other
+  /// names of its group, whether or not a recipe has it as typed.
+  private func matching(
+    _ terms: [RecipeSearch.Query.Term], hit: [Bool], names spans: [RecipeSearchSynonyms.Span]
+  ) -> Matching {
+    func fill(_ way: inout [Int32], with options: [Candidate]) {
+      for (choice, option) in options.enumerated() {
+        for document in option.documents where way[document] == -2 {
+          way[document] = Int32(choice)
+        }
+      }
+    }
+    var others: [Int: [Int]] = [:]
+    var names: [Matching.Name] = []
+    var nameOf = [Int?](repeating: nil, count: terms.count)
+    for span in spans {
+      if span.range.count == 1 {
+        others[span.range.lowerBound] = span.others
+        continue
+      }
+      let options = alternatives(among: span.others)
+      var way = [Int32](repeating: -2, count: documents.count)
+      fill(&way, with: options)
+      names.append(Matching.Name(range: span.range, way: way, candidates: options))
+      for number in span.range { nameOf[number] = names.count - 1 }
+    }
+
+    var words: [Matching.Word] = []
+    var hopeless = false
+    var forgives = names.contains { !$0.candidates.isEmpty }
     for (number, term) in terms.enumerated() {
       var way = [Int32](repeating: -2, count: documents.count)
-      var options: [Candidate] = []
       if hit[number] {
         documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
         documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
-      } else {
-        options = typoCandidates(for: term.typed)
-        guard !options.isEmpty else { return [] }
-        for (choice, option) in options.enumerated() {
-          for document in option.documents where way[document] == -2 {
-            way[document] = Int32(choice)
-          }
-        }
       }
-      ways.append(way)
-      candidates.append(options)
+      var options = alternatives(among: others[number] ?? [])
+      if !hit[number] { options += typoCandidates(for: term.typed) }
+      fill(&way, with: options)
+      words.append(Matching.Word(way: way, candidates: options))
+      forgives = forgives || !options.isEmpty
+      let named = nameOf[number].map { !names[$0].candidates.isEmpty } ?? false
+      if !hit[number] && options.isEmpty && !named { hopeless = true }
     }
+    return Matching(
+      words: words, names: names, nameOf: nameOf, hopeless: hopeless, forgives: forgives)
+  }
 
+  /// The recipes every word of which is found, where a word may be matched as typed or as
+  /// another name, and a word that started nothing by a typo too. Fewest mistakes first, then by
+  /// title. Recipes in `taken` were already found exactly, and are not listed again.
+  private func forgiving(
+    _ matching: Matching, terms: [RecipeSearch.Query.Term], skipping taken: Set<Int>
+  ) -> [Result] {
+    // Nothing to forgive when every word is as typed and no name stands for any of them.
+    guard !matching.hopeless, matching.forgives else { return [] }
     var found: [(position: Int, edits: Int)] = []
     for position in 0..<documents.count where !taken.contains(position) {
-      var edits = 0
-      var complete = true
-      for number in 0..<terms.count {
-        let way = ways[number][position]
-        if way == -2 {
-          complete = false
-          break
-        }
-        if way >= 0 { edits += candidates[number][Int(way)].edits }
+      if terms.indices.allSatisfy({ matching.satisfied($0, at: position) }) {
+        found.append((position, matching.edits(at: position)))
       }
-      if complete { found.append((position, edits)) }
     }
     // Positions are in title order, and the sort keeps them so within the same mistakes.
     return
@@ -375,71 +490,89 @@ public struct RecipeSearchIndex: Sendable {
         a.element.edits != b.element.edits ? a.element.edits < b.element.edits : a.offset < b.offset
       }
       .map { _, item in
-        var matched: [String] = []
-        var forgiven: [Reason.Forgiven] = []
-        for (number, term) in terms.enumerated() {
-          let way = ways[number][item.position]
-          if way < 0 {
-            matched.append(term.typed)
-          } else {
-            let word = candidates[number][Int(way)].word
-            matched.append(word)
-            forgiven.append(Reason.Forgiven(typed: term.typed, matched: word, kind: .typo))
-          }
-        }
+        let pieces = matching.pieces(at: item.position)
         return Result(
           id: documents[item.position].id, tier: .close,
-          reason: Reason(matched: matched, forgiven: forgiven))
+          reason: reason(of: pieces, terms: terms, leaving: nil))
       }
   }
 
-  /// The recipes that have every typed word but one, fewest mistakes first, then by title. Words are
-  /// matched as `forgiving` matches them, so a recipe with every word is never here: those are
-  /// exact or close. Recipes in `taken` were already found exactly, by their title.
+  /// The words matched, and how the forgiven ones were. Pieces that touch the `skipped` terms
+  /// are left out.
+  private func reason(
+    of pieces: [Matching.Piece], terms: [RecipeSearch.Query.Term], leaving skipped: Range<Int>?,
+    missing: String? = nil
+  ) -> Reason {
+    var matched: [String] = []
+    var forgiven: [Reason.Forgiven] = []
+    for piece in pieces {
+      if let skipped, piece.terms.overlaps(skipped) { continue }
+      guard let candidate = piece.candidate else {
+        matched.append(contentsOf: terms[piece.terms].map(\.typed))
+        continue
+      }
+      let typed = terms[piece.terms].map(\.typed).joined(separator: " ")
+      matched.append(candidate.word)
+      forgiven.append(Reason.Forgiven(typed: typed, matched: candidate.word, kind: candidate.kind))
+    }
+    return Reason(matched: matched, forgiven: forgiven, missing: missing)
+  }
+
+  /// The other names of a typed name that some recipe holds, in the order of the table.
+  private func alternatives(among others: [Int]) -> [Candidate] {
+    others.compactMap { number in
+      let name = synonyms.names[number]
+      let documents = documents(holding: name.terms)
+      guard !documents.isEmpty else { return nil }
+      return Candidate(word: name.text, edits: 0, kind: .synonym, documents: documents)
+    }
+  }
+
+  /// The recipes that have every one of `terms` as a word or a stem, the whole word and not its
+  /// start. A name is looked for whole.
+  private func documents(holding terms: [RecipeSearch.Query.Term]) -> [Int] {
+    var reached = [Int](repeating: 0, count: documents.count)
+    var found: [Int] = []
+    for (number, term) in terms.enumerated() {
+      let advance = { (document: Int) in
+        guard reached[document] == number else { return }
+        reached[document] = number + 1
+        if number + 1 == terms.count { found.append(document) }
+      }
+      documentWords.forEachKey(startingWith: term.typed) { key, documents in
+        if key == term.typed { documents.forEach(advance) }
+      }
+      documentStems.forEachKey(startingWith: term.stem) { key, documents in
+        if key == term.stem { documents.forEach(advance) }
+      }
+    }
+    return found.sorted()
+  }
+
+  /// The recipes that have every typed word but one, fewest mistakes first, then by title. Words
+  /// are matched as `forgiving` matches them, so a recipe with every word is never here: those
+  /// are exact or close. Recipes in `taken` were already found exactly, by their title.
   private func partial(
-    _ terms: [RecipeSearch.Query.Term], typed: [RecipeSearch.Query.Typed], hit: [Bool],
+    _ matching: Matching, terms: [RecipeSearch.Query.Term], typed: [RecipeSearch.Query.Typed],
     skipping taken: Set<Int>
   ) -> [Result] {
-    var ways: [[Int32]] = []
-    var candidates: [[Candidate]] = []
-    for (number, term) in terms.enumerated() {
-      var way = [Int32](repeating: -2, count: documents.count)
-      var options: [Candidate] = []
-      if hit[number] {
-        documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
-        documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
-      } else {
-        options = typoCandidates(for: term.typed)
-        for (choice, option) in options.enumerated() {
-          for document in option.documents where way[document] == -2 {
-            way[document] = Int32(choice)
-          }
-        }
-      }
-      ways.append(way)
-      candidates.append(options)
-    }
-
     var found: [(position: Int, missing: Int, edits: Int)] = []
     for position in 0..<documents.count where !taken.contains(position) {
       var missing: Int?
-      var edits = 0
       var tooMany = false
       for (number, word) in typed.enumerated() {
         // A typed word is missing when any of its terms is.
-        if word.terms.contains(where: { ways[$0][position] == -2 }) {
+        if word.terms.contains(where: { !matching.satisfied($0, at: position) }) {
           if missing != nil {
             tooMany = true
             break
           }
           missing = number
-          continue
-        }
-        for term in word.terms where ways[term][position] >= 0 {
-          edits += candidates[term][Int(ways[term][position])].edits
         }
       }
-      if !tooMany, let missing { found.append((position, missing, edits)) }
+      if !tooMany, let missing {
+        found.append((position, missing, matching.edits(at: position)))
+      }
     }
     return
       found
@@ -448,25 +581,12 @@ public struct RecipeSearchIndex: Sendable {
         a.element.edits != b.element.edits ? a.element.edits < b.element.edits : a.offset < b.offset
       }
       .map { _, item in
-        var matched: [String] = []
-        var forgiven: [Reason.Forgiven] = []
-        for (number, word) in typed.enumerated() where number != item.missing {
-          for index in word.terms {
-            let term = terms[index]
-            let way = ways[index][item.position]
-            if way < 0 {
-              matched.append(term.typed)
-            } else {
-              let found = candidates[index][Int(way)].word
-              matched.append(found)
-              forgiven.append(Reason.Forgiven(typed: term.typed, matched: found, kind: .typo))
-            }
-          }
-        }
+        let word = typed[item.missing]
         return Result(
           id: documents[item.position].id, tier: .partial,
-          reason: Reason(
-            matched: matched, forgiven: forgiven, missing: typed[item.missing].text))
+          reason: reason(
+            of: matching.pieces(at: item.position), terms: terms, leaving: word.terms,
+            missing: word.text))
       }
   }
 
@@ -480,7 +600,7 @@ public struct RecipeSearchIndex: Sendable {
     documentWords.forEachKey(startingWith: String(first)) { word, documents in
       guard !word.contains(where: \.isNumber) else { return }
       if let edits = measure.edits(toStartOf: word) {
-        found.append(Candidate(word: word, edits: edits, documents: documents))
+        found.append(Candidate(word: word, edits: edits, kind: .typo, documents: documents))
       }
     }
     return found.sorted { a, b in
