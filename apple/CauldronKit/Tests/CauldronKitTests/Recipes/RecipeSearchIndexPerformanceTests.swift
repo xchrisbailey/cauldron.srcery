@@ -102,6 +102,17 @@ struct RecipeSearchIndexPerformanceTests {
     #expect(median < .milliseconds(2))
   }
 
+  @Test func eachKeystrokeOfAnotherNameTakesUnder2Milliseconds() {
+    // "eggplant" is another name for the box's aubergine, and "bell pepper" for its capsicum.
+    let index = RecipeSearchIndex(Self.box(1_000))
+    let typed = Self.prefixes(of: "eggplant") + Self.prefixes(of: "bell pepper")
+    let median = Self.medianSearch(typed, on: index)
+    print("RecipeSearchIndex other-name keystroke, 1,000 recipes: median, quietest of 9 \(median)")
+    #expect(median < .milliseconds(2))
+    #expect(index.search("eggplant").count == index.search("aubergine").count)
+    #expect(index.search("eggplant").allSatisfy { $0.tier == .close })
+  }
+
   @Test func theBoxIsBigEnoughToMatterAndTheKeystrokesFindThings() {
     let index = RecipeSearchIndex(Self.box(1_000))
     #expect(index.entries.count == 1_000)

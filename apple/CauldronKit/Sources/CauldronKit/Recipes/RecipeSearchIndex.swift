@@ -15,6 +15,11 @@ import Foundation
 /// for a word with a digit. A recipe that needed that comes after every exact one, in the close
 /// tier, with a reason that says which words were forgiven as what. Accents are folded away on
 /// both sides, so they are never a typo.
+///
+/// A word typed (or a name of several words, like "spring onion") is also forgiven when it is
+/// another name for what a recipe says, by `RecipeSearchSynonyms`. That is only tried for a word
+/// that starts no word of the box, or a name no recipe holds whole, and it comes before a typo:
+/// when a word is both a typo and another name of the same word, the reason says another name.
 public struct RecipeSearchIndex: Sendable {
   /// What the index needs to know about one recipe.
   public struct Entry: Sendable, Equatable {
@@ -160,9 +165,11 @@ public struct RecipeSearchIndex: Sendable {
   private let documentStems: Vocabulary
   private let titleWords: Vocabulary
   private let titleStems: Vocabulary
+  private let synonyms: RecipeSearchSynonyms
 
-  public init(_ entries: [Entry]) {
+  public init(_ entries: [Entry], synonyms: RecipeSearchSynonyms = .standard) {
     self.entries = entries
+    self.synonyms = synonyms
     let keyed = entries.map {
       (entry: $0, title: RecipeSearch.folded($0.title).lowercased(), id: $0.id.uuidString)
     }
@@ -277,8 +284,9 @@ public struct RecipeSearchIndex: Sendable {
       }
     }
     let exact = startsWith + withEveryWord + rest
-    // Words that start no word anywhere in the box are the only ones forgiven.
-    guard inDocument.hit.contains(false) else { return exact }
+    // Words that start no word anywhere in the box are the only ones forgiven, and so are words
+    // that are another name that no recipe holds whole.
+    guard inDocument.hit.contains(false) || inDocument.every.isEmpty else { return exact }
     var taken = Set(inDocument.every)
     taken.reserveCapacity(inDocument.every.count)
     return exact + forgiving(query.terms, hit: inDocument.hit, skipping: taken)
@@ -307,53 +315,64 @@ public struct RecipeSearchIndex: Sendable {
     return (reached, every, hit)
   }
 
-  /// A word of the box that a typed word is a few mistakes from.
+  /// A word (or name) of the box that a typed word is a few mistakes from, or another name for.
   private struct Candidate {
     let word: String
     let edits: Int
+    let kind: Reason.Kind
     let documents: [Int]
   }
 
+  /// One place in the query to find: a word typed, or the words of a name typed, with the ways
+  /// a recipe can have it other than as typed.
+  private struct Slot {
+    let terms: Range<Int>
+    /// Other names first, then typos, fewest mistakes first.
+    let candidates: [Candidate]
+    /// Whether recipes can also have the typed word itself (it starts a word in the box).
+    let asTyped: Bool
+  }
+
   /// The recipes every word of which is found, where the words that started nothing (`hit` is
-  /// false) are matched by a typo and the others as they are. Fewest mistakes first, then by
-  /// title. Recipes in `taken` were already found exactly.
+  /// false) are matched by another name or a typo and the others as they are. Fewest mistakes
+  /// first, then by title. Recipes in `taken` were already found exactly.
   private func forgiving(
     _ terms: [RecipeSearch.Query.Term], hit: [Bool], skipping taken: Set<Int>
   ) -> [Result] {
-    // For each word typed, the way each recipe has it: nil for none, else the word it matched
-    // (a typed word that matched as it was keeps its own place, at -1).
+    // Nothing to forgive when every word is as typed and no name stands for any of them.
+    guard let slots = places(for: terms, hit: hit),
+      !slots.allSatisfy({ $0.asTyped && $0.candidates.isEmpty })
+    else { return [] }
+
+    // For each slot, the way each recipe has it: nil for none, else the word it matched (a typed
+    // word that matched as it was keeps its own place, at -1).
     var ways: [[Int32]] = []
-    var candidates: [[Candidate]] = []
-    for (number, term) in terms.enumerated() {
+    for slot in slots {
       var way = [Int32](repeating: -2, count: documents.count)
-      var options: [Candidate] = []
-      if hit[number] {
+      if slot.asTyped {
+        let term = terms[slot.terms.lowerBound]
         documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
         documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
-      } else {
-        options = typoCandidates(for: term.typed)
-        guard !options.isEmpty else { return [] }
-        for (choice, option) in options.enumerated() {
-          for document in option.documents where way[document] == -2 {
-            way[document] = Int32(choice)
-          }
+      }
+      for (choice, option) in slot.candidates.enumerated() {
+        for document in option.documents where way[document] == -2 {
+          way[document] = Int32(choice)
         }
       }
       ways.append(way)
-      candidates.append(options)
     }
 
     var found: [(position: Int, edits: Int)] = []
     for position in 0..<documents.count where !taken.contains(position) {
       var edits = 0
       var complete = true
-      for number in 0..<terms.count {
+      for number in 0..<slots.count {
         let way = ways[number][position]
         if way == -2 {
           complete = false
           break
         }
-        if way >= 0 { edits += candidates[number][Int(way)].edits }
+        if way >= 0 { edits += slots[number].candidates[Int(way)].edits }
       }
       if complete { found.append((position, edits)) }
     }
@@ -367,20 +386,85 @@ public struct RecipeSearchIndex: Sendable {
       .map { _, item in
         var matched: [String] = []
         var forgiven: [Reason.Forgiven] = []
-        for (number, term) in terms.enumerated() {
+        for (number, slot) in slots.enumerated() {
           let way = ways[number][item.position]
           if way < 0 {
-            matched.append(term.typed)
+            matched.append(terms[slot.terms.lowerBound].typed)
           } else {
-            let word = candidates[number][Int(way)].word
-            matched.append(word)
-            forgiven.append(Reason.Forgiven(typed: term.typed, matched: word, kind: .typo))
+            let candidate = slot.candidates[Int(way)]
+            let typed = terms[slot.terms].map(\.typed).joined(separator: " ")
+            matched.append(candidate.word)
+            forgiven.append(
+              Reason.Forgiven(typed: typed, matched: candidate.word, kind: candidate.kind))
           }
         }
         return Result(
           id: documents[item.position].id, tier: .close,
           reason: Reason(matched: matched, forgiven: forgiven))
       }
+  }
+
+  /// The places to find in the query, or nil when a word that has to be forgiven has nothing to
+  /// be forgiven as. A name typed that no recipe holds whole stands for the other names of its
+  /// group; a word that starts no word of the box may also be a typo of one.
+  private func places(for terms: [RecipeSearch.Query.Term], hit: [Bool]) -> [Slot]? {
+    let spans = synonyms.spans(in: terms) { range in
+      if range.count == 1 { return !hit[range.lowerBound] }
+      return reach(Array(terms[range]), words: documentWords, stems: documentStems).every.isEmpty
+    }
+    var slots: [Slot] = []
+    var next = 0
+    func single(_ number: Int, others: [Int]) -> Bool {
+      var options = alternatives(among: others)
+      if !hit[number] { options += typoCandidates(for: terms[number].typed) }
+      if !hit[number] && options.isEmpty { return false }
+      slots.append(Slot(terms: number..<number + 1, candidates: options, asTyped: hit[number]))
+      return true
+    }
+    for span in spans {
+      for number in next..<span.range.lowerBound where !single(number, others: []) { return nil }
+      if span.range.count == 1 {
+        guard single(span.range.lowerBound, others: span.others) else { return nil }
+      } else {
+        let options = alternatives(among: span.others)
+        if options.isEmpty { return nil }
+        slots.append(Slot(terms: span.range, candidates: options, asTyped: false))
+      }
+      next = span.range.upperBound
+    }
+    for number in next..<terms.count where !single(number, others: []) { return nil }
+    return slots
+  }
+
+  /// The other names of a typed name that some recipe holds, in the order of the table.
+  private func alternatives(among others: [Int]) -> [Candidate] {
+    others.compactMap { number in
+      let name = synonyms.names[number]
+      let documents = documents(holding: name.terms)
+      guard !documents.isEmpty else { return nil }
+      return Candidate(word: name.text, edits: 0, kind: .synonym, documents: documents)
+    }
+  }
+
+  /// The recipes that have every one of `terms` as a word or a stem, the whole word and not its
+  /// start. A name is looked for whole.
+  private func documents(holding terms: [RecipeSearch.Query.Term]) -> [Int] {
+    var reached = [Int](repeating: 0, count: documents.count)
+    var found: [Int] = []
+    for (number, term) in terms.enumerated() {
+      let advance = { (document: Int) in
+        guard reached[document] == number else { return }
+        reached[document] = number + 1
+        if number + 1 == terms.count { found.append(document) }
+      }
+      documentWords.forEachKey(startingWith: term.typed) { key, documents in
+        if key == term.typed { documents.forEach(advance) }
+      }
+      documentStems.forEachKey(startingWith: term.stem) { key, documents in
+        if key == term.stem { documents.forEach(advance) }
+      }
+    }
+    return found.sorted()
   }
 
   /// The words of the box a typed word is within its allowance of, fewest mistakes first, then
@@ -393,7 +477,7 @@ public struct RecipeSearchIndex: Sendable {
     documentWords.forEachKey(startingWith: String(first)) { word, documents in
       guard !word.contains(where: \.isNumber) else { return }
       if let edits = measure.edits(toStartOf: word) {
-        found.append(Candidate(word: word, edits: edits, documents: documents))
+        found.append(Candidate(word: word, edits: edits, kind: .typo, documents: documents))
       }
     }
     return found.sorted { a, b in
