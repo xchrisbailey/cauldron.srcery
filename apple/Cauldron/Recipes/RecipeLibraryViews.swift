@@ -53,6 +53,19 @@ struct MatchReasonLine: View {
   }
 }
 
+/// The last line of a search's results while recipes are still being read for search.
+struct SearchReadingFooter: View {
+  let count: Int
+
+  var body: some View {
+    Text(verbatim: Copy.libraryNative.stillReading(count).text)
+      .brandText(.control)
+      .foregroundStyle(Brand.Colors.subtext)
+      .multilineTextAlignment(.leading)
+      .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
 /// A tag's new name. It stays open with what is wrong with the name until the name is good.
 struct TagRenameSheet: View {
   /// The tag's name now.

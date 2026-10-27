@@ -115,6 +115,16 @@ struct CauldronApp: App {
           ai.refreshKey()
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }
+        // Recipes that lack search keywords are read for them, one at a time and at low
+        // priority, whenever the app comes forward. A model that was unavailable is asked
+        // again here. It never uses the network or a key.
+        .task(id: scenePhase, priority: .utility) {
+          guard scenePhase == .active else { return }
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
+          await keywords.drain(in: container.mainContext)
+        }
         .task {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
             return

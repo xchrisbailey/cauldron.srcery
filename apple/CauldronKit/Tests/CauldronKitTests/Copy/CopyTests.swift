@@ -147,6 +147,16 @@ struct CopyTests {
         == .plain("Matched spicy, peanut · no noodles"))
   }
 
+  @Test func stillReadingCopyIsNativeOnlyAndPlain() {
+    #expect(
+      Copy.libraryNative.stillReading(140)
+        == .plain("Still reading 140 recipes for search. Results may grow."))
+    #expect(
+      Copy.libraryNative.stillReading(1)
+        == .plain("Still reading 1 recipe for search. Results may grow."))
+    #expect(isNativeOnly("libraryNative.stillReading"))
+  }
+
   @Test func leavesOutTheAuthAndAccountStrings() {
     #expect(catalogue.strings.keys.allSatisfy { !$0.hasPrefix("auth.") })
     for path in [

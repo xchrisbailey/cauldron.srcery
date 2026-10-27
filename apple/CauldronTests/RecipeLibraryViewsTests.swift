@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Cauldron
+@testable import CauldronImports
 
 #if DEBUG
   @MainActor
@@ -50,6 +51,56 @@ import Testing
       let spelt = RecipeLibrary.visibleMatches(recipes, matching: "chicken", sort: .title)
       #expect(spelt.close.isEmpty)
       #expect(spelt.allSatisfy { $0.reasonLine == nil })
+    }
+
+    // MARK: The line about recipes still being read
+
+    private func waitingRunner(
+      _ outcome: SearchKeywordOutcome, recipes: Int = 3
+    ) async throws -> SearchKeywordRunner {
+      let context = ModelContext(try CauldronStore.container(.inMemory))
+      for number in 1...recipes {
+        var draft = RecipeDraft()
+        draft.title = "Recipe \(number)"
+        draft.setIngredientText(draft.ingredients[0].id, "1 cup rice")
+        draft.setStepText(draft.steps[0].id, "Cook it.")
+        try RecipeSaver.save(draft, into: nil, context: context)
+      }
+      let runner = SearchKeywordRunner(writer: StubSearchKeywordWriter(outcome))
+      runner.refreshPending(in: context)
+      if case .unavailable = outcome { await runner.drain(in: context) }
+      return runner
+    }
+
+    @Test func theLineShowsWhileSearchingAndRecipesAreStillBeingRead() async throws {
+      let runner = try await waitingRunner(.written("rice"))
+      #expect(runner.stillReading == 3)
+      let line = RecipeLibrary.readingNotice(stillReading: runner.stillReading, search: "rice")
+      #expect(line == .plain("Still reading 3 recipes for search. Results may grow."))
+      #expect(line?.tone == .plain)
+    }
+
+    @Test func theLineIsHiddenWithoutASearchOrWithNothingWaiting() async throws {
+      #expect(RecipeLibrary.readingNotice(stillReading: 3, search: "") == nil)
+      #expect(RecipeLibrary.readingNotice(stillReading: 3, search: "   ") == nil)
+      #expect(RecipeLibrary.readingNotice(stillReading: nil, search: "rice") == nil)
+      #expect(RecipeLibrary.readingNotice(stillReading: 0, search: "rice") == nil)
+    }
+
+    @Test(arguments: [SearchKeywordUnavailability.unavailable, .notEligible, .downloading])
+    func theLineIsHiddenWhenTheModelIsUnavailable(_ reason: SearchKeywordUnavailability)
+      async throws
+    {
+      let runner = try await waitingRunner(.unavailable(reason))
+      // The recipes are still waiting, but nothing is reading them.
+      #expect(runner.pending == 3)
+      #expect(RecipeLibrary.readingNotice(stillReading: runner.stillReading, search: "rice") == nil)
+    }
+
+    @Test func theLineRendersInBothAppearances() {
+      for scheme in [ColorScheme.light, .dark] {
+        #expect(renders(SearchReadingFooter(count: 140).environment(\.colorScheme, scheme)))
+      }
     }
 
     @Test func theRenameSheetRendersInBothAppearances() {

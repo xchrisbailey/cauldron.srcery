@@ -29,6 +29,14 @@ extension Copy {
       plain("Matched \(words) · no \(missing)")
     }
 
+    /// The line that ends a search's results while recipes saved before keywords existed are
+    /// still being read for search.
+    public func stillReading(_ count: Int) -> CopyString {
+      plain(
+        "Still reading \(count) \(count == 1 ? "recipe" : "recipes") for search. Results may grow."
+      )
+    }
+
     public func renameTagTitle(_ name: String) -> CopyString { plain("Rename \(name)") }
   }
 }

@@ -11,7 +11,7 @@ import Testing
 @MainActor
 final class StubSearchKeywordWriter: SearchKeywordWriting {
   var outcome: SearchKeywordOutcome
-  private(set) var inputs: [SearchKeywordInputs] = []
+  var inputs: [SearchKeywordInputs] = []
   /// Runs in the middle of a write, with the number of the call.
   var onWrite: ((Int) -> Void)?
   /// The write waits this long before it answers, as a stalled model would.

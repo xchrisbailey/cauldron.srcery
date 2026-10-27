@@ -9,6 +9,7 @@ import SwiftUI
 struct RecipesRoot: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
+  @Environment(\.searchKeywords) private var searchKeywords
   @State private var search = ""
   @State private var searchCache = RecipeSearchCache()
   @State private var sort = RecipeSort.recent
@@ -347,6 +348,14 @@ struct RecipesRoot: View {
       } header: {
         CloseMatchesHeader()
       }
+    }
+    if let reading = searchKeywords?.stillReading,
+      RecipeLibrary.readingNotice(stillReading: reading, search: search) != nil
+    {
+      SearchReadingFooter(count: reading)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
   }
 

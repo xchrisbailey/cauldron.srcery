@@ -229,3 +229,14 @@ enum RecipeNotice {
     }
   }
 }
+
+extension RecipeLibrary {
+  /// The line that ends a search's results while recipes are still being read for search:
+  /// only while something is typed, and only when `stillReading` has a count.
+  static func readingNotice(stillReading: Int?, search: String) -> CopyString? {
+    guard let stillReading, stillReading > 0,
+      !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return nil }
+    return Copy.libraryNative.stillReading(stillReading)
+  }
+}
