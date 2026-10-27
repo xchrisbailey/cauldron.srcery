@@ -14,6 +14,8 @@ final class StubSearchKeywordWriter: SearchKeywordWriting {
   private(set) var inputs: [SearchKeywordInputs] = []
   /// Runs in the middle of a write, with the number of the call.
   var onWrite: ((Int) -> Void)?
+  /// The write waits this long before it answers, as a stalled model would.
+  var stall: Duration?
 
   init(_ outcome: SearchKeywordOutcome = .written("leftover rice, korean")) {
     self.outcome = outcome
@@ -22,6 +24,7 @@ final class StubSearchKeywordWriter: SearchKeywordWriting {
   func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome {
     self.inputs.append(inputs)
     onWrite?(self.inputs.count)
+    if let stall { try? await Task.sleep(for: stall) }
     return outcome
   }
 }
@@ -207,6 +210,66 @@ struct SearchKeywordTests {
     #expect(writer.inputs.count == 2)
     #expect(writer.inputs.last?.title == "Kimchi rice bowl")
     #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+  }
+
+  // MARK: Recipes it must not write for
+
+  @Test func aRecipeWithALineThisBuildCantReadIsNotWritten() async throws {
+    let recipe = try save(draft())
+    var lines = try #require(
+      JSONSerialization.jsonObject(with: recipe.ingredientsData) as? [[String: Any]])
+    lines[1]["unit"] = "unit-from-the-future"
+    recipe.ingredientsData = try JSONSerialization.data(withJSONObject: lines)
+    #expect(!recipe.canRewriteIngredients)
+    #expect(await runner.process(recipe.id, in: context) == .unreadable)
+    #expect(writer.inputs.isEmpty)
+    #expect(recipe.searchKeywords == nil && recipe.searchKeywordsFingerprint == nil)
+  }
+
+  @Test(arguments: ["", "  \n ", " , "])
+  func anEmptyAnswerIsNotStoredAsCurrent(_ text: String) async throws {
+    writer.outcome = .written(text)
+    let recipe = try save(draft())
+    #expect(await runner.process(recipe.id, in: context) == .failed)
+    #expect(recipe.searchKeywords == nil && recipe.searchKeywordsFingerprint == nil)
+  }
+
+  // MARK: Failing
+
+  @Test func aStalledModelIsGivenUpOnAndTheJobClears() async throws {
+    writer.stall = .seconds(3_600)
+    let quick = SearchKeywordRunner(writer: writer, timeout: .milliseconds(50))
+    let recipe = try save(draft())
+    let job = quick.enqueue(recipe.id, in: context)
+    await job.value
+    await quick.settled()
+    #expect(recipe.searchKeywords == nil && recipe.searchKeywordsFingerprint == nil)
+    // The recipe can be asked for again, and a model that has recovered is used.
+    writer.stall = nil
+    #expect(await quick.process(recipe.id, in: context) == .written)
+  }
+
+  @Test func aStalledModelReportsAFailure() async throws {
+    writer.stall = .seconds(3_600)
+    let quick = SearchKeywordRunner(writer: writer, timeout: .milliseconds(50))
+    let recipe = try save(draft())
+    #expect(await quick.process(recipe.id, in: context) == .failed)
+  }
+
+  @Test func aSaveThatFailsRestoresTheRecipeAndKeepsOtherPendingChanges() async throws {
+    struct Refused: Error {}
+    let failing = SearchKeywordRunner(writer: writer, save: { _ in throw Refused() })
+    let recipe = try save(draft())
+    recipe.searchKeywords = "old words"
+    recipe.searchKeywordsFingerprint = "oldfingerprint"
+    try context.save()
+    let other = try save(draft(title: "Toast"))
+    // A change another screen has made and not saved yet.
+    other.notes = "Pending change"
+    #expect(await failing.process(recipe.id, in: context) == .failed)
+    #expect(recipe.searchKeywords == "old words")
+    #expect(recipe.searchKeywordsFingerprint == "oldfingerprint")
+    #expect(other.notes == "Pending change")
   }
 
   // MARK: Search

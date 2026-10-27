@@ -2,7 +2,7 @@ import CauldronKit
 
 /// What a writer came back with.
 enum SearchKeywordOutcome: Sendable, Equatable {
-  /// The keywords, flattened to text. They may be empty: the model had nothing to add.
+  /// The keywords, flattened to text. The runner treats text with no words as a failure.
   case written(String)
   /// The model can't run now. Not the recipe's fault, so it doesn't count against it.
   case unavailable(SearchKeywordUnavailability)
