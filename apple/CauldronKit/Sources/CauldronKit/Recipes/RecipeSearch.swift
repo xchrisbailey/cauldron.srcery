@@ -10,12 +10,13 @@ public enum RecipeSearch {
   /// The web keeps the first eight words of what was typed.
   public static let maxWords = 8
 
-  /// Words Postgres's English search ignores. A subset of its list; the ones that turn up in a
-  /// search for a recipe.
+  /// Words Postgres's English search ignores, a subset of its list, and the filler a cook types
+  /// when describing a dish ("something", "thing", "recipe", "dish" and their plurals). They are never looked for.
   private static let stopWords: Set<String> = [
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
     "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",
     "they", "this", "to", "was", "will", "with",
+    "something", "thing", "things", "recipe", "recipes", "dish", "dishes",
   ]
 
   /// The words in some text: runs of letters and digits, lowercased.
@@ -82,20 +83,41 @@ public enum RecipeSearch {
       let stem: String
     }
 
+    /// A word as the cook typed it, between spaces, and the terms it holds. A hyphenated word
+    /// such as "gluten-free" is one typed word of two terms; its terms stand or fall together.
+    struct Typed: Sendable, Equatable {
+      let text: String
+      let terms: Range<Int>
+    }
+
     /// The query, trimmed and lowercased: what a title may contain whole.
     let phrase: String
     let terms: [Term]
+    /// The typed words that have terms, in order. Stop words are not typed words.
+    let typedWords: [Typed]
     /// Whether the query has any words at all. A query with none (blank, or only punctuation)
     /// matches every recipe.
     public let hasWords: Bool
 
     public init(_ text: String) {
       phrase = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-      let typed = RecipeSearch.words(text).prefix(RecipeSearch.maxWords)
-      hasWords = !typed.isEmpty
-      terms = typed.filter { !RecipeSearch.stopWords.contains($0) }.map {
-        Term(typed: $0, stem: RecipeSearch.stem($0))
+      var found: [Term] = []
+      var spoken: [Typed] = []
+      var budget = RecipeSearch.maxWords
+      for chunk in text.split(whereSeparator: \.isWhitespace) where budget > 0 {
+        let words = RecipeSearch.words(String(chunk)).prefix(budget)
+        budget -= words.count
+        let start = found.count
+        found += words.filter { !RecipeSearch.stopWords.contains($0) }.map {
+          Term(typed: $0, stem: RecipeSearch.stem($0))
+        }
+        guard found.count > start else { continue }
+        let shown = String(chunk).lowercased().trimmingCharacters(in: .alphanumerics.inverted)
+        spoken.append(Typed(text: shown, terms: start..<found.count))
       }
+      hasWords = budget < RecipeSearch.maxWords
+      terms = found
+      typedWords = spoken
     }
 
     /// Whether a recipe matches. `document` is all the text that can match, the title, tags,

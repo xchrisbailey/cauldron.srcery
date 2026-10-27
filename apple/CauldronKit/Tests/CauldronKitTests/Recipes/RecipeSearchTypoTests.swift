@@ -33,7 +33,8 @@ struct RecipeSearchTypoTests {
   /// Searches that must find nothing: a correctly spelt word never pulls in a near miss, and a
   /// short word is never forgiven.
   static let nothing = [
-    "bocoli", "pear", "beef", "mint", "salmon", "garbanzo", "gluten-free dessert", "chiken salmon",
+    "bocoli", "pear", "beef", "mint", "salmon", "garbanzo", "gluten-free dessert",
+    "chiken salmon",
     "rcie", "pasd thai", "xhicken", "shicken",
   ]
 

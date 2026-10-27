@@ -140,6 +140,45 @@ struct RecipeSearchSynonymTests {
     #expect(result?.reason.forgiven.map(\.kind) == [.synonym, .typo])
   }
 
+  // MARK: Partial matches
+
+  @Test func anotherNameCountsInAPartialMatch() {
+    // "bake" is the one word Aubergine parmigiana lacks; "eggplant" is its aubergine.
+    let found = RecipeSearchIndex(SearchTestBox.corpus).search("eggplant tomato bake")
+    #expect(found.map { SearchTestBox.title(of: $0.id) } == ["Aubergine parmigiana"])
+    #expect(found.first?.tier == .partial)
+    #expect(
+      found.first?.reason
+        == .init(
+          matched: ["aubergine", "tomato"],
+          forgiven: [.init(typed: "eggplant", matched: "aubergine", kind: .synonym)],
+          missing: "bake"))
+    #expect(
+      found.first?.reason.line?.text
+        == "Matched tomato, aubergine, another name for eggplant · no bake")
+  }
+
+  @Test func aMultiWordNameCountsInAPartialMatch() {
+    let found = RecipeSearchIndex(SearchTestBox.corpus).search("green onion rice bake")
+    #expect(found.map { SearchTestBox.title(of: $0.id) } == ["Kimchi fried rice", "Pad thai"])
+    #expect(found.map(\.tier) == [.partial, .partial])
+    #expect(found.first?.reason.missing == "bake")
+    #expect(
+      found.first?.reason.forgiven
+        == [.init(typed: "green onion", matched: "spring onion", kind: .synonym)])
+  }
+
+  @Test func theWordsOfAMissingNameDoNotMatchTheNameAsAnotherName() {
+    // Two words of "green onion" lacking is two words missing, not one.
+    #expect(
+      SearchTestBox.titles(
+        "green onion rice bake",
+        in: [
+          SearchTestBox.entry("Plain rice", items: ["rice"], id: 1)
+        ]
+      ).isEmpty)
+  }
+
   // MARK: Rules
 
   private func titles(_ text: String, groups: [[String]], _ items: [String]...) -> [String] {
