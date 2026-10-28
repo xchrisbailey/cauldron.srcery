@@ -13,5 +13,10 @@ enum SearchKeywordOutcome: Sendable, Equatable {
 /// Whatever writes search keywords for a recipe. The live one is Apple's on-device model and
 /// nothing else: it never reaches `RecipeAI`, the cloud providers or the cook's key.
 protocol SearchKeywordWriting: Sendable {
+  /// Why the model can't run right now, or nil when it can. Cheap and synchronous, so the runner
+  /// can ask before it reads a single recipe and the library never says it is reading when
+  /// nothing can.
+  @MainActor var availability: SearchKeywordUnavailability? { get }
+
   func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome
 }

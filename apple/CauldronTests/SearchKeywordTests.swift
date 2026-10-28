@@ -14,6 +14,8 @@ final class StubSearchKeywordWriter: SearchKeywordWriting {
   var inputs: [SearchKeywordInputs] = []
   /// Runs in the middle of a write, with the number of the call.
   var onWrite: ((Int) -> Void)?
+  /// What the writer says about itself before it is asked to write; nil means it can run.
+  var availability: SearchKeywordUnavailability?
   /// The write waits this long before it answers, as a stalled model would.
   var stall: Duration?
 

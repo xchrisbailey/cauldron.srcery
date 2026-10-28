@@ -213,7 +213,7 @@ struct SearchKeywordBackfillTests {
     let runner = runner
     writer.onWrite = { _ in seen.append(runner.pending) }
     await runner.drain(in: context)
-    #expect(seen == [2, 1, 0])
+    #expect(seen == [3, 2, 1])
   }
 
   // MARK: The index
@@ -237,5 +237,98 @@ struct SearchKeywordBackfillTests {
     #expect(changes == 3)
     // Nothing changes while nothing is written.
     #expect(cache.index(for: try recipes()).entries == before)
+  }
+
+  // MARK: Asking before reading
+
+  @Test(arguments: [SearchKeywordUnavailability.unavailable, .notEligible, .downloading])
+  func aWriterThatReportsItselfUnavailableIsNeverAskedAndTheFooterNeverShows(
+    _ reason: SearchKeywordUnavailability
+  ) async throws {
+    writer.availability = reason
+    try legacy("One")
+    try legacy("Two")
+    #expect(runner.stillReading == nil)
+    // Counting alone must not make the line show.
+    runner.refreshPending(in: context)
+    #expect(runner.pending == 2)
+    #expect(runner.stillReading == nil)
+    await runner.drain(in: context)
+    #expect(writer.inputs.isEmpty)
+    #expect(runner.pending == 2)
+    #expect(runner.unavailability == reason)
+    #expect(runner.stillReading == nil)
+    // A save-time job is turned away the same way.
+    let id = try #require(try context.fetch(FetchDescriptor<RecipeRecord>()).first?.id)
+    #expect(await runner.process(id, in: context) == .unavailable(reason))
+    #expect(writer.inputs.isEmpty)
+  }
+
+  @Test func theJobRunsAgainOnceTheModelReportsItselfAvailable() async throws {
+    writer.availability = .downloading
+    try legacy("One")
+    await runner.drain(in: context)
+    #expect(runner.stillReading == nil)
+    writer.availability = nil
+    await runner.drain(in: context)
+    #expect(writer.inputs.count == 1)
+    #expect(runner.unavailability == nil)
+    #expect(runner.pending == 0)
+  }
+
+  // MARK: Counting
+
+  /// Recipes straight into the store: a thousand through the saver would take a while.
+  private func fill(_ count: Int) throws {
+    for number in 1...count {
+      let recipe = RecipeRecord(title: "Recipe \(number)")
+      context.insert(recipe)
+      recipe.ingredients = [
+        Ingredient(
+          section: nil, quantity: nil, unit: nil, item: "rice \(number)", note: nil,
+          optional: false, alt: nil, original: "rice \(number)", itemKey: "rice")
+      ]
+    }
+    try context.save()
+  }
+
+  @Test func aThousandRecipesAreCountedOncePerDrainNotOncePerJob() async throws {
+    try fill(1_000)
+    let clock = ContinuousClock()
+    let counted = clock.measure { runner.refreshPending(in: context) }
+    // Not an assertion on speed, but a note: this is what the start of a drain costs.
+    print("Counting 1,000 recipes took \(counted)")
+    #expect(runner.pending == 1_000)
+    #expect(runner.scans == 1)
+    var low = 1_000
+    writer.onWrite = { [runner] _ in low = min(low, runner.pending) }
+    await runner.drain(in: context)
+    #expect(writer.inputs.count == 1_000)
+    #expect(runner.pending == 0)
+    #expect(low == 1)
+    // One count before the drain, one at its start; none for any of the thousand jobs.
+    #expect(runner.scans == 2)
+    #expect(SearchKeywordRunner.pendingCount(in: context) == 0)
+  }
+
+  @Test func aSaveJobAdjustsTheCountForItsRecipeAloneWithoutAScan() async throws {
+    try legacy("Old")
+    runner.refreshPending(in: context)
+    #expect(runner.pending == 1 && runner.scans == 1)
+    // A new recipe is saved and written: it was never counted, and is not afterwards.
+    let fresh = try legacy("Fresh")
+    await runner.enqueue(fresh.id, in: context).value
+    #expect(runner.pending == 1)
+    // A recipe that was counted and is written by its save job comes off the count.
+    let old = try #require(
+      try context.fetch(FetchDescriptor<RecipeRecord>()).first { $0.title == "Old" })
+    await runner.enqueue(old.id, in: context).value
+    #expect(runner.pending == 0)
+    // A job that gives up leaves the count, too.
+    writer.outcome = .failed
+    let stubborn = try legacy("Stubborn")
+    for _ in 0..<AIJobRules.maxAttempts { _ = await runner.process(stubborn.id, in: context) }
+    #expect(runner.pending == 0)
+    #expect(runner.scans == 1)
   }
 }

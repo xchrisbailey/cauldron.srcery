@@ -48,9 +48,15 @@ final class SearchKeywordRunner {
   /// How many times a turn goes round for a recipe that was edited while it was being written.
   private static let rounds = 3
 
-  /// How many recipes still lack current keywords: counted when `drain` starts and ends and
-  /// after a save, and falling by one as `drain` goes. Zero until the first count.
-  private(set) var pending = 0
+  /// The recipes that lack current keywords, the one being read included. Every recipe is
+  /// looked at when `drain` starts (and when `refreshPending` is asked to); after that a recipe
+  /// is added or taken off one at a time, as `drain` finishes it or a save job does. Empty until
+  /// the first look.
+  private var waiting: Set<UUID> = []
+  /// How many recipes still lack current keywords.
+  var pending: Int { waiting.count }
+  /// How many times every recipe has been looked at to find the pending ones.
+  @ObservationIgnored private(set) var scans = 0
   /// Why the model couldn't run the last time it was asked; nil once it has written something.
   /// While it is set the job is paused, and `drain` tries again the next time it is called.
   private(set) var unavailability: SearchKeywordUnavailability?
@@ -85,9 +91,11 @@ final class SearchKeywordRunner {
   func enqueue(_ id: UUID, in context: ModelContext) -> Task<Void, Never> {
     if let job = jobs[id] { return job }
     let job = Task {
+      // Only this recipe's part of the count changes, before and after its turn.
+      settle(id, in: context)
       _ = await process(id, in: context)
       jobs[id] = nil
-      if !draining { refreshPending(in: context) }
+      settle(id, in: context)
     }
     jobs[id] = job
     return job
@@ -103,50 +111,73 @@ final class SearchKeywordRunner {
         FetchDescriptor<RecipeRecord>(
           predicate: #Predicate { $0.deletedAt == nil },
           sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
-    return recipes.compactMap { recipe in
-      guard let inputs = recipe.readableSearchKeywordInputs,
-        recipe.searchKeywordsFingerprint != inputs.fingerprint
-      else { return nil }
-      return recipe.id
-    }
+    return recipes.filter(isPending).map(\.id)
   }
 
   /// How many recipes still lack current keywords.
   static func pendingCount(in context: ModelContext) -> Int { pendingIDs(in: context).count }
 
-  /// Counts the recipes that lack current keywords again.
+  private static func isPending(_ recipe: RecipeRecord) -> Bool {
+    guard !recipe.isBanished, let inputs = recipe.readableSearchKeywordInputs else { return false }
+    return recipe.searchKeywordsFingerprint != inputs.fingerprint
+  }
+
+  private static func isPending(_ id: UUID, in context: ModelContext) -> Bool {
+    find(id, in: context).map(isPending) ?? false
+  }
+
+  /// Puts the recipe on or off the waiting list as its stored fingerprint says.
+  private func settle(_ id: UUID, in context: ModelContext) {
+    if Self.isPending(id, in: context) {
+      waiting.insert(id)
+    } else {
+      waiting.remove(id)
+    }
+  }
+
+  /// Looks at every recipe for the ones that lack current keywords.
+  private func scan(in context: ModelContext) -> [UUID] {
+    scans += 1
+    return Self.pendingIDs(in: context)
+  }
+
+  /// Counts the recipes that lack current keywords. The model's own word on whether it can run
+  /// comes first, so the count never shows as "still reading" for a model that can't.
   func refreshPending(in context: ModelContext) {
-    pending = Self.pendingCount(in: context)
+    if let reason = writer.availability { unavailability = reason }
+    waiting = Set(scan(in: context))
   }
 
   /// Writes keywords for every recipe that lacks current ones, one at a time, until none are
   /// left or the task is cancelled. Call it when the app comes forward.
   ///
-  /// If the model is unavailable it stops at once and leaves everything as it was: no attempt
-  /// is spent, and the next call tries again. A bad answer spends an attempt, and the recipe
-  /// goes to the back of the line; after `AIJobRules.maxAttempts` it is given up on. A call
-  /// that arrives while one is running returns at once.
+  /// It asks the model whether it can run before it reads a recipe, and if it can't it stops
+  /// at once with everything as it was: no attempt is spent, and the next call tries again. A
+  /// bad answer spends an attempt, and the recipe goes to the back of the line; after
+  /// `AIJobRules.maxAttempts` it is given up on. A call that arrives while one is running
+  /// returns at once.
   func drain(in context: ModelContext) async {
     guard !draining else { return }
     draining = true
     defer { draining = false }
-    var line = Self.pendingIDs(in: context)
-    pending = line.count
+    var line = scan(in: context)
+    waiting = Set(line)
+    unavailability = writer.availability
+    guard unavailability == nil else { return }
     while !line.isEmpty, !Task.isCancelled {
       let id = line.removeFirst()
-      pending = line.count
       switch await process(id, in: context) {
       case .unavailable:
-        refreshPending(in: context)
         return
       case .failed:
         line.append(id)
-        pending = line.count
-      case .written, .upToDate, .busy, .gone, .unreadable, .gaveUp:
+      case .written, .upToDate, .gone, .unreadable, .gaveUp:
+        waiting.remove(id)
+      case .busy:
+        // Another job has the recipe and takes it off the list when it finishes.
         break
       }
     }
-    refreshPending(in: context)
   }
 
   /// Returns when every job queued so far has finished.
@@ -166,6 +197,11 @@ final class SearchKeywordRunner {
       guard let inputs = recipe.readableSearchKeywordInputs else { return .unreadable }
       let fingerprint = inputs.fingerprint
       if recipe.searchKeywordsFingerprint == fingerprint { return .upToDate }
+      // Ask the model about itself first: a model that can't run is not given the recipe.
+      if let reason = writer.availability {
+        unavailability = reason
+        return .unavailable(reason)
+      }
       let keywords: String
       switch await write(inputs) {
       case .unavailable(let reason):

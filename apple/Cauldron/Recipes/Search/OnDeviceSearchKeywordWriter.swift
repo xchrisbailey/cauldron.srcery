@@ -5,18 +5,19 @@ import FoundationModels
 /// writer the app has: a recipe's words never leave the device for this, and the cook's key is
 /// never read.
 struct OnDeviceSearchKeywordWriter: SearchKeywordWriting {
-  func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome {
-    let model = SystemLanguageModel.default
-    switch model.availability {
-    case .available:
-      break
-    case .unavailable(.deviceNotEligible):
-      return .unavailable(.notEligible)
-    case .unavailable(.modelNotReady):
-      return .unavailable(.downloading)
-    case .unavailable:
-      return .unavailable(.unavailable)
+  var availability: SearchKeywordUnavailability? { Self.availability }
+
+  private static var availability: SearchKeywordUnavailability? {
+    switch SystemLanguageModel.default.availability {
+    case .available: nil
+    case .unavailable(.deviceNotEligible): .notEligible
+    case .unavailable(.modelNotReady): .downloading
+    case .unavailable: .unavailable
     }
+  }
+
+  func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome {
+    if let reason = Self.availability { return .unavailable(reason) }
     let session = LanguageModelSession(instructions: SearchKeywordPrompt.system)
     do {
       let response = try await session.respond(
@@ -55,6 +56,8 @@ struct GeneratedSearchKeywords {
 
 /// The writer for a run with no model: under test and in previews, where nothing should run.
 struct NoSearchKeywordWriter: SearchKeywordWriting {
+  var availability: SearchKeywordUnavailability? { .unavailable }
+
   func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome {
     .unavailable(.unavailable)
   }
