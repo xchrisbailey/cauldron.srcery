@@ -331,4 +331,154 @@ struct SearchKeywordBackfillTests {
     #expect(runner.pending == 0)
     #expect(runner.scans == 1)
   }
+
+  // MARK: Giving up keeps what is there
+
+  @Test func aGiveUpLeavesKeywordsThatSyncedInDuringTheLastCall() async throws {
+    let recipe = try legacy("Rice")
+    writer.outcome = .failed
+    writer.onWrite = { [recipe] call in
+      guard call == AIJobRules.maxAttempts else { return }
+      // The other device's keywords arrive while the third attempt is running.
+      recipe.searchKeywords = "good"
+      recipe.searchKeywordsFingerprint = recipe.searchKeywordInputs.fingerprint
+    }
+    await runner.drain(in: context)
+    #expect(recipe.searchKeywords == "good")
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(runner.pending == 0)
+  }
+
+  @Test func aGiveUpKeepsOldKeywordsUnderTheNewFingerprint() async throws {
+    let recipe = try legacy("Rice")
+    #expect(await runner.process(recipe.id, in: context) == .written)
+    let written = recipe.searchKeywordsFingerprint
+    recipe.title = "Rice bowl"
+    writer.outcome = .failed
+    await runner.drain(in: context)
+    #expect(recipe.searchKeywords == "korean")
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint != written)
+    #expect(SearchKeywordRunner.pendingCount(in: context) == 0)
+  }
+
+  @Test func aGiveUpForInputsThatChangedMeanwhileStoresNothing() async throws {
+    let recipe = try legacy("Rice")
+    writer.outcome = .failed
+    writer.onWrite = { [recipe] call in
+      if call == AIJobRules.maxAttempts { recipe.title = "Edited meanwhile" }
+    }
+    for _ in 0..<AIJobRules.maxAttempts {
+      #expect(await runner.process(recipe.id, in: context) == .failed)
+    }
+    // The failures were for other words, so the edited recipe is still waiting.
+    #expect(recipe.searchKeywordsFingerprint == nil)
+    #expect(SearchKeywordRunner.pendingCount(in: context) == 1)
+  }
+
+  // MARK: A stalled model
+
+  @Test func aTimeoutPausesTheDrainAfterOneRecipeAndSpendsNoAttempt() async throws {
+    try legacy("One")
+    try legacy("Two")
+    writer.stall = .seconds(3_600)
+    let slow = SearchKeywordRunner(writer: writer, timeout: .milliseconds(50))
+    await slow.drain(in: context)
+    #expect(writer.inputs.count == 1)
+    #expect(slow.pending == 2)
+    #expect(slow.stillReading == nil)
+    // Next foreground: the model answers, and both are written.
+    writer.stall = nil
+    await slow.drain(in: context)
+    #expect(writer.inputs.count == 3)
+    #expect(slow.pending == 0)
+  }
+
+  @Test func aTimeoutIsNotAnAttempt() async throws {
+    let recipe = try legacy("Rice")
+    writer.stall = .seconds(3_600)
+    let slow = SearchKeywordRunner(writer: writer, timeout: .milliseconds(50))
+    for _ in 0..<5 { await slow.drain(in: context) }
+    #expect(writer.inputs.count == 5)
+    #expect(recipe.searchKeywordsFingerprint == nil)
+    // All three attempts are still there to spend.
+    writer.stall = nil
+    writer.outcome = .failed
+    await slow.drain(in: context)
+    #expect(writer.inputs.count == 5 + AIJobRules.maxAttempts)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+  }
+
+  // MARK: Owning the drain
+
+  @Test func aStopAndAStartMidRecipeStillFinishesEveryPendingRecipe() async throws {
+    for title in ["One", "Two", "Three"] { try legacy(title) }
+    let runner = runner
+    let context = context
+    writer.onWrite = { call in
+      guard call == 1 else { return }
+      // Backgrounded and brought forward again while the first is being written.
+      runner.stopDraining()
+      runner.startDraining(in: context)
+    }
+    runner.startDraining(in: context)
+    await runner.settled()
+    #expect(writer.inputs.count == 3)
+    #expect(runner.pending == 0)
+  }
+
+  @Test func aStopWithoutAStartEndsTheDrainAfterTheRecipeInHand() async throws {
+    for title in ["One", "Two", "Three"] { try legacy(title) }
+    let runner = runner
+    writer.onWrite = { call in
+      if call == 1 { runner.stopDraining() }
+    }
+    runner.startDraining(in: context)
+    await runner.settled()
+    #expect(writer.inputs.count == 1)
+    #expect(runner.pending == 2)
+    // The next foreground starts it again.
+    writer.onWrite = nil
+    runner.startDraining(in: context)
+    await runner.settled()
+    #expect(writer.inputs.count == 3)
+  }
+
+  @Test func startingWhileADrainIsRunningDoesNotStartASecond() async throws {
+    for title in ["One", "Two"] { try legacy(title) }
+    runner.startDraining(in: context)
+    runner.startDraining(in: context)
+    await runner.settled()
+    #expect(writer.inputs.count == 2)
+  }
+
+  // MARK: The footer follows the model
+
+  @Test func aBadAnswerDoesNotHideTheFooterWhileTheModelIsAvailable() async throws {
+    for title in ["One", "Two", "Three"] { try legacy(title) }
+    writer.outcome = .failed
+    var shown: [Int?] = []
+    let runner = runner
+    writer.onWrite = { _ in shown.append(runner.stillReading) }
+    await runner.drain(in: context)
+    #expect(!shown.isEmpty)
+    #expect(shown.allSatisfy { $0 != nil })
+  }
+
+  @Test func theFooterFollowsTheModelsOwnCheckAfterEveryRecipe() async throws {
+    let recipe = try legacy("Rice")
+    writer.outcome = .unavailable(.downloading)
+    #expect(await runner.process(recipe.id, in: context) == .unavailable(.downloading))
+    #expect(runner.unavailability == .downloading)
+    // The model is back, and the next turn is a bad answer: the line comes back all the same.
+    writer.outcome = .failed
+    #expect(await runner.process(recipe.id, in: context) == .failed)
+    #expect(runner.unavailability == nil)
+    runner.refreshPending(in: context)
+    #expect(runner.stillReading == 1)
+    // And it goes when the model says it can't run.
+    writer.availability = .notEligible
+    #expect(await runner.process(recipe.id, in: context) == .unavailable(.notEligible))
+    #expect(runner.stillReading == nil)
+  }
 }

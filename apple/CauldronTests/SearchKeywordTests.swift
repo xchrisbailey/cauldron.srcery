@@ -255,7 +255,7 @@ struct SearchKeywordTests {
     writer.stall = .seconds(3_600)
     let quick = SearchKeywordRunner(writer: writer, timeout: .milliseconds(50))
     let recipe = try save(draft())
-    #expect(await quick.process(recipe.id, in: context) == .failed)
+    #expect(await quick.process(recipe.id, in: context) == .timedOut)
   }
 
   @Test func aSaveThatFailsRestoresTheRecipeAndKeepsOtherPendingChanges() async throws {

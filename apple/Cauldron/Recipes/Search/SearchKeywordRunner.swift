@@ -43,6 +43,9 @@ final class SearchKeywordRunner {
     /// The attempt limit was reached. The current fingerprint is stored with no keywords, so the
     /// recipe counts as current and is asked for again only when its inputs change.
     case gaveUp
+    /// The model didn't answer in time. Like `.unavailable` it pauses the job and spends no
+    /// attempt, since the model may be busy with the old request still.
+    case timedOut
   }
 
   /// How many times a turn goes round for a recipe that was edited while it was being written.
@@ -57,13 +60,16 @@ final class SearchKeywordRunner {
   var pending: Int { waiting.count }
   /// How many times every recipe has been looked at to find the pending ones.
   @ObservationIgnored private(set) var scans = 0
-  /// Why the model couldn't run the last time it was asked; nil once it has written something.
+  /// Why the model couldn't run the last time it was asked, by its own check after every turn.
   /// While it is set the job is paused, and `drain` tries again the next time it is called.
   private(set) var unavailability: SearchKeywordUnavailability?
+  /// The model didn't answer in time. Like an unavailable model it pauses the job, until the
+  /// next drain starts or a write succeeds.
+  private(set) var stalled = false
 
   /// The number for the library's "still reading" line: how many recipes are waiting, while
   /// the job can run. Nil when none are waiting, or when the model is unavailable.
-  var stillReading: Int? { pending > 0 && unavailability == nil ? pending : nil }
+  var stillReading: Int? { pending > 0 && unavailability == nil && !stalled ? pending : nil }
 
   @ObservationIgnored private let writer: any SearchKeywordWriting
   @ObservationIgnored private let timeout: Duration
@@ -71,6 +77,9 @@ final class SearchKeywordRunner {
   @ObservationIgnored private var running: Set<UUID> = []
   @ObservationIgnored private var jobs: [UUID: Task<Void, Never>] = [:]
   @ObservationIgnored private var draining = false
+  /// The drain `startDraining` began, and whether the app has since asked it to stop.
+  @ObservationIgnored private var drainTask: Task<Void, Never>?
+  @ObservationIgnored private var stopRequested = false
   /// Bad answers so far for the inputs a recipe has now. Not stored: a relaunch starts again,
   /// and a recipe whose inputs change starts again.
   @ObservationIgnored private var attempts: [UUID: (fingerprint: String, count: Int)] = [:]
@@ -162,12 +171,13 @@ final class SearchKeywordRunner {
     defer { draining = false }
     var line = scan(in: context)
     waiting = Set(line)
+    stalled = false
     unavailability = writer.availability
     guard unavailability == nil else { return }
-    while !line.isEmpty, !Task.isCancelled {
+    while !line.isEmpty, !Task.isCancelled, !stopRequested {
       let id = line.removeFirst()
       switch await process(id, in: context) {
-      case .unavailable:
+      case .unavailable, .timedOut:
         return
       case .failed:
         line.append(id)
@@ -180,15 +190,50 @@ final class SearchKeywordRunner {
     }
   }
 
+  /// Starts `drain` unless one is running; call it when the app comes forward. A stop asked for
+  /// since is cleared, so a quick background and foreground carries the drain on instead of
+  /// leaving it stopped.
+  func startDraining(in context: ModelContext) {
+    stopRequested = false
+    guard drainTask == nil else { return }
+    drainTask = Task(priority: .utility) {
+      await drain(in: context)
+      drainTask = nil
+    }
+  }
+
+  /// Asks the drain to stop after the recipe in hand; call it when the app goes to the
+  /// background. Nothing new is begun until `startDraining` is called again.
+  func stopDraining() {
+    stopRequested = true
+  }
+
   /// Returns when every job queued so far has finished.
   func settled() async {
     for job in Array(jobs.values) { await job.value }
+    await drainTask?.value
   }
 
   /// Writes keywords for one recipe if its stored ones aren't current.
   func process(_ id: UUID, in context: ModelContext) async -> Result {
     guard running.insert(id).inserted else { return .busy }
     defer { running.remove(id) }
+    let result = await turn(id, in: context)
+    switch result {
+    case .unavailable, .timedOut:
+      break
+    case .written:
+      stalled = false
+      unavailability = writer.availability
+    default:
+      // The footer follows the model's own word after every turn, so a bad answer can't leave
+      // it hidden while the model is available, nor shown while it is not.
+      unavailability = writer.availability
+    }
+    return result
+  }
+
+  private func turn(_ id: UUID, in context: ModelContext) async -> Result {
     for _ in 0..<Self.rounds {
       guard let recipe = Self.find(id, in: context), !recipe.isBanished else { return .gone }
       // A line this build can't read is left out of the inputs, so the fingerprint here would
@@ -204,12 +249,15 @@ final class SearchKeywordRunner {
       }
       let keywords: String
       switch await write(inputs) {
-      case .unavailable(let reason):
+      case nil:
+        stalled = true
+        return .timedOut
+      case .unavailable(let reason)?:
         unavailability = reason
         return .unavailable(reason)
-      case .failed:
+      case .failed?:
         return failed(id, fingerprint, in: context)
-      case .written(let text):
+      case .written(let text)?:
         keywords = text
       }
       // An answer with no words is no answer: storing it would count the recipe as done.
@@ -220,10 +268,9 @@ final class SearchKeywordRunner {
       guard let current = Self.find(id, in: context), !current.isBanished else { return .gone }
       guard let now = current.readableSearchKeywordInputs else { return .unreadable }
       guard now.fingerprint == fingerprint else { continue }
-      guard store(keywords, fingerprint, in: current, context: context) else {
+      guard store(.keywords(keywords), fingerprint, in: current, context: context) else {
         return failed(id, fingerprint, in: context)
       }
-      unavailability = nil
       attempts[id] = nil
       return .written
     }
@@ -231,7 +278,11 @@ final class SearchKeywordRunner {
   }
 
   /// Counts a bad answer against the recipe's current inputs. At the limit the current
-  /// fingerprint is stored with no keywords, so the recipe counts as done until it is edited.
+  /// fingerprint is stored, and only the fingerprint: the recipe then counts as done until it is
+  /// edited, and whatever keywords it has, old or none, stay. If the inputs have changed since
+  /// the answer was asked for, the failure was for other words and nothing is stored; if the
+  /// stored fingerprint already is current (keywords synced in meanwhile), there is nothing to
+  /// store.
   private func failed(_ id: UUID, _ fingerprint: String, in context: ModelContext) -> Result {
     let before = attempts[id]?.fingerprint == fingerprint ? (attempts[id]?.count ?? 0) : 0
     let count = before + 1
@@ -241,19 +292,29 @@ final class SearchKeywordRunner {
     }
     attempts[id] = nil
     guard let recipe = Self.find(id, in: context), !recipe.isBanished,
-      store(nil, fingerprint, in: recipe, context: context)
+      recipe.readableSearchKeywordInputs?.fingerprint == fingerprint
     else { return .failed }
+    if recipe.searchKeywordsFingerprint == fingerprint { return .upToDate }
+    guard store(.fingerprintOnly, fingerprint, in: recipe, context: context) else {
+      return .failed
+    }
     return .gaveUp
   }
 
-  /// Stores the keywords and the fingerprint they were written from. If the store refuses, only
-  /// this recipe's two fields are put back: the context is shared, and a rollback would throw
-  /// away what other screens have changed and not saved yet.
+  private enum Update {
+    case keywords(String)
+    /// Marks the recipe current and leaves its keywords as they are.
+    case fingerprintOnly
+  }
+
+  /// Stores the fingerprint, and the keywords written from it. If the store refuses, only this
+  /// recipe's two fields are put back: the context is shared, and a rollback would throw away
+  /// what other screens have changed and not saved yet.
   private func store(
-    _ keywords: String?, _ fingerprint: String, in recipe: RecipeRecord, context: ModelContext
+    _ update: Update, _ fingerprint: String, in recipe: RecipeRecord, context: ModelContext
   ) -> Bool {
     let previous = (recipe.searchKeywords, recipe.searchKeywordsFingerprint)
-    recipe.searchKeywords = keywords
+    if case .keywords(let keywords) = update { recipe.searchKeywords = keywords }
     recipe.searchKeywordsFingerprint = fingerprint
     do {
       try save(context)
@@ -264,9 +325,9 @@ final class SearchKeywordRunner {
     }
   }
 
-  /// Asks the writer, giving up with `.failed` after `timeout`. The answer of a writer that
-  /// comes back late, or never, is dropped, so a stalled model can't hold a job for ever.
-  private func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome {
+  /// Asks the writer, giving up with nil after `timeout`. The answer of a writer that comes
+  /// back late, or never, is dropped, so a stalled model can't hold a job for ever.
+  private func write(_ inputs: SearchKeywordInputs) async -> SearchKeywordOutcome? {
     let writer = writer
     let timeout = timeout
     return await withCheckedContinuation { continuation in
@@ -274,7 +335,7 @@ final class SearchKeywordRunner {
       let work = Task { race.finish(await writer.write(inputs)) }
       let timer = Task {
         try? await Task.sleep(for: timeout)
-        race.finish(.failed)
+        race.finish(nil)
       }
       race.attach([work, timer])
     }
@@ -283,14 +344,14 @@ final class SearchKeywordRunner {
   /// Resumes with whichever outcome comes first, once, and cancels the other.
   private final class Race: Sendable {
     private struct State {
-      var continuation: CheckedContinuation<SearchKeywordOutcome, Never>?
+      var continuation: CheckedContinuation<SearchKeywordOutcome?, Never>?
       var tasks: [Task<Void, Never>] = []
       var finished = false
     }
 
     private let state: Mutex<State>
 
-    init(_ continuation: CheckedContinuation<SearchKeywordOutcome, Never>) {
+    init(_ continuation: CheckedContinuation<SearchKeywordOutcome?, Never>) {
       state = Mutex(State(continuation: continuation))
     }
 
@@ -302,7 +363,7 @@ final class SearchKeywordRunner {
       if finished { tasks.forEach { $0.cancel() } }
     }
 
-    func finish(_ outcome: SearchKeywordOutcome) {
+    func finish(_ outcome: SearchKeywordOutcome?) {
       let (continuation, tasks) = state.withLock { state in
         defer {
           state.continuation = nil

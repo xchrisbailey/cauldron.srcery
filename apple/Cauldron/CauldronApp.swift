@@ -116,14 +116,18 @@ struct CauldronApp: App {
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
         }
         // Recipes that lack search keywords are read for them, one at a time and at low
-        // priority, whenever the app comes forward. A model that was unavailable is asked
-        // again here. It never uses the network or a key.
-        .task(id: scenePhase, priority: .utility) {
-          guard scenePhase == .active else { return }
+        // priority, while the app is forward. The runner owns the work: going to the background
+        // asks it to stop, and coming forward starts it or lets it carry on. A model that was
+        // unavailable is asked again each time. It never uses the network or a key.
+        .onChange(of: scenePhase, initial: true) {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
             return
           }
-          await keywords.drain(in: container.mainContext)
+          if scenePhase == .active {
+            keywords.startDraining(in: container.mainContext)
+          } else {
+            keywords.stopDraining()
+          }
         }
         .task {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
