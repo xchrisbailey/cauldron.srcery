@@ -3,7 +3,17 @@ import SwiftUI
 
 /// What the library says when a search or a tag matches no recipe, with the way back.
 struct NoMatchesView: View {
+  /// How many recipes are still being read for search, while that is going on (the runner's
+  /// `stillReading`), and what is typed: with both, the view says so, since the recipe that
+  /// would match may be one of them.
+  var stillReading: Int?
+  var search = ""
   let onClear: () -> Void
+
+  /// The line about recipes still being read, under a search that found nothing.
+  var readingNotice: CopyString? {
+    RecipeLibrary.readingNotice(stillReading: stillReading, search: search)
+  }
 
   var body: some View {
     VStack(spacing: 16) {
@@ -16,6 +26,13 @@ struct NoMatchesView: View {
         .foregroundStyle(Brand.Colors.subtext)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 360)
+      if let notice = readingNotice {
+        Text(verbatim: notice.text)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+          .multilineTextAlignment(.center)
+          .frame(maxWidth: 360)
+      }
       Button(action: onClear) {
         Text(verbatim: Copy.library.clearFilters.text)
       }
@@ -36,6 +53,43 @@ struct CloseMatchesHeader: View {
       .foregroundStyle(Brand.Colors.subtext)
       .textCase(nil)
       .accessibilityAddTraits(.isHeader)
+  }
+}
+
+/// The close and partial matches under their Close matches heading, or nothing when there are
+/// none. Every surface that lists matches uses it after its exact rows: library lists, the Log
+/// and Stir sheets lay it out as a list section, ⌘K as rows in a stack.
+struct CloseMatchesSection<Row: View>: View {
+  enum Layout {
+    /// A `Section` with the heading as its header, for a `List`.
+    case section
+    /// The heading, then the rows, for a stack.
+    case stack
+  }
+
+  /// The matches as found; the exact ones are left to the caller.
+  let matches: [RecipeMatch]
+  var layout = Layout.section
+  @ViewBuilder let row: (RecipeMatch) -> Row
+
+  var body: some View {
+    let close = matches.close
+    if !close.isEmpty {
+      switch layout {
+      case .section:
+        Section {
+          ForEach(close) { match in row(match) }
+        } header: {
+          CloseMatchesHeader()
+        }
+      case .stack:
+        CloseMatchesHeader()
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 10)
+          .padding(.top, 8)
+        ForEach(close) { match in row(match) }
+      }
+    }
   }
 }
 

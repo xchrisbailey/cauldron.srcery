@@ -72,12 +72,10 @@ struct RecipesRoot: View {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
     .sheet(isPresented: $summoning) {
-      RecipeSummonSheet(
-        recipes: recipes,
-        onOpen: { recipe in
-          summoning = false
-          open(recipe)
-        }, searchCache: searchCache)
+      RecipeSummonSheet(recipes: recipes, searchCache: searchCache) { recipe in
+        summoning = false
+        open(recipe)
+      }
     }
     .sheet(isPresented: $renamingTag) {
       TagRenameSheet(
@@ -309,7 +307,8 @@ struct RecipesRoot: View {
     if recipes.isEmpty {
       EmptyState(systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty)
     } else if visible.isEmpty {
-      NoMatchesView(onClear: clearFilters)
+      NoMatchesView(
+        stillReading: searchKeywords?.stillReading, search: search, onClear: clearFilters)
     } else {
       list(visible, opening: opening)
     }
@@ -334,20 +333,13 @@ struct RecipesRoot: View {
   /// The exact matches, then any close ones under their own heading.
   @ViewBuilder
   private func rows(_ visible: [RecipeMatch], opening: Opening) -> some View {
-    let close = visible.close
     Section {
       ForEach(visible.exact) { match in
         row(match, opening: opening)
       }
     }
-    if !close.isEmpty {
-      Section {
-        ForEach(close) { match in
-          row(match, opening: opening)
-        }
-      } header: {
-        CloseMatchesHeader()
-      }
+    CloseMatchesSection(matches: visible) { match in
+      row(match, opening: opening)
     }
     if let reading = searchKeywords?.stillReading,
       RecipeLibrary.readingNotice(stillReading: reading, search: search) != nil

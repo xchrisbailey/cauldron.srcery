@@ -12,14 +12,25 @@ struct RecipeSummonSheet: View {
   let recipes: [RecipeRecord]
   let onOpen: (RecipeRecord) -> Void
   /// The index for `recipes`; the library passes the one it keeps, so opening the sheet doesn't
-  /// build another.
-  var searchCache = RecipeSearchCache()
+  /// build another. Without one the sheet keeps a cache of its own for as long as it is open.
+  let searchCache: RecipeSearchCache?
+  @State private var ownCache = RecipeSearchCache()
   @State private var query = ""
   @State private var lit: UUID?
   @FocusState private var focused: Bool
 
+  init(
+    recipes: [RecipeRecord], searchCache: RecipeSearchCache? = nil,
+    onOpen: @escaping (RecipeRecord) -> Void
+  ) {
+    self.recipes = recipes
+    self.searchCache = searchCache
+    self.onOpen = onOpen
+  }
+
   private var results: [RecipeMatch] {
-    RecipeLibrary.summonMatches(recipes, matching: query, index: searchCache.index(for: recipes))
+    RecipeLibrary.summonMatches(
+      recipes, matching: query, index: (searchCache ?? ownCache).index(for: recipes))
   }
 
   var body: some View {
@@ -49,15 +60,8 @@ struct RecipeSummonSheet: View {
           ForEach(results.exact) { match in
             row(match, lit: match.id == current?.id)
           }
-          let close = results.close
-          if !close.isEmpty {
-            CloseMatchesHeader()
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.horizontal, 10)
-              .padding(.top, 8)
-            ForEach(close) { match in
-              row(match, lit: match.id == current?.id)
-            }
+          CloseMatchesSection(matches: results, layout: .stack) { match in
+            row(match, lit: match.id == current?.id)
           }
         }
       }

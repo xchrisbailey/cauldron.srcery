@@ -52,14 +52,7 @@ struct AddRecipeTab: View {
             .listRowBackground(Color.clear)
         }
       }
-      let close = matches.close
-      if !close.isEmpty {
-        Section {
-          ForEach(close) { match in row(match) }
-        } header: {
-          CloseMatchesHeader()
-        }
-      }
+      CloseMatchesSection(matches: matches) { match in row(match) }
     }
     .scrollContentBackground(.hidden)
   }

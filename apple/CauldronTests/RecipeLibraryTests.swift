@@ -427,6 +427,34 @@ struct RecipeLibraryTests {
     #expect(StirFlowSheet.matches(all, search: "soup").count == 30)
   }
 
+  @Test func theCachedIndexIsBuiltOnlyWhenARecipesSearchInputsChange() {
+    let soup = recipe("Soup", summary: "A warm bowl")
+    let cake = recipe("Cake")
+    let cache = RecipeSearchCache()
+    _ = cache.index(for: [soup, cake])
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 1)
+    // Nothing search reads: no rebuild.
+    soup.notes = "Serve hot"
+    soup.servings = 4
+    soup.lastCookedOn = LocalDate("2026-01-05")
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 1)
+    // Each thing it does read.
+    soup.searchKeywords = "comfort"
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 2)
+    soup.summary = "A hot bowl"
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 3)
+    soup.title = "Stew"
+    soup.refreshSearchText()
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 4)
+    _ = cache.index(for: [cake])
+    #expect(cache.builds == 5)
+  }
+
   @Test func theCachedIndexFollowsTheRecipesSearchableText() {
     let soup = recipe("Soup")
     let cake = recipe("Cake")

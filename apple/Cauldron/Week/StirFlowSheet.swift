@@ -63,15 +63,8 @@ struct StirFlowSheet: View {
             NavigationLink(value: match.id) { row(match) }
           }
         }
-        let close = results.close
-        if !close.isEmpty {
-          Section {
-            ForEach(close) { match in
-              NavigationLink(value: match.id) { row(match) }
-            }
-          } header: {
-            CloseMatchesHeader()
-          }
+        CloseMatchesSection(matches: results) { match in
+          NavigationLink(value: match.id) { row(match) }
         }
         Section {
           HStack {

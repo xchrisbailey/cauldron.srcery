@@ -80,6 +80,18 @@ import Testing
       #expect(line?.tone == .plain)
     }
 
+    @Test func theEmptyResultsSayTheyAreStillReadingWhileASearchIsTyped() {
+      let reading = NoMatchesView(stillReading: 3, search: "rice") {}
+      #expect(
+        reading.readingNotice == .plain("Still reading 3 recipes for search. Results may grow."))
+      #expect(NoMatchesView(stillReading: 3, search: "  ") {}.readingNotice == nil)
+      #expect(NoMatchesView(stillReading: nil, search: "rice") {}.readingNotice == nil)
+      #expect(NoMatchesView {}.readingNotice == nil)
+      for scheme in [ColorScheme.light, .dark] {
+        #expect(renders(reading.environment(\.colorScheme, scheme)))
+      }
+    }
+
     @Test func theLineIsHiddenWithoutASearchOrWithNothingWaiting() async throws {
       #expect(RecipeLibrary.readingNotice(stillReading: 3, search: "") == nil)
       #expect(RecipeLibrary.readingNotice(stillReading: 3, search: "   ") == nil)
@@ -117,6 +129,34 @@ import Testing
           .modelContainer(container)
           .environment(\.colorScheme, scheme)
         #expect(renders(view))
+      }
+    }
+
+    @Test func theSummonSheetMakesNoSearchCacheOfItsOwnUnlessItIsNotGivenOne() throws {
+      let (_, recipes) = try seeded()
+      #expect(RecipeSummonSheet(recipes: recipes) { _ in }.searchCache == nil)
+      let cache = RecipeSearchCache()
+      #expect(
+        RecipeSummonSheet(recipes: recipes, searchCache: cache) { _ in }.searchCache === cache)
+    }
+
+    @Test func theCloseMatchesSectionRendersInBothLayoutsAndBothAppearances() throws {
+      let (_, recipes) = try seeded()
+      let found = RecipeLibrary.visibleMatches(recipes, matching: "chiken", sort: .title)
+      #expect(!found.close.isEmpty)
+      for scheme in [ColorScheme.light, .dark] {
+        let list = List {
+          CloseMatchesSection(matches: found) { match in
+            Text(verbatim: match.recipe.title)
+          }
+        }
+        let stack = VStack(alignment: .leading) {
+          CloseMatchesSection(matches: found, layout: .stack) { match in
+            Text(verbatim: match.recipe.title)
+          }
+        }
+        #expect(renders(list.environment(\.colorScheme, scheme)))
+        #expect(renders(stack.environment(\.colorScheme, scheme)))
       }
     }
 
