@@ -10,8 +10,9 @@ public enum RecipeSearch {
   /// The web keeps the first eight words of what was typed.
   public static let maxWords = 8
 
-  /// Words Postgres's English search ignores, a subset of its list, and the filler a cook types
-  /// when describing a dish ("something", "thing", "recipe", "dish" and their plurals). They are never looked for.
+  /// Words a search leaves out of what was typed: a subset of Postgres's English stop words, and
+  /// the filler a cook types when describing a dish ("something", "thing", "recipe", "dish" and
+  /// their plurals). A query of only these has no words to look for.
   private static let stopWords: Set<String> = [
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
     "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",

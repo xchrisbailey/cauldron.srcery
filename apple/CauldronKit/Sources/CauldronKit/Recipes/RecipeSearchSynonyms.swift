@@ -27,6 +27,9 @@ public struct RecipeSearchSynonyms: Sendable {
     let range: Range<Int>
     /// The other names it stands for, by position in `names`.
     let others: [Int]
+    /// The name the typed words are, whole: what a reason calls it when they are only the start
+    /// of it, or its plural.
+    let name: String
   }
 
   private(set) var names: [Name] = []
@@ -91,7 +94,8 @@ public struct RecipeSearchSynonyms: Sendable {
         for number in here[length] ?? [] {
           for other in names[number].others where !others.contains(other) { others.append(other) }
         }
-        found.append(Span(range: start..<start + length, others: others))
+        let name = (here[length]?.first).map { names[$0].text } ?? ""
+        found.append(Span(range: start..<start + length, others: others, name: name))
         start += length
       } else {
         start += 1

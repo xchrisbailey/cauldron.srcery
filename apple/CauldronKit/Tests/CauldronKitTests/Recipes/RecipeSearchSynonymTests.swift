@@ -78,6 +78,23 @@ struct RecipeSearchSynonymTests {
     #expect(result?.reason.line?.text == "Matched aubergine, another name for eggplant")
   }
 
+  @Test func aNameStillBeingTypedIsReportedAsTheNameItIs() {
+    // "eggpl" is the start of "eggplant": the line names the other name, not the half word.
+    let result = only("eggpl")
+    #expect(result?.tier == .close)
+    #expect(
+      result?.reason.forgiven == [.init(typed: "eggplant", matched: "aubergine", kind: .synonym)])
+    #expect(result?.reason.line?.text == "Matched aubergine, another name for eggplant")
+    // A plural is the name too.
+    #expect(
+      only("eggplants")?.reason.line?.text == "Matched aubergine, another name for eggplant")
+    // And a multi-word name with its last word half typed.
+    let kimchi = RecipeSearchIndex(SearchTestBox.corpus).search("green oni").first {
+      SearchTestBox.title(of: $0.id) == "Kimchi fried rice"
+    }
+    #expect(kimchi?.reason.line?.text == "Matched spring onion, another name for green onion")
+  }
+
   @Test func aMultiWordNameIsOneMatchedWordAndOneTypedName() {
     let kimchi = RecipeSearchIndex(SearchTestBox.corpus).search("green onion").first {
       SearchTestBox.title(of: $0.id) == "Kimchi fried rice"

@@ -332,6 +332,9 @@ public struct RecipeSearchIndex: Sendable {
     let edits: Int
     let kind: Reason.Kind
     let documents: [Int]
+    /// For another name: the name that was typed, as the table has it, when what was typed is
+    /// only part of it or a plural. Nil for a typo, which keeps what was typed.
+    var typedAs: String?
   }
 
   /// How each recipe has each word typed: as it was typed, as another name, as a typo, or not at
@@ -432,15 +435,15 @@ public struct RecipeSearchIndex: Sendable {
         }
       }
     }
-    var others: [Int: [Int]] = [:]
+    var others: [Int: RecipeSearchSynonyms.Span] = [:]
     var names: [Matching.Name] = []
     var nameOf = [Int?](repeating: nil, count: terms.count)
     for span in spans {
       if span.range.count == 1 {
-        others[span.range.lowerBound] = span.others
+        others[span.range.lowerBound] = span
         continue
       }
-      let options = alternatives(among: span.others)
+      let options = alternatives(among: span.others, typedAs: span.name)
       var way = [Int32](repeating: -2, count: documents.count)
       fill(&way, with: options)
       names.append(Matching.Name(range: span.range, way: way, candidates: options))
@@ -456,7 +459,8 @@ public struct RecipeSearchIndex: Sendable {
         documentWords.forEachPosting(startingWith: term.typed) { way[$0] = -1 }
         documentStems.forEachPosting(startingWith: term.stem) { way[$0] = -1 }
       }
-      var options = alternatives(among: others[number] ?? [])
+      var options = alternatives(
+        among: others[number]?.others ?? [], typedAs: others[number]?.name)
       if !hit[number] { options += typoCandidates(for: term.typed) }
       fill(&way, with: options)
       words.append(Matching.Word(way: way, candidates: options))
@@ -511,7 +515,7 @@ public struct RecipeSearchIndex: Sendable {
         matched.append(contentsOf: terms[piece.terms].map(\.typed))
         continue
       }
-      let typed = terms[piece.terms].map(\.typed).joined(separator: " ")
+      let typed = candidate.typedAs ?? terms[piece.terms].map(\.typed).joined(separator: " ")
       matched.append(candidate.word)
       forgiven.append(Reason.Forgiven(typed: typed, matched: candidate.word, kind: candidate.kind))
     }
@@ -519,12 +523,13 @@ public struct RecipeSearchIndex: Sendable {
   }
 
   /// The other names of a typed name that some recipe holds, in the order of the table.
-  private func alternatives(among others: [Int]) -> [Candidate] {
+  private func alternatives(among others: [Int], typedAs: String? = nil) -> [Candidate] {
     others.compactMap { number in
       let name = synonyms.names[number]
       let documents = documents(holding: name.terms)
       guard !documents.isEmpty else { return nil }
-      return Candidate(word: name.text, edits: 0, kind: .synonym, documents: documents)
+      return Candidate(
+        word: name.text, edits: 0, kind: .synonym, documents: documents, typedAs: typedAs)
     }
   }
 
