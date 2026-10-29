@@ -42,6 +42,10 @@ Decision 27: a cloud model does the heavy AI, called straight from the device wi
 - Macros the cook typed in while an estimate waited are kept.
 - **A cancelled request is not "unreachable".** It doesn't fall back and doesn't use an attempt.
 
+## Search keywords
+
+Hidden search keywords (#254, #255) come from Apple's on-device model and nothing else. They are written through `SearchKeywordWriting` by `SearchKeywordRunner` (`apple/Cauldron/Recipes/Search/`), never through `RecipeAI`, a cloud provider or the cook's key, and they are never shown. A saved recipe gets them in the background after the save returns, and recipes saved before keywords existed fill in one at a time while the app is forward. With no on-device model the work waits without spending attempts, and search still forgives typos and other names. The prompt, answer shape and fingerprint are in `CauldronKit` (`SearchKeywords.swift`).
+
 ## The queue
 
 - **One drain at a time.** A drain asked for while one is running makes that one go round again; it doesn't start a second.
