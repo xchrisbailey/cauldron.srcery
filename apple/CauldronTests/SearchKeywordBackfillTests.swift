@@ -52,7 +52,7 @@ struct SearchKeywordBackfillTests {
   @Test func keywordsAnotherDeviceWroteAreSkipped() async throws {
     let synced = try legacy("Synced")
     synced.searchKeywords = "from the other device"
-    synced.searchKeywordsFingerprint = synced.searchKeywordInputs.fingerprint
+    synced.searchKeywordsFingerprint = synced.searchKeywordInputs?.fingerprint
     await runner.drain(in: context)
     #expect(writer.inputs.isEmpty)
     #expect(synced.searchKeywords == "from the other device")
@@ -138,7 +138,7 @@ struct SearchKeywordBackfillTests {
     #expect(writer.inputs.count == AIJobRules.maxAttempts)
     // Current with no words: out of the count, and not asked again.
     #expect(recipe.searchKeywords == nil)
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
     #expect(SearchKeywordRunner.pendingCount(in: context) == 0)
     await runner.drain(in: context)
     #expect(writer.inputs.count == AIJobRules.maxAttempts)
@@ -170,7 +170,7 @@ struct SearchKeywordBackfillTests {
     // Four failures in all, but two of them were for other words: not yet at the limit.
     #expect(recipe.searchKeywordsFingerprint == nil)
     #expect(await runner.process(recipe.id, in: context) == .gaveUp)
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
   }
 
   // MARK: The cloud AI
@@ -341,11 +341,11 @@ struct SearchKeywordBackfillTests {
       guard call == AIJobRules.maxAttempts else { return }
       // The other device's keywords arrive while the third attempt is running.
       recipe.searchKeywords = "good"
-      recipe.searchKeywordsFingerprint = recipe.searchKeywordInputs.fingerprint
+      recipe.searchKeywordsFingerprint = recipe.searchKeywordInputs?.fingerprint
     }
     await runner.drain(in: context)
     #expect(recipe.searchKeywords == "good")
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
     #expect(runner.pending == 0)
   }
 
@@ -357,7 +357,7 @@ struct SearchKeywordBackfillTests {
     writer.outcome = .failed
     await runner.drain(in: context)
     #expect(recipe.searchKeywords == "korean")
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
     #expect(recipe.searchKeywordsFingerprint != written)
     #expect(SearchKeywordRunner.pendingCount(in: context) == 0)
   }
@@ -374,6 +374,26 @@ struct SearchKeywordBackfillTests {
     // The failures were for other words, so the edited recipe is still waiting.
     #expect(recipe.searchKeywordsFingerprint == nil)
     #expect(SearchKeywordRunner.pendingCount(in: context) == 1)
+  }
+
+  @Test func aGiveUpThatCannotBeStoredStillSticksForTheSession() async throws {
+    struct Refused: Error {}
+    let failing = SearchKeywordRunner(writer: writer, save: { _ in throw Refused() })
+    let recipe = try legacy("Stubborn")
+    writer.outcome = .failed
+    await failing.drain(in: context)
+    // Three attempts, then it is let go: the model is not called for ever.
+    #expect(writer.inputs.count == AIJobRules.maxAttempts)
+    #expect(failing.pending == 0)
+    await failing.drain(in: context)
+    #expect(writer.inputs.count == AIJobRules.maxAttempts)
+    #expect(failing.stillReading == nil)
+    // Nothing reached the store, so after a relaunch it would be tried afresh.
+    #expect(recipe.searchKeywordsFingerprint == nil)
+    // Edited, it is a different recipe to the runner and gets its attempts again.
+    recipe.title = "Less stubborn"
+    await failing.drain(in: context)
+    #expect(writer.inputs.count == 2 * AIJobRules.maxAttempts)
   }
 
   // MARK: A stalled model
@@ -406,7 +426,7 @@ struct SearchKeywordBackfillTests {
     writer.outcome = .failed
     await slow.drain(in: context)
     #expect(writer.inputs.count == 5 + AIJobRules.maxAttempts)
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
   }
 
   // MARK: Owning the drain

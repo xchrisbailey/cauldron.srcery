@@ -89,7 +89,7 @@ struct SearchKeywordTests {
     #expect(recipe.searchKeywords == nil)
     #expect(await runner.process(recipe.id, in: context) == .written)
     #expect(recipe.searchKeywords == "leftover rice, korean")
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
     let asked = writer.inputs
     #expect(asked.count == 1)
     #expect(asked.first?.title == "Kimchi fried rice")
@@ -127,7 +127,7 @@ struct SearchKeywordTests {
     #expect(writer.inputs.count == 2)
     #expect(recipe.searchKeywords == "fried rice, spicy")
     #expect(recipe.searchKeywordsFingerprint != before)
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
   }
 
   @Test func theCloudAIIsNeverCalled() async throws {
@@ -211,7 +211,7 @@ struct SearchKeywordTests {
     #expect(await runner.process(recipe.id, in: context) == .written)
     #expect(writer.inputs.count == 2)
     #expect(writer.inputs.last?.title == "Kimchi rice bowl")
-    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs.fingerprint)
+    #expect(recipe.searchKeywordsFingerprint == recipe.searchKeywordInputs?.fingerprint)
   }
 
   // MARK: Recipes it must not write for

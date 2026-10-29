@@ -83,6 +83,10 @@ final class SearchKeywordRunner {
   /// Bad answers so far for the inputs a recipe has now. Not stored: a relaunch starts again,
   /// and a recipe whose inputs change starts again.
   @ObservationIgnored private var attempts: [UUID: (fingerprint: String, count: Int)] = [:]
+  /// The recipes given up on this session, with the fingerprint of the inputs they were given up
+  /// for. Kept even when storing the give-up failed, so a refusing store can't make the drain
+  /// ask the model about the same recipe for ever. Not stored either: a relaunch starts again.
+  @ObservationIgnored private var gaveUp: [UUID: String] = [:]
 
   init(
     writer: any SearchKeywordWriting, timeout: Duration = .seconds(30),
@@ -127,7 +131,7 @@ final class SearchKeywordRunner {
   static func pendingCount(in context: ModelContext) -> Int { pendingIDs(in: context).count }
 
   private static func isPending(_ recipe: RecipeRecord) -> Bool {
-    guard !recipe.isBanished, let inputs = recipe.readableSearchKeywordInputs else { return false }
+    guard !recipe.isBanished, let inputs = recipe.searchKeywordInputs else { return false }
     return recipe.searchKeywordsFingerprint != inputs.fingerprint
   }
 
@@ -147,7 +151,10 @@ final class SearchKeywordRunner {
   /// Looks at every recipe for the ones that lack current keywords.
   private func scan(in context: ModelContext) -> [UUID] {
     scans += 1
-    return Self.pendingIDs(in: context)
+    return Self.pendingIDs(in: context).filter { id in
+      guard let given = gaveUp[id] else { return true }
+      return Self.find(id, in: context)?.searchKeywordInputs?.fingerprint != given
+    }
   }
 
   /// Counts the recipes that lack current keywords. The model's own word on whether it can run
@@ -239,9 +246,10 @@ final class SearchKeywordRunner {
       // A line this build can't read is left out of the inputs, so the fingerprint here would
       // differ from the one a build that can read it computes, and the two would keep writing
       // over each other.
-      guard let inputs = recipe.readableSearchKeywordInputs else { return .unreadable }
+      guard let inputs = recipe.searchKeywordInputs else { return .unreadable }
       let fingerprint = inputs.fingerprint
       if recipe.searchKeywordsFingerprint == fingerprint { return .upToDate }
+      if gaveUp[id] == fingerprint { return .gaveUp }
       // Ask the model about itself first: a model that can't run is not given the recipe.
       if let reason = writer.availability {
         unavailability = reason
@@ -266,7 +274,7 @@ final class SearchKeywordRunner {
       // The cook may have saved again while the model worked. Nothing suspends between this
       // look and the write, so what is stored is what was written for.
       guard let current = Self.find(id, in: context), !current.isBanished else { return .gone }
-      guard let now = current.readableSearchKeywordInputs else { return .unreadable }
+      guard let now = current.searchKeywordInputs else { return .unreadable }
       guard now.fingerprint == fingerprint else { continue }
       guard store(.keywords(keywords), fingerprint, in: current, context: context) else {
         return failed(id, fingerprint, in: context)
@@ -292,12 +300,12 @@ final class SearchKeywordRunner {
     }
     attempts[id] = nil
     guard let recipe = Self.find(id, in: context), !recipe.isBanished,
-      recipe.readableSearchKeywordInputs?.fingerprint == fingerprint
+      recipe.searchKeywordInputs?.fingerprint == fingerprint
     else { return .failed }
     if recipe.searchKeywordsFingerprint == fingerprint { return .upToDate }
-    guard store(.fingerprintOnly, fingerprint, in: recipe, context: context) else {
-      return .failed
-    }
+    // Let go for this session whether or not the store takes the mark.
+    gaveUp[id] = fingerprint
+    _ = store(.fingerprintOnly, fingerprint, in: recipe, context: context)
     return .gaveUp
   }
 
@@ -384,19 +392,14 @@ final class SearchKeywordRunner {
 
 extension RecipeRecord {
   /// What the keywords are written from, or nil when a line of the ingredients is one this
-  /// build can't read.
-  var readableSearchKeywordInputs: SearchKeywordInputs? {
+  /// build can't read. A line it can't read is left out of the inputs, so a fingerprint worked
+  /// out from the rest would differ from the one a build that can read it works out. Such a
+  /// recipe gets no keywords and no fingerprint from here.
+  var searchKeywordInputs: SearchKeywordInputs? {
     let lines = StoredJSON.decodeList(Ingredient.self, from: ingredientsData)
     guard lines.complete else { return nil }
     return SearchKeywordInputs(
       title: title, ingredients: lines.values.map(\.item), tags: (tags ?? []).map(\.name),
-      description: summary)
-  }
-
-  /// What the keywords are written from.
-  var searchKeywordInputs: SearchKeywordInputs {
-    SearchKeywordInputs(
-      title: title, ingredients: ingredients.map(\.item), tags: (tags ?? []).map(\.name),
       description: summary)
   }
 }
