@@ -17,20 +17,39 @@ struct StirFlowSheet: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
   @State private var search = ""
+  @State private var searchCache = RecipeSearchCache()
   @State private var meal = ""
   @State private var problem: String?
   @State private var path: [UUID] = []
 
   /// The recipes the picker lists: the last cooked first until the cook searches.
-  private var results: [RecipeRecord] {
+  private var results: [RecipeMatch] {
+    Self.found(recipes, search: search, index: searchCache.index(for: recipes))
+  }
+
+  /// How many recipes the picker lists.
+  static let limit = 30
+
+  static func matches(
+    _ recipes: [RecipeRecord], search: String, index: RecipeSearchIndex? = nil
+  ) -> [RecipeRecord] {
+    found(recipes, search: search, index: index).map(\.recipe)
+  }
+
+  /// `matches`, with how each recipe matched. The limit counts across the tiers.
+  static func found(
+    _ recipes: [RecipeRecord], search: String, index: RecipeSearchIndex? = nil
+  ) -> [RecipeMatch] {
     let words = search.trimmingCharacters(in: .whitespacesAndNewlines)
     return Array(
-      RecipeLibrary.visible(recipes, matching: words, sort: words.isEmpty ? .lastCooked : .recent)
-        .prefix(30))
+      RecipeLibrary.visibleMatches(
+        recipes, matching: words, sort: words.isEmpty ? .lastCooked : .recent, index: index
+      ).prefix(limit))
   }
 
   var body: some View {
     NavigationStack(path: $path) {
+      let results = results
       List {
         Section {
           TextField(text: $search) { Text(verbatim: Copy.week.searchRecipes.text) }
@@ -40,9 +59,12 @@ struct StirFlowSheet: View {
               .brandText(.body)
               .foregroundStyle(Brand.Colors.subtext)
           }
-          ForEach(results) { recipe in
-            NavigationLink(value: recipe.id) { row(recipe) }
+          ForEach(results.exact) { match in
+            NavigationLink(value: match.id) { row(match) }
           }
+        }
+        CloseMatchesSection(matches: results) { match in
+          NavigationLink(value: match.id) { row(match) }
         }
         Section {
           HStack {
@@ -94,9 +116,13 @@ struct StirFlowSheet: View {
     #endif
   }
 
-  private func row(_ recipe: RecipeRecord) -> some View {
-    HStack {
-      Text(verbatim: recipe.title).brandText(.body).lineLimit(2)
+  private func row(_ match: RecipeMatch) -> some View {
+    let recipe = match.recipe
+    return HStack {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(verbatim: recipe.title).brandText(.body).lineLimit(2)
+        if let reason = match.reasonLine { MatchReasonLine(text: reason) }
+      }
       Spacer(minLength: 8)
       if let time = RecipeTimes.label(
         recipeMinutes(

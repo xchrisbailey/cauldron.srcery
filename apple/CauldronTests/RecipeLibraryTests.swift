@@ -367,6 +367,277 @@ struct RecipeLibraryTests {
     #expect(RecipeLibrary.summon(all, matching: "crispy").map(\.title) == ["Fries"])
   }
 
+  // MARK: The search index
+
+  @Test func everySearchBoxGetsTheSameRecipesFromAKeptIndexAsFromNone() {
+    let all = [
+      recipe("Zesty chicken soup", created: 1), recipe("Chicken soup", created: 2),
+      recipe("Soup", items: ["chicken"], created: 3), recipe("Chicken curry", created: 4),
+      recipe("Soup of the day", created: 5, banished: true), recipe("Cake", created: 6),
+    ]
+    let cache = RecipeSearchCache()
+    let index = cache.index(for: all)
+    for query in ["", "chicken", "soup", "chickens", "the day", "zzz", "chicken soup"] {
+      for sort in RecipeSort.allCases {
+        #expect(
+          RecipeLibrary.visible(all, matching: query, sort: sort, index: index).map(\.id)
+            == RecipeLibrary.visible(all, matching: query, sort: sort).map(\.id))
+      }
+      #expect(
+        RecipeLibrary.summon(all, matching: query, index: index).map(\.id)
+          == RecipeLibrary.summon(all, matching: query).map(\.id))
+      #expect(
+        RecipePicker.matches(all, query: query, index: index).map(\.id)
+          == RecipePicker.matches(all, query: query).map(\.id))
+      #expect(
+        StirFlowSheet.matches(all, search: query, index: index).map(\.id)
+          == StirFlowSheet.matches(all, search: query).map(\.id))
+    }
+  }
+
+  @Test func theLibraryTheSummonSheetTheLogPickerAndTheStirSheetAgree() {
+    let all = [
+      recipe("Zesty chicken soup", created: 1), recipe("Chicken soup", created: 2),
+      recipe("Soup", items: ["chicken"], created: 3), recipe("Chicken curry", created: 4),
+      recipe("Soup of the day", created: 5, banished: true),
+    ]
+    let index = RecipeSearchCache().index(for: all)
+    // The library by title, ⌘K by rank, the log picker by title and Stir by newest.
+    #expect(
+      RecipeLibrary.visible(all, matching: "chicken", sort: .title, index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Soup", "Zesty chicken soup"])
+    #expect(
+      RecipeLibrary.summon(all, matching: "chicken", index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Zesty chicken soup", "Soup"])
+    #expect(
+      RecipePicker.matches(all, query: "chicken", index: index).map(\.title)
+        == ["Chicken curry", "Chicken soup", "Soup", "Zesty chicken soup"])
+    #expect(
+      StirFlowSheet.matches(all, search: " chicken ", index: index).map(\.title)
+        == ["Chicken curry", "Soup", "Chicken soup", "Zesty chicken soup"])
+  }
+
+  @Test func theStirSheetListsTheLastCookedUntilASearchAndStopsAtThirty() {
+    let all = (1...40).map { recipe("Soup \($0)", created: TimeInterval($0)) }
+    let cooked = all[3]
+    cooked.lastCookedOn = LocalDate("2026-01-05")
+    #expect(StirFlowSheet.matches(all, search: "  ").first?.title == "Soup 4")
+    #expect(StirFlowSheet.matches(all, search: "  ").count == 30)
+    #expect(StirFlowSheet.matches(all, search: "soup").first?.title == "Soup 40")
+    #expect(StirFlowSheet.matches(all, search: "soup").count == 30)
+  }
+
+  @Test func theCachedIndexIsBuiltOnlyWhenARecipesSearchInputsChange() {
+    let soup = recipe("Soup", summary: "A warm bowl")
+    let cake = recipe("Cake")
+    let cache = RecipeSearchCache()
+    _ = cache.index(for: [soup, cake])
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 1)
+    // Nothing search reads: no rebuild.
+    soup.notes = "Serve hot"
+    soup.servings = 4
+    soup.lastCookedOn = LocalDate("2026-01-05")
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 1)
+    // Each thing it does read.
+    soup.searchKeywords = "comfort"
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 2)
+    soup.summary = "A hot bowl"
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 3)
+    soup.title = "Stew"
+    soup.refreshSearchText()
+    _ = cache.index(for: [soup, cake])
+    #expect(cache.builds == 4)
+    _ = cache.index(for: [cake])
+    #expect(cache.builds == 5)
+  }
+
+  @Test func theCachedIndexFollowsTheRecipesSearchableText() {
+    let soup = recipe("Soup")
+    let cake = recipe("Cake")
+    let cache = RecipeSearchCache()
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "soup", sort: .title, index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Soup"])
+    soup.title = "Stew"
+    soup.refreshSearchText()
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "soup", sort: .title, index: cache.index(for: [soup, cake])
+      ).isEmpty)
+    #expect(
+      RecipeLibrary.visible(
+        [soup, cake], matching: "stew", sort: .title, index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Stew"])
+    soup.summary = "with cake crumbs"
+    #expect(
+      RecipeLibrary.summon(
+        [soup, cake], matching: "crumbs", index: cache.index(for: [soup, cake])
+      ).map(\.title)
+        == ["Stew"])
+    let more = recipe("Soup again")
+    #expect(
+      RecipeLibrary.summon(
+        [soup, cake, more], matching: "again", index: cache.index(for: [soup, cake, more])
+      ).map(\.title)
+        == ["Soup again"])
+  }
+
+  // MARK: Close matches
+
+  /// A box where "chiken soup" is found twice over: "Mochiken soup" holds the whole query so it
+  /// is exact, and the others need "chiken" forgiven.
+  private func closeBox() -> [RecipeRecord] {
+    [
+      recipe("Mochiken soup", created: 1), recipe("Chicken soup", created: 2),
+      recipe("Another chicken soup", created: 3), recipe("Cake", created: 4),
+    ]
+  }
+
+  @Test func aTypoFindsTheRecipeUnderCloseMatchesWithAReason() {
+    let all = [recipe("Chicken curry"), recipe("Cake")]
+    let found = RecipeLibrary.visibleMatches(all, matching: "chiken", sort: .title)
+    #expect(found.map(\.recipe.title) == ["Chicken curry"])
+    #expect(found.map(\.tier) == [.close])
+    #expect(found.first?.reasonLine == "Matched chicken")
+    #expect(found.first?.shortReasonLine == "Matched chicken")
+    #expect(found.exact.isEmpty)
+    #expect(found.close.count == 1)
+  }
+
+  @Test func exactMatchesComeFirstAndLookTheSameAsBefore() {
+    let found = RecipeLibrary.visibleMatches(closeBox(), matching: "chiken soup", sort: .recent)
+    #expect(found.map(\.recipe.title) == ["Mochiken soup", "Another chicken soup", "Chicken soup"])
+    #expect(found.exact.map(\.recipe.title) == ["Mochiken soup"])
+    #expect(found.exact.allSatisfy { $0.reasonLine == nil && $0.shortReasonLine == nil })
+    #expect(found.close.map(\.recipe.title) == ["Another chicken soup", "Chicken soup"])
+    #expect(found.close.allSatisfy { $0.reasonLine == "Matched chicken, soup" })
+  }
+
+  @Test func eachTierKeepsTheOrderTheCookChose() {
+    let all = closeBox()
+    func order(_ sort: RecipeSort) -> [String] {
+      RecipeLibrary.visible(all, matching: "chiken soup", sort: sort).map(\.title)
+    }
+    #expect(order(.recent) == ["Mochiken soup", "Another chicken soup", "Chicken soup"])
+    #expect(order(.title) == ["Mochiken soup", "Another chicken soup", "Chicken soup"])
+    all[1].lastCookedOn = LocalDate("2026-01-05")
+    #expect(order(.lastCooked) == ["Mochiken soup", "Chicken soup", "Another chicken soup"])
+  }
+
+  @Test func theWordsAMisspeltSearchFindsAreTheRecipesOwn() {
+    let all = [recipe("Soup", items: ["chickens"]), recipe("Cake")]
+    let found = RecipeLibrary.summonMatches(all, matching: "chickn")
+    #expect(found.map(\.recipe.title) == ["Soup"])
+    #expect(found.first?.reasonLine == "Matched chickens")
+  }
+
+  @Test func summonStopsAtTenAcrossBothTiersExactFirst() {
+    let exact = (1...3).map { recipe("Mochiken soup \($0)") }
+    let close = (1...12).map { recipe("Chicken soup \($0)") }
+    let found = RecipeLibrary.summonMatches(exact + close, matching: "chiken soup")
+    #expect(found.count == 10)
+    #expect(found.prefix(3).allSatisfy { $0.tier == .exact })
+    #expect(found.dropFirst(3).allSatisfy { $0.tier == .close })
+    #expect(RecipeLibrary.summon(exact + close, matching: "chiken soup").count == 10)
+  }
+
+  @Test func theLogPickerAndTheStirSheetStopAtTheirLimitsAcrossBothTiers() {
+    let exact = (1...5).map { recipe("Mochiken soup \($0)") }
+    let close = (1...60).map { recipe("Chicken soup \($0)", created: TimeInterval($0)) }
+    let all = exact + close
+
+    let logged = RecipePicker.found(all, query: "chiken soup")
+    #expect(logged.count == 50)
+    #expect(logged.prefix(5).allSatisfy { $0.tier == .exact })
+    #expect(logged.dropFirst(5).allSatisfy { $0.tier == .close })
+
+    let stirred = StirFlowSheet.found(all, search: "chiken soup")
+    #expect(stirred.count == 30)
+    #expect(stirred.prefix(5).allSatisfy { $0.tier == .exact })
+    #expect(stirred.dropFirst(5).first?.recipe.title == "Chicken soup 60")
+  }
+
+  @Test func everySearchBoxFindsATypoTheSameWay() {
+    let all = closeBox()
+    let index = RecipeSearchCache().index(for: all)
+    let library = RecipeLibrary.visibleMatches(
+      all, matching: "chiken soup", sort: .title, index: index)
+    let summon = RecipeLibrary.summonMatches(all, matching: "chiken soup", index: index)
+    let log = RecipePicker.found(all, query: "chiken soup", index: index)
+    let stir = StirFlowSheet.found(all, search: "chiken soup", index: index)
+    for surface in [summon, log, stir] {
+      #expect(Set(surface.map(\.id)) == Set(library.map(\.id)))
+      #expect(surface.map(\.tier).sorted() == library.map(\.tier).sorted())
+    }
+    #expect(
+      summon.map(\.recipe.title) == ["Mochiken soup", "Another chicken soup", "Chicken soup"])
+  }
+
+  @Test func theKeptIndexGivesTheSameCloseMatchesAsNoIndex() {
+    let all = closeBox()
+    let index = RecipeSearchCache().index(for: all)
+    for query in ["chiken soup", "chiken", "choup", "caek"] {
+      let kept = RecipeLibrary.visibleMatches(all, matching: query, sort: .title, index: index)
+      let none = RecipeLibrary.visibleMatches(all, matching: query, sort: .title)
+      #expect(kept.map(\.id) == none.map(\.id))
+      #expect(kept.map(\.reasonLine) == none.map(\.reasonLine))
+    }
+  }
+
+  @Test func aBanishedRecipeIsNeverACloseMatch() {
+    let all = [recipe("Chicken pie", banished: true), recipe("Cake")]
+    #expect(RecipeLibrary.visibleMatches(all, matching: "chiken", sort: .title).isEmpty)
+    #expect(RecipeLibrary.summonMatches(all, matching: "chiken").isEmpty)
+  }
+
+  @Test func aPartialMatchNamesTheMissingWordInTheListAndInSummon() {
+    let all = [
+      recipe("Pad thai", items: ["rice noodles", "peanuts"]), recipe("Cake"),
+    ]
+    let listed = RecipeLibrary.visibleMatches(all, matching: "spicy peanut noodles", sort: .title)
+    #expect(listed.map(\.recipe.title) == ["Pad thai"])
+    #expect(listed.map(\.tier) == [.partial])
+    #expect(listed.first?.reasonLine == "Matched peanut, noodles · no spicy")
+    #expect(listed.close.count == 1)
+    #expect(listed.exact.isEmpty)
+
+    let summoned = RecipeLibrary.summonMatches(all, matching: "spicy peanut noodles")
+    #expect(summoned.map(\.recipe.title) == ["Pad thai"])
+    #expect(summoned.first?.shortReasonLine == "Matched peanut, noodles · no spicy")
+  }
+
+  @Test func partialMatchesComeAfterTheCloseOnesWhateverTheSort() {
+    // "Chicken soup" lacks "bowl" and "Chicken soup bowl" needs "chiken" forgiven: it sorts
+    // first by title but is the better match.
+    let all = [recipe("Chicken soup", created: 2), recipe("Chicken soup bowl", created: 1)]
+    for sort in [RecipeSort.title, .recent] {
+      let listed = RecipeLibrary.visibleMatches(all, matching: "chiken soup bowl", sort: sort)
+      #expect(listed.map(\.recipe.title) == ["Chicken soup bowl", "Chicken soup"])
+      #expect(listed.map(\.tier) == [.close, .partial])
+    }
+    let summoned = RecipeLibrary.summonMatches(all, matching: "chiken soup bowl")
+    #expect(summoned.map(\.tier) == [.close, .partial])
+    #expect(summoned.last?.reasonLine == "Matched chicken, soup · no bowl")
+  }
+
+  @Test func twoWordsStillNeedBothAndFillerWordsDoNotCount() {
+    let all = [recipe("Pad thai", items: ["rice noodles", "peanuts"])]
+    #expect(RecipeLibrary.visible(all, matching: "spicy peanut", sort: .title).isEmpty)
+    #expect(RecipeLibrary.visible(all, matching: "something spicy peanut", sort: .title).isEmpty)
+    #expect(RecipeLibrary.visible(all, matching: "a recipe with peanut", sort: .title).count == 1)
+  }
+
+  @Test func theCloseMatchStringsAreFromTheCopyModule() {
+    #expect(Copy.libraryNative.closeMatches.text == "Close matches")
+  }
+
   @Test func theLibraryCopyForFiltersIsFromTheCopyModule() {
     #expect(Copy.library.allTags.text == "All tags")
     #expect(Copy.library.clearFilters.text == "Clear filters")

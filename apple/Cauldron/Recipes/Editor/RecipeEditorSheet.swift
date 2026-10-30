@@ -22,6 +22,7 @@ struct RecipeEditorSheet: View {
   @Environment(RecipeAIService.self) private var ai: RecipeAIService?
   @Environment(SharedImportQueue.self) private var sharing: SharedImportQueue?
   @Environment(\.draftKeeper) private var draftKeeper
+  @Environment(\.searchKeywords) private var searchKeywords
   @Environment(\.scenePhase) private var scenePhase
   /// Tells the shared-import queue this editor is open, so nothing shared replaces it.
   @State private var openToken = UUID()
@@ -270,6 +271,8 @@ struct RecipeEditorSheet: View {
         finished = true
         keep.clear()
       }
+      // Search keywords are written after the save has returned, never inside it.
+      searchKeywords?.enqueue(saved.id, in: context)
       // An estimate that couldn't be had while editing is asked for now, with the saved
       // ingredients; if the AI is still out of reach it waits in the queue.
       if RecipeMacroEstimates.queueAfterSave(of: draft, saved: saved, in: context), let ai {

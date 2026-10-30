@@ -9,7 +9,9 @@ import SwiftUI
 struct RecipesRoot: View {
   @Query(filter: #Predicate<RecipeRecord> { $0.deletedAt == nil })
   private var recipes: [RecipeRecord]
+  @Environment(\.searchKeywords) private var searchKeywords
   @State private var search = ""
+  @State private var searchCache = RecipeSearchCache()
   @State private var sort = RecipeSort.recent
   /// The tag the library is narrowed to, by its name in lowercase.
   @State private var tagFilter: String?
@@ -70,7 +72,7 @@ struct RecipesRoot: View {
       RecipeEditorSheet(recipe: nil) { open($0) }
     }
     .sheet(isPresented: $summoning) {
-      RecipeSummonSheet(recipes: recipes) { recipe in
+      RecipeSummonSheet(recipes: recipes, searchCache: searchCache) { recipe in
         summoning = false
         open(recipe)
       }
@@ -299,18 +301,21 @@ struct RecipesRoot: View {
 
   @ViewBuilder
   private func library(opening: Opening) -> some View {
-    let visible = RecipeLibrary.visible(recipes, matching: search, tag: tagFilter, sort: sort)
+    let visible = RecipeLibrary.visibleMatches(
+      recipes, matching: search, tag: tagFilter, sort: sort,
+      index: searchCache.index(for: recipes))
     if recipes.isEmpty {
       EmptyState(systemImage: AppDestination.recipes.systemImage, message: Copy.recipes.empty)
     } else if visible.isEmpty {
-      NoMatchesView(onClear: clearFilters)
+      NoMatchesView(
+        stillReading: searchKeywords?.stillReading, search: search, onClear: clearFilters)
     } else {
       list(visible, opening: opening)
     }
   }
 
   @ViewBuilder
-  private func list(_ visible: [RecipeRecord], opening: Opening) -> some View {
+  private func list(_ visible: [RecipeMatch], opening: Opening) -> some View {
     switch opening {
     case .beside:
       // The list's selection is the recipe shown beside it.
@@ -325,29 +330,45 @@ struct RecipesRoot: View {
     }
   }
 
-  private func rows(_ visible: [RecipeRecord], opening: Opening) -> some View {
-    ForEach(visible) { recipe in
-      row(recipe, opening: opening)
+  /// The exact matches, then any close ones under their own heading.
+  @ViewBuilder
+  private func rows(_ visible: [RecipeMatch], opening: Opening) -> some View {
+    Section {
+      ForEach(visible.exact) { match in
+        row(match, opening: opening)
+      }
+    }
+    CloseMatchesSection(matches: visible) { match in
+      row(match, opening: opening)
+    }
+    if let reading = searchKeywords?.stillReading,
+      RecipeLibrary.readingNotice(stillReading: reading, search: search) != nil
+    {
+      SearchReadingFooter(count: reading)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
   }
 
   @ViewBuilder
-  private func row(_ recipe: RecipeRecord, opening: Opening) -> some View {
+  private func row(_ match: RecipeMatch, opening: Opening) -> some View {
+    let recipe = match.recipe
     switch opening {
     case .beside:
-      card(recipe, selected: selection == recipe.id).tag(recipe.id)
+      card(recipe, selected: selection == recipe.id, reason: match.reasonLine).tag(recipe.id)
     case .over:
       Button {
         path.append(recipe.id)
       } label: {
-        card(recipe, selected: false)
+        card(recipe, selected: false, reason: match.reasonLine)
       }
       .buttonStyle(.plain)
     }
   }
 
-  private func card(_ recipe: RecipeRecord, selected: Bool) -> some View {
-    RecipeCardView(recipe: recipe, selected: selected)
+  private func card(_ recipe: RecipeRecord, selected: Bool, reason: String?) -> some View {
+    RecipeCardView(recipe: recipe, selected: selected, reason: reason)
       .contentShape(Rectangle())
       .listRowBackground(Color.clear)
       .listRowSeparator(.hidden)

@@ -280,6 +280,19 @@ struct FinishedRecipeTests {
     #expect(files(in: finished).isEmpty)
   }
 
+  @Test func aPickUpWritesSearchKeywordsForTheRecipesItAdds() async throws {
+    defer { tidy() }
+    try leave(draft(title: "Kept"))
+    let writer = StubSearchKeywordWriter(.written("korean"))
+    let runner = SearchKeywordRunner(writer: writer)
+    let queue = SharedImportQueue(folder: drafts, finishedFolder: finished, enabled: true)
+    queue.keywords = runner
+    #expect(queue.pickUp(in: context) == 1)
+    #expect(writer.inputs.isEmpty)
+    await runner.settled()
+    #expect(try recipes().first?.searchKeywords == "korean")
+  }
+
   @Test func withoutAContextOnlyDraftsAreTaken() throws {
     defer { tidy() }
     try leave(draft())

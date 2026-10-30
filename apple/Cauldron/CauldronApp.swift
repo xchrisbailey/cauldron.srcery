@@ -15,6 +15,11 @@ struct CauldronApp: App {
   @State private var sync = SyncStatusModel(
     account: LiveICloudAccount(mode: CauldronStore.launchMode))
   @State private var ai = RecipeAIService.forLaunch(mode: CauldronStore.launchMode)
+  /// Writes search keywords after a save, on the device's own model and nowhere else. Under test
+  /// there is no model.
+  @State private var keywords = SearchKeywordRunner(
+    writer: CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local
+      ? OnDeviceSearchKeywordWriter() : NoSearchKeywordWriter())
   @State private var health = HealthSync.forLaunch(mode: CauldronStore.launchMode)
   /// What the share extension left for the app; never picked up under test.
   @State private var sharedImports = SharedImportQueue(
@@ -83,7 +88,8 @@ struct CauldronApp: App {
         .environment(sync)
         .environment(ai)
         .environment(health)
-        .sharedImports(sharedImports, ai: ai)
+        .environment(\.searchKeywords, keywords)
+        .sharedImports(sharedImports, ai: ai, keywords: keywords)
         .task {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
             return
@@ -108,6 +114,20 @@ struct CauldronApp: App {
           RecipeAIService.moveKeys(mode: CauldronStore.launchMode)
           ai.refreshKey()
           await AIQueueRunner.drain(in: container.mainContext, using: ai.estimator)
+        }
+        // Recipes that lack search keywords are read for them, one at a time and at low
+        // priority, while the app is forward. The runner owns the work: going to the background
+        // asks it to stop, and coming forward starts it or lets it carry on. A model that was
+        // unavailable is asked again each time. It never uses the network or a key.
+        .onChange(of: scenePhase, initial: true) {
+          guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
+            return
+          }
+          if scenePhase == .active {
+            keywords.startDraining(in: container.mainContext)
+          } else {
+            keywords.stopDraining()
+          }
         }
         .task {
           guard CauldronStore.launchMode == .synced || CauldronStore.launchMode == .local else {
@@ -146,6 +166,7 @@ struct CauldronApp: App {
             .environment(sharedImports)
             .environment(sync)
             .environment(ai)
+            .environment(\.searchKeywords, keywords)
             .cauldronAppearance()
         }
       }

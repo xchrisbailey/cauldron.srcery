@@ -6,6 +6,8 @@ struct RecipeCardView: View {
   let recipe: RecipeRecord
   /// Whether it's the recipe open beside the list.
   var selected = false
+  /// Why a close match was found ("Matched chicken"); nil for an exact match.
+  var reason: String?
   @ScaledMetric(relativeTo: .body) private var titleSize: CGFloat = 16
 
   var body: some View {
@@ -18,6 +20,9 @@ struct RecipeCardView: View {
         Text(verbatim: card.title)
           .font(.brand(.section, size: titleSize))
           .lineLimit(2)
+        if let reason {
+          MatchReasonLine(text: reason)
+        }
         FlowLayout(spacing: 6) {
           if let time = card.time {
             Text(verbatim: time)
