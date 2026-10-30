@@ -36,12 +36,13 @@
       var message: String
     }
 
-    /// Today in the cook's own calendar.
-    static func today() throws -> LocalDate {
-      let parts = Calendar.current.dateComponents([.year, .month, .day], from: .now)
-      guard let year = parts.year, let month = parts.month, let day = parts.day,
-        let today = LocalDate(year: year, month: month, day: day)
-      else { throw SeedError(message: "There is no calendar day for now.") }
+    /// Today's Gregorian civil day in the cook's time zone.
+    static func today(
+      now: Date = .now, calendar: Calendar = DayKeyCalendar.current
+    ) throws -> LocalDate {
+      guard let today = LocalDate(now, in: calendar) else {
+        throw SeedError(message: "There is no calendar day for now.")
+      }
       return today
     }
 

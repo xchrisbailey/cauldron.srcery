@@ -29,8 +29,10 @@ enum TodayMacrosTimeline {
         after: now, matching: DateComponents(hour: 0, minute: 0, second: 0),
         matchingPolicy: .nextTime) ?? now.addingTimeInterval(86_400)
     func entry(at date: Date) -> TodayMacrosEntry {
-      guard let snapshot, let today = LocalDate(date, in: calendar) else {
-        return TodayMacrosEntry(date: date, snapshot: snapshot)
+      guard let snapshot, !snapshot.day.isLegacyCalendarKey,
+        let today = LocalDate(date, in: calendar)
+      else {
+        return TodayMacrosEntry(date: date, snapshot: nil)
       }
       return TodayMacrosEntry(date: date, snapshot: snapshot.seen(on: today))
     }

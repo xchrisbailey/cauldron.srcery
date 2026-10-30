@@ -77,7 +77,7 @@ final class HealthSync {
 
   init(
     store: any HealthStore, setup: HealthSetup, defaults: UserDefaults = .standard,
-    calendar: Calendar = .current, now: @escaping @MainActor () -> Date = { .now },
+    calendar: Calendar = DayKeyCalendar.current, now: @escaping @MainActor () -> Date = { .now },
     accessAllowed: Bool = true
   ) {
     self.store = store
@@ -166,10 +166,11 @@ final class HealthSync {
       let samples = try await store.bodyMass(since: since)
       // Read after the wait, so a change made meanwhile is seen.
       let existing = try HealthWeightImport.existing(in: window, context: context)
+      let importedSampleIDs = try HealthWeightImport.importedSampleIDs(in: context)
       let plan = HealthWeightImport.plan(
         samples: samples, existing: existing,
         dismissed: try HealthWeightImport.dismissed(in: context),
-        window: window, calendar: calendar)
+        window: window, importedSampleIDs: importedSampleIDs, calendar: calendar)
       try HealthWeightImport.apply(plan, in: context)
       lastImportCount = plan.count
       failure = nil
@@ -228,9 +229,14 @@ final class HealthSync {
     guard let since = first.date(in: calendar) else { return }
     let key = first.description
     do {
+      // The low-key clause retains Japanese-era keys; Buddhist keys are above the window.
+      let legacyBefore = "1900"
       let rows = try context.fetch(
-        FetchDescriptor<DiaryEntryRecord>(predicate: #Predicate { $0.dayKey >= key }))
-      let entries = rows.compactMap(HealthEntry.init)
+        FetchDescriptor<DiaryEntryRecord>(
+          predicate: #Predicate { $0.dayKey >= key || $0.dayKey < legacyBefore }))
+      let entries = rows.compactMap(HealthEntry.init).filter { entry in
+        entry.day.isLegacyCalendarKey || entry.day >= first
+      }
       let writable = await store.writableNutrients()
       deniedNutrients = Nutrient.allCases.filter { !writable.contains($0) }
       let held = try await store.nutritionSamples(since: since)

@@ -120,7 +120,7 @@ struct WeightView: View {
         Chart {
           ForEach(data.line) { point in
             LineMark(
-              x: .value(t.legendTrend.text, point.day.date(in: .current) ?? .now),
+              x: .value(t.legendTrend.text, point.day.date(in: DayKeyCalendar.current) ?? .now),
               y: .value(t.legendTrend.text, point.value), series: .value("", "trend")
             )
             .foregroundStyle(Brand.Colors.magic)
@@ -128,7 +128,7 @@ struct WeightView: View {
           }
           ForEach(data.dots) { point in
             PointMark(
-              x: .value(t.legendScale.text, point.day.date(in: .current) ?? .now),
+              x: .value(t.legendScale.text, point.day.date(in: DayKeyCalendar.current) ?? .now),
               y: .value(t.legendScale.text, point.value)
             )
             .foregroundStyle(Brand.Colors.overlay1)
@@ -136,7 +136,8 @@ struct WeightView: View {
           }
         }
         .chartXScale(
-          domain: (data.start.date(in: .current) ?? .now)...(data.end.date(in: .current) ?? .now)
+          domain: (data.start.date(in: DayKeyCalendar.current) ?? .now)...(data.end.date(
+            in: DayKeyCalendar.current) ?? .now)
         )
         .chartYScale(domain: data.yDomain)
         .chartYAxis {

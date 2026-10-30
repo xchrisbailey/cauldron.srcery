@@ -271,6 +271,26 @@ struct TodayMacrosTimelineTests {
     #expect(plan.entries[0].snapshot?.eaten == .zero)
   }
 
+  @Test func buddhistCalendarMatchesGregorianKeyedSnapshot() throws {
+    let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+    var buddhist = Calendar(identifier: .buddhist)
+    buddhist.timeZone = zone
+    let localNoon = try #require(
+      DayKeyCalendar.make(timeZone: zone).date(
+        from: DateComponents(year: 2026, month: 10, day: 10, hour: 12)))
+    let plan = TodayMacrosTimeline.plan(
+      snapshot: snapshot(calories: 700), now: localNoon, calendar: buddhist)
+    #expect(plan.entries[0].snapshot?.day == today)
+    #expect(plan.entries[0].snapshot?.eaten.calories == 700)
+  }
+
+  @Test func legacyKeyedSnapshotIsTreatedAsNoSnapshot() throws {
+    let legacy = try #require(LocalDate(year: 2569, month: 10, day: 10))
+    let plan = TodayMacrosTimeline.plan(
+      snapshot: snapshot(day: legacy, calories: 700), now: noon, calendar: utc)
+    #expect(plan.entries.allSatisfy { $0.snapshot == nil })
+  }
+
   @Test func noSnapshotIsNoData() {
     let plan = TodayMacrosTimeline.plan(snapshot: nil, now: noon, calendar: utc)
     #expect(plan.entries.count == 2 && plan.entries.allSatisfy { $0.snapshot == nil })

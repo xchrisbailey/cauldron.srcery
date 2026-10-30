@@ -41,7 +41,7 @@ struct WeightEntrySheet: View {
         if pickDay {
           Section {
             DatePicker(
-              selection: dayBinding, in: ...(today.date(in: .current) ?? .now),
+              selection: dayBinding, in: ...(today.date(in: DayKeyCalendar.current) ?? .now),
               displayedComponents: .date
             ) {
               Text(verbatim: t.day.text)
@@ -98,8 +98,8 @@ struct WeightEntrySheet: View {
 
   private var dayBinding: Binding<Date> {
     Binding(
-      get: { chosenDay.date(in: .current) ?? .now },
-      set: { chosenDay = LocalDate($0, in: .current) ?? chosenDay })
+      get: { chosenDay.date(in: DayKeyCalendar.current) ?? .now },
+      set: { chosenDay = LocalDate($0, in: DayKeyCalendar.current) ?? chosenDay })
   }
 
   private func save() {

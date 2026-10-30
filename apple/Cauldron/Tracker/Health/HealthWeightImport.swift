@@ -40,7 +40,8 @@ enum HealthWeightImport {
   /// Only days in `window` are looked at, and readings outside what a weight can be are ignored.
   static func plan(
     samples: [HealthWeightSample], existing: [ExistingWeighIn], dismissed: Set<String>,
-    window: ClosedRange<LocalDate>, calendar: Calendar = .current
+    window: ClosedRange<LocalDate>, importedSampleIDs: Set<String> = [],
+    calendar: Calendar = DayKeyCalendar.current
   ) -> WeightImportPlan {
     // The day's latest reading; the id breaks a tie.
     var latest: [LocalDate: HealthWeightSample] = [:]
@@ -56,6 +57,9 @@ enum HealthWeightImport {
     var plan = WeightImportPlan()
     for day in latest.keys.sorted() {
       guard let sample = latest[day] else { continue }
+      if importedSampleIDs.contains(sample.id), byDay[day]?.healthSampleID != sample.id {
+        continue
+      }
       let kg = (sample.kg * 100).rounded() / 100
       let change = WeightImportPlan.Change(day: day, kg: kg, sampleID: sample.id)
       guard let held = byDay[day] else {
@@ -76,7 +80,7 @@ enum HealthWeightImport {
     return plan
   }
 
-  /// The weigh-ins in `window` as the import sees them (one a day, by the keeper rule).
+  /// All imported IDs are needed to avoid duplicates; the plan limits changes to `window`.
   @MainActor
   static func existing(in window: ClosedRange<LocalDate>, context: ModelContext) throws
     -> [ExistingWeighIn]
@@ -92,6 +96,14 @@ enum HealthWeightImport {
         ExistingWeighIn(day: day, kg: $0.weightKg, healthSampleID: $0.healthSampleID)
       }
     }
+  }
+
+  /// Imported sample IDs are checked across all days to prevent moving a legacy import.
+  @MainActor
+  static func importedSampleIDs(in context: ModelContext) throws -> Set<String> {
+    let rows = try context.fetch(
+      FetchDescriptor<WeighInRecord>(predicate: #Predicate { $0.healthSampleID != nil }))
+    return Set(rows.compactMap(\.healthSampleID))
   }
 
   /// The Health samples the cook removed from Cauldron, on any device (they sync).

@@ -28,7 +28,7 @@ final class TodayMacrosPublisher {
 
   /// `folder` is where the file goes; nil writes nothing. `reload` is told after each write.
   init(
-    folder: URL?, now: @escaping () -> Date = { .now }, calendar: Calendar = .current,
+    folder: URL?, now: @escaping () -> Date = { .now }, calendar: Calendar = DayKeyCalendar.current,
     reload: @escaping () -> Void = {}
   ) {
     self.folder = folder

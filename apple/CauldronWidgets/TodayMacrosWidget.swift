@@ -46,12 +46,12 @@ struct TodayMacrosProvider: TimelineProvider {
   private static func plan(now: Date) -> TodayMacrosTimeline.Plan {
     TodayMacrosTimeline.plan(
       snapshot: TodayMacrosFile.read(from: TodayMacrosFile.liveFolder()), now: now,
-      calendar: .current)
+      calendar: DayKeyCalendar.current)
   }
 
   /// Made-up numbers for the placeholder and the gallery.
   private static var sample: TodayMacrosSnapshot? {
-    LocalDate(.now, in: .current).map { day in
+    LocalDate(.now, in: DayKeyCalendar.current).map { day in
       TodayMacrosSnapshot(
         day: day, eaten: MacroTotals(calories: 1240, protein: 82, carbs: 130, fat: 41),
         targets: MacroTargets(calories: 2000, protein: 140, carbs: 220, fat: 65),

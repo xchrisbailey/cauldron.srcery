@@ -223,6 +223,27 @@ struct HealthNutritionTests {
     #expect(parts(.snack) == [2026, 10, 10, 15, 30])
   }
 
+  @Test func healthWriteDatesAreGregorianUnderOtherCalendarIdentifiers() throws {
+    let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+    let gregorian = DayKeyCalendar.make(timeZone: zone)
+    let expected = try #require(
+      gregorian.date(from: DateComponents(year: 2026, month: 10, day: 10, hour: 12, minute: 30)))
+    for identifier in [Calendar.Identifier.buddhist, .japanese] {
+      var calendar = Calendar(identifier: identifier)
+      calendar.timeZone = zone
+      #expect(HealthNutrition.date(day: day, slot: .lunch, calendar: calendar) == expected)
+    }
+  }
+
+  @Test func aLegacyKeyProducesNoHealthChanges() throws {
+    let legacy = try #require(LocalDate(year: 2569, month: 10, day: 10))
+    let entry = HealthEntry(
+      id: id, day: legacy, slot: .lunch, name: "Legacy", servings: 1,
+      macros: Macros(calories: 100))
+    let plan = HealthNutrition.plan(for: entry, calendar: calendar)
+    #expect(plan.save.isEmpty && plan.delete.isEmpty)
+  }
+
   @Test func removingAnEntryNamesAllFourSamples() {
     let plan = HealthNutrition.removal(of: id)
     #expect(plan.save.isEmpty && plan.delete.count == 4)
@@ -419,6 +440,24 @@ struct HealthWeightImportTests {
     let typed = ExistingWeighIn(day: today, kg: 74.0, healthSampleID: nil)
     let result = plan([sample("s", today, 73.1)], existing: [typed])
     #expect(result.isEmpty)
+  }
+
+  @Test @MainActor func legacyImportedSampleIDIsNeverImportedOnItsGregorianDay() throws {
+    let container = try CauldronStore.container(.inMemory)
+    let context = ModelContext(container)
+    let legacyDay = try #require(LocalDate(year: 2569, month: 10, day: 10))
+    let legacyRow = WeighInRecord(day: legacyDay, weightKg: 74)
+    legacyRow.healthSampleID = "weight-1"
+    context.insert(legacyRow)
+    try context.save()
+
+    let existing = try HealthWeightImport.existing(in: window, context: context)
+    let result = HealthWeightImport.plan(
+      samples: [sample("weight-1", today, 73.5)], existing: existing, dismissed: [],
+      window: window, importedSampleIDs: try HealthWeightImport.importedSampleIDs(in: context),
+      calendar: calendar)
+    #expect(result.isEmpty)
+    #expect(try context.fetch(FetchDescriptor<WeighInRecord>()).map(\.day) == [legacyDay])
   }
 
   @Test func anImportedWeighInFollowsANewerOrCorrectedReading() {
@@ -939,6 +978,46 @@ struct HealthSyncTests {
     context.delete(soup)
     try context.save()
     await sync.appDidBecomeActive(in: context)
+    #expect(await store.held.isEmpty)
+  }
+
+  @Test func legacyDiaryEntriesNeverChangeTheirHeldHealthSamples() async throws {
+    let legacyDays = [
+      try #require(LocalDate(year: 2569, month: 10, day: 10)),
+      try #require(LocalDate(year: 8, month: 10, day: 10)),
+    ]
+    let store = FakeHealthStore()
+    for day in legacyDays {
+      let row = try synced("Legacy", on: day)
+      for nutrient in Nutrient.allCases {
+        await store.plant(
+          NutritionSample(
+            syncID: HealthNutrition.syncID(entry: row.id, nutrient: nutrient), nutrient: nutrient,
+            value: 100, date: noon(today), name: "Legacy"), version: 1)
+      }
+    }
+    let before = await store.held
+    let sync = await sync(store)
+    await sync.reconcile(in: context)
+    #expect(await store.held == before)
+    #expect(await store.saveRequests == 0)
+    #expect(await store.deleteRequests == 0)
+  }
+
+  @Test func reconcileStillDeletesSamplesForEntriesMovedOutOfTheWindow() async throws {
+    let row = try synced("Moved")
+    let store = FakeHealthStore()
+    for nutrient in Nutrient.allCases {
+      await store.plant(
+        NutritionSample(
+          syncID: HealthNutrition.syncID(entry: row.id, nutrient: nutrient), nutrient: nutrient,
+          value: 100, date: noon(today), name: "Moved"), version: 1)
+    }
+    row.dayKey = today.adding(days: -40).description
+    try context.save()
+
+    let sync = await sync(store)
+    await sync.reconcile(in: context)
     #expect(await store.held.isEmpty)
   }
 

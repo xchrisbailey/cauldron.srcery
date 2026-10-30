@@ -36,6 +36,25 @@ struct WeekPresentationTests {
     #expect(WeekDates.today(now: late, calendar: calendar) == LocalDate("2026-10-10"))
   }
 
+  @Test func dayKeysStayGregorianAcrossSystemCalendarIdentifiers() throws {
+    let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+    let gregorian = DayKeyCalendar.make(timeZone: zone)
+    let before = try #require(
+      gregorian.date(from: DateComponents(year: 2026, month: 10, day: 10, hour: 23, minute: 59)))
+    let after = try #require(gregorian.date(from: DateComponents(year: 2026, month: 10, day: 11)))
+    for identifier in [Calendar.Identifier.gregorian, .buddhist, .japanese] {
+      var displayCalendar = Calendar(identifier: identifier)
+      displayCalendar.timeZone = zone
+      #expect(WeekDates.today(now: before, calendar: displayCalendar) == LocalDate("2026-10-10"))
+      #expect(WeekDates.today(now: after, calendar: displayCalendar) == LocalDate("2026-10-11"))
+      #expect(LocalDate(before, in: displayCalendar) == LocalDate("2026-10-10"))
+      #expect(
+        LocalDate("2026-10-10")?.date(in: displayCalendar)
+          == gregorian.date(
+            from: DateComponents(year: 2026, month: 10, day: 10, hour: 12)))
+    }
+  }
+
   // MARK: Figures
 
   @Test func figuresRoundHalvesUpAndGroup() {

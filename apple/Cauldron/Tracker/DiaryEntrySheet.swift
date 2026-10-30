@@ -154,7 +154,7 @@ struct DiaryEntrySheet: View {
 
   /// A year back from the entry's day or today, and a year ahead of it.
   private var dayRange: ClosedRange<Date> {
-    let calendar = Calendar.current
+    let calendar = DayKeyCalendar.current
     let anchor = record.day ?? TargetsForm.today() ?? LocalDate(Date.now, in: calendar)
     let earliest = anchor?.adding(days: -365).date(in: calendar) ?? .distantPast
     let latest = anchor?.adding(days: 365).date(in: calendar) ?? .distantFuture
@@ -163,8 +163,8 @@ struct DiaryEntrySheet: View {
 
   private var day: Binding<Date> {
     Binding(
-      get: { (draft.day ?? record.day)?.date(in: .current) ?? .now },
-      set: { draft.day = LocalDate($0, in: .current) })
+      get: { (draft.day ?? record.day)?.date(in: DayKeyCalendar.current) ?? .now },
+      set: { draft.day = LocalDate($0, in: DayKeyCalendar.current) })
   }
 
   /// Whether this entry's food is a favourite.

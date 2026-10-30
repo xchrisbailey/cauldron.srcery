@@ -1,15 +1,14 @@
 import CauldronKit
 import Foundation
 
-/// Labels for calendar days, in the viewer's locale. A `LocalDate` is a day on the cook's own
-/// calendar, so each label is built at noon on that day and can't slip across midnight.
+/// Labels for calendar days, in the viewer's locale. A `LocalDate` is a Gregorian civil day in the
+/// cook's time zone, so each label is built at noon on that day and can't slip across midnight.
 enum WeekDates {
-  /// Today in the cook's own calendar.
-  static func today(now: Date = .now, calendar: Calendar = .current) -> LocalDate {
-    let parts = calendar.dateComponents([.year, .month, .day], from: now)
-    guard let year = parts.year, let month = parts.month, let day = parts.day,
-      let today = LocalDate(year: year, month: month, day: day)
-    else { preconditionFailure("The calendar has no day for now.") }
+  /// Today's Gregorian civil day in the cook's time zone.
+  static func today(now: Date = .now, calendar: Calendar = DayKeyCalendar.current) -> LocalDate {
+    guard let today = LocalDate(now, in: calendar) else {
+      preconditionFailure("The calendar has no day for now.")
+    }
     return today
   }
 

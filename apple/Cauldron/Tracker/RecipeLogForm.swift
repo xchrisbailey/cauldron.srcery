@@ -157,8 +157,8 @@ struct RecipeLogForm: View {
 
   private var day: Binding<Date> {
     Binding(
-      get: { draft.day.date(in: .current) ?? .now },
-      set: { draft.day = LocalDate($0, in: .current) ?? draft.day })
+      get: { draft.day.date(in: DayKeyCalendar.current) ?? .now },
+      set: { draft.day = LocalDate($0, in: DayKeyCalendar.current) ?? draft.day })
   }
 
   private static func chipLabel(_ amount: Double) -> String {
