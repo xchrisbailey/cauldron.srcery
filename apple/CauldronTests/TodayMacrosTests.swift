@@ -284,6 +284,13 @@ struct TodayMacrosTimelineTests {
     #expect(plan.entries[0].snapshot?.eaten.calories == 700)
   }
 
+  @Test func legacyKeyedSnapshotIsTreatedAsNoSnapshot() throws {
+    let legacy = try #require(LocalDate(year: 2569, month: 10, day: 10))
+    let plan = TodayMacrosTimeline.plan(
+      snapshot: snapshot(day: legacy, calories: 700), now: noon, calendar: utc)
+    #expect(plan.entries.allSatisfy { $0.snapshot == nil })
+  }
+
   @Test func noSnapshotIsNoData() {
     let plan = TodayMacrosTimeline.plan(snapshot: nil, now: noon, calendar: utc)
     #expect(plan.entries.count == 2 && plan.entries.allSatisfy { $0.snapshot == nil })

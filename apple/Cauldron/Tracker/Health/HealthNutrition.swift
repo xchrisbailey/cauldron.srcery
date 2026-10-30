@@ -75,6 +75,7 @@ enum HealthNutrition {
   static func plan(for entry: HealthEntry, calendar: Calendar = DayKeyCalendar.current)
     -> NutritionPlan
   {
+    guard !entry.day.isLegacyCalendarKey else { return NutritionPlan(save: [], delete: []) }
     let date = date(day: entry.day, slot: entry.slot, calendar: calendar)
     var save: [NutritionSample] = []
     var delete: [String] = []
@@ -129,10 +130,16 @@ enum HealthReconcile {
   /// - Leaves alone nutrients that aren't in `writable`, and samples that aren't Cauldron's.
   static func plan(
     entries: [HealthEntry], held: [HeldNutrition], writable: Set<Nutrient> = Set(Nutrient.allCases),
-    calendar: Calendar = DayKeyCalendar.current
+    calendar: Calendar = DayKeyCalendar.current, protectedEntryIDs: Set<UUID> = []
   ) -> NutritionPlan {
+    let legacyIDs = Set(
+      protectedEntryIDs.flatMap { HealthNutrition.syncIDs(entry: $0) }
+        + entries.filter { $0.day.isLegacyCalendarKey }
+        .flatMap { HealthNutrition.syncIDs(entry: $0.id) })
+    let held = held.filter { !legacyIDs.contains($0.syncID) }
     var wanted: [NutritionSample] = []
     for entry in entries {
+      guard !entry.day.isLegacyCalendarKey else { continue }
       wanted += HealthNutrition.plan(for: entry, calendar: calendar).save
     }
     wanted = wanted.filter { writable.contains($0.nutrient) }

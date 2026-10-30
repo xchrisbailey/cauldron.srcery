@@ -56,6 +56,9 @@ enum HealthWeightImport {
     var plan = WeightImportPlan()
     for day in latest.keys.sorted() {
       guard let sample = latest[day] else { continue }
+      if existing.contains(where: { $0.healthSampleID == sample.id && $0.day != day }) {
+        continue
+      }
       let kg = (sample.kg * 100).rounded() / 100
       let change = WeightImportPlan.Change(day: day, kg: kg, sampleID: sample.id)
       guard let held = byDay[day] else {
@@ -76,16 +79,12 @@ enum HealthWeightImport {
     return plan
   }
 
-  /// The weigh-ins in `window` as the import sees them (one a day, by the keeper rule).
+  /// All imported IDs are needed to avoid duplicates; the plan limits changes to `window`.
   @MainActor
   static func existing(in window: ClosedRange<LocalDate>, context: ModelContext) throws
     -> [ExistingWeighIn]
   {
-    let from = window.lowerBound.description
-    let to = window.upperBound.description
-    let rows = try context.fetch(
-      FetchDescriptor<WeighInRecord>(predicate: #Predicate { $0.dayKey >= from && $0.dayKey <= to })
-    )
+    let rows = try context.fetch(FetchDescriptor<WeighInRecord>())
     let days = Set(rows.compactMap(\.day))
     return try days.sorted().compactMap { day in
       try context.weighIn(on: day).map {

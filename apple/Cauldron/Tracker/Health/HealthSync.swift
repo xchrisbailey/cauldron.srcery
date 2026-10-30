@@ -226,16 +226,20 @@ final class HealthSync {
     guard status == .on, let today else { return }
     let first = today.adding(days: -(HealthReconcile.windowDays - 1))
     guard let since = first.date(in: calendar) else { return }
-    let key = first.description
     do {
-      let rows = try context.fetch(
-        FetchDescriptor<DiaryEntryRecord>(predicate: #Predicate { $0.dayKey >= key }))
-      let entries = rows.compactMap(HealthEntry.init)
+      // Legacy keys can sort on either side of this window, so fetch them to protect their IDs.
+      let rows = try context.fetch(FetchDescriptor<DiaryEntryRecord>())
+      let entries = rows.compactMap(HealthEntry.init).filter { entry in
+        entry.day.isLegacyCalendarKey || entry.day >= first
+      }
+      let activeEntryIDs = Set(entries.map(\.id))
+      let protectedEntryIDs = Set(rows.map(\.id)).subtracting(activeEntryIDs)
       let writable = await store.writableNutrients()
       deniedNutrients = Nutrient.allCases.filter { !writable.contains($0) }
       let held = try await store.nutritionSamples(since: since)
       let plan = HealthReconcile.plan(
-        entries: entries, held: held, writable: writable, calendar: calendar)
+        entries: entries, held: held, writable: writable, calendar: calendar,
+        protectedEntryIDs: protectedEntryIDs)
       guard !plan.save.isEmpty || !plan.delete.isEmpty else {
         failure = nil
         return

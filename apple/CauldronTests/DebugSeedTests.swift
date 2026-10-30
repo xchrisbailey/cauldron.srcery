@@ -12,8 +12,14 @@
   @Suite("Debug seed")
   struct DebugSeedTests {
     @Test func todayUsesTheCanonicalDayKeyCalendar() throws {
-      #expect(try DebugSeed.today() == WeekDates.today())
-      #expect(try DebugSeed.today() == LocalDate(.now, in: DayKeyCalendar.current))
+      let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+      var buddhist = Calendar(identifier: .buddhist)
+      buddhist.timeZone = zone
+      let instant = try #require(
+        DayKeyCalendar.make(timeZone: zone).date(
+          from: DateComponents(year: 2026, month: 10, day: 10, hour: 23, minute: 59)))
+      let expected = try #require(LocalDate("2026-10-10"))
+      #expect(try DebugSeed.today(now: instant, calendar: buddhist) == expected)
     }
 
     // A Sunday, so the planned week is the one that ended today.

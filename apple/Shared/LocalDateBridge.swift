@@ -13,6 +13,11 @@ enum DayKeyCalendar {
 }
 
 extension LocalDate {
+  // Years outside this broad app-supported civil range can be old system-calendar keys.
+  var isLegacyCalendarKey: Bool { !(1900...2400).contains(year) }
+}
+
+extension LocalDate {
   /// The Gregorian civil day `date` falls on in `calendar`'s time zone. Its display calendar is
   /// intentionally ignored because persisted day keys are Gregorian.
   init?(_ date: Date, in calendar: Calendar) {
