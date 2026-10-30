@@ -130,11 +130,10 @@ enum HealthReconcile {
   /// - Leaves alone nutrients that aren't in `writable`, and samples that aren't Cauldron's.
   static func plan(
     entries: [HealthEntry], held: [HeldNutrition], writable: Set<Nutrient> = Set(Nutrient.allCases),
-    calendar: Calendar = DayKeyCalendar.current, protectedEntryIDs: Set<UUID> = []
+    calendar: Calendar = DayKeyCalendar.current
   ) -> NutritionPlan {
     let legacyIDs = Set(
-      protectedEntryIDs.flatMap { HealthNutrition.syncIDs(entry: $0) }
-        + entries.filter { $0.day.isLegacyCalendarKey }
+      entries.filter { $0.day.isLegacyCalendarKey }
         .flatMap { HealthNutrition.syncIDs(entry: $0.id) })
     let held = held.filter { !legacyIDs.contains($0.syncID) }
     var wanted: [NutritionSample] = []

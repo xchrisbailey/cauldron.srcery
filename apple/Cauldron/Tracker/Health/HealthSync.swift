@@ -166,10 +166,11 @@ final class HealthSync {
       let samples = try await store.bodyMass(since: since)
       // Read after the wait, so a change made meanwhile is seen.
       let existing = try HealthWeightImport.existing(in: window, context: context)
+      let importedSampleIDs = try HealthWeightImport.importedSampleIDs(in: context)
       let plan = HealthWeightImport.plan(
         samples: samples, existing: existing,
         dismissed: try HealthWeightImport.dismissed(in: context),
-        window: window, calendar: calendar)
+        window: window, importedSampleIDs: importedSampleIDs, calendar: calendar)
       try HealthWeightImport.apply(plan, in: context)
       lastImportCount = plan.count
       failure = nil
@@ -226,20 +227,21 @@ final class HealthSync {
     guard status == .on, let today else { return }
     let first = today.adding(days: -(HealthReconcile.windowDays - 1))
     guard let since = first.date(in: calendar) else { return }
+    let key = first.description
     do {
-      // Legacy keys can sort on either side of this window, so fetch them to protect their IDs.
-      let rows = try context.fetch(FetchDescriptor<DiaryEntryRecord>())
+      // The low-key clause retains Japanese-era keys; Buddhist keys are above the window.
+      let legacyBefore = "1900"
+      let rows = try context.fetch(
+        FetchDescriptor<DiaryEntryRecord>(
+          predicate: #Predicate { $0.dayKey >= key || $0.dayKey < legacyBefore }))
       let entries = rows.compactMap(HealthEntry.init).filter { entry in
         entry.day.isLegacyCalendarKey || entry.day >= first
       }
-      let activeEntryIDs = Set(entries.map(\.id))
-      let protectedEntryIDs = Set(rows.map(\.id)).subtracting(activeEntryIDs)
       let writable = await store.writableNutrients()
       deniedNutrients = Nutrient.allCases.filter { !writable.contains($0) }
       let held = try await store.nutritionSamples(since: since)
       let plan = HealthReconcile.plan(
-        entries: entries, held: held, writable: writable, calendar: calendar,
-        protectedEntryIDs: protectedEntryIDs)
+        entries: entries, held: held, writable: writable, calendar: calendar)
       guard !plan.save.isEmpty || !plan.delete.isEmpty else {
         failure = nil
         return

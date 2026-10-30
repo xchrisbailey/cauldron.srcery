@@ -452,7 +452,10 @@ struct HealthWeightImportTests {
     try context.save()
 
     let existing = try HealthWeightImport.existing(in: window, context: context)
-    let result = plan([sample("weight-1", today, 73.5)], existing: existing)
+    let result = HealthWeightImport.plan(
+      samples: [sample("weight-1", today, 73.5)], existing: existing, dismissed: [],
+      window: window, importedSampleIDs: try HealthWeightImport.importedSampleIDs(in: context),
+      calendar: calendar)
     #expect(result.isEmpty)
     #expect(try context.fetch(FetchDescriptor<WeighInRecord>()).map(\.day) == [legacyDay])
   }
@@ -999,6 +1002,23 @@ struct HealthSyncTests {
     #expect(await store.held == before)
     #expect(await store.saveRequests == 0)
     #expect(await store.deleteRequests == 0)
+  }
+
+  @Test func reconcileStillDeletesSamplesForEntriesMovedOutOfTheWindow() async throws {
+    let row = try synced("Moved")
+    let store = FakeHealthStore()
+    for nutrient in Nutrient.allCases {
+      await store.plant(
+        NutritionSample(
+          syncID: HealthNutrition.syncID(entry: row.id, nutrient: nutrient), nutrient: nutrient,
+          value: 100, date: noon(today), name: "Moved"), version: 1)
+    }
+    row.dayKey = today.adding(days: -40).description
+    try context.save()
+
+    let sync = await sync(store)
+    await sync.reconcile(in: context)
+    #expect(await store.held.isEmpty)
   }
 
   @Test func disconnectedDeletedAndReconnectedEndsClean() async throws {
