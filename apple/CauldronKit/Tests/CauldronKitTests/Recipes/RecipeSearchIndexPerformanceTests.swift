@@ -3,8 +3,9 @@ import Foundation
 import Testing
 
 /// A box of 1,000 recipes, searched as someone types. Timings are medians, so one slow step on
-/// a busy machine doesn't fail the run.
-@Suite("RecipeSearchIndex at 1,000 recipes")
+/// a busy machine doesn't fail the run. They run one at a time: side by side they are busy
+/// work enough to hold up other suites' timed async calls.
+@Suite("RecipeSearchIndex at 1,000 recipes", .serialized)
 struct RecipeSearchIndexPerformanceTests {
   /// A small repeatable generator, so the box is the same on every run.
   private struct Dice {
