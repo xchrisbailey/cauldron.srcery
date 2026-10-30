@@ -303,22 +303,11 @@ struct DayRolloverTests {
       let before = try #require(
         civil.date(from: DateComponents(year: 2026, month: 10, day: 10, hour: 23, minute: 59)))
       let after = try #require(civil.date(from: DateComponents(year: 2026, month: 10, day: 11)))
-      #expect(
-        TargetsForm.today(now: before, calendar: calendar)
-          == WeekDates.today(
-            now: before, calendar: calendar))
-      #expect(
-        TargetsForm.today(now: after, calendar: calendar)
-          == WeekDates.today(
-            now: after, calendar: calendar))
-      #expect(
-        RecipeCooking.today(now: before, calendar: calendar)
-          == WeekDates.today(
-            now: before, calendar: calendar))
-      #expect(
-        RecipeCooking.today(now: after, calendar: calendar)
-          == WeekDates.today(
-            now: after, calendar: calendar))
+      for (now, day) in [(before, LocalDate("2026-10-10")), (after, LocalDate("2026-10-11"))] {
+        #expect(TargetsForm.today(now: now, calendar: calendar) == day)
+        #expect(RecipeCooking.today(now: now, calendar: calendar) == day)
+        #expect(WeekDates.today(now: now, calendar: calendar) == day)
+      }
     }
   }
 }
