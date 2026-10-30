@@ -5,8 +5,9 @@ import Foundation
 /// calendar, so each label is built at noon on that day and can't slip across midnight.
 enum WeekDates {
   /// Today in the cook's own calendar.
-  static func today(now: Date = .now, calendar: Calendar = .current) -> LocalDate {
-    let parts = calendar.dateComponents([.year, .month, .day], from: now)
+  static func today(now: Date = .now, calendar: Calendar = DayKeyCalendar.current) -> LocalDate {
+    let parts = DayKeyCalendar.make(timeZone: calendar.timeZone).dateComponents(
+      [.year, .month, .day], from: now)
     guard let year = parts.year, let month = parts.month, let day = parts.day,
       let today = LocalDate(year: year, month: month, day: day)
     else { preconditionFailure("The calendar has no day for now.") }

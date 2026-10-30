@@ -40,7 +40,7 @@ enum HealthWeightImport {
   /// Only days in `window` are looked at, and readings outside what a weight can be are ignored.
   static func plan(
     samples: [HealthWeightSample], existing: [ExistingWeighIn], dismissed: Set<String>,
-    window: ClosedRange<LocalDate>, calendar: Calendar = .current
+    window: ClosedRange<LocalDate>, calendar: Calendar = DayKeyCalendar.current
   ) -> WeightImportPlan {
     // The day's latest reading; the id breaks a tie.
     var latest: [LocalDate: HealthWeightSample] = [:]

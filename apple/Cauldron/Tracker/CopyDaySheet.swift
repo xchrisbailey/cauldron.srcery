@@ -113,10 +113,10 @@ struct CopyDaySheet: View {
 
   private var fromDate: Binding<Date> {
     Binding(
-      get: { from.date(in: .current) ?? .now },
+      get: { from.date(in: DayKeyCalendar.current) ?? .now },
       set: { date in
         error = nil
-        if let picked = LocalDate(date, in: .current) { from = picked }
+        if let picked = LocalDate(date, in: DayKeyCalendar.current) { from = picked }
       })
   }
 
@@ -131,7 +131,7 @@ struct CopyDaySheet: View {
 
   /// "Wednesday, October 14", as the diary's header names a day.
   static func longLabel(of day: LocalDate) -> String {
-    day.date(in: .current)?.formatted(.dateTime.weekday(.wide).month(.wide).day())
+    day.date(in: DayKeyCalendar.current)?.formatted(.dateTime.weekday(.wide).month(.wide).day())
       ?? day.description
   }
 }

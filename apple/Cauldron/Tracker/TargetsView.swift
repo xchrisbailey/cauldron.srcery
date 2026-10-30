@@ -263,7 +263,7 @@ private struct AboutStep: View {
         let calendar = Calendar.current
         return (form.birthDate ?? form.today.adding(days: -365 * 30)).date(in: calendar) ?? .now
       },
-      set: { form.birthDate = LocalDate($0, in: .current) })
+      set: { form.birthDate = LocalDate($0, in: DayKeyCalendar.current) })
   }
 
   private var heightUnit: Binding<HeightUnit> {

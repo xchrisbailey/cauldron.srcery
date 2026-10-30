@@ -118,7 +118,8 @@ struct DayNavigator: View {
     case -1: return Copy.tracker.diary.yesterday.text
     case 1: return Copy.tracker.diary.tomorrow.text
     default:
-      return day.date(in: .current)?.formatted(.dateTime.weekday(.wide).month(.wide).day())
+      return day.date(in: DayKeyCalendar.current)?.formatted(
+        .dateTime.weekday(.wide).month(.wide).day())
         ?? day.description
     }
   }

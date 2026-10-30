@@ -63,7 +63,7 @@ enum HealthNutrition {
 
   static func date(day: LocalDate, slot: MealSlot, calendar: Calendar) -> Date {
     let time = hour(for: slot)
-    return calendar.date(
+    return DayKeyCalendar.make(timeZone: calendar.timeZone).date(
       from: DateComponents(
         year: day.year, month: day.month, day: day.day, hour: time.hour, minute: time.minute))
       ?? .now
@@ -72,7 +72,9 @@ enum HealthNutrition {
   /// What an entry adds to Health: every nutrient it knows, times its servings. Unknown numbers
   /// and a meal still waiting for its numbers write nothing, and anything not finite or below 0
   /// is left out.
-  static func plan(for entry: HealthEntry, calendar: Calendar = .current) -> NutritionPlan {
+  static func plan(for entry: HealthEntry, calendar: Calendar = DayKeyCalendar.current)
+    -> NutritionPlan
+  {
     let date = date(day: entry.day, slot: entry.slot, calendar: calendar)
     var save: [NutritionSample] = []
     var delete: [String] = []
@@ -127,7 +129,7 @@ enum HealthReconcile {
   /// - Leaves alone nutrients that aren't in `writable`, and samples that aren't Cauldron's.
   static func plan(
     entries: [HealthEntry], held: [HeldNutrition], writable: Set<Nutrient> = Set(Nutrient.allCases),
-    calendar: Calendar = .current
+    calendar: Calendar = DayKeyCalendar.current
   ) -> NutritionPlan {
     var wanted: [NutritionSample] = []
     for entry in entries {

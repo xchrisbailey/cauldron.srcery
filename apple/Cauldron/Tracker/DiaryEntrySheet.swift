@@ -163,8 +163,8 @@ struct DiaryEntrySheet: View {
 
   private var day: Binding<Date> {
     Binding(
-      get: { (draft.day ?? record.day)?.date(in: .current) ?? .now },
-      set: { draft.day = LocalDate($0, in: .current) })
+      get: { (draft.day ?? record.day)?.date(in: DayKeyCalendar.current) ?? .now },
+      set: { draft.day = LocalDate($0, in: DayKeyCalendar.current) })
   }
 
   /// Whether this entry's food is a favourite.

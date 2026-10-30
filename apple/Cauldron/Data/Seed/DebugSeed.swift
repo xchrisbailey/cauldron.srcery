@@ -38,7 +38,7 @@
 
     /// Today in the cook's own calendar.
     static func today() throws -> LocalDate {
-      let parts = Calendar.current.dateComponents([.year, .month, .day], from: .now)
+      let parts = DayKeyCalendar.current.dateComponents([.year, .month, .day], from: .now)
       guard let year = parts.year, let month = parts.month, let day = parts.day,
         let today = LocalDate(year: year, month: month, day: day)
       else { throw SeedError(message: "There is no calendar day for now.") }

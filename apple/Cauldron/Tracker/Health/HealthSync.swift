@@ -77,7 +77,7 @@ final class HealthSync {
 
   init(
     store: any HealthStore, setup: HealthSetup, defaults: UserDefaults = .standard,
-    calendar: Calendar = .current, now: @escaping @MainActor () -> Date = { .now },
+    calendar: Calendar = DayKeyCalendar.current, now: @escaping @MainActor () -> Date = { .now },
     accessAllowed: Bool = true
   ) {
     self.store = store
