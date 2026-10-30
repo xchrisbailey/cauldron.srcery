@@ -23,11 +23,8 @@ enum RecipeCooking {
     try context.save()
   }
 
-  /// Today in the cook's own calendar.
+  /// Today's Gregorian civil day in the cook's time zone.
   static func today(now: Date = .now, calendar: Calendar = DayKeyCalendar.current) -> LocalDate? {
-    let parts = DayKeyCalendar.make(timeZone: calendar.timeZone).dateComponents(
-      [.year, .month, .day], from: now)
-    guard let year = parts.year, let month = parts.month, let day = parts.day else { return nil }
-    return LocalDate(year: year, month: month, day: day)
+    LocalDate(now, in: calendar)
   }
 }

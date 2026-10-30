@@ -11,6 +11,11 @@
   @MainActor
   @Suite("Debug seed")
   struct DebugSeedTests {
+    @Test func todayUsesTheCanonicalDayKeyCalendar() throws {
+      #expect(try DebugSeed.today() == WeekDates.today())
+      #expect(try DebugSeed.today() == LocalDate(.now, in: DayKeyCalendar.current))
+    }
+
     // A Sunday, so the planned week is the one that ended today.
     private let today: LocalDate
 

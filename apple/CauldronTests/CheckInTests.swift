@@ -293,4 +293,32 @@ struct DayRolloverTests {
     #expect(before == LocalDate(year: 2026, month: 10, day: 10))
     #expect(after == LocalDate(year: 2026, month: 10, day: 11))
   }
+
+  @Test func targetsAndWeekUseGregorianDaysUnderNonGregorianCalendars() throws {
+    let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+    let civil = DayKeyCalendar.make(timeZone: zone)
+    for identifier in [Calendar.Identifier.buddhist, .japanese] {
+      var calendar = Calendar(identifier: identifier)
+      calendar.timeZone = zone
+      let before = try #require(
+        civil.date(from: DateComponents(year: 2026, month: 10, day: 10, hour: 23, minute: 59)))
+      let after = try #require(civil.date(from: DateComponents(year: 2026, month: 10, day: 11)))
+      #expect(
+        TargetsForm.today(now: before, calendar: calendar)
+          == WeekDates.today(
+            now: before, calendar: calendar))
+      #expect(
+        TargetsForm.today(now: after, calendar: calendar)
+          == WeekDates.today(
+            now: after, calendar: calendar))
+      #expect(
+        RecipeCooking.today(now: before, calendar: calendar)
+          == WeekDates.today(
+            now: before, calendar: calendar))
+      #expect(
+        RecipeCooking.today(now: after, calendar: calendar)
+          == WeekDates.today(
+            now: after, calendar: calendar))
+    }
+  }
 }

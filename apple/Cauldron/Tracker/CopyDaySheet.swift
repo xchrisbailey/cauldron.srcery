@@ -105,7 +105,7 @@ struct CopyDaySheet: View {
 
   /// A year back from the open day, up to the day itself.
   private var dateRange: ClosedRange<Date> {
-    let calendar = Calendar.current
+    let calendar = DayKeyCalendar.current
     let earliest = day.adding(days: -365).date(in: calendar) ?? .distantPast
     let latest = day.date(in: calendar) ?? .distantFuture
     return earliest...latest

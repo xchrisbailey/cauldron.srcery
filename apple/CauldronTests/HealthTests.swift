@@ -223,6 +223,18 @@ struct HealthNutritionTests {
     #expect(parts(.snack) == [2026, 10, 10, 15, 30])
   }
 
+  @Test func healthWriteDatesAreGregorianUnderOtherCalendarIdentifiers() throws {
+    let zone = try #require(TimeZone(identifier: "Pacific/Auckland"))
+    let gregorian = DayKeyCalendar.make(timeZone: zone)
+    let expected = try #require(
+      gregorian.date(from: DateComponents(year: 2026, month: 10, day: 10, hour: 12, minute: 30)))
+    for identifier in [Calendar.Identifier.buddhist, .japanese] {
+      var calendar = Calendar(identifier: identifier)
+      calendar.timeZone = zone
+      #expect(HealthNutrition.date(day: day, slot: .lunch, calendar: calendar) == expected)
+    }
+  }
+
   @Test func removingAnEntryNamesAllFourSamples() {
     let plan = HealthNutrition.removal(of: id)
     #expect(plan.save.isEmpty && plan.delete.count == 4)

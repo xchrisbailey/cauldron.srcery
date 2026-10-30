@@ -249,7 +249,7 @@ private struct AboutStep: View {
   }
 
   private var birthDateRange: ClosedRange<Date> {
-    let calendar = Calendar.current
+    let calendar = DayKeyCalendar.current
     let earliest =
       calendar.date(from: DateComponents(year: TargetsForm.earliestBirthYear)) ?? .distantPast
     let latest = form.today.date(in: calendar) ?? .now
@@ -260,7 +260,7 @@ private struct AboutStep: View {
   private var birthDate: Binding<Date> {
     Binding(
       get: {
-        let calendar = Calendar.current
+        let calendar = DayKeyCalendar.current
         return (form.birthDate ?? form.today.adding(days: -365 * 30)).date(in: calendar) ?? .now
       },
       set: { form.birthDate = LocalDate($0, in: DayKeyCalendar.current) })
