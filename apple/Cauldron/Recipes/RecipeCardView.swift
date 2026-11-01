@@ -13,9 +13,12 @@ struct RecipeCardView: View {
   var body: some View {
     let card = RecipeCardInfo(recipe)
     HStack(spacing: 12) {
-      RecipePhotoView(photo: recipe.photo)
-        .frame(width: 72, height: 72)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+      // A recipe with no photo has no tile: its text takes the whole card.
+      if card.hasPhoto {
+        RecipePhotoView(photo: recipe.photo)
+          .frame(width: 72, height: 72)
+          .clipShape(RoundedRectangle(cornerRadius: 10))
+      }
       VStack(alignment: .leading, spacing: 6) {
         Text(verbatim: card.title)
           .font(.brand(.section, size: titleSize))

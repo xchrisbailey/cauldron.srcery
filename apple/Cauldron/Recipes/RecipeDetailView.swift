@@ -9,6 +9,9 @@ struct RecipeDetailView: View {
   let recipe: RecipeRecord
   /// Whether this is the recipe's own window on the Mac, where there is no other window to open.
   let inOwnWindow: Bool
+  /// Whether it was pushed onto a phone's navigation stack, whose bar is its own to title. Beside
+  /// a list the bar belongs to the whole screen, so the recipe leaves it alone.
+  let pushed: Bool
   /// Asked to banish this recipe. The library confirms it and does the deleting.
   let onBanish: () -> Void
 
@@ -28,13 +31,23 @@ struct RecipeDetailView: View {
   /// The copy just made, whose editor is open.
   @State private var copy: RecipeRecord?
   @State private var couldntCopy = false
+  /// Where the page's own title ends in the scrolled content, and whether it has scrolled out of
+  /// sight. Until it has, the page's title is the only one; the navigation bar's takes over then.
+  @State private var titleBottom: CGFloat = .infinity
+  @State private var titleScrolledOut = false
 
-  init(recipe: RecipeRecord, inOwnWindow: Bool = false, onBanish: @escaping () -> Void) {
+  init(
+    recipe: RecipeRecord, inOwnWindow: Bool = false, pushed: Bool = false,
+    onBanish: @escaping () -> Void
+  ) {
     self.recipe = recipe
     self.inOwnWindow = inOwnWindow
+    self.pushed = pushed
     self.onBanish = onBanish
     _scale = State(initialValue: .initial(servings: recipe.servings))
   }
+
+  private static let contentSpace = "recipeContent"
 
   private var units: UnitSystemChoice { UnitPreference.current(preferences) }
 
@@ -54,12 +67,19 @@ struct RecipeDetailView: View {
         footer
       }
       .padding(20)
+      .coordinateSpace(.named(Self.contentSpace))
       .frame(maxWidth: 1040, alignment: .leading)
       .frame(maxWidth: .infinity)
     }
     .background(Brand.Colors.base)
+    .onScrollGeometryChange(for: Bool.self) { [titleBottom] geometry in
+      geometry.contentOffset.y + geometry.contentInsets.top >= titleBottom
+    } action: { _, scrolledOut in
+      titleScrolledOut = scrolledOut
+    }
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
+      .modifier(PushedTitle(pushed: pushed, title: titleScrolledOut ? recipe.title : ""))
     #endif
     .sheet(item: $copy) { RecipeCopySheet(copy: $0) }
     #if os(macOS)
@@ -102,6 +122,13 @@ struct RecipeDetailView: View {
       Text(verbatim: recipe.title)
         .brandText(.title)
         .accessibilityAddTraits(.isHeader)
+        // The navigation bar has no title to announce until this one scrolls away.
+        .accessibilitySortPriority(1)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+          proxy.frame(in: .named(Self.contentSpace)).maxY
+        } action: {
+          titleBottom = $0
+        }
       if let summary = recipe.summary, !summary.isEmpty {
         Text(verbatim: summary)
           .brandText(.body)
@@ -110,14 +137,25 @@ struct RecipeDetailView: View {
     }
   }
 
+  /// Three rows at every width, so a recipe's facts sit in the same places as the next one's:
+  /// its times, the servings stepper, and its tags. A row with nothing to show is left out.
   private var facts: some View {
     let times = RecipeTimes(recipe)
-    return FlowLayout {
-      if let total = times.total { chip(total) }
-      if let prep = times.prep { chip("\(prep) \(Copy.recipeView.prep.text)") }
-      if let cook = times.cook { chip("\(cook) \(Copy.recipeView.cook.text)") }
+    let tags = TagChip.chips(recipe)
+    return VStack(alignment: .leading, spacing: 10) {
+      if times.total != nil || times.prep != nil || times.cook != nil {
+        FlowLayout {
+          if let total = times.total { chip(total) }
+          if let prep = times.prep { chip("\(prep) \(Copy.recipeView.prep.text)") }
+          if let cook = times.cook { chip("\(cook) \(Copy.recipeView.cook.text)") }
+        }
+      }
       stepper
-      ForEach(TagChip.chips(recipe), id: \.self) { TagChipView(tag: $0) }
+      if !tags.isEmpty {
+        FlowLayout {
+          ForEach(tags, id: \.self) { TagChipView(tag: $0) }
+        }
+      }
     }
   }
 
@@ -189,17 +227,21 @@ struct RecipeDetailView: View {
     }
   }
 
+  /// Start brewing is the one filled button and Stir into the week sits beside it on a plate.
+  /// The rest are bare text under them: no weight of their own, but each still a 44pt target.
   private var actions: some View {
-    VStack(spacing: 8) {
+    VStack(alignment: .leading, spacing: 4) {
       row {
         RecipeBrewAction(recipe: recipe, scale: scale)
         RecipeAddToWeekAction(recipe: recipe, scale: scale, isChoosing: $choosing)
       }
-      row {
+      FlowLayout(spacing: 0) {
         RecipeLogAction(recipe: recipe)
         RecipeMarkBrewedAction(recipe: recipe)
         RecipeEditAction(recipe: recipe, isEditing: $editing)
       }
+      // The quiet buttons pad their text; take it back so the words line up with the plates.
+      .padding(.leading, -8)
     }
     // Buttons that each fill their share would stretch across a wide window.
     .frame(maxWidth: 640, alignment: .leading)
@@ -297,15 +339,20 @@ struct RecipeDetailView: View {
         }
       }
       if let notes = recipe.notes, !notes.isEmpty {
-        HStack(alignment: .top, spacing: 10) {
+        // The brand book's cook's tip: a wash of `tips` with a hairline of it, and the sparkle.
+        HStack(alignment: .top, spacing: 12) {
           Image(systemName: "sparkle")
             .foregroundStyle(Brand.Colors.tips)
             .accessibilityHidden(true)
           Text(verbatim: notes).brandText(.body)
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 10))
+        .background(Brand.Colors.tips.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+          RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(Brand.Colors.tips.opacity(0.3), lineWidth: 1))
       }
     }
   }
@@ -386,6 +433,23 @@ struct RecipeDetailView: View {
   }
 }
 
+#if os(iOS)
+  /// Titles the navigation bar of a recipe pushed onto a stack. Any other recipe leaves the bar be:
+  /// setting even an empty title there would blank the list's own.
+  private struct PushedTitle: ViewModifier {
+    let pushed: Bool
+    let title: String
+
+    func body(content: Content) -> some View {
+      if pushed {
+        content.navigationTitle(title)
+      } else {
+        content
+      }
+    }
+  }
+#endif
+
 /// A flowing ingredient line, with the amount and unit kept together in Geist Mono.
 struct IngredientLineView: View {
   let line: IngredientRow.Line
@@ -454,12 +518,16 @@ struct StepView: View {
       VStack(alignment: .leading, spacing: 4) {
         Text(verbatim: text).brandText(.body)
         if let timer {
+          // The brand book's timer chip: heat text on a wash of heat.
           Label {
             Text(verbatim: timer).brandText(.quantity)
           } icon: {
             Image(systemName: "timer")
           }
           .foregroundStyle(Brand.Colors.heat)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 2)
+          .background(Brand.Colors.heat.opacity(0.14), in: Capsule())
         }
       }
       Spacer(minLength: 0)

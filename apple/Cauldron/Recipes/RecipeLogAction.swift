@@ -13,7 +13,7 @@ struct RecipeLogAction: View {
     } label: {
       Text(verbatim: Copy.tracker.logRecipe.title.text)
     }
-    .buttonStyle(RecipeActionButtonStyle())
+    .buttonStyle(RecipeActionButtonStyle(.quiet))
     .sheet(isPresented: $logging) {
       RecipeLogSheet(recipe: recipe, onClose: { logging = false })
     }

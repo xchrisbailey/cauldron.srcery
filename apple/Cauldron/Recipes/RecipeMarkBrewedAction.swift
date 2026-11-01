@@ -15,7 +15,7 @@ struct RecipeMarkBrewedAction: View {
     Button(action: markBrewed) {
       Text(verbatim: confirmation ?? Copy.recipeView.markBrewed.text)
     }
-    .buttonStyle(RecipeActionButtonStyle())
+    .buttonStyle(RecipeActionButtonStyle(.quiet))
     .disabled(recipe.isBanished)
     .task(id: confirmationCount) {
       guard confirmation != nil else { return }
