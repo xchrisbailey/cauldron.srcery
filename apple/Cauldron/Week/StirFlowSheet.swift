@@ -63,6 +63,7 @@ struct StirFlowSheet: View {
             NavigationLink(value: match.id) { row(match) }
           }
         }
+        .brandFormRows()
         CloseMatchesSection(matches: results) { match in
           NavigationLink(value: match.id) { row(match) }
         }
@@ -79,12 +80,13 @@ struct StirFlowSheet: View {
         } header: {
           Text(verbatim: Copy.week.orWrite.text)
         }
+        .brandFormRows()
         if let problem {
           Section { Text(verbatim: problem).foregroundStyle(Brand.Colors.heat) }
+            .brandFormRows()
         }
       }
-      .scrollContentBackground(.hidden)
-      .background(Brand.Colors.base)
+      .brandForm()
       .navigationTitle(
         Text(
           verbatim: Copy.week.stirInto(
@@ -217,10 +219,10 @@ struct SpreadView: View {
           Text(verbatim: Copy.week.slot.text)
         }
       }
+      .brandFormRows()
       SpreadSections(plan: $plan, today: today, problem: problem, onStir: stir)
     }
-    .scrollContentBackground(.hidden)
-    .background(Brand.Colors.base)
+    .brandForm()
     .navigationTitle(Text(verbatim: recipe.title))
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)

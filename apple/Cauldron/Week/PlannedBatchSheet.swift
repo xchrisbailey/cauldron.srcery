@@ -53,6 +53,7 @@ struct PlannedBatchSheet: View {
           .foregroundStyle(
             draftSummary.isConflict ? Brand.Colors.heat : Brand.Colors.subtext)
       }
+      .brandFormRows()
       Section {
         ForEach((batch.entries ?? []).sorted(by: entryOrder), id: \.persistentModelID) { entry in
           assignmentRow(entry)
@@ -60,6 +61,7 @@ struct PlannedBatchSheet: View {
       } header: {
         Text(verbatim: Copy.week.spread.days.text)
       }
+      .brandFormRows()
       Section {
         Picker(selection: $day) {
           ForEach(week, id: \.self) { value in
@@ -108,8 +110,9 @@ struct PlannedBatchSheet: View {
       } header: {
         Text(verbatim: Copy.week.addAssignment.text)
       }
+      .brandFormRows()
       if let problem {
-        Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
+        Text(verbatim: problem).foregroundStyle(Brand.Colors.heat).brandFormRows()
       }
       Section {
         Button(role: .destructive) {
@@ -119,10 +122,10 @@ struct PlannedBatchSheet: View {
         }
         .accessibilityIdentifier("week.batchEditor.remove")
       }
+      .brandFormRows()
     }
     .formStyle(.grouped)
-    .scrollContentBackground(.hidden)
-    .background(Brand.Colors.base)
+    .brandForm()
     .navigationTitle(Text(verbatim: batch.title))
     #if os(iOS)
       .navigationBarTitleDisplayMode(.inline)

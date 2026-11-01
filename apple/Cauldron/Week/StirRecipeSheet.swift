@@ -75,11 +75,11 @@ struct StirRecipeSheet: View {
             Text(verbatim: Copy.week.slot.text)
           }
         }
+        .brandFormRows()
         SpreadSections(plan: $plan, today: today, problem: problem, onStir: stir)
       }
       .formStyle(.grouped)
-      .scrollContentBackground(.hidden)
-      .background(Brand.Colors.base)
+      .brandForm()
       .navigationTitle(Text(verbatim: Copy.week.stirIntoWeek.text))
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

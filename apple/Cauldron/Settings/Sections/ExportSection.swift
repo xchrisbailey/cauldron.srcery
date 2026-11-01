@@ -38,6 +38,7 @@ struct ExportSection: View {
     } footer: {
       Text(Copy.export.explanation.text)
     }
+    .brandFormRows()
   }
 
   private var exportButton: some View {

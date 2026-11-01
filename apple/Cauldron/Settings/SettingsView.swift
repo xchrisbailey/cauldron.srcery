@@ -46,6 +46,7 @@ struct SettingsView: View {
       .scrollContentBackground(.hidden)
       .readingColumn(maxWidth: ReadingColumn.form)
       .background(Brand.Colors.base)
+      .brandWindowToolbar()
       .navigationTitle(Copy.settings.title.text)
     }
   }
