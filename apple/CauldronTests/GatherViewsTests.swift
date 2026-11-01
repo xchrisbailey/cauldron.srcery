@@ -59,6 +59,39 @@ import Testing
       }
     }
 
+    @Test func everyRowKeepsOneShapeWithAndWithoutARemoveSlotAtEveryTextSize() throws {
+      let context = ModelContext(try seeded())
+      let today = try DebugSeed.today().startOfWeek(startingOn: .monday)
+      let records = try context.fetch(FetchDescriptor<GatherItemRecord>())
+      let items = GatherSnapshot(start: today, records: records, pantry: []).items
+      let hasManual = items.contains { $0.manual }
+      #expect(hasManual)
+      for item in items.prefix(2) + items.filter(\.manual) {
+        for reserves in [false, true] {
+          for size in [DynamicTypeSize.large, .accessibility5] {
+            for (width, height) in [(320.0, 700.0), (390.0, 700.0), (760.0, 300.0)] {
+              let row = GatherItemRow(
+                item: item, onCheck: { _ in }, onPantry: { _ in }, onRemove: {},
+                reservesRemove: reserves
+              )
+              .environment(\.dynamicTypeSize, size)
+              #expect(renders(row, width: width, height: height), "\(size) \(width)")
+            }
+          }
+        }
+      }
+    }
+
+    @Test func anAisleHeaderRendersInBothAppearances() {
+      for scheme in [ColorScheme.light, .dark] {
+        let header = GatherAisleHeader(title: Copy.gather.aisles.dairy.text)
+          .environment(\.colorScheme, scheme)
+        #expect(renders(header, width: 390, height: 60))
+      }
+      // The capitals come from the text case, so the string stays as written.
+      #expect(Copy.gather.aisles.dairy.text == "Dairy and eggs")
+    }
+
     @Test func theTickBoxRendersOnAndOff() {
       for on in [true, false] {
         let view = Toggle(isOn: .constant(on)) { Text(verbatim: "Milk") }
