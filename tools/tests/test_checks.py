@@ -293,7 +293,7 @@ class ChecksCLITests(unittest.TestCase):
         descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         inode = lock.stat().st_ino
-        conflict = self.invoke("focused", "--platform", "ios", "--test", "CauldronTests/Suite")
+        conflict = self.invoke("focused", "--platform", "ios", "--test", "CauldronTests/Suite", CAULDRON_LOCK_WAIT="0")
         self.assertEqual(conflict.returncode, 1)
         self.assertIn("holds the shared lock", conflict.stderr)
         fcntl.flock(descriptor, fcntl.LOCK_UN)
@@ -302,6 +302,26 @@ class ChecksCLITests(unittest.TestCase):
         abandoned = self.invoke("focused", "--platform", "ios", "--test", "CauldronTests/Suite")
         self.assertEqual(abandoned.returncode, 0, abandoned.stderr + abandoned.stdout)
         self.assertEqual(lock.stat().st_ino, inode)
+
+    def test_ios_runner_waits_for_a_held_lock_and_names_its_holder(self) -> None:
+        lock = self.root / ".git/cauldron/ios-runner.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        os.write(descriptor, b"pid 4242 in /elsewhere")
+        environment = os.environ | {"PATH": str(self.bin) + os.pathsep + os.environ["PATH"], "CAULDRON_LOCK_WAIT": "30"}
+        waiting = subprocess.Popen(
+            [sys.executable, "-B", "tools/checks.py", "focused", "--platform", "ios", "--test", "CauldronTests/Suite"],
+            cwd=self.root, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        time.sleep(1)
+        self.assertIsNone(waiting.poll())
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+        stdout, stderr = waiting.communicate(timeout=30)
+        self.assertEqual(waiting.returncode, 0, stderr + stdout)
+        self.assertIn("waiting up to 30s for the shared iOS lock (pid 4242 in /elsewhere)", stderr)
+        self.assertIn(f"pid {waiting.pid}", lock.read_text())
 
     def test_ready_records_complete_counts_and_tooling_evidence(self) -> None:
         result = self.invoke("ready")

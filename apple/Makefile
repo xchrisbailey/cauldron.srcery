@@ -6,7 +6,7 @@ IOS_SIMULATOR ?= platform=iOS Simulator,name=iPhone 17,OS=27.0
 PLATFORM ?= macos
 CONFIGURATION ?= Debug
 
-.PHONY: ready format lint lint-store lint-buttons lint-copy test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
+.PHONY: ready format lint lint-store lint-buttons lint-copy lint-project test test-kit test-app test-mac test-ios build project test-focused tooling-test setup-hooks workflow-status release-build release-preflight
 
 ## standard readiness; Mac UI automation is opt-in (docs/native/ui-evidence.md)
 ready:
@@ -17,7 +17,7 @@ format:
 	swift format format --in-place --recursive --parallel $(SWIFT_SOURCES)
 
 ## fail on anything `make format` would change, and on lint rules
-lint: lint-store lint-buttons lint-copy
+lint: lint-store lint-buttons lint-copy lint-project
 	swift format lint --strict --recursive --parallel $(SWIFT_SOURCES)
 
 ## Only CauldronStore may open a store. A container made anywhere else can land on
@@ -34,6 +34,11 @@ lint-buttons:
 ## SwiftSyntax parses app view expressions so only visible literal copy is caught.
 lint-copy:
 	python3 -B ../tools/hooks.py lint-native --policy copy
+
+## XcodeGen can leave TEMP_ placeholder IDs in the generated project. For a version bump,
+## use `tools/release.py bump`, which edits only the version lines.
+lint-project:
+	python3 -B ../tools/hooks.py lint-native --policy project
 
 test: test-kit test-app
 

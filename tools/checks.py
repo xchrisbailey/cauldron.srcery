@@ -12,6 +12,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 import uuid
 
 sys.dont_write_bytecode = True
@@ -315,14 +316,32 @@ def execute_ready(root: Path, log: Path, artifact_dir: Path) -> dict:
     return counts
 
 
+LOCK_WAIT_SECONDS = 2 * 60 * 60
+LOCK_POLL_SECONDS = 2
+
+
 def with_ios_lock(state: Path):
+    # Queue behind another runner instead of failing; CAULDRON_LOCK_WAIT=0 fails at once.
     lock = state / "ios-runner.lock"
     descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        os.close(descriptor)
-        raise
+    wait = float(os.environ.get("CAULDRON_LOCK_WAIT", LOCK_WAIT_SECONDS))
+    deadline = time.monotonic() + wait
+    announced = False
+    while True:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                os.close(descriptor)
+                raise
+            if not announced:
+                holder = os.pread(descriptor, 256, 0).decode(errors="replace").strip() or "unknown"
+                print(f"checks: waiting up to {wait:.0f}s for the shared iOS lock ({holder})", file=sys.stderr, flush=True)
+                announced = True
+            time.sleep(min(LOCK_POLL_SECONDS, max(deadline - time.monotonic(), 0)))
+    os.ftruncate(descriptor, 0)
+    os.pwrite(descriptor, f"pid {os.getpid()} in {Path.cwd()}".encode(), 0)
     return lock, descriptor
 
 

@@ -38,6 +38,12 @@ def child_environment() -> dict[str, str]:
 
 def native_policy(path: str, text: str, policy: str = "all") -> list[str]:
     parts = Path(path).parts
+    if path.endswith(".pbxproj") and policy in {"all", "project"}:
+        # XcodeGen leaves TEMP_ IDs when it half-regenerates; Xcode Cloud then builds a different project.
+        return [
+            f"{path}:{number}: placeholder TEMP_ ID; restore the project and run `make project` again"
+            for number, line in enumerate(text.splitlines(), 1) if "TEMP_" in line
+        ]
     if len(parts) < 3 or parts[0] != "apple" or not path.endswith(".swift"):
         return []
     errors = []
@@ -57,7 +63,7 @@ def native_policy(path: str, text: str, policy: str = "all") -> list[str]:
 def lint_native(policy: str) -> None:
     root = repository()
     errors = []
-    for path in (root / "apple").rglob("*.swift"):
+    for path in [*(root / "apple").rglob("*.swift"), *(root / "apple").glob("*.xcodeproj/project.pbxproj")]:
         if any(part in {".build", ".swiftpm", "DerivedData"} for part in path.parts):
             continue
         errors.extend(native_policy(str(path.relative_to(root)), path.read_text(), policy))
@@ -166,6 +172,10 @@ def pre_commit() -> None:
     with tempfile.TemporaryDirectory(prefix="cauldron-staged-") as directory:
         temporary = Path(directory)
         for path in filter(None, paths):
+            if path.endswith(".pbxproj"):
+                staged = subprocess.check_output(["git", "show", f":{path}"], cwd=root).decode()
+                errors.extend(native_policy(path, staged))
+                continue
             if not path.endswith((".swift", ".json", ".py", ".plist", ".entitlements")):
                 continue
             content = subprocess.check_output(["git", "show", f":{path}"], cwd=root)
@@ -313,7 +323,7 @@ def main() -> int:
     sub.add_parser("pre-commit")
     sub.add_parser("pre-push")
     lint = sub.add_parser("lint-native")
-    lint.add_argument("--policy", choices=("all", "store", "buttons", "copy"), default="all")
+    lint.add_argument("--policy", choices=("all", "store", "buttons", "copy", "project"), default="all")
     args = parser.parse_args()
     try:
         if args.command == "install":
