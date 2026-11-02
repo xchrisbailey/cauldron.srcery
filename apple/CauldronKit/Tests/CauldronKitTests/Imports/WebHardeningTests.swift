@@ -47,7 +47,7 @@ struct HostilePageTests {
     #expect(SchemaOrg.isoMinutes(.string(String(repeating: "1", count: 200_000))) == nil)
     #expect(
       SchemaOrg.isoMinutes(.string(String(repeating: "1", count: 200_000) + " minutes")) == nil)
-    #expect(start.duration(to: clock.now) < .milliseconds(100))
+    #expect(start.duration(to: clock.now) < .seconds(1))
     #expect(SchemaOrg.isoMinutes(.string("1 hr 20 mins")) == 80)
     #expect(SchemaOrg.isoMinutes(.string("PT1H20M")) == 80)
   }

@@ -66,6 +66,20 @@ class HookTests(unittest.TestCase):
         self.assertIn("CauldronStore", result.stderr)
         self.assertEqual(path.read_text(), "let safe = 1\n")
 
+    def test_project_policy_rejects_xcodegen_placeholder_ids_staged_and_in_lint(self):
+        path = self.root / "apple/Cauldron.xcodeproj/project.pbxproj"
+        path.parent.mkdir(parents=True)
+        path.write_text("\t\tTEMP_1A2B /* App.swift */ = {isa = PBXBuildFile; };\n")
+        self.git("add", "apple")
+        staged = self.command("pre-commit")
+        self.assertNotEqual(staged.returncode, 0)
+        self.assertIn("project.pbxproj:1: placeholder TEMP_ ID", staged.stderr)
+        linted = self.command("lint-native", "--policy", "project")
+        self.assertNotEqual(linted.returncode, 0)
+        self.assertIn("placeholder TEMP_ ID", linted.stderr)
+        path.write_text("\t\t1A2B /* App.swift */ = {isa = PBXBuildFile; };\n")
+        self.assertEqual(self.command("lint-native", "--policy", "project").returncode, 0)
+
     def test_copy_lint_parses_visible_literals_not_comments_metadata_or_copy_expressions(self):
         result = subprocess.run(
             ["xcrun", "--find", "swiftc"], capture_output=True, text=True,

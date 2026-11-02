@@ -14,6 +14,9 @@ path. UI screenshot attachments are retained in the `.xcresult` bundle; export t
 non-repository scratch/artifact directory with `xcrun xcresulttool export attachments --path
 <result.xcresult> --output-path <artifact-directory>`.
 
+To show screenshots in a PR body, run `python3 -B tools/evidence.py --pr N SHOT.png ...` after the PR
+exists. It adds them to the `evidence` branch under `pr-N/` and prints Markdown image links to paste.
+
 `checks.py ready` is the standard readiness check: it runs lint, package tests, Mac app tests
 (`CauldronTests` only), iOS app tests and iOS UI tests, plus tooling tests. The Mac UI suite is
 intentionally opt-in because it requires interactive macOS automation. Run it explicitly when

@@ -13,7 +13,9 @@ python3 -B tools/checks.py package --filter CopyTests
 make -C apple tooling-test
 ```
 
-Use exact Xcode identifiers. A method identifier includes its parentheses; an exit-zero run with zero executed tests is a failure. The runner reads result bundles, records actual counts and classifies assertion, compilation, test-runner and selection failures separately. iOS runs share a lock; this is not permission to boot/drive an unrelated simulator.
+Use exact Xcode identifiers. A method identifier includes its parentheses; an exit-zero run with zero executed tests is a failure. The runner reads result bundles, records actual counts and classifies assertion, compilation, test-runner and selection failures separately. iOS runs share a lock; this is not permission to boot/drive an unrelated simulator. A run that finds the lock held queues behind it, printing who holds it, for up to two hours (`CAULDRON_LOCK_WAIT` seconds; `0` fails at once). To queue several runs, start them one after another.
+
+A run's result is its exit code and the record at `.git/cauldron/runs/<id>/result.json`; the last line names it. Read that record for pass or fail. Piping the run into `tail` or `grep` reports the pipe's exit status, so a failed run reads as zero.
 
 For UI interaction checks and inspectable image artifacts, read [UI evidence](../native/ui-evidence.md). Use the explicit isolated UI-test launch contract; a separate UI-test runner does not automatically make the app's store or services safe. Rendering success alone is not layout or accessibility verification.
 
@@ -56,7 +58,7 @@ Read `docs/native/data-model.md` before schema work or any `v*` tag. Builds, dev
 
 Start with `python3 -B tools/release.py plan VERSION` to inspect committed version consistency, changed model/registry sources and attestation requirements before building. The plan is read-only and advisory, not release approval. Resolve pending edits and finalize the version before the final readiness run. See [release tools](../native/release-tools.md) for revision scope and the authenticated, read-only Xcode Cloud status command; a tag or local test result cannot establish Apple's build or delivery state.
 
-1. Commit the intended version and run final full validation on the clean release revision.
+1. Set the version with `python3 -B tools/release.py bump X.Y.Z`, which edits only the version lines in `project.yml` and the generated project (`make project` also reorders unrelated entries). Commit it and run final full validation on the clean release revision.
 2. Use `python3 -B tools/release.py build --configuration Debug`, then the same command with `Release`, to create signed artifacts and revision-bound provenance without launching the app. Read the output paths. Missing or wrong signing fails preflight rather than weakening the runtime guard.
 3. If models/registry changed since the preceding release, initialize Development using the guarded scratch-store command, then inspect **Development → Schema → Deploy Schema Changes** in CloudKit Console. Deploy listed changes and record `record-schema VERSION --phase deployed --note '...'`; if there is nothing to deploy, record `--phase production-current` and accurately describe that inspection. Both require matching initialization evidence. These are explicit human attestations, not remote API verification; never record `deployed` unless a deployment actually occurred. Stale or missing attestations block preflight; unchanged schema is reported as unchanged.
 4. Run `make -C apple release-preflight VERSION=vX.Y.Z DEBUG_APP=/path/Debug/Cauldron.app RELEASE_APP=/path/Release/Cauldron.app`. It checks version, current-head full validation, signed environments/container/team, artifact provenance and required schema attestations. It does not make a tag.

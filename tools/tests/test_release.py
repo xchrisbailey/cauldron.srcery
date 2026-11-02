@@ -151,6 +151,18 @@ PY
         self.assertIn("staged, unstaged, and untracked", dirty["warning"])
         self.assertEqual(json.loads(self.run_cli("plan", "v9.9.9").stdout)["requestedVersionMatches"], False)
 
+    def test_bump_changes_only_the_version_lines(self):
+        project = self.root / "apple/project.yml"
+        pbxproj = self.root / "apple/Cauldron.xcodeproj/project.pbxproj"
+        project.write_text('settings:\n  MARKETING_VERSION: "1.2.3"\n  Info: $(MARKETING_VERSION)\n')
+        pbxproj.write_text("\t\tB = 2;\n\t\t\t\tMARKETING_VERSION = 1.2.3;\n\t\tA = 1;\n\t\t\t\tMARKETING_VERSION = 1.2.3;\n")
+        result = json.loads(self.run_cli("bump", "1.2.4").stdout)
+        self.assertEqual((result["from"], result["to"]), ("1.2.3", "1.2.4"))
+        self.assertEqual(project.read_text(), 'settings:\n  MARKETING_VERSION: "1.2.4"\n  Info: $(MARKETING_VERSION)\n')
+        self.assertEqual(pbxproj.read_text(), "\t\tB = 2;\n\t\t\t\tMARKETING_VERSION = 1.2.4;\n\t\tA = 1;\n\t\t\t\tMARKETING_VERSION = 1.2.4;\n")
+        self.assertEqual(self.run_cli("bump", "v1.2.4", check=False).returncode, 1)
+        self.assertEqual(self.run_cli("bump", "1.2", check=False).returncode, 1)
+
     def test_plan_in_fresh_repository_does_not_create_evidence_or_touch_git_files(self):
         fresh = Path(self.temp.name) / "fresh"
         (fresh / "tools").mkdir(parents=True)

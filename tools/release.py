@@ -50,6 +50,28 @@ def project_versions(root: Path) -> tuple[str, str]:
     return matches[0], generated.pop()
 
 
+def bump(requested: str) -> dict:
+    # Edits only the version lines; `make project` would also reorder unrelated project entries.
+    version = version_label(requested if requested.startswith("v") else f"v{requested}")[1:]
+    root = support.repository()
+    current, generated = project_versions(root)
+    if current != generated:
+        raise support.WorkflowError(f"project.yml has {current} but the generated project has {generated}")
+    if version == current:
+        raise support.WorkflowError(f"Already at {version}")
+    project = root / "apple/project.yml"
+    project.write_text(re.sub(
+        r'^(\s*MARKETING_VERSION:\s*)(["\']?)[^\s"\']+\2',
+        lambda match: f"{match[1]}{match[2]}{version}{match[2]}", project.read_text(), count=1, flags=re.M,
+    ))
+    pbxproj = root / "apple/Cauldron.xcodeproj/project.pbxproj"
+    pbxproj.write_text(re.sub(r"\b(MARKETING_VERSION\s*=\s*)[^;\s]+(\s*;)", rf"\g<1>{version}\g<2>", pbxproj.read_text()))
+    if project_versions(root) != (version, version):
+        raise support.WorkflowError("Version lines did not update consistently")
+    return {"from": current, "to": version,
+            "changed": ["apple/project.yml", "apple/Cauldron.xcodeproj/project.pbxproj"]}
+
+
 def git_tags(root: Path) -> list[tuple[tuple[int, int, int], str]]:
     tags = support.git("tag", "--list", "v*", cwd=root).splitlines()
     result = []
@@ -432,6 +454,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     plan_parser = commands.add_parser("plan", help="show a read-only advisory for committed HEAD")
     plan_parser.add_argument("version", nargs="?")
+    bump_parser = commands.add_parser("bump", help="set MARKETING_VERSION in project.yml and the generated project")
+    bump_parser.add_argument("version")
     schema = commands.add_parser("record-schema")
     schema.add_argument("version")
     schema.add_argument("--phase", required=True, choices=tuple(sorted(SCHEMA_PHASES)))
@@ -448,6 +472,8 @@ def main(argv: list[str] | None = None) -> int:
             value = attest(args.phase, args.version, args.note)
         elif args.command == "plan":
             value = plan(args.version)
+        elif args.command == "bump":
+            value = bump(args.version)
         elif args.command == "build":
             value = build(args.configuration)
         else:

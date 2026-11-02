@@ -8,7 +8,7 @@ Implement one bounded brief. The lead owns scope, product decisions, architectur
 2. Check doubtful Apple APIs against the installed SDK. Reuse existing services, value types, copy and brand helpers. Schema, project settings and signing changes require explicit scope in the brief.
 3. Test through the agreed public seams with Swift Testing and the existing doubles. Obtain every test/preview store through `CauldronStore.container(.inMemory)`.
 4. For behaviour changes, observe the relevant assertion failing before implementing the change. A compilation failure or intentionally empty implementation is not behavioural red evidence. For behaviour-preserving work, record a passing baseline instead.
-5. Use `make -C apple test-focused PLATFORM=macos TEST=CauldronTests/Suite` or `tools/checks.py package --filter FILTER` during a slice. Include package copy/export contracts when changing those surfaces. Use the iOS view slice before calling native UI work complete; do not drive someone else's simulator.
+5. Use `make -C apple test-focused PLATFORM=macos TEST=CauldronTests/Suite` or `tools/checks.py package --filter FILTER` during a slice. Include package copy/export contracts when changing those surfaces. Use the iOS view slice before calling native UI work complete; do not drive someone else's simulator. To stop an app you launched for screenshots, stop that process by its PID: Chris's own Cauldron may be open, and stopping by name closes it too.
 6. Commit with a short Conventional Commit, then rerun focused checks on that clean revision. Dirty TDD runs are useful but cannot prove the committed result. Read `docs/agents/workflow.md` for runner artifacts and the worker-result format.
 
 ## Handoff
