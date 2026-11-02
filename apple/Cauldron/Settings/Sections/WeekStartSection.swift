@@ -14,7 +14,12 @@ struct WeekStartSection: View {
         startsOn: WeekStartPreference.current(preferences),
         onChange: { WeekStartPreference.set($0, preferences: preferences, in: context) }
       )
+      .labelsHidden()
       .listRowBackground(Brand.Colors.mantle)
+    } header: {
+      // Every other Settings section has a header; without one this section sat tight under
+      // Appearance's footer. The header carries the name, so the picker's own label is hidden.
+      Text(verbatim: Copy.settings.weekStart.title.text)
     } footer: {
       Text(verbatim: Copy.settings.weekStart.hint.text)
     }

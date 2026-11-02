@@ -238,4 +238,11 @@ struct WeekStartTests {
       #expect(ImageRenderer(content: section.frame(width: 420, height: 200)).cgImage != nil)
     }
   }
+
+  /// The Settings section names itself in its header and hides the picker's own label, so the
+  /// two must say the same thing: the picker is the one the Week page labels.
+  @Test func theSettingsHeaderSaysWhatThePickersLabelDoes() {
+    #expect(Copy.settings.weekStart.title.text == Copy.week.weekStarts.text)
+    #expect(Copy.settings.weekStart.title.text == "Week starts on")
+  }
 }
