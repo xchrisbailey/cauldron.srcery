@@ -84,21 +84,37 @@ struct GatherScreen: View {
         onNext: cursor.next, onThisWeek: cursor.thisWeek)
       addRow
       if !snapshot.isEmpty {
-        HStack {
-          Text(verbatim: snapshot.progress.text)
-            .brandText(.quantity)
-            .foregroundStyle(Brand.Colors.subtext)
-          Spacer(minLength: 8)
-          Toggle(isOn: $hideChecked) {
-            Text(verbatim: Copy.gather.hideChecked.text).brandText(.control)
+        // Side by side when they fit, stacked at the largest text sizes so neither clips.
+        ViewThatFits(in: .horizontal) {
+          HStack {
+            progress(snapshot)
+            Spacer(minLength: 8)
+            hideCheckedToggle
           }
-          .toggleStyle(GatherCheckStyle())
-          .fixedSize()
+          VStack(alignment: .leading, spacing: 4) {
+            progress(snapshot)
+            hideCheckedToggle
+          }
         }
       }
     }
-    .padding(.horizontal, 16)
+    .padding(.horizontal, GatherLayout.gutter + GatherLayout.listInset)
     .padding(.vertical, 12)
+  }
+
+  private func progress(_ snapshot: GatherSnapshot) -> some View {
+    Text(verbatim: snapshot.progress.text)
+      .brandText(.quantity)
+      .foregroundStyle(Brand.Colors.subtext)
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private var hideCheckedToggle: some View {
+    Toggle(isOn: $hideChecked) {
+      Text(verbatim: Copy.gather.hideChecked.text).brandText(.control)
+    }
+    .toggleStyle(GatherCheckStyle())
+    .fixedSize()
   }
 
   private var addRow: some View {
@@ -137,13 +153,10 @@ struct GatherScreen: View {
     List {
       ForEach(snapshot.sections(hidingChecked: hideChecked)) { section in
         Section {
+          GatherAisleHeader(title: section.title.text)
           ForEach(section.items, id: \.id) { item in
             row(item)
           }
-        } header: {
-          Text(verbatim: section.title.text.uppercased())
-            .brandText(.quantity)
-            .foregroundStyle(Brand.Colors.subtext)
         }
       }
     }
@@ -160,7 +173,7 @@ struct GatherScreen: View {
       onRemove: { remove(item) }
     )
     .listRowBackground(Color.clear)
-    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 8))
+    .listRowInsets(EdgeInsets())
     .listRowSeparatorTint(Brand.Colors.surface0)
     .swipeActions(edge: .trailing) {
       if item.manual {

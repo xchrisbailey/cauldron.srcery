@@ -59,6 +59,44 @@ import Testing
       }
     }
 
+    @Test func everyRowRendersCompactAndRegularAtEveryTextSizeWithTheRemoveControl() throws {
+      let context = ModelContext(try seeded())
+      let today = try DebugSeed.today().startOfWeek(startingOn: .monday)
+      let records = try context.fetch(FetchDescriptor<GatherItemRecord>())
+      let items = GatherSnapshot(start: today, records: records, pantry: []).items
+      let hasManual = items.contains { $0.manual }
+      #expect(hasManual)
+      for item in items.prefix(2) + items.filter(\.manual) {
+        for size in [DynamicTypeSize.large, .accessibility5] {
+          // The compact class gives the pantry control as one icon; regular keeps its label.
+          for sizeClass in [UserInterfaceSizeClass.compact, .regular] {
+            for (width, height) in [(320.0, 700.0), (390.0, 700.0), (760.0, 300.0)] {
+              for inPantry in [false, true] {
+                var shown = item
+                shown.inPantry = inPantry
+                let row = GatherItemRow(
+                  item: shown, onCheck: { _ in }, onPantry: { _ in }, onRemove: {}
+                )
+                .environment(\.dynamicTypeSize, size)
+                .environment(\.horizontalSizeClass, sizeClass)
+                #expect(renders(row, width: width, height: height), "\(size) \(sizeClass) \(width)")
+              }
+            }
+          }
+        }
+      }
+    }
+
+    @Test func anAisleHeaderRendersInBothAppearances() {
+      for scheme in [ColorScheme.light, .dark] {
+        let header = GatherAisleHeader(title: Copy.gather.aisles.dairy.text)
+          .environment(\.colorScheme, scheme)
+        #expect(renders(header, width: 390, height: 60))
+      }
+      // The capitals come from the text case, so the string stays as written.
+      #expect(Copy.gather.aisles.dairy.text == "Dairy and eggs")
+    }
+
     @Test func theTickBoxRendersOnAndOff() {
       for on in [true, false] {
         let view = Toggle(isOn: .constant(on)) { Text(verbatim: "Milk") }
