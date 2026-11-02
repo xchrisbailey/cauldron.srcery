@@ -59,7 +59,7 @@ import Testing
       }
     }
 
-    @Test func everyRowKeepsOneShapeWithAndWithoutARemoveSlotAtEveryTextSize() throws {
+    @Test func everyRowRendersCompactAndRegularAtEveryTextSizeWithTheRemoveControl() throws {
       let context = ModelContext(try seeded())
       let today = try DebugSeed.today().startOfWeek(startingOn: .monday)
       let records = try context.fetch(FetchDescriptor<GatherItemRecord>())
@@ -67,15 +67,20 @@ import Testing
       let hasManual = items.contains { $0.manual }
       #expect(hasManual)
       for item in items.prefix(2) + items.filter(\.manual) {
-        for reserves in [false, true] {
-          for size in [DynamicTypeSize.large, .accessibility5] {
+        for size in [DynamicTypeSize.large, .accessibility5] {
+          // The compact class gives the pantry control as one icon; regular keeps its label.
+          for sizeClass in [UserInterfaceSizeClass.compact, .regular] {
             for (width, height) in [(320.0, 700.0), (390.0, 700.0), (760.0, 300.0)] {
-              let row = GatherItemRow(
-                item: item, onCheck: { _ in }, onPantry: { _ in }, onRemove: {},
-                reservesRemove: reserves
-              )
-              .environment(\.dynamicTypeSize, size)
-              #expect(renders(row, width: width, height: height), "\(size) \(width)")
+              for inPantry in [false, true] {
+                var shown = item
+                shown.inPantry = inPantry
+                let row = GatherItemRow(
+                  item: shown, onCheck: { _ in }, onPantry: { _ in }, onRemove: {}
+                )
+                .environment(\.dynamicTypeSize, size)
+                .environment(\.horizontalSizeClass, sizeClass)
+                #expect(renders(row, width: width, height: height), "\(size) \(sizeClass) \(width)")
+              }
             }
           }
         }

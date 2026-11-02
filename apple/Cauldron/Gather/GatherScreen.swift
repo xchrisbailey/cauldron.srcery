@@ -98,7 +98,7 @@ struct GatherScreen: View {
         }
       }
     }
-    .padding(.horizontal, 16)
+    .padding(.horizontal, GatherLayout.gutter + GatherLayout.listInset)
     .padding(.vertical, 12)
   }
 
@@ -150,13 +150,12 @@ struct GatherScreen: View {
   }
 
   private func list(_ snapshot: GatherSnapshot) -> some View {
-    let reservesRemove = snapshot.items.contains(where: \.manual)
-    return List {
+    List {
       ForEach(snapshot.sections(hidingChecked: hideChecked)) { section in
         Section {
           GatherAisleHeader(title: section.title.text)
           ForEach(section.items, id: \.id) { item in
-            row(item, reservesRemove: reservesRemove)
+            row(item)
           }
         }
       }
@@ -165,17 +164,16 @@ struct GatherScreen: View {
     .scrollContentBackground(.hidden)
   }
 
-  private func row(_ item: GatherItem, reservesRemove: Bool) -> some View {
+  private func row(_ item: GatherItem) -> some View {
     GatherItemRow(
       item: item,
       onCheck: { checked in perform { try GatherPlan.setChecked(item.id, checked, in: context) } },
       onPantry: { on in perform { try GatherPlan.setPantry(itemKey: item.itemKey, on, in: context) }
       },
-      onRemove: { remove(item) },
-      reservesRemove: reservesRemove
+      onRemove: { remove(item) }
     )
     .listRowBackground(Color.clear)
-    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+    .listRowInsets(EdgeInsets())
     .listRowSeparatorTint(Brand.Colors.surface0)
     .swipeActions(edge: .trailing) {
       if item.manual {
