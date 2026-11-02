@@ -47,9 +47,12 @@ struct RecipeCardInfo {
   /// Up to two tags.
   let tags: [TagChip]
   let macros: MacroLine?
+  /// Whether it has a photo to show. A card without one has no thumbnail tile.
+  let hasPhoto: Bool
 
   init(_ recipe: RecipeRecord) {
     title = recipe.title
+    hasPhoto = recipe.photo?.imageData != nil
     time = RecipeTimes.label(
       recipeMinutes(
         totalMinutes: recipe.totalMinutes, prepMinutes: recipe.prepMinutes,

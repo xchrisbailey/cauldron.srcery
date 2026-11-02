@@ -16,7 +16,7 @@ struct RecipeEditAction: View {
     } label: {
       Text(verbatim: Copy.recipeView.edit.text)
     }
-    .buttonStyle(RecipeActionButtonStyle())
+    .buttonStyle(RecipeActionButtonStyle(.quiet))
     .sheet(isPresented: editing) {
       RecipeEditorSheet(recipe: recipe)
     }

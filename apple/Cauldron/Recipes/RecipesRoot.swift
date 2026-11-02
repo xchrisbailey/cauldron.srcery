@@ -210,8 +210,8 @@ struct RecipesRoot: View {
         .toolbar { libraryTools }
         .navigationTitle(AppDestination.recipes.title.text)
         .navigationDestination(for: UUID.self) { id in
-          detail(of: id)
-            .navigationTitle(recipes.first { $0.id == id }?.title ?? "")
+          // A pushed recipe sets its own navigation title, once the page's title has scrolled away.
+          detail(of: id, pushed: true)
         }
     }
   }
@@ -430,9 +430,9 @@ extension RecipesRoot {
   // MARK: Detail
 
   @ViewBuilder
-  private func detail(of id: UUID?) -> some View {
+  private func detail(of id: UUID?, pushed: Bool = false) -> some View {
     if let id, let recipe = recipes.first(where: { $0.id == id }) {
-      RecipeDetailView(recipe: recipe) { banishing = recipe }
+      RecipeDetailView(recipe: recipe, pushed: pushed) { banishing = recipe }
         .id(recipe.id)
     } else {
       Image(systemName: AppDestination.recipes.systemImage)
