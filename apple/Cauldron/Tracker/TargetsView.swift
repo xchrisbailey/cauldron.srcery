@@ -521,13 +521,21 @@ private struct TargetRow: View {
 
   private var overridden: Bool { resolved.overridden.contains(key) }
 
+  private var plainText: String {
+    overridden
+      ? form.overrides[key] ?? "" : String(Int((resolved.values[key] ?? 0).rounded()))
+  }
+
+  /// The figure grouped like every other one here ("1,420"). Typing into it takes the grouping
+  /// back out, so the form still holds plain digits.
   private var text: Binding<String> {
     Binding(
-      get: {
-        overridden
-          ? form.overrides[key] ?? "" : String(Int((resolved.values[key] ?? 0).rounded()))
-      },
-      set: { form.overrides[key] = $0 })
+      get: { showGrouped(plainText) },
+      set: { typed in
+        // Showing the grouped figure back is not an edit, and must not set the target by hand.
+        guard let edited = editedTargetText(typed: typed, plain: plainText) else { return }
+        form.overrides[key] = edited
+      })
   }
 
   var body: some View {

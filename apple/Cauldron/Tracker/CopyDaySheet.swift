@@ -129,9 +129,8 @@ struct CopyDaySheet: View {
     onDone(outcome.message, outcome.failed)
   }
 
-  /// "Wednesday, October 14", as the diary's header names a day.
-  static func longLabel(of day: LocalDate) -> String {
-    day.date(in: DayKeyCalendar.current)?.formatted(.dateTime.weekday(.wide).month(.wide).day())
-      ?? day.description
+  /// "Wednesday, Oct 14", as the week names a day.
+  static func longLabel(of day: LocalDate, locale: Locale = .current) -> String {
+    WeekDates.label(day, long: true, locale: locale)
   }
 }

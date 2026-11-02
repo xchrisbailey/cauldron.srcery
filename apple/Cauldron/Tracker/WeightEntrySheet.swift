@@ -52,19 +52,23 @@ struct WeightEntrySheet: View {
         }
         Section {
           HStack {
-            TextField(t.label(unit.rawValue).text, text: $text)
-              .labelsHidden()
-              .multilineTextAlignment(.trailing)
-              .brandText(.quantity)
-              #if os(iOS)
-                .keyboardType(.decimalPad)
-              #endif
+            // The label is for VoiceOver. The prompt is empty, so it isn't shown as a placeholder
+            // next to the unit, which already says what the number is.
+            TextField(text: $text, prompt: Text(verbatim: String())) {
+              Text(verbatim: t.label(Copy.tracker.targets.weightUnits[unit].text).text)
+            }
+            .labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .brandText(.quantity)
+            #if os(iOS)
+              .keyboardType(.decimalPad)
+            #endif
             Text(verbatim: Copy.tracker.targets.weightUnits[unit].text).brandText(.unit)
           }
           .listRowBackground(Brand.Colors.mantle)
           FieldError(error)
         } header: {
-          Text(verbatim: t.label(Copy.tracker.targets.weightUnits[unit].text).text)
+          Text(verbatim: t.pageTitle.text)
         }
         if existing != nil {
           Section {
@@ -78,7 +82,7 @@ struct WeightEntrySheet: View {
       .formStyle(.grouped)
       .scrollContentBackground(.hidden)
       .background(Brand.Colors.base)
-      .navigationTitle(pickDay ? t.logTitle.text : t.logFor(chosenDay.description).text)
+      .navigationTitle(Self.title(pickDay: pickDay, day: chosenDay))
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
       #endif
@@ -94,6 +98,13 @@ struct WeightEntrySheet: View {
     #if os(macOS)
       .frame(minWidth: 380, minHeight: 280)
     #endif
+  }
+
+  /// "Weigh-in", or "Weigh-in for Nov 1" for a day that is already chosen. The short date keeps
+  /// it on one line in the inline title.
+  static func title(pickDay: Bool, day: LocalDate, locale: Locale = .current) -> String {
+    let t = Copy.tracker.weight
+    return pickDay ? t.logTitle.text : t.logFor(WeekDates.monthDay(day, locale: locale)).text
   }
 
   private var dayBinding: Binding<Date> {

@@ -64,6 +64,34 @@ struct DiaryViewsTests {
     #expect(DayNavigator.label(for: today, today: today) == "Today")
     #expect(DayNavigator.label(for: today.adding(days: -1), today: today) == "Yesterday")
     #expect(DayNavigator.label(for: today.adding(days: 1), today: today) == "Tomorrow")
-    #expect(DayNavigator.label(for: today.adding(days: -5), today: today).contains("5"))
+    #expect(DayNavigator.label(for: today.adding(days: -5), today: today) == "Monday")
+  }
+
+  @Test func shownDatesStayGregorianUnderAnySystemCalendar() {
+    // 2026-10-05 is a Monday; the navigator sits on the 10th, five days later.
+    let day = today.adding(days: -5)
+    for identifier in ["en_US", "en_US@calendar=japanese", "en_US@calendar=buddhist"] {
+      let locale = Locale(identifier: identifier)
+      #expect(
+        DayNavigator.label(for: day, today: today, locale: locale) == "Monday",
+        Comment(rawValue: identifier))
+      #expect(
+        CopyDaySheet.longLabel(of: day, locale: locale) == "Monday, Oct 5",
+        Comment(rawValue: identifier))
+      #expect(
+        WeightEntrySheet.title(pickDay: false, day: day, locale: locale)
+          == "Weigh-in for Oct 5", Comment(rawValue: identifier))
+    }
+    #expect(WeightEntrySheet.title(pickDay: true, day: day) == "Weigh-in")
+  }
+
+  @Test func noShownDateIsAnISODate() {
+    let iso = /\d{4}-\d{2}-\d{2}/
+    for day in [today.adding(days: -5), today.adding(days: -1)] {
+      #expect(DayNavigator.label(for: day, today: today).wholeMatch(of: iso) == nil)
+      #expect(CopyDaySheet.longLabel(of: day).firstMatch(of: iso) == nil)
+      #expect(WeightEntrySheet.title(pickDay: false, day: day).firstMatch(of: iso) == nil)
+      #expect(WeekDates.monthDay(day).firstMatch(of: iso) == nil)
+    }
   }
 }

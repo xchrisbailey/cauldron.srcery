@@ -436,6 +436,78 @@ struct TargetsFormTests {
 
 @Suite("Reading numbers")
 struct TargetsNumbersTests {
+  @Test func figuresAreGroupedForShowingOnly() {
+    #expect(showGrouped("1420") == Int(1420).formatted())
+    #expect(showGrouped("130") == "130")
+    #expect(showGrouped("") == "")
+    #expect(showGrouped("1420.5") == "1420.5")
+    #expect(showGrouped("14e2") == "14e2")
+    // A grouped figure is never what a field holds: a comma there reads as a decimal comma.
+    #expect(parseNumber("1420") == 1420)
+  }
+
+  private let en = Locale(identifier: "en_US")
+  private let de = Locale(identifier: "de_DE")
+
+  /// The field as the binding drives it: what the form holds, shown grouped, with one edit made
+  /// to the shown text. Returns what the form holds after.
+  private func edit(_ plain: String, locale: Locale, _ change: (String) -> String) -> String {
+    let shown = showGrouped(plain, locale: locale)
+    return editedTargetText(typed: change(shown), plain: plain, locale: locale) ?? plain
+  }
+
+  /// Typing `keys` one at a time, each at the end of what the field shows.
+  private func type(_ keys: String, locale: Locale, from start: String = "") -> String {
+    var plain = start
+    for key in keys { plain = edit(plain, locale: locale) { $0 + String(key) } }
+    return plain
+  }
+
+  @Test func typingIntoAGroupedFigureTakesTheGroupingBackOut() {
+    #expect(edit("1420", locale: en) { $0 + "5" } == "14205")
+    // Deleting from "1,420" to "1,42" is 142, and clearing the field works.
+    #expect(edit("1420", locale: en) { String($0.dropLast()) } == "142")
+    #expect(edit("1420", locale: en) { _ in "" }.isEmpty)
+    #expect(edit("1420", locale: en) { $0 + "." } == "1420.")
+    #expect(edit("1420", locale: en) { $0 + "e" } == "1,420e")
+    #expect(showGrouped("1420", locale: en) == "1,420")
+    #expect(showGrouped("1420", locale: de) == "1.420")
+  }
+
+  @Test func showingTheGroupedFigureBackIsNotAnEdit() {
+    for locale in [en, de] {
+      let shown = showGrouped("1420", locale: locale)
+      #expect(editedTargetText(typed: shown, plain: "1420", locale: locale) == nil)
+      #expect(editedTargetText(typed: "130", plain: "130", locale: locale) == nil)
+      #expect(editedTargetText(typed: "", plain: "", locale: locale) == nil)
+    }
+  }
+
+  @Test func aDecimalCommaTypedKeyByKeyIsKept() {
+    // The comma is the locale's grouping separator in en_US, but nothing was grouped yet.
+    #expect(type("1,5", locale: en) == "1,5")
+    #expect(parseNumber(type("1,5", locale: en)) == 1.5)
+    #expect(parseNumber(type("12,5", locale: en)) == 12.5)
+    #expect(parseNumber(type("1.5", locale: en)) == 1.5)
+    #expect(parseNumber(type("1,5", locale: de)) == 1.5)
+    #expect(parseNumber(type("1.5", locale: de)) == 1.5)
+  }
+
+  @Test func aGermanGroupedFigureCanBeEditedAndGiveADecimal() {
+    #expect(edit("1420", locale: de) { $0 + "5" } == "14205")
+    #expect(edit("1420", locale: de) { String($0.dropLast()) } == "142")
+    #expect(edit("1420", locale: de) { _ in "" }.isEmpty)
+    // "1.420" then ",5": the decimal comma is kept and read as a decimal.
+    let typed = type(",5", locale: de, from: "1420")
+    #expect(typed == "1420,5")
+    #expect(parseNumber(typed) == 1420.5)
+  }
+
+  @Test func aGroupedFigureTypedIntoStaysAWholeNumber() {
+    #expect(parseNumber(type("5", locale: en, from: "1420")) == 14205)
+    #expect(parseNumber(type("0", locale: en, from: "142")) == 1420)
+  }
+
   @Test func readsPlainDecimalsAndAComma() {
     #expect(parseNumber("74.2") == 74.2)
     #expect(parseNumber(" 74,2 ") == 74.2)

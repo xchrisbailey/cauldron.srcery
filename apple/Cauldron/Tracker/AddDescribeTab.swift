@@ -241,7 +241,6 @@ private struct FoodRow: View {
       if row.hasNoNumbers {
         Text(verbatim: Copy.tracker.describe.notFood.text)
           .brandText(.control)
-          .italic()
           .foregroundStyle(Brand.Colors.subtext)
           .listRowBackground(Brand.Colors.mantle)
       }
