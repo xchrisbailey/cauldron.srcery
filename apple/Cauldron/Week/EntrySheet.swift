@@ -68,6 +68,7 @@ struct EntrySheet: View {
             }
           }
         }
+        .brandFormRows()
         Section {
           Picker(selection: $draft.day) {
             ForEach(availableDays, id: \.self) { day in
@@ -84,8 +85,10 @@ struct EntrySheet: View {
             Text(verbatim: Copy.week.slot.text)
           }
         }
+        .brandFormRows()
         if let problem {
           Section { Text(verbatim: problem).foregroundStyle(Brand.Colors.subtext) }
+            .brandFormRows()
         }
         if slotSize > 1 {
           Section {
@@ -102,16 +105,17 @@ struct EntrySheet: View {
             }
             .disabled(meal.position >= slotSize - 1)
           }
+          .brandFormRows()
         }
         Section {
           Button(role: .destructive, action: onRemove) {
             Text(verbatim: Copy.week.remove.text)
           }
         }
+        .brandFormRows()
       }
       .formStyle(.grouped)
-      .scrollContentBackground(.hidden)
-      .background(Brand.Colors.base)
+      .brandForm()
       .navigationTitle(Text(verbatim: meal.recipe?.title ?? meal.title))
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

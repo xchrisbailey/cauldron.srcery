@@ -54,13 +54,13 @@ struct BatchAssignmentEditor: View {
         } header: {
           Text(verbatim: Copy.week.invalidAssignment.text)
         }
+        .brandFormRows()
         if let problem {
-          Text(verbatim: problem).foregroundStyle(Brand.Colors.heat)
+          Text(verbatim: problem).foregroundStyle(Brand.Colors.heat).brandFormRows()
         }
       }
       .formStyle(.grouped)
-      .scrollContentBackground(.hidden)
-      .background(Brand.Colors.base)
+      .brandForm()
       .navigationTitle(Text(verbatim: batch.title))
       #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

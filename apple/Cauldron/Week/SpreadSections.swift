@@ -45,6 +45,7 @@ struct SpreadSections: View {
     } footer: {
       Text(verbatim: Copy.week.spread.hint.text)
     }
+    .brandFormRows()
     Section {
       Text(verbatim: plan.summary)
         .brandText(.quantity)
@@ -70,6 +71,7 @@ struct SpreadSections: View {
       .buttonStyle(.brandProminent)
       .disabled(!plan.canStir)
     }
+    .brandFormRows()
   }
 
   private func dayRow(_ day: LocalDate) -> some View {

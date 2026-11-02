@@ -356,34 +356,48 @@ struct RecipesRoot: View {
     let recipe = match.recipe
     switch opening {
     case .beside:
-      card(recipe, selected: selection == recipe.id, reason: match.reasonLine).tag(recipe.id)
+      card(recipe, selected: selection == recipe.id, reason: match.reasonLine)
+        .tag(recipe.id)
+        .libraryRow(recipe, banish: banishButton)
     case .over:
+      // The row's background, separator, insets and actions go on the row itself, outside the
+      // button: set inside its label they never reach the list, so the system's own row fill and
+      // separators showed between the cards.
       Button {
         path.append(recipe.id)
       } label: {
         card(recipe, selected: false, reason: match.reasonLine)
       }
       .buttonStyle(.plain)
+      .libraryRow(recipe, banish: banishButton)
     }
   }
 
   private func card(_ recipe: RecipeRecord, selected: Bool, reason: String?) -> some View {
     RecipeCardView(recipe: recipe, selected: selected, reason: reason)
       .contentShape(Rectangle())
+  }
+}
+
+extension View {
+  /// A library card as a list row: no fill of its own, no separator, a little air, and the
+  /// actions for banishing it.
+  fileprivate func libraryRow<Banish: View>(
+    _ recipe: RecipeRecord, banish: @escaping (RecipeRecord) -> Banish
+  ) -> some View {
+    self
       .listRowBackground(Color.clear)
       .listRowSeparator(.hidden)
       .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
-      .swipeActions(edge: .trailing) { banishButton(recipe) }
+      .swipeActions(edge: .trailing) { banish(recipe) }
       #if os(iOS)
-        .contextMenu { banishButton(recipe) }
+        .contextMenu { banish(recipe) }
       #else
         // Drag it onto a day in the week, in another window.
         .draggable(RecipeDrag(id: recipe.id))
       #endif
   }
-}
 
-extension View {
   fileprivate func libraryListStyle() -> some View {
     self
       .listStyle(.plain)

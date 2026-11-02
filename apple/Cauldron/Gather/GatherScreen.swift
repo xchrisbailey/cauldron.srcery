@@ -48,6 +48,7 @@ struct GatherScreen: View {
       .frame(maxWidth: Self.columnWidth, maxHeight: .infinity, alignment: .top)
       .frame(maxWidth: .infinity)
       .background(Brand.Colors.base)
+      .brandWindowToolbar()
       .navigationTitle(AppDestination.gather.title.text)
     }
     #if os(macOS)

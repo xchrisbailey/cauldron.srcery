@@ -238,4 +238,12 @@ struct WeekStartTests {
       #expect(ImageRenderer(content: section.frame(width: 420, height: 200)).cgImage != nil)
     }
   }
+
+  /// The section's header and its picker row are different strings, so Settings doesn't say
+  /// "Week starts on" twice.
+  @Test func theSettingsHeaderDoesNotRepeatThePickersLabel() {
+    #expect(Copy.settings.weekStart.title.text == "Week")
+    #expect(Copy.settings.weekStart.title.tone == .plain)
+    #expect(Copy.settings.weekStart.title.text != Copy.week.weekStarts.text)
+  }
 }

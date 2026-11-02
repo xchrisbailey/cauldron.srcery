@@ -150,9 +150,10 @@ extension Copy {
       public init() {}
     }
 
-    /// The day the week starts on, which follows the cook to every device.
+    /// The day the week starts on, which follows the cook to every device. The title is the
+    /// section's header; the picker's own row says "Week starts on" (`Copy.week.weekStarts`).
     public struct WeekStart: Sendable {
-      public let title = plain("Week starts on")
+      public let title = plain("Week")
       public let hint = plain(
         "Applies on every device. Changing it starts a fresh Gather list for each week.")
 

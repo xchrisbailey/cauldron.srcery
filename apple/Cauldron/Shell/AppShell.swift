@@ -78,13 +78,20 @@ struct AppShell: View {
     }
   }
 
-  /// On iPad the selected row is `magic` (lavender in Mocha), where the system's white text has
-  /// no contrast; `base` reads on it in both appearances. The Mac keeps the system highlight.
+  /// On iPad the selected row is drawn here, `magic` with `base` text, rather than left to the
+  /// system. The system's own fill is the accent while the list has focus and a dim grey when it
+  /// doesn't (focus is in the detail), and `base` text is unreadable on the grey. This fill is the
+  /// same in every focus state, in both appearances. The Mac keeps the system highlight.
   private func sidebarRow(_ row: AppDestination) -> some View {
     let label = AppDestinationLabel(destination: row)
     #if os(iOS)
-      return label.foregroundStyle(destination == row ? Brand.Colors.base : Brand.Colors.ink)
+      let selected = destination == row
+      return
+        label
+        .foregroundStyle(selected ? Brand.Colors.base : Brand.Colors.ink)
         .tag(row)
+        .listRowBackground(
+          Capsule().fill(selected ? Brand.Colors.magic : Color.clear).padding(.horizontal, 8))
     #else
       return label.tag(row)
     #endif
