@@ -26,8 +26,6 @@ struct CompactWeekAccessibilityTests {
               WeekTallyView(
                 snapshot: snapshot, day: nil, onClearDay: {}, onOpenTargets: {}, compact: true)
             }
-          } bottom: {
-            EmptyView()
           }
           .environment(\.dynamicTypeSize, size)
           .environment(\.colorScheme, scheme)

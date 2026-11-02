@@ -98,7 +98,7 @@ public enum Copy {
       plain(values.joined(separator: separator))
     }
     public func weekCellCalories(_ value: String, show: Bool) -> CopyString {
-      plain(show ? value : "·")
+      plain(show ? value : " ")
     }
     public func calendarCalories(_ value: String, unit: String, show: Bool) -> CopyString {
       plain(show ? "\(value) \(unit)" : " ")

@@ -130,6 +130,19 @@ enum WeekFigures {
     return value.formatted(.number.precision(.fractionLength(0...1)).locale(locale))
   }
 
+  /// What VoiceOver adds to a day's name: that it is today, and its calories or that nothing is
+  /// planned. The calories shown in the cell are hidden from it.
+  static func daySummary(calories: Double, isToday: Bool) -> String {
+    let planned =
+      calories > 0
+      ? Copy.display.calendarCalories(
+        whole(calories), unit: Copy.tracker.macros.calories.text, show: true
+      ).text
+      : Copy.week.nothingPlanned.text
+    let parts = isToday ? [Copy.week.today.text, planned] : [planned]
+    return Copy.display.joined(parts, separator: ", ").text
+  }
+
   static func metricName(_ key: MacroKey) -> String {
     switch key {
     case .calories: Copy.tracker.macroNames.calories.text

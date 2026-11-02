@@ -43,7 +43,6 @@ struct WeekPlanner: View {
   let onPrevious: () -> Void
   let onNext: () -> Void
   let onThisWeek: () -> Void
-  let onStartsOn: @MainActor (WeekStartDay) -> Void
 
   @Environment(\.modelContext) private var context
   @Query private var records: [PlanEntryRecord]
@@ -60,7 +59,7 @@ struct WeekPlanner: View {
   init(
     start: LocalDate, today: LocalDate, startsOn: WeekStartDay, isCurrent: Bool,
     onPrevious: @escaping () -> Void, onNext: @escaping () -> Void,
-    onThisWeek: @escaping () -> Void, onStartsOn: @escaping @MainActor (WeekStartDay) -> Void
+    onThisWeek: @escaping () -> Void
   ) {
     self.start = start
     self.today = today
@@ -69,7 +68,6 @@ struct WeekPlanner: View {
     self.onPrevious = onPrevious
     self.onNext = onNext
     self.onThisWeek = onThisWeek
-    self.onStartsOn = onStartsOn
     _records = Query(filter: WeekPlan.predicate(from: start, through: start.adding(days: 6)))
     let lower = start.description
     let upper = start.adding(days: 6).description
@@ -260,7 +258,6 @@ struct WeekPlanner: View {
         Text(verbatim: Copy.week.moveHint.text)
           .brandText(.control)
           .foregroundStyle(Brand.Colors.subtext)
-        WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
       }
       .padding(20)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -287,8 +284,6 @@ struct WeekPlanner: View {
           batchSummaries
         #endif
       }
-    } bottom: {
-      WeekStartPicker(startsOn: startsOn, onChange: onStartsOn).fixedSize()
     }
     #if os(iOS)
       .toolbar {

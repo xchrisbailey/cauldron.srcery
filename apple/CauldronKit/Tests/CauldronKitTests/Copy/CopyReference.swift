@@ -659,6 +659,7 @@ enum CopyReference {
     .init(path: "week.copyLastWeek", tone: .plain, text: "Copy last week"),
     .init(path: "week.copiedLastWeek", tone: .plain, text: "Copied last week's meals."),
     .init(path: "week.nothingToCopy", tone: .plain, text: "Last week has nothing planned."),
+    .init(path: "week.nothingPlanned", tone: .plain, text: "Nothing planned"),
     .init(path: "week.clearWeek", tone: .plain, text: "Clear week"),
     .init(path: "week.cleared", tone: .plain, text: "Cleared the week."),
     .init(path: "week.cancel", tone: .plain, text: "Cancel"),
@@ -707,8 +708,6 @@ enum CopyReference {
       text: "Add calories and macros to your recipes to see totals here."),
     .init(path: "week.tally.clearDay", tone: .plain, text: "Back to the week"),
     .init(
-      path: "week.tally.plannedAgainstTarget", tone: .plain, text: "Planned against weekly target"),
-    .init(
       path: "week.tally.dailyPlannedAgainstTarget", tone: .plain,
       text: "Selected day planned against daily target"),
     .init(path: "week.tally.eatenClarification", tone: .plain, text: "Planned, not eaten"),
@@ -721,7 +720,7 @@ enum CopyReference {
       path: "week.tally.noTargets", tone: .plain,
       text: "Set targets to compare this plan with your weekly goals."),
     .init(path: "week.tally.setTargets", tone: .plain, text: "Set targets"),
-    .init(path: "week.tally.compactHeading", tone: .plain, text: "Weekly plan — Planned / Goal"),
+    .init(path: "week.tally.compactHeading", tone: .plain, text: "Planned against weekly target"),
     .init(path: "week.tally.nutritionAction", tone: .plain, text: "Nutrition"),
     .init(path: "week.tally.dailyNutritionTitle", tone: .plain, text: "Daily nutrition"),
     .init(path: "week.tally.planned", tone: .plain, text: "Planned"),

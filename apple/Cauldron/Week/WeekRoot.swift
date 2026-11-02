@@ -11,7 +11,7 @@ struct WeekRoot: View {
       WeekPlanner(
         start: cursor.start, today: cursor.today, startsOn: cursor.startsOn,
         isCurrent: cursor.isCurrent, onPrevious: cursor.previous, onNext: cursor.next,
-        onThisWeek: cursor.thisWeek, onStartsOn: cursor.setStartsOn
+        onThisWeek: cursor.thisWeek
       )
       #if os(macOS)
         .focusedSceneValue(\.stepCommands, StepCommands.weeks(cursor))

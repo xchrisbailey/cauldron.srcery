@@ -2,8 +2,8 @@ import CauldronKit
 import SwiftData
 import SwiftUI
 
-/// The day the week starts on. It is the same preference the Week page's picker writes, through
-/// the same code, so changing it here is what the Week and Gather sections show.
+/// The day the week starts on. Settings is the one place to change it: the
+/// preference is read by the Week and Gather sections, so changing it here moves both.
 struct WeekStartSection: View {
   @Environment(\.modelContext) private var context
   @Query private var preferences: [PreferencesRecord]

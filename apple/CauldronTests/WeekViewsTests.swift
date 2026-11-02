@@ -44,7 +44,7 @@ import Testing
         }
         let planner = WeekPlanner(
           start: start, today: start, startsOn: .monday, isCurrent: true, onPrevious: {},
-          onNext: {}, onThisWeek: {}, onStartsOn: { _ in })
+          onNext: {}, onThisWeek: {})
         for scheme in [ColorScheme.light, .dark] {
           for width in [1_100.0, 390.0] {
             let height = 1_200.0
@@ -167,7 +167,7 @@ import Testing
       try context.save()
       let planner = WeekPlanner(
         start: start, today: start, startsOn: .monday, isCurrent: true, onPrevious: {},
-        onNext: {}, onThisWeek: {}, onStartsOn: { _ in })
+        onNext: {}, onThisWeek: {})
       for scheme in [ColorScheme.light, .dark] {
         for (width, height) in [(1100.0, 800.0), (390.0, 800.0)] {
           #expect(

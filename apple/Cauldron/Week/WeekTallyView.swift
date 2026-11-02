@@ -13,7 +13,10 @@ struct WeekTallyView: View {
   var body: some View {
     if compact {
       VStack(alignment: .leading, spacing: 8) {
-        if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
+        // A comparison carries its own not-counted line; the note would say it twice.
+        if snapshot.weeklyComparison == nil,
+          let note = WeekFigures.note(week: snapshot.weekTally, day: nil)
+        {
           Text(verbatim: note)
             .brandText(.control)
             .fixedSize(horizontal: false, vertical: true)
@@ -31,27 +34,18 @@ struct WeekTallyView: View {
           HStack(alignment: .top, spacing: 16) { groups }
           VStack(alignment: .leading, spacing: 12) { groups }
         }
-        if let note = WeekFigures.note(week: snapshot.weekTally, day: day.map(snapshot.tally)) {
-          Text(verbatim: note)
-            .brandText(.control)
-            .foregroundStyle(Brand.Colors.subtext)
-        }
         if let comparison = snapshot.weeklyComparison {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
-            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key))
-                .brandText(.quantity)
-            }
-            if comparison.isIncomplete {
-              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-                .foregroundStyle(Brand.Colors.heat)
-            }
-          }
-          .accessibilityElement(children: .combine)
-          .accessibilityIdentifier("week.weeklyComparison")
+          CompactWeekNutritionView(
+            comparison: comparison, tally: snapshot.weekTally, onOpenTargets: onOpenTargets,
+            framed: false
+          )
+          .frame(maxWidth: 640, alignment: .leading)
         } else {
+          if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
+            Text(verbatim: note)
+              .brandText(.control)
+              .foregroundStyle(Brand.Colors.subtext)
+          }
           VStack(alignment: .leading, spacing: 6) {
             Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
             Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
@@ -60,19 +54,13 @@ struct WeekTallyView: View {
           }
         }
         if let day, let comparison = snapshot.dailyComparison(for: day) {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text).brandText(.control)
-            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key)).brandText(.quantity)
-            }
-            if comparison.isIncomplete {
-              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-                .foregroundStyle(Brand.Colors.heat)
-            }
-          }
-          .accessibilityElement(children: .combine)
-          .accessibilityIdentifier("week.dailyComparison")
+          CompactWeekNutritionView(
+            comparison: comparison, tally: snapshot.tally(of: day),
+            onOpenTargets: onOpenTargets,
+            heading: Copy.week.tally.dailyPlannedAgainstTarget.text,
+            identifier: "week.dailyComparison", framed: false, showsIncomplete: false
+          )
+          .frame(maxWidth: 640, alignment: .leading)
         }
       }
       .padding(.horizontal, 16)

@@ -66,15 +66,25 @@ struct WeekCalendarGrid: View {
         chosen ? Brand.Colors.magic.opacity(0.18) : Color.clear,
         in: RoundedRectangle(cornerRadius: 10)
       )
-      .overlay(
-        RoundedRectangle(cornerRadius: 10)
-          .stroke(isToday ? Brand.Colors.heat.opacity(0.6) : Color.clear, lineWidth: 1)
-      )
+      // Today is heat (its text and a dot) and the chosen day is the magic fill, so a chosen
+      // today carries both without a second outline.
+      .overlay(alignment: .top) {
+        if isToday {
+          Circle()
+            .fill(Brand.Colors.heat)
+            .frame(width: 5, height: 5)
+            .padding(.top, 3)
+            .accessibilityHidden(true)
+        }
+      }
       .contentShape(RoundedRectangle(cornerRadius: 10))
     }
     .buttonStyle(.plain)
     .accessibilityLabel(
       Text(verbatim: Copy.week.tally.showDay(WeekDates.label(day, long: true)).text)
+    )
+    .accessibilityValue(
+      Text(verbatim: WeekFigures.daySummary(calories: calories, isToday: isToday))
     )
     .accessibilityAddTraits(chosen ? .isSelected : [])
   }
