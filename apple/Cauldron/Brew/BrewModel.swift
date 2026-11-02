@@ -83,6 +83,21 @@ final class BrewModel {
     }
   }
 
+  /// Which button is the one filled button on the step: the timer's or the way forward. Starting
+  /// or resuming a timer is what the cook is about to do, so it leads while the timer is idle or
+  /// paused. Otherwise (no timer, a running timer, or time up) the way forward does.
+  enum LeadingButton: Equatable {
+    case timer
+    case step
+  }
+
+  var leadingButton: LeadingButton {
+    switch timerAction {
+    case .start, .resume: .timer
+    case .pause, .reset, nil: .step
+    }
+  }
+
   /// The timers of the other steps, which keep running while the cook is elsewhere.
   var otherTimers: [BrewTimer] { timers.board.timers.filter { $0.step != index } }
 

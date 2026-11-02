@@ -255,16 +255,21 @@ struct BrewScreen: View {
       } label: {
         Text(verbatim: Copy.brewing.brewed.text)
       }
-      .buttonStyle(RecipeActionButtonStyle(.primary))
+      .buttonStyle(RecipeActionButtonStyle(forwardKind))
     } else {
       Button {
         model.next()
       } label: {
         Text(verbatim: Copy.brewing.nextStep.text)
       }
-      .buttonStyle(RecipeActionButtonStyle(.primary))
+      .buttonStyle(RecipeActionButtonStyle(forwardKind))
       .keyboardShortcut(.rightArrow, modifiers: [])
     }
+  }
+
+  /// Next step or Brewed is filled unless the timer's Start or Resume is the one.
+  private var forwardKind: RecipeActionButtonStyle.Kind {
+    model.leadingButton == .step ? .primary : .secondary
   }
 
   private func finish() async {
@@ -299,14 +304,14 @@ struct BrewTimerRing: View {
           Circle()
             .trim(from: 0, to: done ? 0 : CGFloat(left) / CGFloat(total))
             .stroke(
-              done ? Brand.Colors.heat : Brand.Colors.magic,
+              Brand.Colors.heat,
               style: StrokeStyle(lineWidth: 8, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
           Text(verbatim: done ? Copy.brewing.timeUp.text : BrewClock.text(left))
             .font(.brand(.quantity, size: done ? 20 : 40))
             .monospacedDigit()
-            .foregroundStyle(done ? Brand.Colors.heat : Brand.Colors.ink)
+            .foregroundStyle(Brand.Colors.heat)
         }
         .frame(width: 190, height: 190)
         .accessibilityElement()
@@ -321,7 +326,9 @@ struct BrewTimerRing: View {
           } label: {
             Text(verbatim: Self.label(action))
           }
-          .buttonStyle(RecipeActionButtonStyle(action == .pause ? .secondary : .primary))
+          .buttonStyle(
+            RecipeActionButtonStyle(model.leadingButton == .timer ? .primary : .secondary)
+          )
           .keyboardShortcut(.space, modifiers: [])
         }
         if let timer = model.timers.timer(for: model.index), timer.state != .done {
