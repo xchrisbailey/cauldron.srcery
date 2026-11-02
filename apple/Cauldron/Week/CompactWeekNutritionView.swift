@@ -1,19 +1,29 @@
 import CauldronKit
 import SwiftUI
 
-/// The narrow Week summary: one weekly comparison, without the expanded daily explanation.
+/// The Week summary: a comparison of planned against target as a label, a figure and a bar per
+/// macro. The narrow Week shows it as a card of its own; the wide Week sets it inside its card
+/// (`framed: false`), once for the week and once for a chosen day, so both layouts read alike.
 struct CompactWeekNutritionView: View {
   let comparison: WeekMacroComparison?
   let tally: MacroTally
   let onOpenTargets: () -> Void
+  var heading: String? = Copy.week.tally.compactHeading.text
+  var identifier = "week.weeklyComparison"
+  var framed = true
+  /// The not-counted line closes the comparison. One card says it once, so a day's rows set
+  /// beside the week's leave it to the week.
+  var showsIncomplete = true
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @ScaledMetric(relativeTo: .title3) private var caloriePairSize = 24
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(verbatim: Copy.week.tally.compactHeading.text)
-        .brandText(.control)
-        .foregroundStyle(Brand.Colors.subtext)
+      if let heading {
+        Text(verbatim: heading)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+      }
       if let comparison {
         VStack(alignment: .leading, spacing: 8) {
           metric(.calories, comparison: comparison, prominent: true)
@@ -21,6 +31,12 @@ struct CompactWeekNutritionView: View {
             ForEach(WeekFigures.gramKeys, id: \.self) { key in
               metric(key, comparison: comparison, prominent: false)
             }
+          }
+          if showsIncomplete && comparison.isIncomplete {
+            Text(verbatim: Copy.week.tally.incomplete.text)
+              .brandText(.control)
+              .fixedSize(horizontal: false, vertical: true)
+              .foregroundStyle(Brand.Colors.heat)
           }
         }
       } else {
@@ -41,13 +57,27 @@ struct CompactWeekNutritionView: View {
         }
       }
     }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 10)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
-    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface0, lineWidth: 1))
+    .modifier(Chrome(framed: framed))
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("week.weeklyComparison")
+    .accessibilityIdentifier(identifier)
+  }
+
+  private struct Chrome: ViewModifier {
+    let framed: Bool
+
+    func body(content: Content) -> some View {
+      if framed {
+        content
+          .padding(.horizontal, 14)
+          .padding(.vertical, 10)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(Brand.Colors.mantle, in: RoundedRectangle(cornerRadius: 12))
+          .overlay(
+            RoundedRectangle(cornerRadius: 12).stroke(Brand.Colors.surface0, lineWidth: 1))
+      } else {
+        content.frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }
   }
 
   private func metric(

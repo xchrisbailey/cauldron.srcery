@@ -73,8 +73,8 @@ struct WeekHeaderView: View {
   }
 }
 
-/// "Week starts on", any of the seven days, kept with the cook's other preferences. The Week
-/// page and Settings both show it.
+/// "Week starts on", any of the seven days, kept with the cook's other preferences. Settings
+/// shows it; the Week and Gather pages follow it.
 struct WeekStartPicker: View {
   let startsOn: WeekStartDay
   let onChange: @MainActor (WeekStartDay) -> Void

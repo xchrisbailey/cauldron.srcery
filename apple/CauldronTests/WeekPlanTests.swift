@@ -1162,4 +1162,14 @@ struct WeekPlanTests {
     #expect(WeekPlan.servings(for: .multiplier(2), recipeServings: 4) == nil)
     #expect(WeekPlan.servings(for: .servings(WeekLimits.servings + 1), recipeServings: 4) == nil)
   }
+
+  @Test func aDayTellsVoiceOverWhatIsPlannedAndThatItIsToday() {
+    #expect(WeekFigures.daySummary(calories: 0, isToday: false) == Copy.week.nothingPlanned.text)
+    #expect(
+      WeekFigures.daySummary(calories: 0, isToday: true)
+        == "\(Copy.week.today.text), \(Copy.week.nothingPlanned.text)")
+    let planned = WeekFigures.daySummary(calories: 1_680, isToday: false)
+    #expect(planned.contains("kcal"))
+    #expect(!planned.contains(Copy.week.nothingPlanned.text))
+  }
 }

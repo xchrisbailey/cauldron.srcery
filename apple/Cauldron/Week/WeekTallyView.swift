@@ -13,7 +13,10 @@ struct WeekTallyView: View {
   var body: some View {
     if compact {
       VStack(alignment: .leading, spacing: 8) {
-        if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
+        // A comparison carries its own not-counted line; the note would say it twice.
+        if snapshot.weeklyComparison == nil,
+          let note = WeekFigures.note(week: snapshot.weekTally, day: nil)
+        {
           Text(verbatim: note)
             .brandText(.control)
             .fixedSize(horizontal: false, vertical: true)
@@ -27,52 +30,28 @@ struct WeekTallyView: View {
       }
     } else {
       VStack(alignment: .leading, spacing: 10) {
+        // The week and the chosen day sit side by side. A side with a comparison shows its
+        // rows alone, as the narrow Week does; a side without one keeps its totals.
         ViewThatFits(in: .horizontal) {
-          HStack(alignment: .top, spacing: 16) { groups }
-          VStack(alignment: .leading, spacing: 12) { groups }
-        }
-        if let note = WeekFigures.note(week: snapshot.weekTally, day: day.map(snapshot.tally)) {
-          Text(verbatim: note)
-            .brandText(.control)
-            .foregroundStyle(Brand.Colors.subtext)
-        }
-        if let comparison = snapshot.weeklyComparison {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: Copy.week.tally.plannedAgainstTarget.text).brandText(.control)
-            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key))
-                .brandText(.quantity)
+          HStack(alignment: .top, spacing: 24) {
+            weekSide.frame(minWidth: 320, maxWidth: 560, alignment: .topLeading)
+            if day != nil {
+              daySide.frame(minWidth: 320, maxWidth: 560, alignment: .topLeading)
             }
-            if comparison.isIncomplete {
-              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-                .foregroundStyle(Brand.Colors.heat)
-            }
+            Spacer(minLength: 0)
           }
-          .accessibilityElement(children: .combine)
-          .accessibilityIdentifier("week.weeklyComparison")
-        } else {
+          VStack(alignment: .leading, spacing: 16) {
+            weekSide
+            if day != nil { daySide }
+          }
+        }
+        if snapshot.weeklyComparison == nil {
           VStack(alignment: .leading, spacing: 6) {
             Text(verbatim: Copy.week.tally.noTargets.text).brandText(.control)
             Button(Copy.week.tally.setTargets.text, action: onOpenTargets)
               .brandText(.control)
               .accessibilityIdentifier("week.setTargets")
           }
-        }
-        if let day, let comparison = snapshot.dailyComparison(for: day) {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: Copy.week.tally.dailyPlannedAgainstTarget.text).brandText(.control)
-            Text(verbatim: Copy.week.tally.eatenClarification.text).brandText(.control)
-            ForEach([MacroKey.calories, .protein, .carbs, .fat], id: \.self) { key in
-              Text(verbatim: WeekFigures.comparisonRow(comparison, key: key)).brandText(.quantity)
-            }
-            if comparison.isIncomplete {
-              Text(verbatim: Copy.week.tally.incomplete.text).brandText(.control)
-                .foregroundStyle(Brand.Colors.heat)
-            }
-          }
-          .accessibilityElement(children: .combine)
-          .accessibilityIdentifier("week.dailyComparison")
         }
       }
       .padding(.horizontal, 16)
@@ -86,21 +65,64 @@ struct WeekTallyView: View {
   }
 
   @ViewBuilder
-  private var groups: some View {
-    TallyGroup(
-      label: Copy.week.tally.week.text, tally: snapshot.weekTally,
-      sub: WeekFigures.average(of: snapshot.weekTally, daysPlanned: snapshot.daysPlanned)
-    )
-    .accessibilityIdentifier("week.tally.week")
-    if let day {
-      HStack(alignment: .top, spacing: 8) {
+  private var weekSide: some View {
+    if let comparison = snapshot.weeklyComparison {
+      VStack(alignment: .leading, spacing: 8) {
+        CompactWeekNutritionView(
+          comparison: comparison, tally: snapshot.weekTally, onOpenTargets: onOpenTargets,
+          framed: false)
+        if let average = WeekFigures.average(
+          of: snapshot.weekTally, daysPlanned: snapshot.daysPlanned)
+        {
+          Text(verbatim: average).brandText(.quantity).foregroundStyle(Brand.Colors.subtext)
+        }
+      }
+    } else {
+      VStack(alignment: .leading, spacing: 8) {
         TallyGroup(
-          label: WeekDates.label(day, long: true), tally: snapshot.tally(of: day), sub: nil,
-          emphasised: true)
-        WeekIconButton(
-          systemImage: "xmark", label: Copy.week.tally.clearDay.text, action: onClearDay)
+          label: Copy.week.tally.week.text, tally: snapshot.weekTally,
+          sub: WeekFigures.average(of: snapshot.weekTally, daysPlanned: snapshot.daysPlanned)
+        )
+        .accessibilityIdentifier("week.tally.week")
+        if let note = WeekFigures.note(week: snapshot.weekTally, day: nil) {
+          Text(verbatim: note)
+            .brandText(.control)
+            .foregroundStyle(Brand.Colors.subtext)
+        }
       }
     }
+  }
+
+  @ViewBuilder
+  private var daySide: some View {
+    if let day {
+      if let comparison = snapshot.dailyComparison(for: day) {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(alignment: .center, spacing: 8) {
+            Text(verbatim: WeekDates.label(day, long: true))
+              .brandText(.control)
+              .foregroundStyle(Brand.Colors.heat)
+            Spacer(minLength: 0)
+            clearButton
+          }
+          CompactWeekNutritionView(
+            comparison: comparison, tally: snapshot.tally(of: day),
+            onOpenTargets: onOpenTargets, heading: nil,
+            identifier: "week.dailyComparison", framed: false, showsIncomplete: false)
+        }
+      } else {
+        HStack(alignment: .top, spacing: 8) {
+          TallyGroup(
+            label: WeekDates.label(day, long: true), tally: snapshot.tally(of: day), sub: nil,
+            emphasised: true)
+          clearButton
+        }
+      }
+    }
+  }
+
+  private var clearButton: some View {
+    WeekIconButton(systemImage: "xmark", label: Copy.week.tally.clearDay.text, action: onClearDay)
   }
 }
 

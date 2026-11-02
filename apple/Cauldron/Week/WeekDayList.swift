@@ -3,7 +3,7 @@ import SwiftUI
 
 /// One day of the week at a time, for a narrow window: tabs for the days and the day's meals
 /// beneath. Swipe a meal to change or remove it.
-struct WeekDayList<Top: View, Bottom: View>: View {
+struct WeekDayList<Top: View>: View {
   let snapshot: WeekSnapshot
   let today: LocalDate
   /// The day whose meals and on-demand nutrition are shown.
@@ -18,7 +18,6 @@ struct WeekDayList<Top: View, Bottom: View>: View {
   /// on the web.
   let onPlanRecipe: (UUID, MealTarget, UUID?) -> Void
   @ViewBuilder let top: () -> Top
-  @ViewBuilder let bottom: () -> Bottom
 
   var body: some View {
     List {
@@ -91,11 +90,6 @@ struct WeekDayList<Top: View, Bottom: View>: View {
             }
           }
         }
-      }
-      Section {
-        bottom()
-          .listRowBackground(Color.clear)
-          .listRowSeparator(.hidden)
       }
     }
     .listStyle(.plain)
@@ -171,6 +165,9 @@ struct WeekDayList<Top: View, Bottom: View>: View {
               .lineLimit(1)
               .minimumScaleFactor(adaptive ? 1 : 0.7)
               .fixedSize(horizontal: adaptive, vertical: true)
+              .overlay(alignment: .leading) {
+                if isToday { TodayDot().offset(x: -8) }
+              }
             Text(verbatim: WeekDates.dayOfMonth(tabDay)).brandText(.quantity)
             Text(
               verbatim: Copy.display.weekCellCalories(
@@ -193,14 +190,15 @@ struct WeekDayList<Top: View, Bottom: View>: View {
             isShown ? Brand.Colors.magic : Brand.Colors.surface0.opacity(0.5),
             in: RoundedRectangle(cornerRadius: 10)
           )
-          .overlay(
-            RoundedRectangle(cornerRadius: 10)
-              .stroke(isToday ? Brand.Colors.heat : Color.clear, lineWidth: 1)
-          )
+          // Today is heat (its text and a dot) and the shown day is the magic fill, so a shown
+          // today carries both without a second outline.
           .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: WeekDates.label(tabDay, long: true)))
+        .accessibilityValue(
+          Text(verbatim: WeekFigures.daySummary(calories: calories, isToday: isToday))
+        )
         .accessibilityIdentifier("week.day.\(tabDay.description)")
         .accessibilityAddTraits(isShown ? .isSelected : [])
         .id(tabDay)

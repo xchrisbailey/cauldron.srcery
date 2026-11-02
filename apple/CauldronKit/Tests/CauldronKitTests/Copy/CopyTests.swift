@@ -201,7 +201,7 @@ struct CopyArgumentTests {
     #expect(Copy.display.commaSeparated("flour", "sifted").text == "flour, sifted")
     #expect(Copy.display.commaSeparated("flour", nil).text == "flour")
     #expect(Copy.display.weekCellCalories("350", show: true).text == "350")
-    #expect(Copy.display.weekCellCalories("0", show: false).text == "·")
+    #expect(Copy.display.weekCellCalories("0", show: false).text == " ")
     #expect(Copy.display.calendarCalories("350", unit: "kcal", show: true).text == "350 kcal")
     #expect(Copy.display.calendarCalories("0", unit: "kcal", show: false).text == " ")
     #expect(Copy.display.joined(["one", "two"], separator: " ").text == "one two")
