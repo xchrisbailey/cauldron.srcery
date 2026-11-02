@@ -116,6 +116,30 @@ struct BrewModelTests {
     #expect(model.timers.timer(for: 1) == nil)
   }
 
+  @Test func oneButtonIsFilledAtATimeWhateverTheTimerIsDoing() async {
+    let model = model()
+    // No timer on the step: the way forward leads.
+    #expect(model.timerAction == nil)
+    #expect(model.leadingButton == .step)
+    model.go(to: 1)
+    // Idle: Start leads.
+    #expect(model.leadingButton == .timer)
+    await model.toggleTimer()
+    // Running: Pause is the quiet one; the way forward leads.
+    #expect(model.timerAction == .pause)
+    #expect(model.leadingButton == .step)
+    // Paused: Resume leads.
+    await model.toggleTimer()
+    #expect(model.timerAction == .resume)
+    #expect(model.leadingButton == .timer)
+    await model.toggleTimer()
+    // Time up: the way forward leads, and Reset is quiet.
+    clock.advance(601)
+    await model.timers.refresh()
+    #expect(model.timerAction == .reset)
+    #expect(model.leadingButton == .step)
+  }
+
   @Test func aStepWithNoTimerHasNoTimerButton() async {
     let model = model()
     #expect(model.timerAction == nil)
