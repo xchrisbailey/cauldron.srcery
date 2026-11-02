@@ -16,3 +16,17 @@ extension View {
     listRowBackground(Brand.Colors.mantle)
   }
 }
+
+extension View {
+  /// One gap between a grouped form's sections. iOS leaves about three times as much room after
+  /// a section with no footer as after one with a footer, so a form that mixes them reads
+  /// uneven; any explicit value brings the two within a few points of each other. The Mac
+  /// already spaces them alike and has no such setting.
+  func brandSectionSpacing() -> some View {
+    #if os(iOS)
+      listSectionSpacing(.custom(12))
+    #else
+      self
+    #endif
+  }
+}

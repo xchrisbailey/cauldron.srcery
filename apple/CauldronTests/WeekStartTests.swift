@@ -239,8 +239,8 @@ struct WeekStartTests {
     }
   }
 
-  /// The Settings section names itself in its header and hides the picker's own label, so the
-  /// two must say the same thing: the picker is the one the Week page labels.
+  /// The Settings section names itself in its header, and the picker keeps the label the Week
+  /// page gives it, so the two are one string.
   @Test func theSettingsHeaderSaysWhatThePickersLabelDoes() {
     #expect(Copy.settings.weekStart.title.text == Copy.week.weekStarts.text)
     #expect(Copy.settings.weekStart.title.text == "Week starts on")
