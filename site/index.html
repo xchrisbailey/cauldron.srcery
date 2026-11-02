@@ -4,85 +4,236 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
-    <meta name="description" content="Cauldron is a native recipe box, meal planner, and macro tracker for iPhone and Mac. Currently in alpha, by srcery.">
-    <meta property="og:title" content="Cauldron — your kitchen, collected">
-    <meta property="og:description" content="A personal recipe box, meal planner, and macro tracker for iPhone and Mac. A first batch, still in alpha.">
+    <meta name="description" content="Cauldron is a recipe box, week planner and macro tracker for iPhone, iPad and Mac. In alpha, by srcery.">
+    <meta property="og:title" content="Cauldron: recipes, meals and macros">
+    <meta property="og:description" content="A recipe box, week planner and macro tracker for iPhone, iPad and Mac. In alpha, through TestFlight.">
     <meta property="og:type" content="website">
-    <title>Cauldron — your kitchen, collected</title>
+    <title>Cauldron: recipes, meals and macros</title>
     <link rel="icon" href="assets/mark-dark.svg" type="image/svg+xml">
     <link rel="preload" href="assets/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>document.documentElement.classList.add('js')</script>
     <script src="main.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="header">
-      <a class="wordmark" href="./" aria-label="Cauldron home">cauldron<span aria-hidden="true">_</span></a>
-      <nav aria-label="Main navigation">
-        <a href="https://github.com/xchrisbailey/cauldron.srcery">GitHub</a>
-        <button class="theme-toggle" type="button" hidden aria-pressed="false">Light mode</button>
-      </nav>
-    </header>
 
-    <main id="main" class="stage">
-      <div class="brand-stage">
-        <div class="brand-art">
-          <img class="pot pot-dark" src="assets/mark-dark.svg" width="420" height="420" alt="Cauldron's bubbling pot, with a small flame beneath it.">
-          <img class="pot pot-light" src="assets/mark-light.svg" width="420" height="420" alt="Cauldron's bubbling pot, with a small flame beneath it.">
+    <main id="main">
+      <section class="hero" aria-labelledby="title">
+        <div class="hero__room">
+          <video class="hero__video" autoplay muted loop playsinline preload="metadata"
+                 poster="assets/boiling-water-2025-jan-9-poster.jpg" aria-hidden="true">
+            <source src="assets/boiling-water-2025-jan-9.webm" type="video/webm">
+          </video>
         </div>
-        <div class="brew-note">
-          <p class="brew-title">Still brewing.</p>
-          <p>A first batch. Currently in alpha.</p>
+        <div class="hero__stage">
+          <article class="card hero__card">
+            <h1 id="title" class="card__title">
+              <span class="sr-only">Cauldron: </span>
+              <span>Recipes</span> <span>Meals</span> <span>Macros</span>
+            </h1>
+            <div class="card__body">
+              <p class="card__facts">
+                <span class="wordmark">cauldron<span class="wordmark__cursor" aria-hidden="true">_</span></span>
+                <span>For iPhone, iPad and Mac. Alpha, through TestFlight.</span>
+              </p>
+              <p class="card__lede">Keep recipes, plan meals, track what you eat.</p>
+            </div>
+            <div class="card__foot">
+              <p class="card__credit">By <span class="srcery">srcery</span></p>
+              <a class="button" href="https://github.com/xchrisbailey/cauldron.srcery">Follow the alpha</a>
+              <a class="card__link" href="#recipe">See a recipe</a>
+            </div>
+          </article>
         </div>
-        <span class="alpha-glyph" aria-hidden="true">α</span>
-      </div>
+      </section>
 
-      <div class="reading-column">
-        <section class="intro" aria-labelledby="title">
-          <h1 id="title">Your kitchen,<br>collected.</h1>
-          <p class="lede">A personal recipe box, meal planner, and macro tracker. Made for iPhone and Mac.</p>
-          <a class="button" href="#testing">Apply for testing</a>
-          <p class="availability">iOS 27 &amp; macOS 27. Alpha builds via TestFlight.</p>
+      <section class="plate" aria-labelledby="plate-title">
+        <figure class="plate__picture">
+          <div class="shots" data-shots>
+            <img class="shot shot--dark is-on" data-shot="mac" src="assets/app/mac-recipe-dark.jpg" width="1600" height="1532"
+                 alt="Cauldron on a Mac: the recipe list beside Shakshuka with feta, its tags, servings and ingredients.">
+            <img class="shot shot--light is-on" data-shot="mac" src="assets/app/mac-recipe-light.jpg" width="1600" height="1532" alt="">
+            <img class="shot shot--dark" data-shot="iphone" src="assets/app/iphone-recipe-dark.jpg" width="644" height="1400" loading="lazy"
+                 alt="Cauldron on an iPhone: Shakshuka with feta, with its times, servings and a Start brewing button.">
+            <img class="shot shot--light" data-shot="iphone" src="assets/app/iphone-recipe-light.jpg" width="644" height="1400" loading="lazy" alt="">
+          </div>
+        </figure>
+        <div class="plate__text">
+          <div class="tabs" role="tablist" aria-label="Device">
+            <button class="tab" role="tab" type="button" aria-selected="true" data-tab="mac">Mac</button>
+            <button class="tab" role="tab" type="button" aria-selected="false" data-tab="iphone">iPhone</button>
+          </div>
+          <div>
+            <h2 id="plate-title">One recipe box, every screen</h2>
+            <p class="plate__copy">Cauldron is one native app for iPhone, iPad and Mac. A sidebar on the Mac, tabs on the phone, and the same recipes on both through your iCloud.</p>
+          </div>
+          <div class="plate__actions">
+            <a class="cell cell--ink" href="https://github.com/xchrisbailey/cauldron.srcery">Read the source</a>
+            <a class="cell" href="#menu">What it does</a>
+          </div>
+        </div>
+      </section>
 
-        </section>
+      <section class="recipe" id="recipe" aria-labelledby="recipe-title">
+        <article class="sheet">
+          <img class="sheet__plate" src="assets/shakshuka-011.jpg" width="1920" height="1440" loading="lazy"
+               alt="A pan of shakshuka on a café table, eggs set in tomato sauce, with bread and salad behind.">
+          <h2 id="recipe-title">Shakshuka with feta</h2>
+          <p class="sheet__intro">Every recipe in Cauldron is kept in parts: amount, unit, item and note. That’s what lets it scale, convert and add up a shopping list. Try the servings below.</p>
+          <ul class="ingredients" data-ui data-ingredients>
+            <li data-q="2"><span class="q">2</span> <span class="u">tbsp</span> olive oil</li>
+            <li data-q="1"><span class="q">1</span> onion<span class="n">, diced</span></li>
+            <li data-q="1"><span class="q">1</span> red bell pepper<span class="n">, sliced</span></li>
+            <li data-q="3"><span class="q">3</span> <span class="u">cloves</span> garlic<span class="n">, minced</span></li>
+            <li data-q="1"><span class="q">1</span> <span class="u">tsp</span> ground cumin</li>
+            <li data-q="1"><span class="q">1</span> <span class="u">tsp</span> smoked paprika</li>
+            <li data-q="0.25"><span class="q">¼</span> <span class="u">tsp</span> chili flakes <span class="n">(optional)</span></li>
+            <li data-q="1"><span class="q">1</span> <span class="u">can</span> crushed tomatoes <span class="n">(28-ounce)</span></li>
+            <li>Salt and pepper<span class="n">, to taste</span></li>
+            <li data-q="6"><span class="q">6</span> large eggs</li>
+            <li data-q="0.5"><span class="q">½</span> <span class="u">cup</span> crumbled feta</li>
+            <li data-q="2"><span class="q">2</span> <span class="u">tbsp</span> chopped parsley<span class="n">, for serving</span></li>
+          </ul>
+          <div class="stub">
+            <div class="stepper" data-stepper>
+              <button type="button" class="stepper__button" data-step="-1" aria-label="Fewer servings">−</button>
+              <p class="stepper__value" aria-live="polite">Serves <span data-servings>4</span></p>
+              <button type="button" class="stepper__button" data-step="1" aria-label="More servings">+</button>
+            </div>
+            <p class="stub__total"><span data-kcal>1,240</span> kcal in the pan · 310 a serving</p>
+          </div>
+        </article>
+      </section>
 
-        <section class="product-notes" aria-labelledby="product-title">
-          <h2 id="product-title">Keep what you cook.</h2>
-          <p>Save a recipe from a link, pasted text, or a cookbook photo. Plan the week's meals, gather a shopping list, and keep track of your macros.</p>
-          <p>Your collection lives on your devices and syncs with iCloud. No Cauldron account. No app server.</p>
-          <p class="ai-note">AI imports and nutrition estimates use your own Gemini, OpenAI, or Claude API key. Estimates need checking; provider charges may apply.</p>
-        </section>
+      <section class="story" aria-labelledby="story-title">
+        <h2 id="story-title" class="story__title">One recipe, through the week</h2>
+        <div class="story__grid">
+          <figure class="story__media">
+            <div class="story__pictures">
+              <img class="shot--dark is-on" data-pic="0" src="assets/app/iphone-distill-dark.jpg" width="644" height="1400" loading="lazy" alt="Distill a recipe: a link field, a box to paste a recipe, and buttons to scan pages or choose photos.">
+              <img class="shot--light is-on" data-pic="0" src="assets/app/iphone-distill-light.jpg" width="644" height="1400" loading="lazy" alt="">
+              <img class="shot--dark wide" data-pic="1" src="assets/app/mac-week-dark.jpg" width="1600" height="980" loading="lazy" alt="The week on a Mac: planned meals by day and slot, with calories and macros planned against the weekly target.">
+              <img class="shot--light wide" data-pic="1" src="assets/app/mac-week-light.jpg" width="1600" height="980" loading="lazy" alt="">
+              <img class="shot--dark" data-pic="2" src="assets/app/iphone-gather-dark.jpg" width="644" height="1400" loading="lazy" alt="The gather list: 42 ingredients for the week, sorted under Produce, each with its amount and the recipe it is for.">
+              <img class="shot--light" data-pic="2" src="assets/app/iphone-gather-light.jpg" width="644" height="1400" loading="lazy" alt="">
+              <img class="shot--dark" data-pic="3" src="assets/app/iphone-brew-dark.jpg" width="769" height="1400" loading="lazy" alt="Brewing the shakshuka: step one of five in large type, its ingredients, and a timer at 7:59.">
+              <img class="shot--light" data-pic="3" src="assets/app/iphone-brew-light.jpg" width="769" height="1400" loading="lazy" alt="">
+              <img class="shot--dark" data-pic="4" src="assets/app/iphone-tracker-dark.jpg" width="644" height="1400" loading="lazy" alt="The tracker: a day's calories and protein, carbs and fat against targets, with the meals logged.">
+              <img class="shot--light" data-pic="4" src="assets/app/iphone-tracker-light.jpg" width="644" height="1400" loading="lazy" alt="">
+            </div>
+          </figure>
+          <ol class="story__steps">
+            <li class="slip" data-step-index="0">
+              <div class="slip__paper">
+                <h3>Distill it</h3>
+                <p>Paste a link, a recipe from a notes app, or a photo of a cookbook page. Cauldron reads it into a card like the one above.</p>
+                <p class="slip__row"><span>From a link, text or photo</span><span>about a minute</span></p>
+              </div>
+            </li>
+            <li class="slip" data-step-index="1">
+              <div class="slip__paper">
+                <h3>Stir it into the week</h3>
+                <p>Put it on Wednesday’s dinner. The week adds up what you’ve planned against your calorie and macro targets.</p>
+                <p class="slip__row"><span>Four servings, Wednesday</span><span>1,240 kcal</span></p>
+              </div>
+            </li>
+            <li class="slip" data-step-index="2">
+              <div class="slip__paper">
+                <h3>Gather the list</h3>
+                <p>Every planned meal’s ingredients, added together and sorted by aisle. Mark what’s already in the pantry and it steps aside.</p>
+                <p class="slip__row"><span>The whole week</span><span>42 items</span></p>
+              </div>
+            </li>
+            <li class="slip" data-step-index="3">
+              <div class="slip__paper">
+                <h3>Brew it</h3>
+                <p>One step at a time, in type you can read from the stove, with each step’s timer ready to start. The screen stays on.</p>
+                <p class="slip__row"><span>Five steps</span><span>35 min</span></p>
+              </div>
+            </li>
+            <li class="slip" data-step-index="4">
+              <div class="slip__paper">
+                <h3>Log it</h3>
+                <p>Log what you ate and its macros land in the day, against targets that adjust as your weight trend comes in.</p>
+                <p class="slip__row"><span>One serving</span><span>310 kcal</span></p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
 
-        <section class="testing" id="testing" aria-labelledby="testing-title">
-          <h2 id="testing-title">Try the first batch.</h2>
-          <p>Cauldron works, but it's early. Expect bugs, changing features, and a few recipes that need another stir.</p>
-          <p id="form-notice" class="form-notice">Applications aren't open yet. This form is a preview; nothing is sent or saved.</p>
+      <section class="menu" id="menu" aria-labelledby="menu-title">
+        <figure class="menu__plate">
+          <img class="shot--dark" src="assets/app/mac-gather-dark.jpg" width="1600" height="1531" loading="lazy" alt="The gather list on a Mac: the week's produce with amounts, the recipe each is for, and an In the pantry button on every row.">
+          <img class="shot--light" src="assets/app/mac-gather-light.jpg" width="1600" height="1531" loading="lazy" alt="">
+        </figure>
+        <div class="bill">
+          <h2 id="menu-title">What’s in the pot</h2>
+          <div class="bill__group">
+            <h3>Recipes</h3>
+            <dl>
+              <div><dt>Distill from a link, text or photo</dt><dd>with your AI key</dd></div>
+              <div><dt>Scale any recipe</dt><dd>as written, metric or US</dd></div>
+              <div><dt>Search</dt><dd>name, ingredient or tag</dd></div>
+              <div><dt>Share from other apps</dt><dd>links and text</dd></div>
+            </dl>
+          </div>
+          <div class="bill__group">
+            <h3>The week</h3>
+            <dl>
+              <div><dt>Plan meals by day</dt><dd>breakfast to snack</dd></div>
+              <div><dt>Planned against targets</dt><dd>kcal, protein, carbs, fat</dd></div>
+              <div><dt>Gather list</dt><dd>by aisle, pantry aside</dd></div>
+            </dl>
+          </div>
+          <div class="bill__group">
+            <h3>Cooking and tracking</h3>
+            <dl>
+              <div><dt>Brew, step by step</dt><dd>timers and Live Activities</dd></div>
+              <div><dt>Food diary</dt><dd>copy yesterday in one go</dd></div>
+              <div><dt>Weight and targets</dt><dd>a weekly check-in</dd></div>
+            </dl>
+          </div>
+          <p class="bill__note">Macro estimates are labelled as estimates. Check them before you rely on them.</p>
+        </div>
+      </section>
 
-          <!-- Enable only after choosing a submission endpoint and publishing its privacy notice. -->
-          <form aria-label="Alpha testing application preview" aria-describedby="form-notice">
-            <fieldset disabled>
-              <legend class="sr-only">Application details (not open yet)</legend>
-              <label for="email">Email address</label>
-              <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
-              <label for="device">Where would you use Cauldron?</label>
-              <select id="device" name="device">
-                <option value="">Choose your devices</option>
-                <option value="iphone">iPhone</option>
-                <option value="mac">Mac</option>
-                <option value="both">iPhone and Mac</option>
-              </select>
-              <label for="interest">What would you like to try? <span>(optional)</span></label>
-              <textarea id="interest" name="interest" rows="3" placeholder="A recipe collection, weekly planning, macro tracking…"></textarea>
-              <button class="button" type="submit">Applications opening soon</button>
-            </fieldset>
-          </form>
-        </section>
+      <section class="kept" aria-labelledby="kept-title">
+        <img class="kept__flame" src="assets/gas-stove-burner-flame.jpg" width="1920" height="956" loading="lazy" alt="A gas burner lit blue, seen low across the hob.">
+        <div class="kept__text">
+          <h2 id="kept-title">Kept in your kitchen</h2>
+          <dl class="kept__facts">
+            <div><dt>Account</dt><dd>None. Open it and start.</dd></div>
+            <div><dt>Server</dt><dd>None. Recipes live on your devices and sync through your private iCloud.</dd></div>
+            <div><dt>AI</dt><dd>Your own Gemini, OpenAI or Claude key, called straight from the device. Without it, recipes are read on-device.</dd></div>
+          </dl>
+        </div>
+      </section>
 
-        <footer class="footer">
-          <p>Made by <span class="srcery">srcery</span>.</p>
-          <a href="https://github.com/xchrisbailey/cauldron.srcery/issues">Report a bug</a>
-        </footer>
-      </div>
+      <section class="close" aria-labelledby="close-title">
+        <h2 id="close-title" class="close__line">Hear when the first batch <a class="close__button" href="https://github.com/xchrisbailey/cauldron.srcery">opens</a></h2>
+        <p class="close__note">Tester places aren’t open yet. Watch the repository on GitHub and you’ll see the first TestFlight call. Needs iOS 27 or macOS 27.</p>
+      </section>
     </main>
+
+    <footer class="footer">
+      <div class="footer__mark">
+        <img class="shot--dark" src="assets/mark-dark.svg" width="420" height="420" alt="">
+        <img class="shot--light" src="assets/mark-light.svg" width="420" height="420" alt="">
+        <p class="footer__name">cauldron<span aria-hidden="true">_</span></p>
+      </div>
+      <div class="footer__links">
+        <ul>
+          <li><a href="https://github.com/xchrisbailey/cauldron.srcery">Source on GitHub</a></li>
+          <li><a href="https://github.com/xchrisbailey/cauldron.srcery/issues">Report a bug</a></li>
+        </ul>
+        <p class="footer__credits">Pictures: <a href="https://commons.wikimedia.org/wiki/File:Boiling_water_-_2025_jan_9.webm">“Boiling water”</a> by Nesnad, CC BY 4.0; <a href="https://commons.wikimedia.org/wiki/File:Shakshuka_011.jpg">“Shakshuka 011”</a> by Gilabrand, CC BY-SA 3.0; <a href="https://commons.wikimedia.org/wiki/File:Gas_stove_burner_flame.jpg">“Gas stove burner flame”</a> by Lisafern, CC0; all via Wikimedia Commons. App screens are Cauldron’s own, with sample recipes.</p>
+      </div>
+      <div class="footer__last">
+        <p>Made by <span class="srcery">srcery</span>.</p>
+        <button class="theme-toggle" type="button" hidden>Light mode</button>
+      </div>
+    </footer>
   </body>
 </html>

@@ -39,14 +39,16 @@ make project    # regenerate the project after editing project.yml; needs XcodeG
 
 ## Landing page
 
-[`site/`](site) is a static HTML/CSS/JavaScript page. It uses the existing brand marks and bundled Geist font, with no framework, dependencies, analytics, or third-party requests.
+[`site/`](site) is a static HTML/CSS/JavaScript page. It uses the existing brand marks and bundled Geist fonts, with no framework, dependencies, analytics, or third-party requests.
+
+[`site/assets/app`](site/assets/app) holds the app screenshots, taken from the simulator and the Mac with the sample recipes, in dark and light. The photographs and the video come from Wikimedia Commons; [`credits.json`](site/assets/credits.json) records each one's source and licence, and the footer credits them.
 
 ```sh
 node site/build.mjs
 python3 -m http.server 8080 --directory _site
 ```
 
-Open <http://localhost:8080>. The testing form is an explicitly disabled preview. It does not collect, submit, or store applications. Connect a real endpoint and add the appropriate privacy notice before enabling it.
+Open <http://localhost:8080>. The page collects nothing: tester applications aren't open, so its actions point to the GitHub repository.
 
 The [Pages workflow](.github/workflows/pages.yml) builds and deploys the site when landing-page or brand assets change on `main`. In the repository's **Settings → Pages → Build and deployment**, choose **GitHub Actions** as the source. No custom domain is configured.
 
