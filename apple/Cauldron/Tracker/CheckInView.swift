@@ -80,7 +80,6 @@ struct CheckInView: View {
           HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(verbatim: MacroMeter.whole(estimate.expenditure))
               .font(.brand(.quantity, size: 32))
-              .fontWeight(.semibold)
             Text(verbatim: t.perDay.text).brandText(.unit)
           }
           Text(
@@ -141,7 +140,6 @@ struct CheckInView: View {
                 ).text
               )
               .font(.brand(.quantity, size: 14))
-              .fontWeight(.semibold)
             }
           }
         }

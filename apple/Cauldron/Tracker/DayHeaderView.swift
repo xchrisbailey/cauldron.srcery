@@ -53,7 +53,6 @@ private struct MeterView: View {
       HStack(alignment: .firstTextBaseline, spacing: 3) {
         Text(verbatim: meter.eatenText)
           .font(.brand(.quantity, size: big ? 28 : 17))
-          .fontWeight(.semibold)
         if let target = meter.targetText {
           Text(verbatim: Copy.display.target(target).text).brandText(.unit)
         }

@@ -86,7 +86,7 @@ struct DayNavigator: View {
         Text(verbatim: Self.label(for: day, today: today))
           .brandText(.section)
           .foregroundStyle(day == today ? Brand.Colors.heat : Brand.Colors.ink)
-        Text(verbatim: day.description).brandText(.quantity)
+        Text(verbatim: WeekDates.monthDay(day)).brandText(.quantity)
           .foregroundStyle(Brand.Colors.subtext)
       }
       .frame(maxWidth: .infinity)
@@ -111,16 +111,14 @@ struct DayNavigator: View {
     .accessibilityLabel(diary.pickDay.text)
   }
 
-  /// "Today", "Yesterday" and "Tomorrow", or the weekday and date.
-  static func label(for day: LocalDate, today: LocalDate) -> String {
+  /// "Today", "Yesterday" and "Tomorrow", or the weekday. The date sits under it in Geist Mono.
+  static func label(for day: LocalDate, today: LocalDate, locale: Locale = .current) -> String {
     switch today.days(until: day) {
     case 0: return Copy.tracker.diary.today.text
     case -1: return Copy.tracker.diary.yesterday.text
     case 1: return Copy.tracker.diary.tomorrow.text
     default:
-      return day.date(in: DayKeyCalendar.current)?.formatted(
-        .dateTime.weekday(.wide).month(.wide).day())
-        ?? day.description
+      return WeekDates.weekday(day, long: true, locale: locale)
     }
   }
 }
@@ -479,7 +477,6 @@ extension EntryRow {
         ).text
       )
       .font(.brand(.quantity, size: 14))
-      .fontWeight(.semibold)
       HStack(spacing: 8) {
         ForEach([MacroKey.protein, .carbs, .fat], id: \.self) { key in
           HStack(spacing: 3) {

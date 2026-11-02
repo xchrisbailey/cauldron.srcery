@@ -34,6 +34,33 @@ func showNumber(_ value: Double, digits: Int = 1) -> String {
     ? String(Int(rounded)) : String(rounded)
 }
 
+/// Whole digits with thousands separators, as the rest of the screen shows a figure: "1420" is
+/// "1,420". Anything else (empty, a decimal, a half-typed number) comes back as it is.
+func showGrouped(_ plain: String, locale: Locale = .current) -> String {
+  guard !plain.isEmpty, plain.count <= 9, plain.allSatisfy({ $0.isASCII && $0.isNumber }),
+    let value = Int(plain)
+  else { return plain }
+  return value.formatted(.number.locale(locale))
+}
+
+/// What a target field holds after an edit, or nil when nothing was edited. `plain` is what the
+/// form holds; the field shows `showGrouped(plain)`, and `typed` is what the field says now.
+///
+/// Only a field that was showing a grouped version of plain digits (`shown != plain`) can have
+/// grouping in what was typed, so only then is the locale's separator taken back out: "1,4205"
+/// is "14205". Every other edit is kept as typed, so a decimal comma or point is read as
+/// `parseNumber` reads it, whatever the locale's separator is.
+func editedTargetText(typed: String, plain: String, locale: Locale = .current) -> String? {
+  let shown = showGrouped(plain, locale: locale)
+  guard typed != shown else { return nil }
+  guard shown != plain, let separator = locale.groupingSeparator else { return typed }
+  let stripped = typed.replacing(separator, with: "")
+  guard stripped.allSatisfy({ ($0.isASCII && $0.isNumber) || $0 == "." || $0 == "," }) else {
+    return typed
+  }
+  return stripped
+}
+
 /// A weight in the cook's unit, to one decimal.
 func showWeight(_ kg: Double, unit: WeightUnit) -> String {
   showNumber(roundWeight(fromKg(kg, unit: unit)))

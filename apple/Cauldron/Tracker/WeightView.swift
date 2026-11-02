@@ -155,7 +155,10 @@ struct WeightView: View {
         .frame(height: 220)
         .accessibilityLabel(t.chartLabel.text)
         .accessibilityValue(
-          t.chartSummary(visible.count, data.start.description, data.end.description).text)
+          t.chartSummary(
+            visible.count, WeekDates.label(data.start, long: false),
+            WeekDates.label(data.end, long: false)
+          ).text)
         HStack(spacing: 16) {
           legend(Brand.Colors.overlay1, t.legendScale.text)
           legend(Brand.Colors.magic, t.legendTrend.text)
@@ -200,7 +203,7 @@ struct WeightView: View {
       Text(verbatim: label).brandText(.control).foregroundStyle(Brand.Colors.subtext)
       if let value {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
-          Text(verbatim: value).font(.brand(.quantity, size: 17)).fontWeight(.semibold)
+          Text(verbatim: value).font(.brand(.quantity, size: 17))
           Text(verbatim: unit).brandText(.unit)
         }
       } else {
@@ -235,7 +238,6 @@ struct WeightView: View {
               }
               HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(verbatim: meter.eatenText).font(.brand(.quantity, size: 15))
-                  .fontWeight(.semibold)
                 Text(verbatim: meter.unit.text).brandText(.unit)
               }
             }
@@ -272,7 +274,7 @@ struct WeightView: View {
             editing = record
           } label: {
             HStack {
-              Text(verbatim: point.date.description).brandText(.quantity)
+              Text(verbatim: WeekDates.label(point.date, long: false)).brandText(.quantity)
               Spacer()
               HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(verbatim: WeightText.label(kg: point.weightKg, unit: unit))
@@ -283,7 +285,7 @@ struct WeightView: View {
             .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
-          .accessibilityLabel(t.edit(point.date.description).text)
+          .accessibilityLabel(t.edit(WeekDates.label(point.date, long: false)).text)
           .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
               remove(record)
