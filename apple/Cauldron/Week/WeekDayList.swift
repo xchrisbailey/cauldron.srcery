@@ -165,6 +165,9 @@ struct WeekDayList<Top: View>: View {
               .lineLimit(1)
               .minimumScaleFactor(adaptive ? 1 : 0.7)
               .fixedSize(horizontal: adaptive, vertical: true)
+              .overlay(alignment: .leading) {
+                if isToday { TodayDot().offset(x: -8) }
+              }
             Text(verbatim: WeekDates.dayOfMonth(tabDay)).brandText(.quantity)
             Text(
               verbatim: Copy.display.weekCellCalories(
@@ -189,15 +192,6 @@ struct WeekDayList<Top: View>: View {
           )
           // Today is heat (its text and a dot) and the shown day is the magic fill, so a shown
           // today carries both without a second outline.
-          .overlay(alignment: .top) {
-            if isToday {
-              Circle()
-                .fill(Brand.Colors.heat)
-                .frame(width: 5, height: 5)
-                .padding(.top, 3)
-                .accessibilityHidden(true)
-            }
-          }
           .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)

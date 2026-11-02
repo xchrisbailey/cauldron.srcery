@@ -33,6 +33,29 @@ import Testing
       }
     }
 
+    @Test func theWideTallyRendersWithAndWithoutTargetsAndAChosenDay() throws {
+      let start = LocalDate("2026-10-05")!
+      let targets: [TargetsRecord?] = [
+        nil, TargetsRecord(calories: 2_000, protein: 100, carbs: 200, fat: 70),
+      ]
+      for target in targets {
+        let snapshot = WeekSnapshot(start: start, records: [], targets: target)
+        for day in [nil, start] {
+          for scheme in [ColorScheme.light, .dark] {
+            for width in [1_100.0, 700.0, 390.0] {
+              let view = WeekTallyView(
+                snapshot: snapshot, day: day, onClearDay: {}, onOpenTargets: {}
+              )
+              .environment(\.colorScheme, scheme)
+              #expect(
+                renders(view, width: width, height: 900),
+                "targets \(target != nil), day \(day != nil), \(scheme), \(width)")
+            }
+          }
+        }
+      }
+    }
+
     @Test func weekPlannerAndTargetSetupRenderAtBothWidthsAndAppearances() throws {
       let start = LocalDate("2026-10-05")!
       for hasTargets in [false, true] {

@@ -47,6 +47,9 @@ struct WeekCalendarGrid: View {
         Text(verbatim: WeekDates.weekday(day, long: false))
           .brandText(.control)
           .foregroundStyle(isToday ? Brand.Colors.heat : Brand.Colors.subtext)
+          .overlay(alignment: .leading) {
+            if isToday { TodayDot().offset(x: -9) }
+          }
         Text(verbatim: WeekDates.dayOfMonth(day))
           .brandText(.quantity)
           .foregroundStyle(isToday ? Brand.Colors.heat : Brand.Colors.ink)
@@ -68,15 +71,6 @@ struct WeekCalendarGrid: View {
       )
       // Today is heat (its text and a dot) and the chosen day is the magic fill, so a chosen
       // today carries both without a second outline.
-      .overlay(alignment: .top) {
-        if isToday {
-          Circle()
-            .fill(Brand.Colors.heat)
-            .frame(width: 5, height: 5)
-            .padding(.top, 3)
-            .accessibilityHidden(true)
-        }
-      }
       .contentShape(RoundedRectangle(cornerRadius: 10))
     }
     .buttonStyle(.plain)
@@ -131,5 +125,15 @@ struct WeekCalendarGrid: View {
       onPlanRecipe(item.id, target, nil)
       return true
     }
+  }
+}
+
+/// The mark beside today's weekday: heat on every fill, placed by an overlay so no cell grows.
+struct TodayDot: View {
+  var body: some View {
+    Circle()
+      .fill(Brand.Colors.heat)
+      .frame(width: 5, height: 5)
+      .accessibilityHidden(true)
   }
 }

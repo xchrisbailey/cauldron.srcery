@@ -8,7 +8,7 @@ struct CompactWeekNutritionView: View {
   let comparison: WeekMacroComparison?
   let tally: MacroTally
   let onOpenTargets: () -> Void
-  var heading = Copy.week.tally.compactHeading.text
+  var heading: String? = Copy.week.tally.compactHeading.text
   var identifier = "week.weeklyComparison"
   var framed = true
   /// The not-counted line closes the comparison. One card says it once, so a day's rows set
@@ -19,9 +19,11 @@ struct CompactWeekNutritionView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(verbatim: heading)
-        .brandText(.control)
-        .foregroundStyle(Brand.Colors.subtext)
+      if let heading {
+        Text(verbatim: heading)
+          .brandText(.control)
+          .foregroundStyle(Brand.Colors.subtext)
+      }
       if let comparison {
         VStack(alignment: .leading, spacing: 8) {
           metric(.calories, comparison: comparison, prominent: true)
